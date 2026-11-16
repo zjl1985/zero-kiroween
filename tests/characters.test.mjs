@@ -215,8 +215,9 @@ test("five-minute simulation reaches dawn once, with finite state and bounded en
   for (const cat of ["zero", "nicole"]) {
     const s = createSim({ cat, seed: 37 });
     s.player.invuln = 1000;
-    for (let i = 0; i < 18010; i++) {
-      step(s, { ax: 0, ay: 0, dash: false }, DT);
+    // Level-up cards freeze the night; the bot always takes the first card.
+    for (let i = 0; i < 40000 && s.ended === "playing"; i++) {
+      step(s, { ax: 0, ay: 0, dash: false, choose: 0 }, DT);
       assert.ok(s.enemies.length <= 18);
       assert.ok(Number.isFinite(s.player.x) && Number.isFinite(s.player.y));
     }

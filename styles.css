@@ -649,7 +649,7 @@ h2 {
 }
 .result-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 20px 0;
   border-top: 1px solid #52616d55;
@@ -1409,4 +1409,321 @@ body[data-style="papercraft"] .dash-btn {
   background: #3d3045ad;
   border-color: #d0ae7e88;
   color: #efd4ac;
+}
+
+/* Level, ink-shard XP and owned charms under the portrait. */
+.xp-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+}
+.level-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  min-width: 30px;
+}
+.xp-bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: #2a2633;
+  border: 1px solid #000a;
+  box-shadow:
+    inset 0 1px #0007,
+    0 1px #ffffff14;
+  clip-path: polygon(0 10%, 30% 0, 62% 14%, 100% 0, 99% 92%, 58% 100%, 24% 88%, 1% 100%);
+}
+.xp-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--xp, 0%);
+  background: linear-gradient(180deg, #f6dc9a, #d9a95a);
+  box-shadow: inset 0 -1px #a7763a;
+  transition: width 0.18s ease-out;
+}
+.hud-upgrades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 5px;
+  max-width: 170px;
+}
+.hud-upgrades:empty {
+  display: none;
+}
+.owned {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 3px 1px 1px;
+  background: #e9dfc81a;
+  border: 1px dashed #d8c49a44;
+}
+.owned canvas {
+  width: 16px;
+  height: 16px;
+}
+.owned small {
+  font-size: 8px;
+  color: #d8c9a6;
+}
+.owned.evolution {
+  border-color: #f0d69a;
+  background: #f0d69a26;
+}
+
+/* Upgrade hand: three layered paper cards dealt onto the paused night. */
+.upgrade-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: radial-gradient(ellipse at 50% 55%, #1a1630cc, #070b16ee 72%);
+  text-align: center;
+}
+.upgrade-screen h2 {
+  font:
+    28px "Songti SC",
+    Georgia,
+    serif;
+  color: #f0d9b1;
+  margin: 6px 0 22px;
+  text-shadow: 0 2px #0b0d18;
+}
+.upgrade-screen .eyebrow {
+  color: var(--accent);
+}
+.upgrade-cards {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  perspective: 900px;
+  max-width: 96%;
+}
+.upgrade-card {
+  --paper: #ece2c9;
+  --tone: var(--accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 188px;
+  min-height: 252px;
+  padding: 24px 16px 18px;
+  color: #2b2433;
+  background:
+    linear-gradient(160deg, #ffffff22, transparent 40%),
+    repeating-linear-gradient(97deg, #0000 0 3px, #8a6d4710 3px 4px),
+    var(--paper);
+  border: 0;
+  clip-path: polygon(1% 2%, 22% 0, 48% 1.5%, 76% 0, 99% 1.5%, 100% 30%, 98.5% 62%, 100% 98%, 70% 100%, 41% 98.6%, 14% 100%, 0 97%, 1.2% 58%, 0 24%);
+  filter: drop-shadow(0 7px 0 #00000055) drop-shadow(0 14px 18px #0009);
+  transform-origin: 50% 110%;
+  transition:
+    transform 0.18s cubic-bezier(0.3, 1.6, 0.5, 1),
+    filter 0.18s;
+}
+/* A second sheet peeks out underneath for visible thickness. */
+.upgrade-card::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed color-mix(in srgb, var(--tone) 70%, #5a4630);
+  pointer-events: none;
+}
+.upgrade-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 6px;
+  background: color-mix(in srgb, var(--tone) 55%, #3a2c22);
+  opacity: 0.8;
+}
+.upgrade-card[data-pool="zero"] {
+  --tone: #d99a4a;
+}
+.upgrade-card[data-pool="nicole"] {
+  --tone: #9d84d6;
+}
+.upgrade-card[data-pool="any"] {
+  --tone: #7aa0a4;
+}
+.upgrade-card:hover:not(:disabled),
+.upgrade-card:focus-visible {
+  filter: drop-shadow(0 10px 0 #00000055) drop-shadow(0 22px 22px #000a);
+  transform: translateY(-8px) rotate(-1deg) scale(1.03);
+  outline: none;
+}
+.upgrade-card canvas {
+  width: 72px;
+  height: 72px;
+  image-rendering: auto;
+  margin-top: 4px;
+}
+.card-tag {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  padding: 2px 10px 3px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: #fff6e2;
+  background: var(--tone);
+  clip-path: polygon(0 0, 100% 6%, 96% 100%, 3% 92%);
+}
+.card-name {
+  font:
+    17px "Songti SC",
+    Georgia,
+    serif;
+  color: #2b2135;
+  margin-top: 4px;
+}
+.card-level {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--tone) 75%, #2b2135);
+  min-height: 11px;
+}
+.card-desc {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #4a4050;
+}
+.upgrade-card kbd {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  font: 9px inherit;
+  padding: 2px 5px;
+  color: #6a5c4c;
+  border: 1px solid #6a5c4c66;
+  border-bottom-width: 2px;
+}
+.upgrade-card.evolution {
+  --paper: #2d2940;
+  --tone: #e8c06f;
+  color: #f4e6c4;
+  background:
+    radial-gradient(circle at 50% 30%, #f0d69a33, transparent 60%),
+    repeating-linear-gradient(97deg, #0000 0 3px, #ffffff08 3px 4px),
+    var(--paper);
+}
+.upgrade-card.evolution .card-name {
+  color: #f6dfa8;
+}
+.upgrade-card.evolution .card-desc {
+  color: #d9cfe0;
+}
+.upgrade-card.evolution .card-tag {
+  color: #2d2940;
+}
+.upgrade-card.evolution kbd {
+  color: #e8c06f;
+  border-color: #e8c06f66;
+}
+/* Foil sheen that sweeps across the evolution card. */
+.upgrade-card.evolution .card-desc::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, #fff3d244 48%, transparent 60%);
+  background-size: 260% 100%;
+  animation: card-sheen 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.upgrade-screen.dealt .upgrade-card {
+  animation: card-deal 0.52s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation-delay: calc(var(--deal) * 90ms);
+}
+.upgrade-screen.dealt h2,
+.upgrade-screen.dealt .eyebrow {
+  animation: card-title 0.4s ease-out both;
+}
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(70px) rotate(calc((var(--deal) - 1) * 9deg)) rotateX(40deg) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes card-title {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    letter-spacing: 0.3em;
+  }
+}
+@keyframes card-sheen {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -130% 0;
+  }
+}
+@media (max-aspect-ratio: 1/1) {
+  .upgrade-cards {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .upgrade-card {
+    width: min(330px, 88vw);
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    grid-template-areas: "icon name" "icon level" "desc desc";
+    text-align: left;
+    column-gap: 12px;
+    padding: 22px 16px 16px;
+  }
+  .upgrade-card canvas {
+    grid-area: icon;
+    width: 56px;
+    height: 56px;
+  }
+  .card-name {
+    grid-area: name;
+  }
+  .card-level {
+    grid-area: level;
+  }
+  .card-desc {
+    grid-area: desc;
+  }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .upgrade-screen h2 {
+    margin: 2px 0 10px;
+    font-size: 21px;
+  }
+  .upgrade-card {
+    width: 170px;
+    min-height: 0;
+    padding: 20px 12px 14px;
+  }
+  .upgrade-card canvas {
+    width: 48px;
+    height: 48px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .upgrade-screen.dealt .upgrade-card,
+  .upgrade-screen.dealt h2,
+  .upgrade-screen.dealt .eyebrow,
+  .upgrade-card.evolution .card-desc::after {
+    animation: none;
+  }
 }

@@ -15,10 +15,12 @@ export function createInput(): {
   consumePause: () => boolean;
   reset: () => void;
   queueSkill: () => void;
+  consumeChoice: () => number | null;
 } {
   const keys = new Set<string>();
   let dashQueued = false;
   let pauseQueued = false;
+  let choiceQueued: number | null = null;
   let attached: Window | null = null;
 
   const down = (event: KeyboardEvent) => {
@@ -34,6 +36,8 @@ export function createInput(): {
       event.preventDefault();
       dashQueued = true;
     }
+    const digit = /^(?:Digit|Numpad)([1-3])$/.exec(code);
+    if (digit && !event.repeat) choiceQueued = Number(digit[1]) - 1;
     if ((code === "Escape" || code === "KeyP") && !event.repeat) {
       event.preventDefault();
       pauseQueued = true;
@@ -54,6 +58,7 @@ export function createInput(): {
     keys.clear();
     dashQueued = false;
     pauseQueued = false;
+    choiceQueued = null;
   };
 
   const axisFromKeys = (): { ax: number; ay: number } => {
@@ -111,6 +116,11 @@ export function createInput(): {
     },
     wantsPause() {
       return pauseQueued;
+    },
+    consumeChoice() {
+      const v = choiceQueued;
+      choiceQueued = null;
+      return v;
     },
     consumePause() {
       const v = pauseQueued;

@@ -4,6 +4,8 @@ export interface FrameInput {
   ax: number;
   ay: number;
   dash: boolean;
+  /** Index (0..2) of an upgrade card while a choice is pending. */
+  choose?: number;
 }
 export interface PlayerState {
   id: CatId;
@@ -29,6 +31,16 @@ export interface DecoyState {
   x: number;
   y: number;
   time: number;
+  /** Echo Legion: seconds until the evolved decoy fires again. */
+  fire: number;
+}
+export interface PickupState {
+  id: number;
+  x: number;
+  y: number;
+  value: number;
+  alive: boolean;
+  age: number;
 }
 export interface EnemyState {
   id: number;
@@ -50,6 +62,8 @@ export interface ShotState {
   life: number;
   alive: boolean;
   empowered?: boolean;
+  /** Fired by Zero's evolved decoy. */
+  echo?: boolean;
   hits?: number[];
 }
 export interface StrokePoint {
@@ -67,7 +81,18 @@ export interface WorldBounds {
   height: number;
 }
 export type EffectKind =
-  "hit" | "defeat" | "dash" | "fold" | "shield" | "rescue" | "hurt";
+  | "hit"
+  | "defeat"
+  | "dash"
+  | "fold"
+  | "shield"
+  | "rescue"
+  | "hurt"
+  | "levelup"
+  | "evolve"
+  | "echo-burst"
+  | "moon-pulse"
+  | "collect";
 export interface Impact {
   x: number;
   y: number;
@@ -78,16 +103,37 @@ export interface MoonField {
   x: number;
   y: number;
   life: number;
+  /** Radius and duration at cast time; defaults to Nicole's base values. */
+  radius?: number;
+  duration?: number;
 }
+/** Lifetimes for celebration effects; the renderer reads the same values. */
+export const EFFECT_LIFE = {
+  levelup: 0.9,
+  evolve: 1.5,
+  "echo-burst": 0.55,
+  "moon-pulse": 0.65,
+  collect: 0.28,
+} as const;
 export interface RunStats {
   kills: number;
   skillUses: number;
   damageDealt: number;
   damageTaken: number;
   shieldBlocks: number;
+  upgradesTaken: number;
+  shardsCollected: number;
 }
 export type Notice =
-  "zero-dash" | "nicole-fold" | "nicole-rescue" | "shield-block";
+  | "zero-dash"
+  | "nicole-fold"
+  | "nicole-rescue"
+  | "shield-block"
+  | "evolve-zero"
+  | "evolve-nicole";
+export interface UpgradeChoice {
+  options: string[];
+}
 export interface SimState {
   seed: number;
   rngState: number;
@@ -108,6 +154,16 @@ export interface SimState {
   world: WorldBounds;
   stats: RunStats;
   notice: { kind: Notice; life: number } | null;
+  xp: number;
+  level: number;
+  xpToNext: number;
+  upgrades: Record<string, number>;
+  /** While set, the night is frozen until a card is chosen. */
+  pendingChoice: UpgradeChoice | null;
+  pickups: PickupState[];
+  nextPickupId: number;
+  /** Full Moon: seconds until the next moon pulse. */
+  pulseTimer: number;
 }
 export interface SimConfig {
   cat: CatId;

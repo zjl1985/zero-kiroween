@@ -1,10 +1,13 @@
 import {
   piece as paperPiece,
   path as paperPath,
+  oval as paperOval,
   glow as light,
 } from "./paper-material.js";
 import { ellipse } from "./pixel-art.js";
 import type { SimState, Impact } from "../game/types.js";
+import { EFFECT_LIFE } from "../game/types.js";
+import { playerStats, UPGRADE_VALUES } from "../game/upgrades.js";
 import type { CatId } from "../cats/types.js";
 import { CHARACTERS } from "../game/characters.js";
 import { orbitPositions } from "../game/sim.js";
@@ -56,21 +59,23 @@ export function star(
   rect(ctx, x - 1, y - 1, 2, 2, "#fff3d1");
 }
 export function drawCombatGround(ctx: Ctx, state: SimState): void {
-  const n = CHARACTERS.nicole;
+  const n = CHARACTERS.nicole,
+    ps = playerStats(state);
   for (const f of state.fields) {
-    const remaining = f.life / n.fieldDuration;
+    const radius = f.radius ?? n.fieldRadius,
+      remaining = f.life / (f.duration ?? n.fieldDuration);
     ctx.save();
     ctx.globalAlpha = Math.min(1, f.life * 3);
-    light(ctx, f.x, f.y, 100, "#7772c6", 0.13, 0.75);
+    light(ctx, f.x, f.y, radius + 22, "#7772c6", 0.13, 0.75);
     ctx.globalAlpha *= 0.065;
-    ellipse(ctx, f.x, f.y, n.fieldRadius, n.fieldRadius, "#b49ee9");
+    ellipse(ctx, f.x, f.y, radius, radius, "#b49ee9");
     ctx.globalAlpha = Math.min(1, f.life * 3);
-    ring(ctx, f.x, f.y, n.fieldRadius, "#80769e");
-    ring(ctx, f.x, f.y, n.fieldRadius - 4, "#c0a8e5", 1, remaining);
+    ring(ctx, f.x, f.y, radius, "#80769e");
+    ring(ctx, f.x, f.y, radius - 4, "#c0a8e5", 1, remaining);
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI) / 4,
-        x = f.x + Math.cos(a) * (n.fieldRadius - 10),
-        y = f.y + Math.sin(a) * (n.fieldRadius - 10);
+        x = f.x + Math.cos(a) * (radius - 10),
+        y = f.y + Math.sin(a) * (radius - 10);
       star(ctx, x, y, 3, "#b3a7d6", a);
     }
     for (let i = 0; i < 7; i++) {
@@ -87,9 +92,24 @@ export function drawCombatGround(ctx: Ctx, state: SimState): void {
       ctx,
       state.player.x,
       state.player.y,
-      CHARACTERS.nicole.orbitRadius,
-      "#a59bc4",
+      ps.orbitRadius,
+      ps.fullMoon ? "#e3d3a8" : "#a59bc4",
     );
+    if (ps.fullMoon) {
+      // The moon pulse charge, read straight from the sim timer.
+      const moon = UPGRADE_VALUES["full-moon"],
+        charge = 1 - Math.max(0, state.pulseTimer) / moon.pulseInterval;
+      ctx.globalAlpha = 0.5;
+      ring(
+        ctx,
+        state.player.x,
+        state.player.y,
+        ps.orbitRadius + moon.pulseReach,
+        "#d9c79c",
+        0.55,
+        charge,
+      );
+    }
     ctx.restore();
   }
   if (state.player.empowerTime > 0) {
@@ -111,14 +131,63 @@ export function drawOrbitStar(
   y: number,
   time: number,
   index: number,
+  full = false,
 ): void {
-  light(ctx, x, y - 12, 17, "#c2a6ee", 0.24, 1);
+  light(ctx, x, y - 12, full ? 22 : 17, full ? "#f1dca6" : "#c2a6ee", 0.24, 1);
   for (let k = 1; k < 4; k++) rect(ctx, x - k * 2, y - 12 + k, 1, 1, "#8b79b7");
-  star(ctx, x, y - 12, 7, "#d7c8f6", time * 1.2 + index);
-  star(ctx, x, y - 12, 3, "#fff1ce", time * 1.2 + index);
+  star(ctx, x, y - 12, full ? 8.5 : 7, full ? "#efe2bd" : "#d7c8f6", time * 1.2 + index);
+  star(ctx, x, y - 12, full ? 4 : 3, "#fff1ce", time * 1.2 + index);
+}
+/** Echo Legion: paper shards circle the evolved afterimage and mark its burst. */
+export function drawEchoDecoy(ctx: Ctx, state: SimState, time: number): void {
+  const d = state.decoy;
+  if (!d.live || state.player.id !== "zero" || !playerStats(state).echo)
+    return;
+  const echo = UPGRADE_VALUES["echo-legion"];
+  ctx.save();
+  ctx.globalAlpha = 0.35 + Math.min(0.4, d.time);
+  light(ctx, d.x, d.y - 18, 46, "#9fcde0", 0.18, 1);
+  ctx.globalAlpha *= 0.55;
+  ring(ctx, d.x, d.y, echo.burstRadius, "#8fb7c8", 0.5, Math.min(1, d.time / 1.2));
+  ctx.globalAlpha = 0.9;
+  for (let i = 0; i < 4; i++) {
+    const a = time * 2.6 + (i * Math.PI) / 2,
+      x = d.x + Math.cos(a) * 20,
+      y = d.y - 20 + Math.sin(a) * 9;
+    paperPiece(
+      ctx,
+      paperPath([
+        [x, y - 4],
+        [x + 2.4, y],
+        [x, y + 4],
+        [x - 2.4, y],
+      ]),
+      i % 2 ? "#e9c27a" : "#a9d0de",
+      { shadow: 0.6, texture: 0.3, thickness: 0.4 },
+    );
+  }
+  ctx.restore();
 }
 export function drawCombatFront(ctx: Ctx, state: SimState): void {
   const p = state.player;
+  if (p.id === "nicole" && playerStats(state).fullMoon) {
+    // A small paper full moon floats at her shoulder and swells before each pulse.
+    const moon = UPGRADE_VALUES["full-moon"],
+      charge = 1 - Math.max(0, state.pulseTimer) / moon.pulseInterval,
+      mx = p.x - p.facing * 22,
+      my = p.y - 64,
+      r = 5 + charge * 2.2;
+    light(ctx, mx, my, 22 + charge * 10, "#f3dfa6", 0.2 + charge * 0.15, 1);
+    paperPiece(ctx, paperOval(mx, my, r, r, 7, 0.06), "#efe0b4", {
+      shadow: 1.2,
+      edge: "#fff6d8",
+      texture: 0.6,
+      thickness: 0.6,
+    });
+    ctx.fillStyle = "#c8b98f";
+    ctx.fill(paperOval(mx - r * 0.3, my - r * 0.15, r * 0.22, r * 0.2, 3));
+    ctx.fill(paperOval(mx + r * 0.35, my + r * 0.3, r * 0.16, r * 0.14, 5));
+  }
   if (p.shield > 0 && p.shieldTime > 0) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.85, p.shieldTime * 2);
@@ -130,7 +199,11 @@ export function drawCombatFront(ctx: Ctx, state: SimState): void {
     ctx.restore();
   }
 }
-export function drawSkillEffect(ctx: Ctx, e: Impact): void {
+export function drawSkillEffect(ctx: Ctx, e: Impact, state?: SimState): void {
+  if (e.kind in EFFECT_LIFE) {
+    drawCelebration(ctx, e, state);
+    return;
+  }
   const duration =
       e.kind === "rescue"
         ? 0.8
@@ -169,6 +242,84 @@ export function drawSkillEffect(ctx: Ctx, e: Impact): void {
         a,
       );
     }
+  }
+  ctx.restore();
+}
+/** Level-up, evolution, Echo burst, moon pulse and shard pickup feedback. */
+function drawCelebration(ctx: Ctx, e: Impact, state?: SimState): void {
+  const life = EFFECT_LIFE[e.kind as keyof typeof EFFECT_LIFE],
+    t = Math.min(1, Math.max(0, 1 - e.life / life)),
+    fade = 1 - t,
+    ease = 1 - (1 - t) ** 3;
+  ctx.save();
+  if (e.kind === "collect") {
+    ctx.globalAlpha = fade;
+    light(ctx, e.x, e.y - 10, 12, "#f3cf82", 0.35 * fade, 1);
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2 + t * 2;
+      rect(
+        ctx,
+        e.x + Math.cos(a) * (3 + t * 9),
+        e.y - 10 + Math.sin(a) * (3 + t * 9),
+        1.5,
+        1.5,
+        "#ffe6a8",
+      );
+    }
+  } else if (e.kind === "levelup" || e.kind === "evolve") {
+    const evolve = e.kind === "evolve",
+      cat = state?.player.id ?? "zero",
+      color = evolve
+        ? cat === "zero"
+          ? "#a9d4e4"
+          : "#efe0b4"
+        : cat === "zero"
+          ? "#e9bf72"
+          : "#c9b6f0",
+      count = evolve ? 14 : 9,
+      reach = evolve ? 90 : 46;
+    ctx.globalAlpha = fade;
+    light(ctx, e.x, e.y - 22, reach + 30, color, 0.28 * fade, 0.8);
+    ring(ctx, e.x, e.y, 16 + ease * reach, color, 0.5);
+    if (evolve) ring(ctx, e.x, e.y, 8 + ease * reach * 0.6, "#fff1ce", 0.5);
+    // Paper stars lift off like confetti cut from the same sheet.
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + (evolve ? t * 1.5 : 0),
+        r = 12 + ease * reach * 0.55,
+        x = e.x + Math.cos(a) * r,
+        y = e.y - 20 + Math.sin(a) * r * 0.5 - ease * (evolve ? 34 : 26);
+      star(ctx, x, y, (evolve ? 4 : 3) * (0.6 + fade * 0.6), color, a + t * 4);
+    }
+  } else if (e.kind === "echo-burst") {
+    const r = 10 + ease * UPGRADE_VALUES["echo-legion"].burstRadius;
+    ctx.globalAlpha = fade;
+    light(ctx, e.x, e.y - 12, r + 20, "#a9d4e4", 0.3 * fade, 0.7);
+    ring(ctx, e.x, e.y, r, "#cfe8ee", 0.55);
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5;
+      paperPiece(
+        ctx,
+        paperPath([
+          [e.x + Math.cos(a) * r, e.y + Math.sin(a) * r * 0.55 - 6],
+          [e.x + Math.cos(a + 0.12) * (r - 8), e.y + Math.sin(a + 0.12) * (r - 8) * 0.55 - 6],
+          [e.x + Math.cos(a - 0.12) * (r - 8), e.y + Math.sin(a - 0.12) * (r - 8) * 0.55 - 6],
+        ]),
+        i % 2 ? "#e9c27a" : "#a9d0de",
+        { shadow: 0.5, texture: 0.3, thickness: 0.4 },
+      );
+    }
+  } else if (e.kind === "moon-pulse") {
+    const reach =
+        (state ? playerStats(state).orbitRadius : CHARACTERS.nicole.orbitRadius) +
+        UPGRADE_VALUES["full-moon"].pulseReach,
+      r = 14 + ease * reach;
+    ctx.globalAlpha = fade;
+    light(ctx, e.x, e.y, r + 18, "#efe0b4", 0.22 * fade, 0.6);
+    ctx.globalAlpha = fade * 0.12;
+    ellipse(ctx, e.x, e.y, r, r * 0.6, "#efe0b4");
+    ctx.globalAlpha = fade;
+    ring(ctx, e.x, e.y, r, "#f3e6c4", 0.6);
+    ring(ctx, e.x, e.y, r * 0.82, "#bda5ef", 0.6, fade);
   }
   ctx.restore();
 }

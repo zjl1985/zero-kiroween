@@ -79,22 +79,61 @@ export function drawCraftShot(
   vx: number,
   vy: number,
   empowered = false,
+  echo = false,
 ): void {
   const d = Math.hypot(vx, vy) || 1,
     nx = vx / d,
-    ny = vy / d;
-  glow(ctx, x, y, empowered ? 13 : 9, "#ffce7d", empowered ? 0.3 : 0.22);
+    ny = vy / d,
+    warm = echo ? "#a9d4e4" : "#ffce7d",
+    tail = echo ? "#6f9fb8" : "#d49452",
+    core = echo ? "#e4f4f6" : "#ffe3a2";
+  glow(ctx, x, y, empowered ? 13 : 9, warm, empowered ? 0.3 : 0.22);
   line(
     ctx,
     x - nx * 19,
     y - ny * 19,
     x,
     y,
-    "#d49452",
+    tail,
     empowered ? 1.5 : 1,
     0.7,
   );
-  line(ctx, x - nx * 10, y - ny * 10, x, y, "#ffe3a2", empowered ? 1.5 : 1.1);
-  ctx.fillStyle = "#fff1c6";
+  line(ctx, x - nx * 10, y - ny * 10, x, y, core, empowered ? 1.5 : 1.1);
+  ctx.fillStyle = echo ? "#f2fbfb" : "#fff1c6";
   ctx.fill(oval(x, y, 1.8, 1.8));
+}
+/** A paper-moon crescent with cut edge, thickness and contact shadow. */
+export function crescent(cx: number, cy: number, r: number, rot: number): Path2D {
+  const pts: [number, number][] = [],
+    c = Math.cos(rot),
+    s = Math.sin(rot),
+    put = (x: number, y: number) =>
+      pts.push([cx + x * c - y * s, cy + x * s + y * c]);
+  for (let a = -2.3; a <= 2.3; a += 0.23) put(Math.cos(a) * r, Math.sin(a) * r);
+  for (let b = 1.97; b >= -1.97; b -= 0.25)
+    put(-0.35 * r + Math.cos(b) * 0.81 * r, Math.sin(b) * 0.81 * r);
+  return path(pts);
+}
+export function drawInkShard(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  time: number,
+  id: number,
+  value = 1,
+): void {
+  const r = 4.6 + Math.min(3, value - 1) * 0.9,
+    lift = 8 + Math.sin(time * 4 + id * 1.7) * 1.6,
+    rot = -0.5 + Math.sin(time * 1.6 + id) * 0.35;
+  shadow(ctx, x, y, r * 0.9, r * 0.32);
+  glow(ctx, x, y - lift, r * 3.2, "#f3cf82", 0.28);
+  piece(ctx, crescent(x, y - lift, r, rot), "#ecc879", {
+    shadow: 1.2,
+    edge: "#fff0c2",
+    texture: 0.5,
+    thickness: 0.6,
+  });
+  // An ink speck caught in the paper moon.
+  ctx.fillStyle = "#3b2d49";
+  ctx.fill(oval(x + Math.cos(rot) * r * 0.55, y - lift + Math.sin(rot) * r * 0.55, 0.9, 0.9));
 }

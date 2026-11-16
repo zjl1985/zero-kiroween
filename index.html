@@ -150,7 +150,12 @@
                 <strong id="hud-name"></strong><span id="hud-kills"></span>
               </div>
               <div id="hud-hearts" class="hearts"></div>
+              <div class="xp-row">
+                <span id="hud-level" class="level-label"></span>
+                <div id="hud-xp" class="xp-bar" role="img"></div>
+              </div>
               <span id="hud-buff" class="buff"></span>
+              <div id="hud-upgrades" class="hud-upgrades"></div>
             </div>
           </div>
           <div class="night-card">
@@ -199,6 +204,41 @@
             ><button type="button" id="btn-pause-lang" class="btn"></button
             ><button type="button" id="btn-back" class="btn"></button>
           </div>
+        </section>
+        <section
+          id="upgrade-screen"
+          class="upgrade-screen hidden"
+          aria-labelledby="upgrade-title"
+        >
+          <p id="upgrade-kicker" class="eyebrow"></p>
+          <h2 id="upgrade-title"></h2>
+          <div class="upgrade-cards">
+            <button type="button" id="upgrade-card-0" class="upgrade-card" style="--deal: 0">
+              <span class="card-tag"></span>
+              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <strong class="card-name"></strong>
+              <small class="card-level"></small>
+              <p class="card-desc"></p>
+              <kbd></kbd>
+            </button>
+            <button type="button" id="upgrade-card-1" class="upgrade-card" style="--deal: 1">
+              <span class="card-tag"></span>
+              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <strong class="card-name"></strong>
+              <small class="card-level"></small>
+              <p class="card-desc"></p>
+              <kbd></kbd>
+            </button>
+            <button type="button" id="upgrade-card-2" class="upgrade-card" style="--deal: 2">
+              <span class="card-tag"></span>
+              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <strong class="card-name"></strong>
+              <small class="card-level"></small>
+              <p class="card-desc"></p>
+              <kbd></kbd>
+            </button>
+          </div>
+          <p id="upgrade-hint" class="hint"></p>
         </section>
         <section id="result-screen" class="panel result-panel hidden">
           <p id="result-cat" class="eyebrow"></p>

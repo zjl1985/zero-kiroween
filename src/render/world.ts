@@ -1,11 +1,13 @@
 import { drawCraftCat } from "./craft-cat.js";
-import { drawCraftBlob, drawCraftShot } from "./craft-combat.js";
+import { drawCraftBlob, drawCraftShot, drawInkShard } from "./craft-combat.js";
+import { playerStats } from "../game/upgrades.js";
 import {
   drawCombatGround,
   drawCombatFront,
   drawSkillEffect,
   drawOrbitStar,
   drawHeroAura,
+  drawEchoDecoy,
   orbitPositions,
 } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
@@ -151,14 +153,27 @@ export function drawWorld(
         time: view.time,
       });
       light(ctx, sim.decoy.x, sim.decoy.y - 18, 35, "#91bacf", 0.12, 1);
+      const decoy = sim;
+      sprites.push({
+        y: sim.decoy.y + 0.5,
+        draw: () => drawEchoDecoy(ctx, decoy, view.time),
+      });
     }
-    if (sim.player.id === "nicole")
+    for (const s of sim.pickups)
+      if (s.alive)
+        sprites.push({
+          y: s.y,
+          draw: () => drawInkShard(ctx, s.x, s.y, view.time, s.id, s.value),
+        });
+    if (sim.player.id === "nicole") {
+      const full = playerStats(sim).fullMoon;
       orbitPositions(sim).forEach((p, i) =>
         sprites.push({
           y: p.y,
-          draw: () => drawOrbitStar(ctx, p.x, p.y, view.time, i),
+          draw: () => drawOrbitStar(ctx, p.x, p.y, view.time, i, full),
         }),
       );
+    }
     for (const e of sim.enemies)
       if (e.alive)
         sprites.push({
@@ -193,12 +208,12 @@ export function drawWorld(
   for (const sprite of sprites) sprite.draw();
   if (sim) {
     for (const s of sim.shots)
-      if (s.alive) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered);
+      if (s.alive) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
-      else drawSkillEffect(ctx, effect);
+      else drawSkillEffect(ctx, effect, sim);
     }
   }
   drawAtmosphere(ctx, view.time);

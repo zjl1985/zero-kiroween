@@ -1,10 +1,12 @@
 import { formatTime, t } from "../content/i18n.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import type { SimState } from "../game/types.js";
-import { character } from "../game/characters.js";
 import { nightPhase } from "../game/sim.js";
 import { characterCopy, paintPortrait } from "./character-panel.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
+import { playerStats, UPGRADES } from "../game/upgrades.js";
+import { paintUpgradeIcon } from "../render/upgrade-icons.js";
+import { upgradeName } from "./upgrade-cards.js";
 export interface HudRefs {
   time: HTMLElement;
   hearts: HTMLElement;
@@ -22,6 +24,32 @@ export interface HudRefs {
   skillIcon: HTMLCanvasElement;
   notice: HTMLElement;
   hint: HTMLElement;
+  level: HTMLElement;
+  xp: HTMLElement;
+  upgrades: HTMLElement;
+}
+/** Owned cards as small code-drawn emblems with their level. */
+function renderOwned(el: HTMLElement, locale: Locale, sim: SimState): void {
+  const owned = UPGRADES.filter((u) => (sim.upgrades[u.id] ?? 0) > 0 && !u.filler),
+    sig = `${locale}|${owned.map((u) => `${u.id}:${sim.upgrades[u.id]}`).join(",")}`;
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  el.replaceChildren(
+    ...owned.map((u) => {
+      const item = document.createElement("span"),
+        icon = document.createElement("canvas"),
+        lv = document.createElement("small");
+      item.className = u.evolution ? "owned evolution" : "owned";
+      item.title = upgradeName(locale, u.id);
+      icon.width = 32;
+      icon.height = 32;
+      icon.setAttribute("aria-hidden", "true");
+      paintUpgradeIcon(icon, u.id, true);
+      lv.textContent = u.evolution ? "★" : String(sim.upgrades[u.id]);
+      item.append(icon, lv);
+      return item;
+    }),
+  );
 }
 function text(el: HTMLElement, value: string) {
   if (el.textContent !== value) el.textContent = value;
@@ -31,7 +59,6 @@ function html(el: HTMLElement, value: string) {
 }
 export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   const p = sim.player,
-    def = character(p.id),
     ready = p.dashCooldown <= 0;
   text(refs.time, formatTime(sim.timeLeft));
   refs.time.setAttribute(
@@ -57,6 +84,16 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     `${t(locale, "hud.hearts")} ${p.hp}/${p.maxHp}`,
   );
   text(refs.kills, `${t(locale, "hud.kills")}  ${sim.stats.kills}`);
+  text(refs.level, t(locale, "hud.level", { level: sim.level }));
+  refs.xp.style.setProperty(
+    "--xp",
+    `${Math.min(100, (sim.xp / sim.xpToNext) * 100)}%`,
+  );
+  refs.xp.setAttribute(
+    "aria-label",
+    t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }),
+  );
+  renderOwned(refs.upgrades, locale, sim);
   text(refs.phase, t(locale, `hud.phase${nightPhase(sim)}` as MessageKey));
   refs.progress.style.setProperty(
     "--dawn",
@@ -80,7 +117,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   );
   refs.skill.style.setProperty(
     "--charge",
-    `${Math.max(0, 1 - p.dashCooldown / def.cooldown) * 100}%`,
+    `${Math.max(0, 1 - p.dashCooldown / playerStats(sim).cooldown) * 100}%`,
   );
   refs.skill.classList.toggle("ready", ready);
   refs.skill.disabled = !ready;

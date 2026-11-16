@@ -10,7 +10,16 @@ import {
 } from "./collision.js";
 import { CHARACTERS, character } from "./characters.js";
 import {
+  playerStats,
+  rollChoices,
+  upgradeDef,
+  xpForLevel,
+  XP,
+  UPGRADE_VALUES,
+} from "./upgrades.js";
+import {
   DEFAULT_WORLD,
+  EFFECT_LIFE,
   STATS,
   YARD_TOP,
   type FrameInput,
@@ -66,7 +75,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       shieldTime: 0,
       rescueUsed: false,
     },
-    decoy: { live: false, x: 0, y: 0, time: 0 },
+    decoy: { live: false, x: 0, y: 0, time: 0, fire: 0 },
     enemies: [],
     shots: [],
     impacts: [],
@@ -87,8 +96,18 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       damageDealt: 0,
       damageTaken: 0,
       shieldBlocks: 0,
+      upgradesTaken: 0,
+      shardsCollected: 0,
     },
     notice: null,
+    xp: 0,
+    level: 1,
+    xpToNext: xpForLevel(1),
+    upgrades: {},
+    pendingChoice: null,
+    pickups: [],
+    nextPickupId: 1,
+    pulseTimer: UPGRADE_VALUES["full-moon"].pulseInterval,
   };
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
   spawnBlob(state, world.width * 0.24, world.height * 0.85);
@@ -184,6 +203,11 @@ function safePosition(state: SimState, x: number, y: number, radius: number) {
 }
 export function step(state: SimState, input: FrameInput, dt: number): void {
   if (state.ended !== "playing" || dt <= 0) return;
+  if (state.pendingChoice) {
+    // The night is frozen while a card is on the table.
+    if (typeof input.choose === "number") chooseUpgrade(state, input.choose);
+    return;
+  }
   const rng = createRng(state.rngState);
   state.elapsed += dt;
   state.timeLeft = Math.max(0, state.timeLeft - dt);
@@ -202,6 +226,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   if (state.decoy.live) {
     state.decoy.time = Math.max(0, state.decoy.time - dt);
     state.decoy.live = state.decoy.time > 0;
+    if (!state.decoy.live && playerStats(state).echo) echoBurst(state);
   }
   for (const e of state.enemies) {
     e.orbitCooldown = Math.max(0, e.orbitCooldown - dt);
@@ -209,10 +234,15 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     e.spawnTime = Math.max(0, e.spawnTime - dt);
   }
   stepPlayer(state, input, dt);
+  stepDecoy(state, dt);
   stepStroke(state, dt);
-  if (state.player.id === "nicole") stepOrbit(state);
+  if (state.player.id === "nicole") {
+    stepOrbit(state);
+    stepMoonPulse(state, dt);
+  }
   stepShots(state, dt);
   stepEnemies(state, dt);
+  stepPickups(state, dt, rng);
   if (state.ended === "playing") {
     const phase = nightPhase(state),
       cap = [7, 10, 14, 18][phase]!;
@@ -229,11 +259,13 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   }
   state.enemies = state.enemies.filter((e) => e.alive);
   state.shots = state.shots.filter((s) => s.alive);
+  state.pickups = state.pickups.filter((s) => s.alive);
   state.rngState = rng.state();
 }
 function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
   const p = state.player,
-    def = character(p.id);
+    def = character(p.id),
+    ps = playerStats(state);
   p.invuln = Math.max(0, p.invuln - dt);
   p.dashCooldown = Math.max(0, p.dashCooldown - dt);
   p.attackCooldown = Math.max(0, p.attackCooldown - dt);
@@ -252,7 +284,7 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
         ? { x: p.facing, y: 0 }
         : normalize(input.ax, input.ay);
     p.dashTime = def.dashTime;
-    p.dashCooldown = def.cooldown;
+    p.dashCooldown = ps.cooldown;
     p.invuln = Math.max(p.invuln, def.invulnerability);
     p.vx = dir.x * def.dashSpeed;
     p.vy = dir.y * def.dashSpeed;
@@ -263,7 +295,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
         live: true,
         x: p.x,
         y: p.y,
-        time: CHARACTERS.zero.decoyLife,
+        time: ps.decoyLife,
+        fire: UPGRADE_VALUES["echo-legion"].fireInterval * 0.5,
       };
       p.empowerTime = CHARACTERS.zero.empowerDuration;
       p.attackCooldown = 0;
@@ -271,11 +304,17 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
       notify(state, "zero-dash");
     } else {
       const n = CHARACTERS.nicole;
-      state.fields.push({ x: p.x, y: p.y, life: n.fieldDuration });
-      p.shield = Math.max(p.shield, n.shieldCharges);
+      state.fields.push({
+        x: p.x,
+        y: p.y,
+        life: ps.fieldDuration,
+        radius: ps.fieldRadius,
+        duration: ps.fieldDuration,
+      });
+      p.shield = Math.max(p.shield, ps.shieldCharges);
       p.shieldTime = Math.max(p.shieldTime, n.shieldDuration);
       for (const e of state.enemies)
-        if (e.alive && Math.hypot(e.x - p.x, e.y - p.y) <= n.fieldRadius) {
+        if (e.alive && Math.hypot(e.x - p.x, e.y - p.y) <= ps.fieldRadius) {
           e.slowTime = 0.5;
           const push = normalize(e.x - p.x, e.y - p.y);
           const pos = safePosition(
@@ -297,8 +336,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
     p.y += p.vy * dt;
   } else {
     const dir = normalize(input.ax, input.ay);
-    p.vx = dir.x * def.speed * p.slow;
-    p.vy = dir.y * def.speed * p.slow;
+    p.vx = dir.x * ps.speed * p.slow;
+    p.vy = dir.y * ps.speed * p.slow;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     if (Math.abs(dir.x) > 0.1) p.facing = dir.x < 0 ? -1 : 1;
@@ -311,54 +350,140 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
 }
 function maybeShoot(state: SimState): void {
   const p = state.player,
-    z = CHARACTERS.zero;
+    z = CHARACTERS.zero,
+    ps = playerStats(state);
   if (p.attackCooldown > 0) return;
-  let target: EnemyState | undefined,
-    best = Infinity;
-  for (const e of state.enemies) {
-    if (!e.alive || e.spawnTime > 0) continue;
-    const d = Math.hypot(e.x - p.x, e.y - p.y);
-    if (d < best && d <= z.shotSpeed * z.shotLife + 25) {
-      best = d;
-      target = e;
-    }
-  }
+  const target = nearestEnemy(state, p.x, p.y, z.shotSpeed * z.shotLife + 25);
   if (!target) return;
   const dir = normalize(target.x - p.x, target.y - p.y);
   if (!dir.x && !dir.y) return;
   const empowered = p.empowerTime > 0;
-  p.attackCooldown = empowered ? z.empoweredInterval : z.attackInterval;
+  p.attackCooldown = empowered ? ps.empoweredInterval : ps.attackInterval;
+  const base = Math.atan2(dir.y, dir.x);
+  for (let i = 0; i < ps.bolts; i++) {
+    const a = base + (i - (ps.bolts - 1) / 2) * ps.spread;
+    fireBolt(state, p.x, p.y, Math.cos(a), Math.sin(a), empowered, false);
+  }
+}
+function nearestEnemy(
+  state: SimState,
+  x: number,
+  y: number,
+  range: number,
+): EnemyState | undefined {
+  let target: EnemyState | undefined,
+    best = Infinity;
+  for (const e of state.enemies) {
+    if (!e.alive || e.spawnTime > 0) continue;
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d < best && d <= range) {
+      best = d;
+      target = e;
+    }
+  }
+  return target;
+}
+function fireBolt(
+  state: SimState,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  empowered: boolean,
+  echo: boolean,
+): void {
+  const z = CHARACTERS.zero;
   state.shots.push({
     id: state.nextShotId++,
-    x: p.x + dir.x * 14,
-    y: p.y + dir.y * 14,
-    vx: dir.x * z.shotSpeed,
-    vy: dir.y * z.shotSpeed,
+    x: x + dx * 14,
+    y: y + dy * 14,
+    vx: dx * z.shotSpeed,
+    vy: dy * z.shotSpeed,
     life: z.shotLife,
     alive: true,
     empowered,
+    ...(echo ? { echo: true } : {}),
     hits: [],
   });
 }
+/** Echo Legion: the evolved afterimage keeps firing its own bolts. */
+function stepDecoy(state: SimState, dt: number): void {
+  const d = state.decoy;
+  if (!d.live || state.player.id !== "zero" || !playerStats(state).echo)
+    return;
+  const echo = UPGRADE_VALUES["echo-legion"];
+  d.fire -= dt;
+  if (d.fire > 0) return;
+  const target = nearestEnemy(state, d.x, d.y, echo.range);
+  if (!target) {
+    d.fire = 0;
+    return;
+  }
+  const dir = normalize(target.x - d.x, target.y - d.y);
+  if (!dir.x && !dir.y) return;
+  d.fire = echo.fireInterval;
+  fireBolt(state, d.x, d.y, dir.x, dir.y, false, true);
+}
+function echoBurst(state: SimState): void {
+  const d = state.decoy,
+    echo = UPGRADE_VALUES["echo-legion"];
+  effect(state, d.x, d.y, "echo-burst", EFFECT_LIFE["echo-burst"]);
+  for (const e of state.enemies)
+    if (
+      e.alive &&
+      e.spawnTime <= 0 &&
+      Math.hypot(e.x - d.x, e.y - d.y) <= echo.burstRadius
+    )
+      hurtEnemy(state, e, echo.burstDamage);
+}
+/** Full Moon: a periodic pulse from Nicole that hits and pushes the crowd. */
+function stepMoonPulse(state: SimState, dt: number): void {
+  const ps = playerStats(state);
+  if (!ps.fullMoon) return;
+  const moon = UPGRADE_VALUES["full-moon"],
+    p = state.player;
+  state.pulseTimer -= dt;
+  if (state.pulseTimer > 0) return;
+  state.pulseTimer = moon.pulseInterval;
+  const reach = ps.orbitRadius + moon.pulseReach;
+  effect(state, p.x, p.y, "moon-pulse", EFFECT_LIFE["moon-pulse"]);
+  for (const e of state.enemies) {
+    if (!e.alive || e.spawnTime > 0) continue;
+    if (Math.hypot(e.x - p.x, e.y - p.y) > reach) continue;
+    hurtEnemy(state, e, moon.pulseDamage);
+    const dir = normalize(e.x - p.x, e.y - p.y),
+      pos = safePosition(
+        state,
+        e.x + dir.x * moon.pulsePush,
+        e.y + dir.y * moon.pulsePush,
+        STATS.enemyRadius,
+      );
+    e.x = pos.x;
+    e.y = pos.y;
+    e.slowTime = Math.max(e.slowTime, 0.4);
+  }
+}
 /** These are the very same coordinates used to draw Nicole's stars. */
 export function orbitPositions(state: SimState): { x: number; y: number }[] {
-  const n = CHARACTERS.nicole;
-  return Array.from({ length: n.orbitCount }, (_, i) => {
-    const a = state.elapsed * n.orbitSpeed + (i * Math.PI * 2) / n.orbitCount;
+  const n = CHARACTERS.nicole,
+    ps = playerStats(state);
+  return Array.from({ length: ps.orbitCount }, (_, i) => {
+    const a = state.elapsed * n.orbitSpeed + (i * Math.PI * 2) / ps.orbitCount;
     return {
-      x: state.player.x + Math.cos(a) * n.orbitRadius,
-      y: state.player.y + Math.sin(a) * n.orbitRadius,
+      x: state.player.x + Math.cos(a) * ps.orbitRadius,
+      y: state.player.y + Math.sin(a) * ps.orbitRadius,
     };
   });
 }
 function stepOrbit(state: SimState): void {
-  const n = CHARACTERS.nicole;
+  const n = CHARACTERS.nicole,
+    ps = playerStats(state);
   for (const star of orbitPositions(state)) {
     maybeReink(state, star.x, star.y, 9);
     for (const e of state.enemies) {
       if (!e.alive || e.spawnTime > 0 || e.orbitCooldown > 0) continue;
       if (circlesOverlap(star.x, star.y, 9, e.x, e.y, STATS.enemyRadius)) {
-        hurtEnemy(state, e, n.orbitDamage);
+        hurtEnemy(state, e, ps.orbitDamage);
         e.orbitCooldown = n.orbitHitInterval;
         e.slowTime = Math.max(e.slowTime, 0.3);
         const dir = normalize(e.x - state.player.x, e.y - state.player.y),
@@ -380,9 +505,90 @@ function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
   e.hp = Math.max(0, e.hp - damage);
   e.alive = e.hp > 0;
   effect(state, e.x, e.y, e.alive ? "hit" : "defeat", e.alive ? 0.16 : 0.32);
-  if (!e.alive) state.stats.kills++;
+  if (!e.alive) {
+    state.stats.kills++;
+    dropShard(state, e.x, e.y, XP.shardValue);
+  }
+}
+function dropShard(state: SimState, x: number, y: number, value: number): void {
+  if (state.pickups.length >= XP.maxPickups) {
+    // Fold the oldest shard's worth into the newest so nothing is lost.
+    const old = state.pickups.shift()!;
+    value += old.value;
+  }
+  state.pickups.push({
+    id: state.nextPickupId++,
+    x,
+    y,
+    value,
+    alive: true,
+    age: 0,
+  });
+}
+function stepPickups(state: SimState, dt: number, rng: Rng): void {
+  const p = state.player,
+    ps = playerStats(state);
+  for (const s of state.pickups) {
+    if (!s.alive) continue;
+    s.age += dt;
+    const dx = p.x - s.x,
+      dy = p.y - s.y,
+      d = Math.hypot(dx, dy);
+    if (d <= XP.collectRadius) {
+      s.alive = false;
+      state.xp += s.value * ps.xpMultiplier;
+      state.stats.shardsCollected += s.value;
+      effect(state, s.x, s.y, "collect", EFFECT_LIFE.collect);
+      continue;
+    }
+    if (d <= ps.pickupRadius) {
+      const pull = XP.magnetSpeed * (1.4 - d / ps.pickupRadius) * dt,
+        move = Math.min(d, pull);
+      s.x += (dx / d) * move;
+      s.y += (dy / d) * move;
+    }
+  }
+  if (!state.pendingChoice && state.xp >= state.xpToNext) levelUp(state, rng);
+}
+function levelUp(state: SimState, rng: Rng): void {
+  state.xp -= state.xpToNext;
+  state.level++;
+  state.xpToNext = xpForLevel(state.level);
+  const options = rollChoices(state, rng);
+  effect(state, state.player.x, state.player.y, "levelup", EFFECT_LIFE.levelup);
+  if (options.length) state.pendingChoice = { options };
+}
+/** Applies card `index` of the pending choice. Returns false if nothing was applied. */
+export function chooseUpgrade(state: SimState, index: number): boolean {
+  const choice = state.pendingChoice,
+    id = choice?.options[index],
+    def = id ? upgradeDef(id) : undefined;
+  if (!choice || !def) return false;
+  const p = state.player;
+  state.upgrades[def.id] = (state.upgrades[def.id] ?? 0) + 1;
+  state.stats.upgradesTaken++;
+  state.pendingChoice = null;
+  if (def.id === "vitality") {
+    p.maxHp += UPGRADE_VALUES.vitality.maxHp;
+    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.vitality.heal);
+  } else if (def.id === "snack")
+    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.snack.heal);
+  if (def.evolution) {
+    if (def.id === "full-moon")
+      state.pulseTimer = UPGRADE_VALUES["full-moon"].pulseInterval * 0.5;
+    effect(state, p.x, p.y, "evolve", EFFECT_LIFE.evolve);
+    notify(state, p.id === "zero" ? "evolve-zero" : "evolve-nicole");
+  }
+  // Banked shards may already cover the next level.
+  if (state.xp >= state.xpToNext) {
+    const rng = createRng(state.rngState);
+    levelUp(state, rng);
+    state.rngState = rng.state();
+  }
+  return true;
 }
 function stepShots(state: SimState, dt: number): void {
+  const ps = playerStats(state);
   for (const s of state.shots) {
     if (!s.alive) continue;
     const ox = s.x,
@@ -407,9 +613,9 @@ function stepShots(state: SimState, dt: number): void {
           Math.hypot(a.x - ox, a.y - oy) - Math.hypot(b.x - ox, b.y - oy),
       );
     for (const e of targets) {
-      hurtEnemy(state, e, CHARACTERS.zero.shotDamage);
+      hurtEnemy(state, e, ps.shotDamage);
       hits.push(e.id);
-      if (hits.length >= (s.empowered ? CHARACTERS.zero.empoweredPierce : 1)) {
+      if (hits.length >= (s.empowered ? ps.empoweredPierce : ps.pierce)) {
         s.alive = false;
         break;
       }
@@ -419,21 +625,21 @@ function stepShots(state: SimState, dt: number): void {
 }
 function stepEnemies(state: SimState, dt: number): void {
   const p = state.player,
-    n = CHARACTERS.nicole;
+    n = CHARACTERS.nicole,
+    ps = playerStats(state);
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
     let tx = p.x,
       ty = p.y;
     if (
       state.decoy.live &&
-      Math.hypot(e.x - state.decoy.x, e.y - state.decoy.y) <=
-        CHARACTERS.zero.decoyRange
+      Math.hypot(e.x - state.decoy.x, e.y - state.decoy.y) <= ps.decoyRange
     ) {
       tx = state.decoy.x;
       ty = state.decoy.y;
     }
     const inside = state.fields.some(
-      (f) => Math.hypot(e.x - f.x, e.y - f.y) <= n.fieldRadius,
+      (f) => Math.hypot(e.x - f.x, e.y - f.y) <= (f.radius ?? n.fieldRadius),
     );
     if (inside) e.slowTime = Math.max(e.slowTime, 0.15);
     const speed =

@@ -3,21 +3,22 @@ import {
   characterCopy,
   characterValues,
 } from "./ui/character-panel.js";
-import { character } from "./game/characters.js";
 import { formatTime } from "./content/i18n.js";
 import type { CatId } from "./cats/types.js";
 import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
 import { createClock, FIXED_DT, tickClock } from "./game/clock.js";
 import { createInput } from "./game/input.js";
-import { createSim, step } from "./game/sim.js";
+import { chooseUpgrade, createSim, step } from "./game/sim.js";
+import { evolutionFor, playerStats } from "./game/upgrades.js";
+import { paintUpgradeCards, upgradeName } from "./ui/upgrade-cards.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 
-type Screen = "title" | "play" | "pause" | "result";
+type Screen = "title" | "play" | "pause" | "upgrade" | "result";
 const PREF_KEY = "midnight-meow-prefs";
 function must<T extends Element>(id: string): T {
   const el = document.getElementById(id);
@@ -77,7 +78,12 @@ function boot(): void {
     skillIcon: must<HTMLCanvasElement>("hud-skill-icon"),
     notice: must<HTMLElement>("hud-notice"),
     hint: must<HTMLElement>("hud-hint"),
+    level: must<HTMLElement>("hud-level"),
+    xp: must<HTMLElement>("hud-xp"),
+    upgrades: must<HTMLElement>("hud-upgrades"),
   };
+  // Cards ignore input briefly so a held key or tap cannot pick blindly.
+  let cardsArmedAt = 0;
   const resize = () => {
     touch.reset();
     size = {
@@ -132,6 +138,7 @@ function boot(): void {
       t(locale, "hud.fullscreen"),
     );
     if (sim) renderHud(hudRefs, locale, sim);
+    if (sim && screen === "upgrade") paintUpgradeCards(locale, sim, useTouch);
     if (sim) {
       const id = sim.player.id;
       must("pause-kit").textContent = t(
@@ -161,6 +168,13 @@ function boot(): void {
           [t(locale, "result.kills"), sim.stats.kills],
           [t(locale, "result.skills"), sim.stats.skillUses],
           [t(locale, "result.blocks"), sim.stats.shieldBlocks],
+          [t(locale, "result.level"), sim.level],
+          [
+            t(locale, "result.evolution"),
+            sim.upgrades[evolutionFor(id)]
+              ? upgradeName(locale, evolutionFor(id))
+              : t(locale, "result.none"),
+          ],
         ]
           .map(
             ([label, value]) =>
@@ -177,8 +191,9 @@ function boot(): void {
     hiddenPause = hidden;
     for (const [id, visible] of Object.entries({
       "title-screen": next === "title",
-      hud: next === "play" || next === "pause",
+      hud: next === "play" || next === "pause" || next === "upgrade",
       "pause-screen": next === "pause",
+      "upgrade-screen": next === "upgrade",
       "result-screen": next === "result",
       touch: useTouch && next === "play",
     }))
@@ -203,6 +218,24 @@ function boot(): void {
     clock.acc = 0;
     show("play");
   };
+  const openCards = () => {
+    cardsArmedAt = performance.now() + 320;
+    show("upgrade");
+    // Replay the deal-in animation for every new hand.
+    const hand = must<HTMLElement>("upgrade-screen");
+    hand.classList.remove("dealt");
+    void hand.offsetWidth;
+    hand.classList.add("dealt");
+  };
+  const pick = (index: number) => {
+    if (!sim || screen !== "upgrade" || performance.now() < cardsArmedAt)
+      return;
+    if (!chooseUpgrade(sim, index)) return;
+    if (sim.pendingChoice) openCards();
+    else resume();
+  };
+  for (let i = 0; i < 3; i++)
+    must(`upgrade-card-${i}`).addEventListener("click", () => pick(i));
   const title = () => {
     sim = null;
     show("title");
@@ -298,9 +331,17 @@ function boot(): void {
             show("result");
             break;
           }
+          if (sim.pendingChoice) {
+            openCards();
+            break;
+          }
         }
-        if (sim.ended === "playing") renderHud(hudRefs, locale, sim);
+        if (screen === "play") renderHud(hudRefs, locale, sim);
       }
+    } else if (screen === "upgrade") {
+      input.consumePause();
+      const choice = input.consumeChoice();
+      if (choice !== null) pick(choice);
     } else if (screen === "pause" && input.consumePause()) resume();
     else input.consumePause();
     const time = reducedMotion.matches ? 0 : renderTime;
@@ -333,7 +374,7 @@ function boot(): void {
         : characterCopy(locale, sim.player.id, "active.short");
       button.style.setProperty(
         "--charge",
-        `${100 * (1 - sim.player.dashCooldown / character(sim.player.id).cooldown)}%`,
+        `${100 * (1 - sim.player.dashCooldown / playerStats(sim).cooldown)}%`,
       );
     }
     requestAnimationFrame(frame);
