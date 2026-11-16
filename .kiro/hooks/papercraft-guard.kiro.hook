@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Papercraft art guard",
+  "description": "When rendering or UI styling changes, check the papercraft-only and code-drawn constraints.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/render/**/*.ts",
+      "styles.css",
+      "index.html"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A rendering or UI file changed. Check the edit against .kiro/steering/papercraft-art.md: no image assets, CSS url() textures or data-URI pictures; no pixel mode or art-style toggle; paper pieces keep cut edges, thickness and contact shadows. Run `npm run build`. Do not claim the art is approved."
+  }
+}

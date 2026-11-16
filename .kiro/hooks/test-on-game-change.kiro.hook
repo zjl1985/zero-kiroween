@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Test on game logic change",
+  "description": "When simulation, character or content files change, run the test suite so the two cat kits, determinism and i18n keys stay intact.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/game/**/*.ts",
+      "src/cats/**/*.ts",
+      "src/content/**/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A game logic, cat or content file changed. Run `npm test` and fix any failure caused by the change. Keep Zero and Nicole as distinct kits with numbers in src/game/characters.ts, keep a single chosen cat with no companion, and add any new message key to every language pack. Do not start animation or recording checks."
+  }
+}
