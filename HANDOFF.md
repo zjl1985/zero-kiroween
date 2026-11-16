@@ -1,36 +1,50 @@
 # Handoff — 当前有效要求
 
-更新：2026-11-16。供下一位 agent 直接继续工作。
+更新：2026-11-16（参赛级玩法轮次之后）。供下一位 agent 直接继续工作。
 
 ## 第一件事：不要恢复双画风
 
-**唯一目标是参考图中的纸片 / 剪纸美术。不是“纸质和像素任选”，也不是“先做纸质，之后补像素”。**
-
-之前的过程是：用户认为最早的纸质版本很简陋，要求去掉它；之后又明确指出参考图中的纸片质感正是自己喜欢的效果。当前应执行后者。此前仅在旧方案开头堆叠“最新说明”，而旧正文仍反复要求双画风，已经误导过后续 agent。本次将旧方案整体归档，当前文档不再混放相反要求。
+**唯一目标是参考图中的纸片 / 剪纸美术。不是“纸质和像素任选”，也不是“先做纸质，之后补像素”。** 仓库内的像素工具、旧布局代码是代码依赖，不是第二套产品画风；不要添加画风切换。
 
 ## 用户最后明确的要求
 
-1. 先把美术做好，达到用户提供的纸片夜间小镇参考图的质感与完成度。
-2. 不使用图片素材作为场景；通过代码实现纹理、层次、光影、草地等。
-3. 只选择一名主角：Zero 是男猫，Nicole 是女猫。局内不能把未选的角色作为伙伴放出来。
-4. 两只猫的技能与玩法必须不同，不能只换外观。
-5. **暂不做动画 / 录像验证。** 不要接着上一轮未完成的录像或动态验收计划跑下去。
+1. **先把游戏做到参赛级别**：场景、特效、互动、进化等都要有分量，不再只打磨静态画面。
+2. 参考 [Snapblocks](https://www.snapblocks.site/) 的一些特效思路。它是付费 React 组件库；只按公开描述用 Canvas / CSS 重新实现思路，**不复制任何代码**。
+3. **英文默认放到后面**：现在仍默认 `zh`，`en` 语言包保持完整；以后通过 i18n 切换默认语言即可。所有用户可见文字继续走 `t(locale, key)`。
+4. **少做检查**：用户认为之前查得太多。验证只做 `npm run build` + `npm test`，最多一张静态截图；不做动画或录像验证。
+5. 不使用图片或音频素材；场景、纹理、光影、音效全部由代码生成。
+6. 只选择一名主角：Zero 是男猫，Nicole 是女猫。局内不能把未选的角色作为伙伴放出来。
+7. 两只猫的技能、升级与进化必须不同，不能只换外观。
 
 ## 当前代码与入口
 
-已提交实现基线：`80910a0`（纸片场景与差异化角色）。本次交接文档修正是其后的文档提交。
+提交序列：`80910a0` 纸片场景与角色 → `d47aca6` 升级与进化 → `45202d4` 敌人种类与 Eraser Boss → `8735a2a` / `604f3c8` / `36eca29` 手感、黎明、庭院互动、程序音频与 UI 特效 → 本次文档提交。
 
-- `index.html` 的 `data-style` 是 `papercraft`，没有画风切换入口。
-- `src/main.ts` 创建 2 倍内部画布；`src/render/world.ts` 调用纸片场景与角色渲染。
-- `src/render/paper-material.ts`：程序生成的纤维、压纹、纸边、阴影、缝线与光晕。
-- `src/render/craft-scene.ts`：夜空、远山、树冠、房屋、屋瓦、道路、庭院与前景。
-- `src/render/craft-cat.ts`：保留 Meow Wall 官方识别点的纸片猫与身体。
-- `src/render/craft-combat.ts`：纸片墨团与暖光弹道。
-- `src/render/combat-fx.ts`：月星、领域、护盾与技能效果。
-- `src/game/characters.ts`、`src/game/sim.ts`：真实角色参数、伤害、减速与护盾。
-- `src/ui/character-panel.ts`、`src/ui/hud.ts`、`styles.css`：选择页和局内 UI。
+### 模拟（`src/game/`，无 DOM）
 
-注意：`craft-scene.ts` 仍从旧 `scene.ts` 复用物件布局和道路坐标；像素绘制工具也用于部分符号。官方猫头本身来自矩形母版。**这些是代码依赖，不是第二套产品画风**，不要盲删，也不要因此添加双模式入口。
+- `characters.ts`：两只猫的基础参数（见下表）。
+- `upgrades.ts`：全部升级卡与经验曲线。5 张通用卡（vitality、swift、magnet、focus、scholar）、Zero 专属 5 张（bolt-power、quick-draw、split-bolt、pierce、long-shadow）、Nicole 专属 5 张（extra-star、wide-orbit、star-weight、deep-fold、moon-shield），填充卡 snack（回 1 心）。进化：Zero 的 **Echo Legion**（quick-draw 2 级 + long-shadow 2 级解锁，留影自行射击并在消失时爆裂），Nicole 的 **Full Moon**（extra-star 2 级 + star-weight 2 级解锁，+2 月星并周期性月光脉冲）。数值在 `UPGRADE_VALUES`、`XP`，`playerStats(state)` 计算派生属性，`rollChoices` 抽 3 张卡且可进化时进化卡占第一位。
+- `enemies.ts`：敌人种类与刷怪表。ink-blob、paper-bat（俯冲）、crumple（死亡分裂成 2 个小团）、smudge（停在射程外投掷有预警的墨滴并留下减速水洼）、eraser-boss（90 血，234 秒即 78% 进度出场，横扫 / 召唤 / 冲撞三种带预警攻击）。`SPAWN_TABLE`、`WAVES`（固定时点小波次）、`ENEMY_CAP = 18`、`BOSS` 都在这里。
+- `interactions.ts`：庭院互动物件。3 个南瓜灯（触碰点亮 6 秒灼烧并推开墨团，14 秒充能）、月亮灯笼（位于 LAMPS[3]，40 秒充满，触碰后全场眩晕 2.4 秒，对 Boss 0.9 秒）、鱼干（35 秒起随机出现，回 1 心，使用模拟 RNG）。
+- `sim.ts`：刷怪、四个夜间阶段、战斗、经验碎片掉落与拾取、升级暂停（`pendingChoice` 期间时间冻结，`chooseUpgrade(state, i)`）、Boss 行为、连杀（`STATS.streakWindow` 2.6 秒，每 10 连杀奖励经验）、阶段提示、胜负。
+- `types.ts`：`SimState`、共享 `STATS`、`EFFECT_LIFE`。`input.ts`：WASD / 方向键、空格技能、Esc / P 暂停、1 / 2 / 3 选卡。
+
+### 渲染（`src/render/`）
+
+- `paper-material.ts`、`craft-scene.ts`、`craft-cat.ts`、`craft-combat.ts`、`combat-fx.ts`：纸张材质、夜间小镇、纸片猫、墨团与弹道、技能效果。
+- `craft-enemies.ts`：各敌人造型、会追视并眨眼的纸片眼睛、水洼 / 落点 / Boss 虚线预警、敌方投射物与击败效果。
+- `craft-juice.ts`：镜头震动、受击闪白、眩晕星、伤害数字、纸屑溶解、升级 / 进化 / 连杀纸片爆发、碎片拖尾、南瓜与月亮灯笼状态、鱼干。
+- `upgrade-icons.ts`：升级卡图标。`world.ts`：分层合成与遮挡；最后 30 秒月亮下沉、地平线变暖、路灯变暗（黎明）。
+
+### UI 与音频
+
+- `src/ui/upgrade-cards.ts`：扇形手牌的升级卡；`hud.ts`：经验条、等级、已拥有卡、连杀徽章、Boss 血条；`ink.ts`：逐词显现文字；`character-panel.ts`、`touch.ts`。
+- `src/audio/sfx.ts`：只用振荡器与生成噪声的 Web Audio 音效和环境声（风、低音、蟋蟀）；首次 pointerdown / keydown 后创建 AudioContext。标题与 HUD 有静音按钮，保存为偏好 `muted`。
+- 偏好 `{ locale, cat, muted }` 存在 `localStorage` 的 `midnight-meow-prefs`。
+
+### 参考 Snapblocks 的效果（按公开描述重做，未复制代码）
+
+Petal Dissolve（击败纸屑溶解）、Crumple Reveal（crumple 展开再撕成两半）、Tear Ticket（结算票根沿齿孔撕下）、Fan Deck / Fan Carousel（升级卡扇形展开，聚焦卡抬起）、Ink Reveal（标题标语与 Boss 名逐词 / 逐字显现）、Trail Pamphlet / Pleated Strip（暂停面板与 Boss 横幅折页展开）、Eye Button（敌人眼睛）、Glowcap / Lumen（最后阶段与胜利时月亮翻成太阳）、Magnetic Button（开始按钮向指针倾斜）。全部尊重 `prefers-reduced-motion`；减少动态时不震屏。
 
 ## 已实现的角色差异
 
@@ -42,25 +56,24 @@
 | 自动攻击 | 喵线远程直射 | 三枚月星环绕，命中有间隔并轻推敌人 |
 | 主动技能 | 留影冲刺：1.2 秒诱饵，3 秒冷却 | 折月：短位移、3.5 秒减速 60% 领域、4.5 秒内两次护盾，5.5 秒冷却 |
 | 被动 | 冲刺后 2 秒射速加倍，可穿透命中两个目标 | 首次生命降至 2 时获得两次护盾，持续 4 秒，每局一次 |
+| 专属升级 / 进化 | 弹道伤害、射速、分叉、穿透、长影 → Echo Legion | 月星数量、轨道、重量、深折、护盾 → Full Moon |
 
-角色选择传入真实模拟，并保存偏好；重开沿用选择，回首页可换角色。Zero 的短暂留影是技能效果，不是常驻第二角色。
+Zero 的留影（包括 Echo Legion 的射击留影）是技能效果，不是常驻第二角色。
 
-## 当前美术状态与下一步
+## 验证与证据边界
 
-已重做纸张纹理、独立纸片厚度与阴影、折面屋顶、叠瓦、缝线、庭院小景、角色纸边与 UI 配色。**用户尚未认可已达到参考图的美术水平，不要把这些标记为最终完成。**
+- `npm run build` 与 `npm test` 通过（51 项）。这只说明代码可编译、模拟行为符合测试。
+- **还没有人在真实浏览器中看过新的敌人、特效、UI 动效**：本机沙盒阻止 playwright 打开浏览器。**音频也没有人试听过**，音量平衡未知。
+- **用户尚未认可美术**，不要标记美术或参赛作品完成。
 
-接下来继续做静态美术：对照参考图改善形状设计、材质粗细、层次、光照与 UI 统一度。优先看真实运行截图，避免再次靠均匀噪点、几何块和增加装饰数量代替造型质量。不要先扩 Boss、援护、动画或录制视频。
+## 仍未完成
 
-## 运行与证据边界
+1. 用户对美术（对照纸片夜间小镇参考图）的验收。
+2. 随机援护猫：未制作。
+3. 英文默认：未切换（现默认 `zh`，`en` 完整）。
+4. 真实浏览器试玩与数值平衡（难度曲线、升级强度、Boss 血量、音量）。
+5. 部署与 Devpost 提交材料，截止 **2026-12-05 06:00（北京时间）**。没有部署或推送。
 
-`npm run build` 后 `npm start`；默认端口 4173。`/?start=1` 直接进入所选角色的游戏。旧本地服务器可能还在运行，先检查端口再启动。
+## 运行
 
-最近的纸片静态截图（只在当前工作机器存在，Git 忽略，不会随 clone 交付）：
-
-- `output/playwright/papercraft-art-final.png`
-- `output/playwright/papercraft-selection-final.png`
-- `output/playwright/papercraft-cottage-detail.png`
-
-参考图是用户所附的纸片夜间小镇：大月亮、暖窗、秋树、弯路、纸边和缝线。当前机器附件路径：`/var/folders/fk/7cnqh2154ddfyrydbrkdv8cm0000gn/T/codex-clipboard-78264712-bbc4-40eb-a82c-c1029f5ec9c2.png`。该路径是临时附件路径，不保证跨机器可用，不是运行素材。
-
-更早阶段的 26 项玩法测试与像素录像不是本次纸片美术的动画验收。最近纸片改造只做了编译与静态截图校对。升级、随机援护、Boss、音频仍未完成；没有部署或推送。
+`npm run build` 后 `npm start`；默认端口 4173。`/?start=1` 直接进入所选角色的游戏。旧本地服务器可能还在运行，先检查端口再启动。`output/playwright/` 内的旧截图只在当前机器存在，Git 忽略，早于本轮玩法改动。

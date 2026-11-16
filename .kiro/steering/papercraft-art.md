@@ -14,5 +14,5 @@ Applies when editing rendering code or UI styling.
 - Cold night tones should set off warm lamp and window light. Cats, ink blobs and danger must stay readable.
 - Keep the Meow Wall face identifiers for Zero and Nicole (`src/cats/`).
 - Fix shape design before adding more decoration. Uniform noise, plain geometric blocks and more props do not replace good shapes.
-- Judge changes from real running screenshots (`npm run build`, `npm start`, `/?start=1`). Static screenshots only; no animation or recording checks for now.
+- Judge art changes from a real running screenshot when one is possible (`npm run build`, `npm start`, `/?start=1`), at most one static screenshot per change. No animation or recording checks for now.
 - Do not report the art as approved; only the user can accept it.

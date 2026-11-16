@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Midnight Meow is a browser night-watch game. The player picks Zero or Nicole and protects a papercraft night town from ink blobs for one 300-second night. All visuals are drawn by TypeScript on Canvas.
+Midnight Meow is a browser night-watch game. The player picks Zero or Nicole and protects a papercraft night town from ink creatures and an Eraser boss for one 300-second night, levelling up through upgrade cards and a per-cat evolution. All visuals are drawn by TypeScript on Canvas and all sound is synthesized with Web Audio.
 
 ## Requirement 1: Single papercraft art style
 
@@ -58,23 +58,82 @@ Midnight Meow is a browser night-watch game. The player picks Zero or Nicole and
 
 ### Acceptance criteria
 
-1. THE game SHALL support WASD / arrow keys to move and Space to use the skill.
+1. THE game SHALL support WASD / arrow keys to move, Space to use the skill, and 1 / 2 / 3 (or a click / tap) to pick an upgrade card.
 2. WHEN Esc or P is pressed, or the page is hidden, THE game SHALL pause.
 3. WHERE the device prefers touch, THE game SHALL show a joystick and a skill button.
 4. THE game SHALL respect `prefers-reduced-motion`.
 
-## Requirement 6: English language
+## Requirement 6: Upgrades and evolution
+
+**User story:** As a player, I want to grow stronger during the night, so that each run builds toward a payoff.
+
+### Acceptance criteria
+
+1. WHEN an enemy is defeated, THE game SHALL drop ink shards worth that enemy kind's XP; shards inside the pickup radius SHALL drift to the cat.
+2. WHEN XP reaches the next level threshold (`xpForLevel`), THE game SHALL freeze the simulation and offer 3 distinct upgrade cards.
+3. THE card pool SHALL contain shared cards and cards specific to the chosen cat; the other cat's cards SHALL never be offered.
+4. WHEN Zero owns Quick Whiskers level 2 and Long Shadow level 2, THE game SHALL offer the Echo Legion evolution in the first slot; Echo Legion SHALL make the afterimage fire bolts and burst when it fades.
+5. WHEN Nicole owns Another Star level 2 and Heavy Stars level 2, THE game SHALL offer the Full Moon evolution in the first slot; Full Moon SHALL add 2 moonstars and a periodic moon pulse that damages and pushes nearby enemies.
+6. WHEN fewer than 3 regular cards are eligible, THE game SHALL fill a slot with the Warm Milk filler card, which heals 1 heart.
+7. THE HUD SHALL show XP, level and owned upgrades; THE result screen SHALL show the level reached and the evolution if taken.
+
+## Requirement 7: Enemy variety and the Eraser boss
+
+**User story:** As a player, I want enemies that behave differently and a boss near dawn, so that the night escalates.
+
+### Acceptance criteria
+
+1. THE game SHALL spawn ink blobs, paper bats (fast, swooping), crumples (tough, splitting into 2 small enemies on defeat) and smudges (keep range, lob a telegraphed ink drop that leaves a slowing puddle), weighted per night phase by `SPAWN_TABLE`, plus fixed small waves (`WAVES`).
+2. THE number of living enemies SHALL never exceed `ENEMY_CAP` (18).
+3. WHEN 78% of the session has passed, THE Eraser boss SHALL appear with a banner and a HUD health bar.
+4. THE boss SHALL use sweep, summon and charge attacks, each preceded by a visible telegraph.
+5. WHEN the boss is defeated, THE game SHALL drop bonus shards and record the defeat in the run stats.
+
+## Requirement 8: Yard interactions
+
+**User story:** As a player, I want the town itself to help me, so that moving around the yard matters.
+
+### Acceptance criteria
+
+1. WHEN the cat touches one of the 3 pumpkins while it is charged, THE pumpkin SHALL light for 6 seconds, damaging and pushing nearby ink, then recharge for 14 seconds.
+2. THE moon-lantern SHALL charge over 40 seconds; WHEN the cat touches it while full, THE game SHALL stun all enemies for 2.4 seconds (the boss for 0.9 seconds).
+3. Fish treats SHALL appear from 35 seconds on at seeded random positions and heal 1 heart when collected.
+4. Pumpkin, lantern and treat positions in the sim SHALL match the drawn scene props.
+
+## Requirement 9: Feedback and game feel
+
+**User story:** As a player, I want every hit and milestone to feel clear, so that the action reads at a glance.
+
+### Acceptance criteria
+
+1. WHEN an enemy is hit, THE game SHALL flash it, show a damage tag, and on defeat dissolve it into paper flakes.
+2. WHEN kills follow each other within 2.6 seconds, THE game SHALL count a kill streak, show a badge from 3 kills, and grant bonus XP every 10 kills.
+3. THE game SHALL show a ribbon notice for each new night phase, level-up and evolution bursts, and a warning vignette at critical health.
+4. Over the last 30 seconds, THE scene SHALL move toward dawn (lower moon, warmer horizon, dimmer lamps).
+5. Camera shake and UI motion SHALL be disabled under `prefers-reduced-motion`.
+6. Rendering SHALL NOT consume the simulation RNG or mutate simulation state.
+
+## Requirement 10: Procedural audio
+
+**User story:** As a player, I want sound that matches the night, without asset downloads.
+
+### Acceptance criteria
+
+1. THE game SHALL synthesize all sound effects and ambience with Web Audio oscillators and generated noise, without audio files.
+2. THE audio context SHALL start only after the first user gesture.
+3. THE title screen and HUD SHALL offer a mute toggle, remembered between visits as `muted` in `midnight-meow-prefs`.
+
+## Requirement 11: English language (deferred)
 
 **User story:** As a hackathon judge or international player, I want the game in English, so that I can understand it without switching languages.
 
 ### Acceptance criteria
 
-1. WHEN the game loads for the first time, THE game SHALL display English.
-2. THE game SHALL present all user-facing text in English throughout a run (title, selection, HUD, notices, pause, results).
-3. All user-facing strings SHALL go through the i18n message keys.
+1. All user-facing strings SHALL go through the i18n message keys, with a complete English pack.
+2. WHEN the default is switched (later), THE game SHALL display English on first load and throughout a run (title, selection, HUD, notices, upgrade cards, pause, results).
 
-Open question: whether the Chinese pack and language toggle are removed or kept as an option. Confirm with the user.
+Status: deferred by the user. `zh` stays the default for now. Open question: whether the Chinese pack and language toggle are removed or kept as an option. Confirm with the user.
 
 ## Out of scope for now
 
-Upgrades, more enemy types, a Boss, random helper cats, audio, deployment, and animation or video-recording verification. These wait until the user accepts the static art.
+Random helper cats (not built; confirm with the user before starting), deployment and Devpost submission (deadline 2026-12-05 06:00 Beijing time), and animation or video-recording verification (not unless the user asks).
