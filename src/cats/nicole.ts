@@ -1,0 +1,40 @@
+import type { CatDef } from "./types.js";
+
+/** Meow Wall special guest Nicole: black long hair, glasses, white collar. */
+export const NICOLE: CatDef = {
+  id: "nicole",
+  palette: {
+    head: "#E8C7AA",
+    headDark: "#1A1416",
+    headLight: "#F8EDE3",
+    earInner: "#D98890",
+    ink: "#120B18",
+    blush: "#D993A4",
+    nose: "#5A3436",
+    white: "#FFFFFF",
+  },
+  markings: {
+    8: "....DDDDDD...........DDDDDDDD...",
+    9: "....DDDDDDD..........DDDDDDDD...",
+    10: "....DDDDDDD.........DDDDDDDDD...",
+    11: "....DDDDD...........DDDDDDDDD...",
+    12: "......DDD...........DDDDDDDDD...",
+    13: ".....................DDDDDDD....",
+    14: ".....................DDDDDDD....",
+    15: ".....................DDDDDDD....",
+    16: "......................DDDDDD....",
+    17: ".......................DDDDD....",
+    18: ".......................DDDDD....",
+    19: ".......................DDDDD....",
+    20: ".......................DDDDD....",
+    21: ".......................DDDDD....",
+    22: ".......................DDDDD....",
+    23: ".......................DDDDD....",
+    24: "..........WWW..........DDDDD....",
+    25: ".........WW.............DDDD....",
+    26: "........WWWW............DDDD....",
+  },
+  accessories: ["glasses"],
+  bodyFill: "#F8EDE3",
+  bodyInk: "#120B18",
+};

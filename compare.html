@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <title>Official Meow Wall heads</title>
+  <style>
+    body { margin: 0; background: #F6F0E4; font: 14px/1.4 sans-serif; color: #2A2420; }
+    main { display: flex; gap: 32px; padding: 24px; align-items: flex-start; }
+    figure { margin: 0; text-align: center; }
+    svg, canvas { background: #fff; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <main>
+    <figure>
+      <div id="zero-svg"></div>
+      <figcaption>Zero official SVG</figcaption>
+    </figure>
+    <figure>
+      <canvas id="zero-canvas" width="386" height="288"></canvas>
+      <figcaption>Zero official rects on canvas</figcaption>
+    </figure>
+    <figure>
+      <div id="nicole-svg"></div>
+      <figcaption>Nicole official SVG</figcaption>
+    </figure>
+    <figure>
+      <canvas id="nicole-canvas" width="386" height="288"></canvas>
+      <figcaption>Nicole official rects on canvas</figcaption>
+    </figure>
+  </main>
+  <script type="module">
+    import { officialRects, officialVariant } from "./dist/cats/official.js";
+    import { toSvg } from "./dist/cats/meow-wall-art.js";
+
+    function paint(id, canvasId, svgId) {
+      const v = officialVariant(id);
+      document.getElementById(svgId).innerHTML = toSvg(v.palette, {
+        ariaLabel: v.label,
+        accessories: v.accessories,
+        markings: v.markings,
+      });
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      for (const r of officialRects(id)) {
+        ctx.fillStyle = r.fill;
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
+    }
+    paint("zero", "zero-canvas", "zero-svg");
+    paint("nicole", "nicole-canvas", "nicole-svg");
+  </script>
+</body>
+</html>

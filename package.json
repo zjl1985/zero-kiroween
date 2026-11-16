@@ -1,0 +1,15 @@
+{
+  "name": "midnight-meow",
+  "private": true,
+  "type": "module",
+  "description": "猫猫守夜 / Midnight Meow — greybox architecture",
+  "scripts": {
+    "build": "tsc",
+    "start": "python3 -m http.server 4173",
+    "test": "tsc && node --test tests/*.test.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
