@@ -82,8 +82,10 @@ test("hit and defeat feedback comes from collisions and expires", () => {
   shoot();
   step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
   assert.equal(enemy.alive, false);
-  assert.equal(state.impacts[1].kind, "defeat");
-  for (let i = 0; i < 30; i++)
+  assert.ok(state.impacts.some((e) => e.kind === "defeat"));
+  const seen = new Set(state.impacts.map((e) => e.seed));
+  // Floating damage tags and dissolving flakes outlive the hit spark but still expire.
+  for (let i = 0; i < 60; i++)
     step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
-  assert.equal(state.impacts.length, 0);
+  assert.equal(state.impacts.filter((e) => seen.has(e.seed)).length, 0);
 });

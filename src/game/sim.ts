@@ -38,6 +38,7 @@ import {
   YARD_TOP,
   type BossAct,
   type FrameInput,
+  type Impact,
   type SimConfig,
   type SimState,
   type EnemyState,
@@ -45,6 +46,7 @@ import {
   type Notice,
   type EffectKind,
 } from "./types.js";
+import { FISH, MOON_LANTERN, PUMPKIN, PUMPKIN_SPOTS } from "./interactions.js";
 
 function defaultStroke(width: number, height: number): StrokePoint[] {
   const cx = width * 0.5,
@@ -114,6 +116,10 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       upgradesTaken: 0,
       shardsCollected: 0,
       bossDefeated: false,
+      bestStreak: 0,
+      pumpkinsLit: 0,
+      treatsEaten: 0,
+      moonPulses: 0,
     },
     notice: null,
     xp: 0,
@@ -129,6 +135,34 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     nextHazardId: 1,
     boss: { spawned: false, defeated: false, id: null },
     wavesDone: 0,
+    interactables: [
+      ...PUMPKIN_SPOTS.map((p, i) => ({
+        id: i + 1,
+        kind: "pumpkin" as const,
+        x: p.x,
+        y: p.y,
+        lit: 0,
+        cooldown: 0,
+        charge: 0,
+        tick: 0,
+      })),
+      {
+        id: PUMPKIN_SPOTS.length + 1,
+        kind: "lantern" as const,
+        x: MOON_LANTERN.x,
+        y: MOON_LANTERN.y,
+        lit: 0,
+        cooldown: 0,
+        charge: MOON_LANTERN.startCharge,
+        tick: 0,
+      },
+    ],
+    treats: [],
+    nextTreatId: 1,
+    treatTimer: FISH.firstAt,
+    streak: { count: 0, timer: 0, best: 0 },
+    phaseSeen: 0,
+    fxSeq: 0,
   };
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
   spawnBlob(state, world.width * 0.24, world.height * 0.85);
@@ -291,8 +325,9 @@ function effect(
   y: number,
   kind: EffectKind,
   life: number,
+  extra?: Pick<Impact, "amount" | "src">,
 ): void {
-  state.impacts.push({ x, y, kind, life });
+  state.impacts.push({ x, y, kind, life, seed: ++state.fxSeq, ...extra });
 }
 function notify(state: SimState, kind: Notice): void {
   state.notice = { kind, life: 2.2 };
@@ -351,6 +386,13 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     e.orbitCooldown = Math.max(0, e.orbitCooldown - dt);
     e.slowTime = Math.max(0, e.slowTime - dt);
     e.spawnTime = Math.max(0, e.spawnTime - dt);
+    if (e.hitFlash) e.hitFlash = Math.max(0, e.hitFlash - dt);
+    if (e.stun) e.stun = Math.max(0, e.stun - dt);
+  }
+  const streak = state.streak;
+  if (streak.count > 0) {
+    streak.timer = Math.max(0, streak.timer - dt);
+    if (streak.timer <= 0) streak.count = 0;
   }
   stepPlayer(state, input, dt);
   stepDecoy(state, dt);
@@ -363,8 +405,12 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   stepEnemies(state, dt, rng);
   stepEnemyShots(state, dt);
   stepPickups(state, dt, rng);
+  stepInteractables(state, dt);
+  stepTreats(state, dt);
   if (state.ended === "playing") {
     stepSchedule(state, rng);
+    announcePhase(state);
+    spawnTreat(state, dt, rng);
     const phase = nightPhase(state),
       // A live Boss leaves room on the page for its own summons.
       cap = Math.min(ENEMY_CAP, [7, 10, 14, 18][phase]! - (bossEnemy(state) ? 4 : 0));
@@ -383,6 +429,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   state.shots = state.shots.filter((s) => s.alive);
   state.pickups = state.pickups.filter((s) => s.alive);
   state.enemyShots = state.enemyShots.filter((s) => s.alive);
+  state.treats = state.treats.filter((s) => s.alive);
   state.rngState = rng.state();
 }
 function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
@@ -633,15 +680,139 @@ function stepOrbit(state: SimState): void {
 }
 function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
   if (!e.alive) return;
-  state.stats.damageDealt += Math.min(damage, e.hp);
+  const dealt = Math.min(damage, e.hp);
+  state.stats.damageDealt += dealt;
   e.hp = Math.max(0, e.hp - damage);
   e.alive = e.hp > 0;
+  e.hitFlash = STATS.hitFlash;
   effect(state, e.x, e.y, e.alive ? "hit" : "defeat", e.alive ? 0.16 : 0.32);
+  effect(state, e.x, e.y - enemyRadius(e) * 2, "damage", EFFECT_LIFE.damage, {
+    amount: Math.round(dealt * 10) / 10,
+    src: e.kind,
+  });
   if (!e.alive) {
     state.stats.kills++;
+    effect(state, e.x, e.y, "dissolve", EFFECT_LIFE.dissolve, { src: e.kind });
+    countStreak(state, e);
     if (e.kind === "eraser-boss") defeatBoss(state, e);
     else dropShard(state, e.x, e.y, ENEMIES[e.kind].xp);
     if (e.kind === "crumple") splitCrumple(state, e);
+  }
+}
+/** Kills inside the streak window chain; milestones pay a little bonus XP. */
+function countStreak(state: SimState, e: EnemyState): void {
+  const s = state.streak;
+  s.count++;
+  s.timer = STATS.streakWindow;
+  s.best = Math.max(s.best, s.count);
+  state.stats.bestStreak = Math.max(state.stats.bestStreak, s.count);
+  if (s.count % STATS.streakMilestone === 0) {
+    state.xp += STATS.streakBonusXp;
+    effect(state, e.x, e.y, "streak", EFFECT_LIFE.streak, { amount: s.count });
+    if (!state.notice || state.notice.life < 1.2) notify(state, "streak");
+  }
+}
+/** One ribbon notice per new night phase; the Boss banner takes priority. */
+function announcePhase(state: SimState): void {
+  const phase = nightPhase(state);
+  if (phase <= state.phaseSeen) return;
+  state.phaseSeen = phase;
+  if (state.notice?.kind !== "boss-incoming")
+    notify(state, `phase${phase}` as Notice);
+}
+/** Pumpkins light on touch and scorch nearby ink; the lantern charges, then stuns. */
+function stepInteractables(state: SimState, dt: number): void {
+  if (state.ended !== "playing") return;
+  const p = state.player;
+  for (const o of state.interactables) {
+    const touching =
+      Math.hypot(p.x - o.x, p.y - o.y) <=
+      (o.kind === "pumpkin" ? PUMPKIN.touchRadius : MOON_LANTERN.touchRadius) +
+        STATS.playerRadius;
+    if (o.kind === "pumpkin") {
+      if (o.lit > 0) {
+        o.lit = Math.max(0, o.lit - dt);
+        o.tick -= dt;
+        if (o.tick <= 0) {
+          o.tick = PUMPKIN.tick;
+          pumpkinPulse(state, o.x, o.y);
+        }
+        if (o.lit <= 0) o.cooldown = PUMPKIN.recharge;
+      } else if (o.cooldown > 0) o.cooldown = Math.max(0, o.cooldown - dt);
+      else if (touching) {
+        o.lit = PUMPKIN.litTime;
+        o.tick = 0;
+        state.stats.pumpkinsLit++;
+        effect(state, o.x, o.y, "pumpkin-light", EFFECT_LIFE["pumpkin-light"]);
+        notify(state, "pumpkin-lit");
+      }
+    } else {
+      const was = o.charge;
+      o.charge = Math.min(1, o.charge + dt / MOON_LANTERN.chargeTime);
+      if (was < 1 && o.charge >= 1 && !state.notice) notify(state, "moon-ready");
+      if (o.charge >= 1 && touching) {
+        o.charge = 0;
+        moonStun(state, o.x, o.y);
+      }
+    }
+  }
+}
+function pumpkinPulse(state: SimState, x: number, y: number): void {
+  effect(state, x, y, "pumpkin-pulse", EFFECT_LIFE["pumpkin-pulse"]);
+  for (const e of state.enemies) {
+    if (!e.alive || e.spawnTime > 0) continue;
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d > PUMPKIN.auraRadius + enemyRadius(e)) continue;
+    hurtEnemy(state, e, PUMPKIN.damage);
+    if (!e.alive) continue;
+    const dir = d > 0 ? { x: (e.x - x) / d, y: (e.y - y) / d } : { x: 1, y: 0 },
+      knock = PUMPKIN.push * ENEMIES[e.kind].knockback,
+      pos = safePosition(state, e.x + dir.x * knock, e.y + dir.y * knock, enemyRadius(e));
+    e.x = pos.x;
+    e.y = pos.y;
+  }
+}
+function moonStun(state: SimState, x: number, y: number): void {
+  state.stats.moonPulses++;
+  effect(state, x, y, "moon-stun", EFFECT_LIFE["moon-stun"]);
+  notify(state, "moon-stun");
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    e.stun = e.kind === "eraser-boss" ? MOON_LANTERN.bossStun : MOON_LANTERN.stunTime;
+    if (e.spawnTime <= 0) hurtEnemy(state, e, MOON_LANTERN.damage);
+  }
+}
+/** Fish treats appear on a timer at RNG-chosen yard spots. */
+function spawnTreat(state: SimState, dt: number, rng: Rng): void {
+  state.treatTimer -= dt;
+  if (state.treatTimer > 0) return;
+  state.treatTimer = FISH.interval + rng.float(-FISH.jitter, FISH.jitter);
+  if (state.treats.filter((t) => t.alive).length >= FISH.max) return;
+  const { width, height } = state.world,
+    p = state.player;
+  let x = rng.float(FISH.margin, width - FISH.margin),
+    y = rng.float(YARD_TOP + 30, height - FISH.margin);
+  if (Math.hypot(x - p.x, y - p.y) < FISH.avoidPlayer)
+    x = clamp(p.x + (x < p.x ? -1 : 1) * FISH.avoidPlayer * 1.5, FISH.margin, width - FISH.margin);
+  const pos = safePosition(state, x, y, FISH.radius);
+  state.treats.push({ id: state.nextTreatId++, x: pos.x, y: pos.y, life: FISH.life, alive: true });
+  notify(state, "fish-treat");
+}
+function stepTreats(state: SimState, dt: number): void {
+  if (state.ended !== "playing") return;
+  const p = state.player;
+  for (const t of state.treats) {
+    if (!t.alive) continue;
+    t.life -= dt;
+    if (t.life <= 0) {
+      t.alive = false;
+      continue;
+    }
+    if (Math.hypot(p.x - t.x, p.y - t.y) > FISH.radius + STATS.playerRadius) continue;
+    t.alive = false;
+    p.hp = Math.min(p.maxHp, p.hp + FISH.heal);
+    state.stats.treatsEaten++;
+    effect(state, t.x, t.y, "treat", EFFECT_LIFE.treat);
   }
 }
 /** A crumpled ball bursts into small blobs, as far as the cap allows. */
@@ -825,6 +996,8 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     ps = playerStats(state);
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
+    // Moon-lantern stun: frozen ink neither moves nor bites.
+    if ((e.stun ?? 0) > 0) continue;
     const def = ENEMIES[e.kind],
       boss = e.kind === "eraser-boss",
       radius = enemyRadius(e);

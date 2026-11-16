@@ -79,6 +79,38 @@ export interface EnemyState {
   act?: BossAct | null;
   /** Index into the Boss attack rotation. */
   combo?: number;
+  /** Seconds of white hit flash left after taking damage. */
+  hitFlash?: number;
+  /** Seconds frozen by the moon-lantern pulse. */
+  stun?: number;
+}
+/** A jack-o'-lantern or the moon-lantern in the yard. */
+export interface InteractState {
+  id: number;
+  kind: "pumpkin" | "lantern";
+  x: number;
+  y: number;
+  /** Pumpkin: seconds of light left. */
+  lit: number;
+  /** Pumpkin: seconds until it can be lit again. */
+  cooldown: number;
+  /** Lantern: charge from 0 to 1. */
+  charge: number;
+  /** Pumpkin: seconds until the next aura tick. */
+  tick: number;
+}
+export interface TreatState {
+  id: number;
+  x: number;
+  y: number;
+  life: number;
+  alive: boolean;
+}
+/** Kill streak with a short timeout. */
+export interface StreakState {
+  count: number;
+  timer: number;
+  best: number;
 }
 /** A slow ink drop lobbed by a smudge; lands at (tx, ty). */
 export interface EnemyShotState {
@@ -149,12 +181,25 @@ export type EffectKind =
   | "erase"
   | "summon"
   | "boss-down"
-  | "crumple";
+  | "crumple"
+  | "damage"
+  | "dissolve"
+  | "pumpkin-light"
+  | "pumpkin-pulse"
+  | "treat"
+  | "moon-stun"
+  | "streak";
 export interface Impact {
   x: number;
   y: number;
   life: number;
   kind: EffectKind;
+  /** Damage dealt ("damage") or streak count ("streak"). */
+  amount?: number;
+  /** Enemy kind that produced a hit or defeat. */
+  src?: EnemyKind;
+  /** Stable per-impact number for render-only scatter. */
+  seed?: number;
 }
 export interface MoonField {
   x: number;
@@ -171,6 +216,13 @@ export const EFFECT_LIFE = {
   "echo-burst": 0.55,
   "moon-pulse": 0.65,
   collect: 0.28,
+  damage: 0.7,
+  dissolve: 0.9,
+  "pumpkin-light": 0.7,
+  "pumpkin-pulse": 0.5,
+  treat: 0.6,
+  "moon-stun": 1.1,
+  streak: 0.9,
 } as const;
 export interface RunStats {
   kills: number;
@@ -181,6 +233,10 @@ export interface RunStats {
   upgradesTaken: number;
   shardsCollected: number;
   bossDefeated: boolean;
+  bestStreak: number;
+  pumpkinsLit: number;
+  treatsEaten: number;
+  moonPulses: number;
 }
 export type Notice =
   | "zero-dash"
@@ -190,7 +246,15 @@ export type Notice =
   | "evolve-zero"
   | "evolve-nicole"
   | "boss-incoming"
-  | "boss-defeated";
+  | "boss-defeated"
+  | "phase1"
+  | "phase2"
+  | "phase3"
+  | "pumpkin-lit"
+  | "fish-treat"
+  | "moon-ready"
+  | "moon-stun"
+  | "streak";
 export interface UpgradeChoice {
   options: string[];
 }
@@ -230,6 +294,16 @@ export interface SimState {
   boss: BossTrack;
   /** Count of scripted waves already released. */
   wavesDone: number;
+  interactables: InteractState[];
+  treats: TreatState[];
+  nextTreatId: number;
+  /** Seconds until the next fish treat appears. */
+  treatTimer: number;
+  streak: StreakState;
+  /** Highest night phase already announced. */
+  phaseSeen: number;
+  /** Stable counter that seeds render-only scatter of effects. */
+  fxSeq: number;
 }
 export interface SimConfig {
   cat: CatId;
@@ -257,4 +331,13 @@ export const STATS = {
   // Legacy common dash constants remain aliases for the starting Zero loadout.
   dashCooldown: CHARACTERS.zero.cooldown,
   decoyTime: CHARACTERS.zero.decoyLife,
+  /** White flash on a damaged enemy. */
+  hitFlash: 0.14,
+  /** Seconds a kill streak survives without another kill. */
+  streakWindow: 2.6,
+  /** Every this many streak kills grants a bonus. */
+  streakMilestone: 10,
+  streakBonusXp: 4,
+  /** Streak count from which the HUD badge appears. */
+  streakShow: 3,
 } as const;
