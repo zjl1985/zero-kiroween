@@ -1,6 +1,8 @@
 import { formatTime, t } from "../content/i18n.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import type { SimState } from "../game/types.js";
+import { STATS } from "../game/types.js";
+import { inkReveal } from "./ink.js";
 import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { characterCopy, paintPortrait } from "./character-panel.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
@@ -29,6 +31,59 @@ export interface HudRefs {
   upgrades: HTMLElement;
   boss: HTMLElement;
   bossName: HTMLElement;
+  streak: HTMLElement;
+  banner: HTMLElement;
+  bannerKicker: HTMLElement;
+  bannerName: HTMLElement;
+  bannerLine: HTMLElement;
+}
+/** Kill-chain badge: a paper tag that bumps on every kill in the chain. */
+function renderStreak(refs: HudRefs, locale: Locale, sim: SimState): void {
+  const n = sim.streak.count,
+    on = n >= STATS.streakShow;
+  refs.streak.classList.toggle("hidden", !on);
+  if (!on) {
+    refs.streak.dataset.count = "";
+    return;
+  }
+  text(refs.streak.querySelector("strong")!, t(locale, "hud.streak", { count: n }));
+  text(refs.streak.querySelector("span")!, t(locale, "hud.streak_label"));
+  refs.streak.classList.toggle("hot", n >= STATS.streakMilestone);
+  if (refs.streak.dataset.count !== String(n)) {
+    refs.streak.dataset.count = String(n);
+    refs.streak.classList.remove("bump");
+    void refs.streak.offsetWidth;
+    refs.streak.classList.add("bump");
+  }
+}
+/** Boss intro: a pleated pamphlet that unfolds while the arrival notice is up. */
+function renderBanner(refs: HudRefs, locale: Locale, sim: SimState): void {
+  const on = sim.notice?.kind === "boss-incoming";
+  refs.banner.classList.toggle("hidden", !on);
+  if (!on) return;
+  text(refs.bannerKicker, t(locale, "boss.intro"));
+  inkReveal(refs.bannerName, t(locale, "boss.name"));
+  text(refs.bannerLine, t(locale, "boss.intro_line"));
+}
+/** Ribbon notices for phase changes; every new notice replays its pop-in. */
+function renderNotice(refs: HudRefs, locale: Locale, sim: SimState): void {
+  const n = sim.notice;
+  refs.notice.classList.toggle("hidden", !n);
+  if (!n) {
+    refs.notice.dataset.kind = "";
+    return;
+  }
+  text(refs.notice, t(locale, `notice.${n.kind}` as MessageKey));
+  refs.notice.classList.toggle("ribbon", n.kind.startsWith("phase"));
+  const key = `${n.kind}`,
+    renewed = n.life > Number(refs.notice.dataset.life ?? 0) + 0.001;
+  refs.notice.dataset.life = String(n.life);
+  if (refs.notice.dataset.kind !== key || renewed) {
+    refs.notice.dataset.kind = key;
+    refs.notice.classList.remove("pop");
+    void refs.notice.offsetWidth;
+    refs.notice.classList.add("pop");
+  }
 }
 /** The Eraser's paper-strip HP bar, shown only while it is on the page. */
 function renderBoss(refs: HudRefs, locale: Locale, sim: SimState): void {
@@ -144,9 +199,9 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     `${characterCopy(locale, p.id, "active.name")} · ${refs.dash.textContent}`,
   );
   refs.pause.setAttribute("aria-label", t(locale, "hud.pause"));
-  refs.notice.classList.toggle("hidden", !sim.notice);
-  if (sim.notice)
-    text(refs.notice, t(locale, `notice.${sim.notice.kind}` as MessageKey));
+  renderNotice(refs, locale, sim);
+  renderStreak(refs, locale, sim);
+  renderBanner(refs, locale, sim);
   text(
     refs.hint,
     t(locale, "hud.skill_hint", {
@@ -156,4 +211,10 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   );
   refs.hint.classList.toggle("hint-dismissed", sim.elapsed > 14);
   document.body.classList.toggle("low-health", p.hp <= 2);
+  document.body.classList.toggle("critical-health", p.hp <= 1 && sim.ended !== "won");
+  // Glowcap: the paper moon flips to a sun as dawn arrives.
+  document.body.classList.toggle(
+    "is-dawn",
+    sim.ended === "won" || nightPhase(sim) === 3,
+  );
 }

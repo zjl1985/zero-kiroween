@@ -17,6 +17,8 @@ import { STATS } from "./game/types.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
+import { inkReveal } from "./ui/ink.js";
+import { createSfx } from "./audio/sfx.js";
 
 type Screen = "title" | "play" | "pause" | "upgrade" | "result";
 const PREF_KEY = "midnight-meow-prefs";
@@ -25,20 +27,54 @@ function must<T extends Element>(id: string): T {
   if (!el) throw new Error(`missing #${id}`);
   return el as unknown as T;
 }
-function initialPrefs(): { locale: Locale; cat: CatId } {
+interface Prefs {
+  locale: Locale;
+  cat: CatId;
+  muted: boolean;
+}
+function initialPrefs(): Prefs {
   try {
     const value = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
     return {
       locale: isLocale(value.locale) ? value.locale : "zh",
       cat: value.cat === "nicole" ? "nicole" : "zero",
+      muted: value.muted === true,
     };
   } catch {
-    return { locale: "zh", cat: "zero" };
+    return { locale: "zh", cat: "zero", muted: false };
   }
+}
+function savePrefs(prefs: Prefs): void {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+/** Counters the audio layer diffs each frame; audio never lives in the sim. */
+function cueState(s: SimState) {
+  return {
+    shots: s.nextShotId,
+    dealt: s.stats.damageDealt,
+    kills: s.stats.kills,
+    skills: s.stats.skillUses,
+    taken: s.stats.damageTaken,
+    blocks: s.stats.shieldBlocks,
+    shards: s.stats.shardsCollected,
+    level: s.level,
+    pumpkins: s.stats.pumpkinsLit,
+    treats: s.stats.treatsEaten,
+    moon: s.stats.moonPulses,
+    boss: s.boss.spawned,
+    evolved: s.upgrades[evolutionFor(s.player.id)] ?? 0,
+    chain: Math.floor(s.streak.count / STATS.streakMilestone),
+    ended: s.ended,
+  };
 }
 function boot(): void {
   const prefs = initialPrefs();
   let selectedCat: CatId = prefs.cat;
+  let muted = prefs.muted;
+  const sfx = createSfx(muted);
+  let cues: ReturnType<typeof cueState> | null = null;
   let locale = prefs.locale,
     screen: Screen = "title",
     hiddenPause = false,
@@ -83,6 +119,35 @@ function boot(): void {
     upgrades: must<HTMLElement>("hud-upgrades"),
     boss: must<HTMLElement>("hud-boss"),
     bossName: must<HTMLElement>("hud-boss-name"),
+    streak: must<HTMLElement>("hud-streak"),
+    banner: must<HTMLElement>("boss-banner"),
+    bannerKicker: must<HTMLElement>("boss-banner-kicker"),
+    bannerName: must<HTMLElement>("boss-banner-name"),
+    bannerLine: must<HTMLElement>("boss-banner-line"),
+  };
+  const cueSounds = (s: SimState) => {
+    const now = cueState(s),
+      p = cues;
+    cues = now;
+    if (!p) return;
+    if (now.ended !== p.ended) {
+      sfx.play(now.ended === "won" ? "win" : "lose");
+      return;
+    }
+    if (now.shots > p.shots) sfx.play("shot");
+    if (now.kills > p.kills) sfx.play("defeat", now.kills - p.kills);
+    else if (now.dealt > p.dealt) sfx.play("hit");
+    if (now.skills > p.skills) sfx.play("skill");
+    if (now.blocks > p.blocks) sfx.play("shield");
+    else if (now.taken > p.taken) sfx.play("hurt");
+    if (now.shards > p.shards) sfx.play("pickup", s.streak.count);
+    if (now.evolved > p.evolved) sfx.play("evolve");
+    else if (now.level > p.level) sfx.play("levelup");
+    if (now.pumpkins > p.pumpkins) sfx.play("pumpkin");
+    if (now.treats > p.treats) sfx.play("treat");
+    if (now.moon > p.moon) sfx.play("moon");
+    if (now.boss && !p.boss) sfx.play("boss");
+    if (now.chain > p.chain) sfx.play("streak", s.streak.count);
   };
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;
@@ -105,7 +170,6 @@ function boot(): void {
     const labels: Record<string, Parameters<typeof t>[1]> = {
       "title-name": "title.name",
       "title-sub": "title.subtitle",
-      "title-tag": "title.tagline",
       "title-credit": "title.credit",
       "btn-start": "title.start",
       "btn-lang": "title.language",
@@ -118,6 +182,15 @@ function boot(): void {
     };
     for (const [id, key] of Object.entries(labels))
       must(id).textContent = t(locale, key);
+    inkReveal(must("title-tag"), t(locale, "title.tagline"));
+    for (const id of ["btn-mute", "btn-hud-mute"]) {
+      const b = must<HTMLButtonElement>(id),
+        label = t(locale, muted ? "hud.unmute" : "hud.mute");
+      b.setAttribute("aria-label", label);
+      b.title = label;
+      b.setAttribute("aria-pressed", String(muted));
+      b.classList.toggle("muted", muted);
+    }
     must("title-controls").textContent = t(
       locale,
       useTouch ? "title.controls_touch" : "title.controls",
@@ -165,6 +238,8 @@ function boot(): void {
         must("result-cat").textContent =
           `${id === "zero" ? "ZERO" : "NICOLE"} · ${characterCopy(locale, id, "role")}`;
         must("btn-result-back").textContent = t(locale, "result.change");
+        must("result-ticket").textContent = t(locale, "result.ticket");
+        must("result-ticket-stub").textContent = t(locale, "result.ticket_stub");
         must("result-stats").innerHTML = [
           [t(locale, "result.duration"), formatTime(sim.elapsed)],
           [t(locale, "result.kills"), sim.stats.kills],
@@ -188,6 +263,8 @@ function boot(): void {
                   : "result.none",
             ),
           ],
+          [t(locale, "result.streak"), sim.stats.bestStreak],
+          [t(locale, "result.pumpkins"), sim.stats.pumpkinsLit],
         ]
           .map(
             ([label, value]) =>
@@ -213,7 +290,9 @@ function boot(): void {
       must(id).classList.toggle("hidden", !visible);
     document.body.classList.toggle("is-playing", next === "play");
     document.body.dataset.screen = next;
-    if (next === "title") document.body.classList.remove("low-health");
+    if (next === "title")
+      document.body.classList.remove("low-health", "critical-health", "is-dawn");
+    sfx.setAmbience(next === "play" || next === "upgrade");
     paint();
   };
   const start = () => {
@@ -224,6 +303,7 @@ function boot(): void {
     });
     clock.acc = 0;
     last = performance.now();
+    cues = cueState(sim);
     show("play");
   };
   const resume = () => {
@@ -244,6 +324,7 @@ function boot(): void {
     if (!sim || screen !== "upgrade" || performance.now() < cardsArmedAt)
       return;
     if (!chooseUpgrade(sim, index)) return;
+    sfx.play("card");
     if (sim.pendingChoice) openCards();
     else resume();
   };
@@ -255,24 +336,42 @@ function boot(): void {
   };
   const language = () => {
     locale = locale === "zh" ? "en" : "zh";
-    try {
-      localStorage.setItem(
-        PREF_KEY,
-        JSON.stringify({ locale, cat: selectedCat }),
-      );
-    } catch {}
+    savePrefs({ locale, cat: selectedCat, muted });
     paint();
   };
+  const toggleMute = () => {
+    muted = !muted;
+    sfx.unlock();
+    sfx.setMuted(muted);
+    savePrefs({ locale, cat: selectedCat, muted });
+    paint();
+  };
+  must("btn-mute").addEventListener("click", toggleMute);
+  must("btn-hud-mute").addEventListener("click", toggleMute);
+  // Browsers only allow audio after a gesture; any first press unlocks it.
+  for (const type of ["pointerdown", "keydown"] as const)
+    window.addEventListener(type, () => sfx.unlock(), { capture: true });
+  // Magnetic Start button: it leans toward the pointer and floods with warm
+  // colour from the side the pointer entered (styles.css draws the flood).
+  const magnet = must<HTMLElement>("btn-start");
+  const aim = (event: PointerEvent, lean: boolean) => {
+    const r = magnet.getBoundingClientRect(),
+      fx = (event.clientX - r.left) / (r.width || 1),
+      fy = (event.clientY - r.top) / (r.height || 1);
+    magnet.style.setProperty("--fx", `${Math.round(fx * 100)}%`);
+    magnet.style.setProperty("--fy", `${Math.round(fy * 100)}%`);
+    const pull = lean && !reducedMotion.matches ? 1 : 0;
+    magnet.style.setProperty("--mx", `${((fx - 0.5) * 10 * pull).toFixed(1)}px`);
+    magnet.style.setProperty("--my", `${((fy - 0.5) * 6 * pull).toFixed(1)}px`);
+  };
+  magnet.addEventListener("pointerenter", (e) => aim(e, true));
+  magnet.addEventListener("pointermove", (e) => aim(e, true));
+  magnet.addEventListener("pointerleave", (e) => aim(e, false));
   for (const id of ["zero", "nicole"] as const) {
     must(`btn-cat-${id}`).addEventListener("click", () => {
       if (screen !== "title") return;
       selectedCat = id;
-      try {
-        localStorage.setItem(
-          PREF_KEY,
-          JSON.stringify({ locale, cat: selectedCat }),
-        );
-      } catch {}
+      savePrefs({ locale, cat: selectedCat, muted });
       paint();
     });
   }
@@ -357,6 +456,7 @@ function boot(): void {
       if (choice !== null) pick(choice);
     } else if (screen === "pause" && input.consumePause()) resume();
     else input.consumePause();
+    if (sim) cueSounds(sim);
     const time = reducedMotion.matches ? 0 : renderTime;
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);

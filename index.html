@@ -123,7 +123,7 @@
           </div>
           <footer class="selection-footer">
             <p id="profile-tactic"></p>
-            <button type="button" id="btn-start" class="btn primary"></button>
+            <button type="button" id="btn-start" class="btn primary magnetic"></button>
             <p id="title-controls" class="hint"></p>
           </footer>
         </div>
@@ -132,6 +132,14 @@
           ><strong id="hero-name"></strong><span id="hero-role"></span>
         </div>
         <div class="corner corner-tr">
+          <button
+            type="button"
+            id="btn-mute"
+            class="btn ghost sound-toggle"
+            aria-pressed="false"
+          >
+            <span aria-hidden="true">♪</span>
+          </button>
           <button type="button" id="btn-lang" class="btn ghost"></button>
         </div>
         <p id="title-credit" class="credit corner-br"></p>
@@ -160,7 +168,8 @@
           </div>
           <div class="night-card">
             <div>
-              <span class="hud-moon" aria-hidden="true">☾</span
+              <span class="hud-moon glowcap" aria-hidden="true"
+                ><i class="glow-moon">☾</i><i class="glow-sun">☀</i></span
               ><strong id="hud-time"></strong>
             </div>
             <div id="hud-progress" class="night-progress"></div>
@@ -170,8 +179,26 @@
             <span id="hud-boss-name" class="boss-name"></span>
             <div class="boss-track"><i></i></div>
           </div>
+          <div id="hud-streak" class="streak-badge hidden" aria-hidden="true">
+            <strong></strong><span></span>
+          </div>
+          <div id="boss-banner" class="boss-banner hidden" aria-hidden="true">
+            <div class="pleat pleat-1"><span id="boss-banner-kicker"></span></div>
+            <div class="pleat pleat-2">
+              <strong id="boss-banner-name" class="ink-reveal"></strong>
+            </div>
+            <div class="pleat pleat-3"><span id="boss-banner-line"></span></div>
+          </div>
+          <div class="hurt-vignette" aria-hidden="true"></div>
           <div class="hud-actions">
-            <button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
+            <button
+              type="button"
+              id="btn-hud-mute"
+              class="btn-chip sound-toggle"
+              aria-pressed="false"
+            >
+              <span aria-hidden="true">♪</span></button
+            ><button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
             ><button type="button" id="btn-hud-pause" class="btn-chip">
               Ⅱ
             </button>
@@ -198,7 +225,7 @@
             <p id="hud-hint" class="game-hint"></p>
           </div>
         </div>
-        <section id="pause-screen" class="panel hidden">
+        <section id="pause-screen" class="panel pamphlet hidden">
           <p id="pause-kit" class="eyebrow"></p>
           <h2 id="pause-title"></h2>
           <p id="pause-skill" class="panel-copy"></p>
@@ -248,7 +275,15 @@
           <p id="result-cat" class="eyebrow"></p>
           <h2 id="result-title"></h2>
           <p id="result-text" class="panel-copy"></p>
-          <div id="result-stats" class="result-stats"></div>
+          <div class="ticket">
+            <div class="ticket-stub" aria-hidden="true">
+              <b>☾</b><span id="result-ticket-stub"></span>
+            </div>
+            <div class="ticket-body">
+              <span id="result-ticket" class="ticket-title"></span>
+              <div id="result-stats" class="result-stats"></div>
+            </div>
+          </div>
           <div class="actions">
             <button type="button" id="btn-retry" class="btn primary"></button
             ><button type="button" id="btn-result-back" class="btn"></button>
