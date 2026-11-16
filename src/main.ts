@@ -1,288 +1,343 @@
-import { t } from "./content/i18n.js";
+import {
+  paintCharacterPanel,
+  characterCopy,
+  characterValues,
+} from "./ui/character-panel.js";
+import { character } from "./game/characters.js";
+import { formatTime } from "./content/i18n.js";
+import type { CatId } from "./cats/types.js";
+import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
-import { isLocale } from "./content/i18n.js";
 import { createClock, FIXED_DT, tickClock } from "./game/clock.js";
 import { createInput } from "./game/input.js";
 import { createSim, step } from "./game/sim.js";
-import type { SimState, StyleMode } from "./game/types.js";
+import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
-import { ensureCrayonFilter } from "./render/grain.js";
-import type { CatPose } from "./render/layout.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 
 type Screen = "title" | "play" | "pause" | "result";
-
-interface App {
-  locale: Locale;
-  style: StyleMode;
-  screen: Screen;
-  hiddenPause: boolean;
-  sim: SimState | null;
-}
-
 const PREF_KEY = "midnight-meow-prefs";
-
-function loadPrefs(): { locale: Locale; style: StyleMode } {
-  try {
-    const raw = localStorage.getItem(PREF_KEY);
-    if (!raw) return { locale: "zh", style: "paper" };
-    const data = JSON.parse(raw) as { locale?: string; style?: string };
-    return {
-      locale: data.locale && isLocale(data.locale) ? data.locale : "zh",
-      style: data.style === "pixel" ? "pixel" : "paper",
-    };
-  } catch {
-    return { locale: "zh", style: "paper" };
-  }
-}
-
-function savePrefs(app: App): void {
-  try {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ locale: app.locale, style: app.style }));
-  } catch {
-    // ignore storage errors
-  }
-}
-
 function must<T extends Element>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`missing #${id}`);
   return el as unknown as T;
 }
-
+function initialPrefs(): { locale: Locale; cat: CatId } {
+  try {
+    const value = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
+    return {
+      locale: isLocale(value.locale) ? value.locale : "zh",
+      cat: value.cat === "nicole" ? "nicole" : "zero",
+    };
+  } catch {
+    return { locale: "zh", cat: "zero" };
+  }
+}
 function boot(): void {
-  const prefs = loadPrefs();
-  const params = new URLSearchParams(location.search);
-  const styleParam = params.get("style");
-  const app: App = {
-    locale: prefs.locale,
-    style: styleParam === "pixel" || styleParam === "paper" ? styleParam : prefs.style,
-    screen: "title",
-    hiddenPause: false,
-    sim: null,
-  };
-
-  const stage = must<HTMLCanvasElement>("game");
-  const overlay = must<HTMLElement>("overlay");
+  const prefs = initialPrefs();
+  let selectedCat: CatId = prefs.cat;
+  let locale = prefs.locale,
+    screen: Screen = "title",
+    hiddenPause = false,
+    sim: SimState | null = null;
+  const stage = must<HTMLCanvasElement>("game"),
+    overlay = must<HTMLElement>("overlay");
   const back = document.createElement("canvas");
-  back.width = VIEW_WIDTH;
-  back.height = VIEW_HEIGHT;
-  const backCtx = back.getContext("2d");
-  const frontCtx = stage.getContext("2d");
-  if (!backCtx || !frontCtx) throw new Error("canvas 2d unavailable");
-
-  const title = must<HTMLElement>("title-screen");
-  const hud = must<HTMLElement>("hud");
-  const pause = must<HTMLElement>("pause-screen");
-  const result = must<HTMLElement>("result-screen");
-  const touchRoot = must<HTMLElement>("touch");
-  const startBtn = must<HTMLButtonElement>("btn-start");
-  const langBtn = must<HTMLButtonElement>("btn-lang");
-  const styleBtn = must<HTMLButtonElement>("btn-style");
-  const pauseStyleBtn = must<HTMLButtonElement>("btn-pause-style");
-  const resumeBtn = must<HTMLButtonElement>("btn-resume");
-  const backBtn = must<HTMLButtonElement>("btn-back");
-  const retryBtn = must<HTMLButtonElement>("btn-retry");
-  const resultBackBtn = must<HTMLButtonElement>("btn-result-back");
-  const pauseTitle = must<HTMLElement>("pause-title");
-  const pauseNote = must<HTMLElement>("pause-note");
-  const resultText = must<HTMLElement>("result-text");
-
+  back.width = VIEW_WIDTH * 2;
+  back.height = VIEW_HEIGHT * 2;
+  const ctx = back.getContext("2d")!,
+    dest = stage.getContext("2d")!;
+  const input = createInput();
+  input.attach(window);
+  const touch = createTouch(must("touch"), must("stick"), must("dash-btn")),
+    useTouch = prefersTouch();
+  if (useTouch) touch.attach();
+  document.body.classList.toggle("has-touch", useTouch);
+  const clock = createClock();
+  let last = performance.now(),
+    renderTime = 0;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
   const hudRefs = {
     time: must<HTMLElement>("hud-time"),
     hearts: must<HTMLElement>("hud-hearts"),
     dash: must<HTMLElement>("hud-dash"),
-    style: must<HTMLElement>("hud-style"),
     pause: must<HTMLButtonElement>("btn-hud-pause"),
+    name: must<HTMLElement>("hud-name"),
+    portrait: must<HTMLCanvasElement>("hud-portrait"),
+    phase: must<HTMLElement>("hud-phase"),
+    progress: must<HTMLElement>("hud-progress"),
+    kills: must<HTMLElement>("hud-kills"),
+    buff: must<HTMLElement>("hud-buff"),
+    skill: must<HTMLButtonElement>("btn-skill"),
+    skillName: must<HTMLElement>("hud-skill-name"),
+    skillKey: must<HTMLElement>("hud-skill-key"),
+    skillIcon: must<HTMLCanvasElement>("hud-skill-icon"),
+    notice: must<HTMLElement>("hud-notice"),
+    hint: must<HTMLElement>("hud-hint"),
   };
-
-  ensureCrayonFilter();
-  applyStyleClass(app.style);
-
-  const input = createInput();
-  input.attach(window);
-  const touch = createTouch(touchRoot, must<HTMLElement>("stick"), must<HTMLButtonElement>("dash-btn"));
-  const useTouch = prefersTouch();
-  if (useTouch) touch.attach();
-
-  const clock = createClock();
-  let last = performance.now();
-  let renderTime = 0;
-  let viewCss = { w: window.innerWidth, h: window.innerHeight, dpr: 1 };
-
   const resize = () => {
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const cssW = window.innerWidth;
-    const cssH = window.innerHeight;
-    viewCss = { w: cssW, h: cssH, dpr };
-    stage.width = Math.max(1, Math.floor(cssW * dpr));
-    stage.height = Math.max(1, Math.floor(cssH * dpr));
-    stage.style.width = `${cssW}px`;
-    stage.style.height = `${cssH}px`;
+    touch.reset();
+    size = {
+      w: innerWidth,
+      h: innerHeight,
+      dpr: Math.max(1, devicePixelRatio || 1),
+    };
+    stage.width = Math.floor(size.w * size.dpr);
+    stage.height = Math.floor(size.h * size.dpr);
+    stage.style.width = `${size.w}px`;
+    stage.style.height = `${size.h}px`;
   };
   resize();
   window.addEventListener("resize", resize);
-
-  const setStyle = (style: StyleMode) => {
-    app.style = style;
-    applyStyleClass(style);
-    savePrefs(app);
-    paintI18n();
-  };
-
-  const setLocale = (locale: Locale) => {
-    app.locale = locale;
+  const paint = () => {
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
-    savePrefs(app);
-    paintI18n();
-  };
-
-  const paintI18n = () => {
-    must<HTMLElement>("title-name").textContent = t(app.locale, "title.name");
-    must<HTMLElement>("title-sub").textContent = t(app.locale, "title.subtitle");
-    must<HTMLElement>("title-tag").textContent = t(app.locale, "title.tagline");
-    must<HTMLElement>("title-controls").textContent = t(app.locale, "title.controls");
-    must<HTMLElement>("title-credit").textContent = t(app.locale, "title.credit");
-    must<HTMLElement>("zero-role").textContent = `Zero · ${t(app.locale, "cat.zero.role")}`;
-    must<HTMLElement>("nicole-role").textContent = `Nicole · ${t(app.locale, "cat.nicole.role")}`;
-    startBtn.textContent = t(app.locale, "title.start");
-    langBtn.textContent = t(app.locale, "title.language");
-    styleBtn.textContent =
-      app.style === "paper" ? t(app.locale, "title.style_pixel") : t(app.locale, "title.style_paper");
-    pauseStyleBtn.textContent =
-      `${t(app.locale, "hud.style")} · ` +
-      (app.style === "paper" ? t(app.locale, "hud.style_pixel") : t(app.locale, "hud.style_paper"));
-    resumeBtn.textContent = t(app.locale, "pause.continue");
-    backBtn.textContent = t(app.locale, "hud.back");
-    retryBtn.textContent = t(app.locale, "result.retry");
-    resultBackBtn.textContent = t(app.locale, "hud.back");
-    must<HTMLButtonElement>("dash-btn").textContent = t(app.locale, "touch.dash");
-    pauseTitle.textContent = t(app.locale, "pause.title");
-    pauseNote.textContent = app.hiddenPause ? t(app.locale, "pause.hidden") : "";
-    if (app.sim && (app.screen === "play" || app.screen === "pause")) {
-      renderHud(hudRefs, app.locale, app.style, app.sim);
+    const labels: Record<string, Parameters<typeof t>[1]> = {
+      "title-name": "title.name",
+      "title-sub": "title.subtitle",
+      "title-tag": "title.tagline",
+      "title-credit": "title.credit",
+      "btn-start": "title.start",
+      "btn-lang": "title.language",
+      "btn-pause-lang": "title.language",
+      "btn-resume": "pause.continue",
+      "btn-back": "hud.back",
+      "btn-result-back": "hud.back",
+      "btn-retry": "result.retry",
+      "pause-title": "pause.title",
+    };
+    for (const [id, key] of Object.entries(labels))
+      must(id).textContent = t(locale, key);
+    must("title-controls").textContent = t(
+      locale,
+      useTouch ? "title.controls_touch" : "title.controls",
+    );
+    paintCharacterPanel(locale, selectedCat);
+    stage.setAttribute(
+      "aria-label",
+      `${t(locale, "title.name")} · ${(sim?.player.id ?? selectedCat) === "zero" ? "Zero" : "Nicole"}`,
+    );
+    must("pause-note").textContent = hiddenPause
+      ? t(locale, "pause.hidden")
+      : "";
+    must("dash-btn").textContent = characterCopy(
+      locale,
+      selectedCat,
+      "active.short",
+    );
+    must("btn-fullscreen").setAttribute(
+      "aria-label",
+      t(locale, "hud.fullscreen"),
+    );
+    if (sim) renderHud(hudRefs, locale, sim);
+    if (sim) {
+      const id = sim.player.id;
+      must("pause-kit").textContent = t(
+        locale,
+        "pause.kit",
+        characterValues(id),
+      );
+      must("pause-skill").textContent = characterCopy(
+        locale,
+        id,
+        "active.desc",
+      );
+      if (screen === "result") {
+        must("result-title").textContent = t(
+          locale,
+          sim.ended === "won" ? "result.heading_win" : "result.heading_lose",
+        );
+        must("result-text").textContent = t(
+          locale,
+          sim.ended === "won" ? "result.win" : "result.lose",
+        );
+        must("result-cat").textContent =
+          `${id === "zero" ? "ZERO" : "NICOLE"} · ${characterCopy(locale, id, "role")}`;
+        must("btn-result-back").textContent = t(locale, "result.change");
+        must("result-stats").innerHTML = [
+          [t(locale, "result.duration"), formatTime(sim.elapsed)],
+          [t(locale, "result.kills"), sim.stats.kills],
+          [t(locale, "result.skills"), sim.stats.skillUses],
+          [t(locale, "result.blocks"), sim.stats.shieldBlocks],
+        ]
+          .map(
+            ([label, value]) =>
+              `<div><strong>${value}</strong><span>${label}</span></div>`,
+          )
+          .join("");
+      }
     }
-    if (app.sim && app.screen === "result") {
-      resultText.textContent = t(app.locale, app.sim.ended === "won" ? "result.win" : "result.lose");
-    }
   };
-
-  const showScreen = (screen: Screen, hidden = false) => {
-    app.screen = screen;
-    app.hiddenPause = hidden;
-    title.classList.toggle("hidden", screen !== "title");
-    hud.classList.toggle("hidden", screen !== "play" && screen !== "pause");
-    pause.classList.toggle("hidden", screen !== "pause");
-    result.classList.toggle("hidden", screen !== "result");
-    touchRoot.classList.toggle("hidden", !(useTouch && screen === "play"));
-    document.body.classList.toggle("is-playing", screen === "play");
-    paintI18n();
+  const show = (next: Screen, hidden = false) => {
+    input.reset();
+    touch.reset();
+    screen = next;
+    hiddenPause = hidden;
+    for (const [id, visible] of Object.entries({
+      "title-screen": next === "title",
+      hud: next === "play" || next === "pause",
+      "pause-screen": next === "pause",
+      "result-screen": next === "result",
+      touch: useTouch && next === "play",
+    }))
+      must(id).classList.toggle("hidden", !visible);
+    document.body.classList.toggle("is-playing", next === "play");
+    document.body.dataset.screen = next;
+    if (next === "title") document.body.classList.remove("low-health");
+    paint();
   };
-
-  const startGame = () => {
-    app.sim = createSim({ seed: 20261116, sessionSeconds: STATS.sessionSeconds });
+  const start = () => {
+    sim = createSim({
+      cat: selectedCat,
+      seed: 20261116,
+      sessionSeconds: STATS.sessionSeconds,
+    });
     clock.acc = 0;
     last = performance.now();
-    showScreen("play");
+    show("play");
   };
-
-  startBtn.addEventListener("click", startGame);
-  retryBtn.addEventListener("click", startGame);
-  langBtn.addEventListener("click", () => setLocale(app.locale === "zh" ? "en" : "zh"));
-  styleBtn.addEventListener("click", () => setStyle(app.style === "paper" ? "pixel" : "paper"));
-  pauseStyleBtn.addEventListener("click", () => setStyle(app.style === "paper" ? "pixel" : "paper"));
-  must<HTMLButtonElement>("hud-style").addEventListener("click", () =>
-    setStyle(app.style === "paper" ? "pixel" : "paper"),
-  );
-  hudRefs.pause.addEventListener("click", () => {
-    if (app.screen === "play") showScreen("pause");
+  const resume = () => {
+    last = performance.now();
+    clock.acc = 0;
+    show("play");
+  };
+  const title = () => {
+    sim = null;
+    show("title");
+  };
+  const language = () => {
+    locale = locale === "zh" ? "en" : "zh";
+    try {
+      localStorage.setItem(
+        PREF_KEY,
+        JSON.stringify({ locale, cat: selectedCat }),
+      );
+    } catch {}
+    paint();
+  };
+  for (const id of ["zero", "nicole"] as const) {
+    must(`btn-cat-${id}`).addEventListener("click", () => {
+      if (screen !== "title") return;
+      selectedCat = id;
+      try {
+        localStorage.setItem(
+          PREF_KEY,
+          JSON.stringify({ locale, cat: selectedCat }),
+        );
+      } catch {}
+      paint();
+    });
+  }
+  document
+    .querySelector(".cat-choices")!
+    .addEventListener("keydown", (event) => {
+      const key = (event as KeyboardEvent).key;
+      if (
+        screen !== "title" ||
+        !["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      const id =
+        key === "Home"
+          ? "zero"
+          : key === "End"
+            ? "nicole"
+            : selectedCat === "zero"
+              ? "nicole"
+              : "zero";
+      const button = must<HTMLButtonElement>(`btn-cat-${id}`);
+      button.focus();
+      button.click();
+    });
+  must("btn-start").addEventListener("click", start);
+  must("btn-skill").addEventListener("click", () => {
+    if (screen === "play") input.queueSkill();
   });
-  resumeBtn.addEventListener("click", () => {
-    if (app.screen === "pause") {
-      last = performance.now();
-      clock.acc = 0;
-      showScreen("play");
+  must("btn-retry").addEventListener("click", start);
+  must("btn-lang").addEventListener("click", language);
+  must("btn-pause-lang").addEventListener("click", language);
+  must("btn-hud-pause").addEventListener("click", () => {
+    if (screen === "play") show("pause");
+  });
+  must("btn-resume").addEventListener("click", resume);
+  must("btn-back").addEventListener("click", title);
+  must("btn-result-back").addEventListener("click", title);
+  must("btn-fullscreen").addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await must<HTMLElement>("app").requestFullscreen();
+    } catch {
+      /* Not all mobile browsers expose fullscreen. */
     }
   });
-  const toTitle = () => {
-    app.sim = null;
-    showScreen("title");
+  const background = () => {
+    if (screen === "play") show("pause", true);
   };
-  backBtn.addEventListener("click", toTitle);
-  resultBackBtn.addEventListener("click", toTitle);
-
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && app.screen === "play") showScreen("pause", true);
+    if (document.hidden) background();
   });
-
-  setLocale(app.locale);
-  showScreen("title");
-  if (params.get("start") === "1") startGame();
-
-  const titlePose = (id: "zero" | "nicole", x: number, y: number, facing: 1 | -1, time: number): CatPose => ({
-    id,
-    x,
-    y,
-    facing,
-    moving: false,
-    dashing: false,
-    hurt: false,
-    time,
-    scale: 0.125,
-  });
-
+  window.addEventListener("blur", background);
+  show("title");
+  if (new URLSearchParams(location.search).get("start") === "1") start();
   const frame = (now: number) => {
-    const real = (now - last) / 1000;
+    const real = Math.min((now - last) / 1000, 0.25);
     last = now;
-    renderTime += Math.min(real, 0.1);
-
-    if (app.screen === "play" && app.sim) {
-      if (input.consumePause()) {
-        showScreen("pause");
-      } else {
-        const steps = tickClock(clock, real);
-        for (let i = 0; i < steps; i += 1) {
-          const frameInput = input.sample(touch.stick);
-          step(app.sim, frameInput, FIXED_DT);
-          if (app.sim.ended !== "playing") {
-            showScreen("result");
+    if (screen === "play" || screen === "title")
+      renderTime += Math.min(real, 0.1);
+    if (screen === "play" && sim) {
+      if (input.consumePause()) show("pause");
+      else {
+        const count = tickClock(clock, real);
+        for (let i = 0; i < count; i++) {
+          step(sim, input.sample(touch.stick), FIXED_DT);
+          if (sim.ended !== "playing") {
+            show("result");
             break;
           }
         }
-        if (app.sim.ended === "playing") renderHud(hudRefs, app.locale, app.style, app.sim);
+        if (sim.ended === "playing") renderHud(hudRefs, locale, sim);
       }
-    } else if (app.screen === "pause" && input.consumePause()) {
-      last = performance.now();
-      clock.acc = 0;
-      showScreen("play");
-    } else {
-      input.consumePause();
+    } else if (screen === "pause" && input.consumePause()) resume();
+    else input.consumePause();
+    const time = reducedMotion.matches ? 0 : renderTime;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+    drawWorld(
+      ctx,
+      screen === "title" ? null : sim,
+      { time, reducedMotion: reducedMotion.matches },
+      screen === "title" && size.w > size.h
+        ? {
+            id: selectedCat,
+            x: 705,
+            y: 399,
+            facing: 1,
+            moving: false,
+            dashing: false,
+            hurt: false,
+            time,
+            scale: size.h < 500 ? 0.25 : 0.29,
+          }
+        : undefined,
+    );
+    present(back, dest, size.w, size.h, size.dpr, overlay);
+    if (useTouch && sim) {
+      const button = must<HTMLButtonElement>("dash-btn");
+      button.disabled = sim.player.dashCooldown > 0;
+      button.textContent = button.disabled
+        ? `${sim.player.dashCooldown.toFixed(1)}s`
+        : characterCopy(locale, sim.player.id, "active.short");
+      button.style.setProperty(
+        "--charge",
+        `${100 * (1 - sim.player.dashCooldown / character(sim.player.id).cooldown)}%`,
+      );
     }
-
-    backCtx.setTransform(1, 0, 0, 1, 0, 0);
-    backCtx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-    if (app.screen === "title" || !app.sim) {
-      drawWorld(backCtx, null, { style: app.style, time: renderTime }, {
-        nicole: titlePose("nicole", 255, 292, 1, renderTime),
-        zero: titlePose("zero", 385, 296, -1, renderTime),
-      });
-    } else {
-      drawWorld(backCtx, app.sim, { style: app.style, time: renderTime });
-    }
-
-    present(back, frontCtx, viewCss.w, viewCss.h, viewCss.dpr, app.style, overlay);
-    stage.style.filter = "none";
-
     requestAnimationFrame(frame);
   };
-
   requestAnimationFrame(frame);
 }
-
-function applyStyleClass(style: StyleMode): void {
-  document.body.dataset.style = style;
-}
-
 boot();

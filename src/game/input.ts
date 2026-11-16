@@ -13,6 +13,8 @@ export function createInput(): {
   sample: (stick: PointerStick) => FrameInput;
   wantsPause: () => boolean;
   consumePause: () => boolean;
+  reset: () => void;
+  queueSkill: () => void;
 } {
   const keys = new Set<string>();
   let dashQueued = false;
@@ -21,12 +23,18 @@ export function createInput(): {
 
   const down = (event: KeyboardEvent) => {
     const code = event.code;
+    if (
+      code === "Space" &&
+      event.target instanceof HTMLElement &&
+      event.target.closest("button")
+    )
+      return;
     keys.add(code);
-    if (code === "Space") {
+    if (code === "Space" && !event.repeat) {
       event.preventDefault();
       dashQueued = true;
     }
-    if (code === "Escape" || code === "KeyP") {
+    if ((code === "Escape" || code === "KeyP") && !event.repeat) {
       event.preventDefault();
       pauseQueued = true;
     }
@@ -44,6 +52,8 @@ export function createInput(): {
   };
   const blur = () => {
     keys.clear();
+    dashQueued = false;
+    pauseQueued = false;
   };
 
   const axisFromKeys = (): { ax: number; ay: number } => {
@@ -62,6 +72,10 @@ export function createInput(): {
   };
 
   return {
+    reset: blur,
+    queueSkill: () => {
+      dashQueued = true;
+    },
     attach(target) {
       if (attached) return;
       attached = target;

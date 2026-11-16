@@ -1,10 +1,15 @@
 import { length } from "../game/collision.js";
 import type { PointerStick } from "../game/input.js";
 
-export function createTouch(root: HTMLElement, stickEl: HTMLElement, dashEl: HTMLElement): {
+export function createTouch(
+  root: HTMLElement,
+  stickEl: HTMLElement,
+  dashEl: HTMLElement,
+): {
   stick: PointerStick;
   attach: () => void;
   detach: () => void;
+  reset: () => void;
 } {
   const stick: PointerStick = { ax: 0, ay: 0, dashQueued: false };
   let pointerId: number | null = null;
@@ -30,7 +35,11 @@ export function createTouch(root: HTMLElement, stickEl: HTMLElement, dashEl: HTM
   const reset = () => {
     stick.ax = 0;
     stick.ay = 0;
+    const previous = pointerId;
     pointerId = null;
+    stick.dashQueued = false;
+    if (previous !== null && stickEl.hasPointerCapture(previous))
+      stickEl.releasePointerCapture(previous);
     stickEl.style.setProperty("--kx", "0px");
     stickEl.style.setProperty("--ky", "0px");
   };
@@ -56,12 +65,14 @@ export function createTouch(root: HTMLElement, stickEl: HTMLElement, dashEl: HTM
 
   return {
     stick,
+    reset,
     attach() {
       root.classList.add("is-on");
       stickEl.addEventListener("pointerdown", onDown);
       stickEl.addEventListener("pointermove", onMove);
       stickEl.addEventListener("pointerup", onUp);
       stickEl.addEventListener("pointercancel", onUp);
+      stickEl.addEventListener("lostpointercapture", onUp);
       dashEl.addEventListener("pointerdown", onDash);
     },
     detach() {
@@ -70,6 +81,7 @@ export function createTouch(root: HTMLElement, stickEl: HTMLElement, dashEl: HTM
       stickEl.removeEventListener("pointermove", onMove);
       stickEl.removeEventListener("pointerup", onUp);
       stickEl.removeEventListener("pointercancel", onUp);
+      stickEl.removeEventListener("lostpointercapture", onUp);
       dashEl.removeEventListener("pointerdown", onDash);
       reset();
     },
@@ -77,5 +89,8 @@ export function createTouch(root: HTMLElement, stickEl: HTMLElement, dashEl: HTM
 }
 
 export function prefersTouch(): boolean {
-  return window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+  return (
+    window.matchMedia("(pointer: coarse)").matches ||
+    navigator.maxTouchPoints > 0
+  );
 }

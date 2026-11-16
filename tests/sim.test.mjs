@@ -45,13 +45,45 @@ test("dash leaves a 1.2s decoy without spending a random roll", () => {
   void decoyX;
 });
 
-test("style is not part of the simulation snapshot", () => {
-  const state = createSim({ seed: 3 });
-  const snap = snapshot(state);
-  assert.equal(Object.prototype.hasOwnProperty.call(snap, "style"), false);
-  const hp = state.player.hp;
-  const x = state.player.x;
-  // Switching style is a view concern: the sim does not offer a style field.
-  assert.equal(state.player.hp, hp);
-  assert.equal(state.player.x, x);
+test("the chosen cat is the only player, with no companion after movement or a dash", () => {
+  for (const cat of ["zero", "nicole"]) {
+    const sim = createSim({ cat, seed: 22 });
+    assert.equal(sim.player.id, cat);
+    assert.equal("partner" in sim, false);
+    for (let i = 0; i < 180; i++)
+      step(sim, { ax: 1, ay: 0, dash: i === 10 }, FIXED_DT);
+    assert.equal(sim.player.id, cat);
+    assert.equal("partner" in snapshot(sim), false);
+    assert.equal(sim.decoy.live, false);
+  }
+});
+
+test("hit and defeat feedback comes from collisions and expires", () => {
+  const state = createSim();
+  const enemy = state.enemies[0];
+  enemy.x = 400;
+  enemy.y = 260;
+  enemy.hp = 2;
+  enemy.spawnTime = 0;
+  const shoot = () =>
+    state.shots.push({
+      id: 100,
+      x: enemy.x,
+      y: enemy.y,
+      vx: 0,
+      vy: 0,
+      life: 1,
+      alive: true,
+    });
+  shoot();
+  step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
+  assert.equal(enemy.hp, 1);
+  assert.equal(state.impacts[0].kind, "hit");
+  shoot();
+  step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
+  assert.equal(enemy.alive, false);
+  assert.equal(state.impacts[1].kind, "defeat");
+  for (let i = 0; i < 30; i++)
+    step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
+  assert.equal(state.impacts.length, 0);
 });

@@ -1,67 +1,215 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hans">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#F6F0E4" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#101827" />
     <title>猫猫守夜</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="data:," />
   </head>
-  <body data-style="paper">
+  <body data-style="papercraft" data-cat="zero" data-screen="title">
     <div id="app">
-      <canvas id="game" width="640" height="400" aria-label="猫猫守夜"></canvas>
-      <div id="overlay">
-        <section id="title-screen" class="title-layer">
-          <div class="title-hero">
-            <p id="title-sub" class="eyebrow">Midnight Meow</p>
-            <h1 id="title-name">猫猫守夜</h1>
-            <p id="title-tag" class="tagline"></p>
+      <canvas id="game" width="960" height="540" aria-label="猫猫守夜"></canvas>
+      <section id="title-screen" class="title-layer">
+        <header class="title-hero">
+          <p id="title-sub" class="eyebrow">MIDNIGHT MEOW</p>
+          <h1 id="title-name">猫猫守夜</h1>
+          <p id="title-tag" class="tagline"></p>
+        </header>
+        <div class="selection-panel">
+          <div class="selection-heading">
+            <p id="selector-kicker" class="eyebrow"></p>
+            <h2 id="cat-choice-label"></h2>
           </div>
-          <div class="title-play">
-            <div class="roles">
-              <span id="nicole-role">Nicole</span>
-              <span id="zero-role">Zero</span>
+          <div
+            class="cat-choices"
+            role="group"
+            aria-labelledby="cat-choice-label"
+          >
+            <button
+              type="button"
+              id="btn-cat-zero"
+              class="cat-choice"
+              aria-pressed="true"
+            >
+              <canvas width="64" height="52" aria-hidden="true"></canvas
+              ><span
+                ><strong class="choice-name"></strong
+                ><small class="choice-role"></small></span
+              ><i aria-hidden="true">✓</i>
+            </button>
+            <button
+              type="button"
+              id="btn-cat-nicole"
+              class="cat-choice"
+              aria-pressed="false"
+            >
+              <canvas width="64" height="52" aria-hidden="true"></canvas
+              ><span
+                ><strong class="choice-name"></strong
+                ><small class="choice-role"></small></span
+              ><i aria-hidden="true">✓</i>
+            </button>
+          </div>
+          <div class="profile">
+            <canvas
+              id="profile-portrait"
+              width="64"
+              height="52"
+              aria-hidden="true"
+            ></canvas>
+            <div>
+              <div class="profile-title">
+                <h3 id="profile-name"></h3>
+                <span id="profile-role"></span>
+              </div>
+              <p id="profile-story"></p>
             </div>
+          </div>
+          <div class="profile-stats">
+            <span id="profile-hp"></span><span id="profile-speed"></span>
+          </div>
+          <div class="skill-list" tabindex="0">
+            <article class="skill-row">
+              <canvas
+                id="icon-attack"
+                width="32"
+                height="32"
+                aria-hidden="true"
+              ></canvas>
+              <div>
+                <header>
+                  <span id="skill-attack-type"></span>
+                  <h4 id="skill-attack-name"></h4>
+                </header>
+                <p id="skill-attack-desc"></p>
+              </div>
+            </article>
+            <article class="skill-row">
+              <canvas
+                id="icon-active"
+                width="32"
+                height="32"
+                aria-hidden="true"
+              ></canvas>
+              <div>
+                <header>
+                  <span id="skill-active-type"></span>
+                  <h4 id="skill-active-name"></h4>
+                  <kbd id="profile-skill-key">SPACE</kbd>
+                </header>
+                <p id="skill-active-desc"></p>
+              </div>
+            </article>
+            <article class="skill-row">
+              <canvas
+                id="icon-passive"
+                width="32"
+                height="32"
+                aria-hidden="true"
+              ></canvas>
+              <div>
+                <header>
+                  <span id="skill-passive-type"></span>
+                  <h4 id="skill-passive-name"></h4>
+                </header>
+                <p id="skill-passive-desc"></p>
+              </div>
+            </article>
+          </div>
+          <footer class="selection-footer">
+            <p id="profile-tactic"></p>
             <button type="button" id="btn-start" class="btn primary"></button>
             <p id="title-controls" class="hint"></p>
-          </div>
-          <div class="corner corner-tr">
-            <button type="button" id="btn-style" class="btn ghost"></button>
-            <button type="button" id="btn-lang" class="btn ghost"></button>
-          </div>
-          <p id="title-credit" class="credit corner-br"></p>
-        </section>
-
+          </footer>
+        </div>
+        <div class="hero-caption">
+          <span id="hero-kicker" class="eyebrow"></span
+          ><strong id="hero-name"></strong><span id="hero-role"></span>
+        </div>
+        <div class="corner corner-tr">
+          <button type="button" id="btn-lang" class="btn ghost"></button>
+        </div>
+        <p id="title-credit" class="credit corner-br"></p>
+      </section>
+      <div id="overlay">
         <div id="hud" class="hud hidden">
-          <div class="hud-left">
-            <div id="hud-time" class="chip"></div>
-            <div id="hud-hearts" class="chip"></div>
-            <div id="hud-dash" class="chip"></div>
+          <div class="player-card">
+            <canvas
+              id="hud-portrait"
+              width="64"
+              height="52"
+              aria-hidden="true"
+            ></canvas>
+            <div>
+              <div class="player-heading">
+                <strong id="hud-name"></strong><span id="hud-kills"></span>
+              </div>
+              <div id="hud-hearts" class="hearts"></div>
+              <span id="hud-buff" class="buff"></span>
+            </div>
           </div>
-          <div class="hud-right">
-            <button type="button" id="hud-style" class="chip btn-chip"></button>
-            <button type="button" id="btn-hud-pause" class="chip btn-chip"></button>
+          <div class="night-card">
+            <div>
+              <span class="hud-moon" aria-hidden="true">☾</span
+              ><strong id="hud-time"></strong>
+            </div>
+            <div id="hud-progress" class="night-progress"></div>
+            <p id="hud-phase"></p>
+          </div>
+          <div class="hud-actions">
+            <button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
+            ><button type="button" id="btn-hud-pause" class="btn-chip">
+              Ⅱ
+            </button>
+          </div>
+          <div
+            id="hud-notice"
+            class="notice hidden"
+            role="status"
+            aria-live="polite"
+          ></div>
+          <div class="skill-dock">
+            <button type="button" id="btn-skill" class="skill-button">
+              <canvas
+                id="hud-skill-icon"
+                width="32"
+                height="32"
+                aria-hidden="true"
+              ></canvas
+              ><span
+                ><strong id="hud-skill-name"></strong
+                ><small id="hud-dash"></small></span
+              ><kbd id="hud-skill-key"></kbd>
+            </button>
+            <p id="hud-hint" class="game-hint"></p>
           </div>
         </div>
-
         <section id="pause-screen" class="panel hidden">
+          <p id="pause-kit" class="eyebrow"></p>
           <h2 id="pause-title"></h2>
-          <p id="pause-note" class="tagline"></p>
+          <p id="pause-skill" class="panel-copy"></p>
+          <p id="pause-note" class="hint"></p>
           <div class="actions">
-            <button type="button" id="btn-resume" class="btn primary"></button>
-            <button type="button" id="btn-pause-style" class="btn"></button>
-            <button type="button" id="btn-back" class="btn"></button>
+            <button type="button" id="btn-resume" class="btn primary"></button
+            ><button type="button" id="btn-pause-lang" class="btn"></button
+            ><button type="button" id="btn-back" class="btn"></button>
           </div>
         </section>
-
-        <section id="result-screen" class="panel hidden">
-          <p id="result-text" class="tagline"></p>
+        <section id="result-screen" class="panel result-panel hidden">
+          <p id="result-cat" class="eyebrow"></p>
+          <h2 id="result-title"></h2>
+          <p id="result-text" class="panel-copy"></p>
+          <div id="result-stats" class="result-stats"></div>
           <div class="actions">
-            <button type="button" id="btn-retry" class="btn primary"></button>
-            <button type="button" id="btn-result-back" class="btn"></button>
+            <button type="button" id="btn-retry" class="btn primary"></button
+            ><button type="button" id="btn-result-back" class="btn"></button>
           </div>
         </section>
-
         <div id="touch" class="touch hidden">
           <div id="stick" class="stick" aria-hidden="true"><i></i></div>
           <button type="button" id="dash-btn" class="dash-btn"></button>

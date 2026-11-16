@@ -2,7 +2,7 @@
   "name": "midnight-meow",
   "private": true,
   "type": "module",
-  "description": "猫猫守夜 / Midnight Meow — greybox architecture",
+  "description": "猫猫守夜 / Midnight Meow — code-drawn pixel night watch",
   "scripts": {
     "build": "tsc",
     "start": "python3 -m http.server 4173",

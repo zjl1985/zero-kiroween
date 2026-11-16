@@ -63,7 +63,7 @@ export function composeCat(def: CatDef): ComposedCat {
   });
 
   const hideEyes = def.accessories.includes("sunglasses");
-  applyOverlay(cells, FACE_OVERLAY, (x, y, current, token) => {
+  applyOverlay(cells, FACE_OVERLAY, (_x, y, current, token) => {
     if (current === ".") return false;
     if (hideEyes && (token === "K" || token === "W") && y >= 15 && y <= 17) {
       return false;

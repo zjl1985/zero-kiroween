@@ -1,16 +1,13 @@
 import {
+  officialRects,
   MASCOT_VIEWBOX_HEIGHT,
   MASCOT_VIEWBOX_WIDTH,
-  officialRects,
   type MascotRect,
 } from "../cats/official.js";
-import { NICOLE } from "../cats/nicole.js";
 import type { CatId } from "../cats/types.js";
-import { ZERO } from "../cats/zero.js";
+import { ellipse, line, rect, polygon, light, type Ctx } from "./pixel-art.js";
 
-/** Uniform scale of the official 386×288 Meow Wall head in the 640×400 view. */
-export const HEAD_SCALE = 0.118;
-
+export const HEAD_SCALE = 0.16;
 export interface CatPose {
   id: CatId;
   x: number;
@@ -21,366 +18,204 @@ export interface CatPose {
   hurt: boolean;
   decoy?: boolean;
   time: number;
-  /** Override the default official-head scale (title uses a larger one). */
   scale?: number;
 }
-
-const RECT_CACHE = new Map<CatId, readonly MascotRect[]>();
-
+const cache = new Map<CatId, readonly MascotRect[]>();
 export function officialCatRects(id: CatId): readonly MascotRect[] {
-  let hit = RECT_CACHE.get(id);
-  if (!hit) {
-    hit = officialRects(id);
-    RECT_CACHE.set(id, hit);
+  let result = cache.get(id);
+  if (!result) {
+    result = officialRects(id);
+    cache.set(id, result);
   }
-  return hit;
+  return result;
 }
-
 export function bobOffset(pose: CatPose): number {
-  if (pose.dashing) return 0;
-  const amp = pose.moving ? 1.2 : 0.3;
-  const speed = pose.moving ? 9 : 2.6;
-  return Math.sin(pose.time * speed) * amp;
+  return pose.dashing
+    ? 0
+    : Math.round(
+        Math.sin(pose.time * (pose.moving ? 12 : 2)) *
+          (pose.moving ? 1.2 : 0.4),
+      );
 }
-
-/** Draw the official Meow Wall head, anchored at the bottom-center of the pose. */
 export function drawOfficialHead(
-  ctx: CanvasRenderingContext2D,
+  ctx: Ctx,
   pose: CatPose,
-  options: { smooth?: boolean; scale?: number; clipBottom?: number } = {},
+  options: { scale?: number; clipBottom?: number } = {},
 ): void {
-  const scale = options.scale ?? pose.scale ?? HEAD_SCALE;
-  const bob = options.smooth ? bobOffset(pose) : Math.round(bobOffset(pose));
-  const width = MASCOT_VIEWBOX_WIDTH * scale;
-  const height = MASCOT_VIEWBOX_HEIGHT * scale;
-  const originX = pose.x - width / 2;
-  const originY = pose.y - height + bob;
-  const alpha = pose.decoy ? 0.45 : pose.hurt ? 0.7 : 1;
-  const clipBottom = options.clipBottom;
-
+  const scale = options.scale ?? pose.scale ?? HEAD_SCALE,
+    w = MASCOT_VIEWBOX_WIDTH * scale,
+    h = MASCOT_VIEWBOX_HEIGHT * scale;
+  const ox = Math.round(pose.x - w / 2),
+    oy = Math.round(pose.y - h);
   ctx.save();
-  ctx.imageSmoothingEnabled = Boolean(options.smooth);
-  ctx.globalAlpha = alpha;
   if (pose.facing === -1) {
-    ctx.translate(pose.x, 0);
+    ctx.translate(Math.round(pose.x) * 2, 0);
     ctx.scale(-1, 1);
-    ctx.translate(-pose.x, 0);
   }
-  if (clipBottom != null) {
+  if (options.clipBottom) {
     ctx.beginPath();
-    ctx.rect(originX - 2, originY - 2, width + 4, height * clipBottom + 2);
+    ctx.rect(ox - 2, oy - 2, w + 4, h * options.clipBottom + 2);
     ctx.clip();
   }
-
-  for (const rect of officialCatRects(pose.id)) {
-    const x = originX + rect.x * scale;
-    const y = originY + rect.y * scale;
-    const w = rect.w * scale;
-    const h = rect.h * scale;
-    ctx.fillStyle = rect.fill;
-    if (options.smooth) {
-      ctx.fillRect(x, y, w, h);
-    } else {
-      const x0 = Math.round(x);
-      const y0 = Math.round(y);
-      const x1 = Math.round(x + w);
-      const y1 = Math.round(y + h);
-      ctx.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+  for (const r of officialCatRects(pose.id)) {
+    const x = Math.round(ox + r.x * scale),
+      y = Math.round(oy + r.y * scale);
+    rect(
+      ctx,
+      x,
+      y,
+      Math.max(1, Math.round(ox + (r.x + r.w) * scale) - x),
+      Math.max(1, Math.round(oy + (r.y + r.h) * scale) - y),
+      r.fill,
+    );
+  }
+  ctx.restore();
+}
+export function drawMascot(ctx: Ctx, pose: CatPose): void {
+  const x = Math.round(pose.x),
+    y = Math.round(pose.y),
+    s = (pose.scale ?? HEAD_SCALE) / HEAD_SCALE;
+  const bob = bobOffset(pose),
+    stride = pose.moving ? Math.round(Math.sin(pose.time * 12) * 3) : 0;
+  const nicole = pose.id === "nicole",
+    bust = y - 20 * s + bob;
+  ctx.save();
+  ctx.globalAlpha = pose.decoy ? 0.32 : pose.hurt ? 0.6 : 1;
+  ellipse(ctx, x, y + 1, 19 * s, 4 * s, "#15272e");
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(pose.facing * s, s);
+  // Tail is rooted behind the hip; it follows the gait with a short delay.
+  const sway = Math.round(Math.sin(pose.time * (pose.moving ? 8 : 2)) * 2);
+  line(ctx, -9, -9, -20, -8, "#181c29", 4);
+  line(ctx, -20, -8, -25, -12 - sway, "#181c29", 3);
+  line(
+    ctx,
+    -25,
+    -12 - sway,
+    -24,
+    -18 - sway,
+    nicole ? "#b69a7e" : "#cca052",
+    3,
+  );
+  // Draped fabric with a moonlit shoulder, dark folds, a warm embroidered hem.
+  const cape = nicole ? "#584164" : "#30303e",
+    trim = nicole ? "#bd9670" : "#c6a15d";
+  polygon(
+    ctx,
+    [
+      [-12, -36],
+      [-30 - sway, -8],
+      [-25, -4],
+      [-4, -10],
+      [25, -5],
+      [28, -14],
+      [12, -36],
+    ],
+    "#191e2b",
+  );
+  polygon(
+    ctx,
+    [
+      [-11, -35],
+      [-27 - sway, -10],
+      [-22, -7],
+      [-3, -13],
+      [23, -8],
+      [24, -16],
+      [10, -34],
+    ],
+    cape,
+  );
+  polygon(
+    ctx,
+    [
+      [-11, -33],
+      [-20, -10],
+      [-8, -14],
+      [0, -30],
+    ],
+    nicole ? "#735477" : "#474050",
+  );
+  line(ctx, -11, -33, -26 - sway, -10, "#8f6a85");
+  line(ctx, -26 - sway, -8, -5, -13, trim);
+  line(ctx, 0, -12, 23, -8, trim);
+  for (let i = 0; i < 6; i++) {
+    const xx = -24 + i * 4,
+      yy = -10 - Math.round(i / 2);
+    rect(ctx, xx, yy, 1, 1, "#e1bd78");
+    if (i % 2 === 0) {
+      line(ctx, xx, yy - 4, xx + 2, yy - 2, trim);
+      line(ctx, xx + 2, yy - 2, xx + 3, yy - 5, trim);
     }
   }
-
-  ctx.restore();
-}
-
-/**
- * Official Meow Wall bust sits as the chibi torso; short legs + cape + lantern complete the standing figure.
- * pose.y is feet / ground contact.
- */
-export function drawMascot(
-  ctx: CanvasRenderingContext2D,
-  pose: CatPose,
-  options: { smooth?: boolean; crisp?: boolean; scale?: number } = {},
-): void {
-  const scale = options.scale ?? pose.scale ?? HEAD_SCALE;
-  const k = scale / 0.118;
-  const headH = MASCOT_VIEWBOX_HEIGHT * scale;
-  const legH = 11 * k;
-  const legW = 9 * k;
-  const def = pose.id === "nicole" ? NICOLE : ZERO;
-  const crisp = Boolean(options.crisp);
-  const alpha = pose.decoy ? 0.45 : pose.hurt ? 0.7 : 1;
-  const bob = options.smooth ? bobOffset(pose) : Math.round(bobOffset(pose));
-  const facing = pose.facing;
-  const feetY = pose.y;
-  // Bust bottom sits just above the short legs.
-  const bustBottom = feetY - legH * 0.92 + bob;
-  const capeY = bustBottom - headH * 0.22;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  // ground shadow
-  ctx.fillStyle = crisp ? "rgba(8,6,12,0.42)" : "rgba(12,8,18,0.32)";
-  if (crisp) {
-    ctx.fillRect(
-      Math.round(pose.x - legW * 1.2),
-      Math.round(feetY - 1),
-      Math.round(legW * 2.4),
-      Math.max(3, Math.round(3.5 * k)),
-    );
-  } else {
-    ctx.beginPath();
-    ctx.ellipse(pose.x, feetY + 1, legW * 1.35, 3 * k, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.save();
-  if (facing === -1) {
-    ctx.translate(pose.x, 0);
-    ctx.scale(-1, 1);
-    ctx.translate(-pose.x, 0);
-  }
-
-  // cape behind the bust
-  const capeColor = pose.id === "nicole" ? "#4A3568" : "#1A1420";
-  const capeTrim = pose.id === "nicole" ? "#C9A84A" : "#D4B45A";
-  const capeInner = pose.id === "nicole" ? "#8A4A6A" : "#2A2428";
-  drawCape(ctx, pose.x, capeY, legW * 1.15, headH * 0.55, capeColor, capeInner, capeTrim, crisp, k);
-
-  // short legs
-  const legFill = pose.id === "nicole" ? def.bodyFill : "#121014";
-  ctx.fillStyle = legFill;
-  if (crisp) {
-    ctx.fillRect(Math.round(pose.x - legW * 0.7), Math.round(bustBottom - 1), Math.round(legW * 0.5), Math.round(legH));
-    ctx.fillRect(Math.round(pose.x + legW * 0.15), Math.round(bustBottom - 1), Math.round(legW * 0.5), Math.round(legH));
-  } else {
-    roundedFill(ctx, pose.x - legW * 0.7, bustBottom - 1, legW * 0.52, legH, 2.2 * k);
-    roundedFill(ctx, pose.x + legW * 0.15, bustBottom - 1, legW * 0.52, legH, 2.2 * k);
-  }
-
-  // feet
-  ctx.fillStyle = pose.id === "nicole" ? "#D8B898" : "#0E0C10";
-  if (crisp) {
-    ctx.fillRect(Math.round(pose.x - legW * 0.78), Math.round(feetY - 2.4 * k), Math.round(legW * 0.58), Math.round(2.6 * k));
-    ctx.fillRect(Math.round(pose.x + legW * 0.12), Math.round(feetY - 2.4 * k), Math.round(legW * 0.58), Math.round(2.6 * k));
-  } else {
-    ctx.beginPath();
-    ctx.ellipse(pose.x - legW * 0.42, feetY - 0.8, legW * 0.34, 2 * k, 0, 0, Math.PI * 2);
-    ctx.ellipse(pose.x + legW * 0.42, feetY - 0.8, legW * 0.34, 2 * k, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // clasp
-  if (pose.id === "nicole") {
-    ctx.fillStyle = "#E8C96A";
-    ctx.beginPath();
-    ctx.arc(pose.x, bustBottom - headH * 0.08, 1.5 * k, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // tail
-  ctx.strokeStyle = pose.id === "zero" ? "#F0C341" : def.palette.headDark;
-  ctx.lineWidth = Math.max(1.5, 2.2 * k);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  const tx = pose.x - legW * 0.95;
-  const ty = bustBottom + legH * 0.15;
-  ctx.moveTo(tx, ty);
-  ctx.quadraticCurveTo(tx - 7 * k, ty - 3 * k, tx - 4 * k, ty - 11 * k);
-  ctx.stroke();
-
-  // handheld lantern
-  const lx = pose.x + legW * 1.15;
-  const ly = bustBottom + legH * 0.15;
-  drawHandLantern(ctx, lx, ly, k, pose.time, crisp);
-
-  ctx.restore(); // facing
-
-  // official bust as torso/head — clip a little bottom fluff so legs read clearly
-  drawOfficialHead(
+  // The torso continues the mother's shirt and collar into a real standing body.
+  polygon(
     ctx,
-    { ...pose, y: bustBottom },
-    { smooth: options.smooth, scale, clipBottom: 0.92 },
+    [
+      [-11, -28],
+      [11, -28],
+      [13, -12],
+      [8, -8],
+      [-9, -8],
+      [-13, -12],
+    ],
+    nicole ? "#d8c9ae" : "#292933",
   );
-
-  // lantern glow in world space
-  const glowX = pose.x + facing * legW * 1.15;
-  const glowY = bustBottom + legH * 0.15 - 8 * k;
-  softGlow(ctx, glowX, glowY, 15 * k, "rgba(255,210,120,0.24)", crisp);
-
+  rect(ctx, -8, -24, 16, 2, nicole ? "#eee0c5" : "#50433b");
+  rect(ctx, -9, -11, 18, 3, nicole ? "#67516a" : "#514236");
+  rect(ctx, -1, -12, 3, 3, "#c6a367");
+  if (nicole) {
+    rect(ctx, -4, -23, 2, 8, "#f1e3c9");
+    rect(ctx, 4, -23, 2, 8, "#b39f86");
+  } else {
+    line(ctx, -6, -23, 0, -19, "#c5a15d");
+    line(ctx, 0, -19, 6, -23, "#c5a15d");
+    rect(ctx, -1, -18, 3, 3, "#e4bf6a");
+  }
+  // Anatomical paws: separate knee, ankle, sole, and toe highlights.
+  for (const side of [-1, 1]) {
+    const lift = Math.max(0, stride * side),
+      px = side < 0 ? -10 : 3;
+    rect(ctx, px, -12, 7, 10 - lift, "#20222c");
+    rect(ctx, px + 1, -10, 2, 6 - lift, nicole ? "#ad967f" : "#41414a");
+    rect(ctx, px - 1, -3 - lift, 9, 4, nicole ? "#b49a80" : "#30313d");
+    rect(ctx, px + 1, -3 - lift, 4, 1, nicole ? "#e1c19b" : "#60616a");
+  }
+  // Sleeve / paw actually holds the brass lamp, with a little gait swing.
+  const ly = -13 + bob + Math.round(stride * 0.25);
+  line(ctx, 12, -21, 20, ly, nicole ? "#e2d4ba" : "#33313d", 4);
+  rect(ctx, 19, ly, 3, 3, "#d7b486");
+  line(ctx, 23, ly, 23, ly - 5, "#c5a36b");
+  rect(ctx, 18, ly - 7, 11, 2, "#8c6640");
+  polygon(
+    ctx,
+    [
+      [18, ly - 7],
+      [23, ly - 11],
+      [29, ly - 7],
+    ],
+    "#a37943",
+  );
+  rect(ctx, 19, ly - 5, 9, 10, "#f1be64");
+  rect(ctx, 21, ly - 4, 5, 8, "#ffe5a1");
+  line(ctx, 19, ly - 5, 20, ly + 5, "#755537");
+  line(ctx, 27, ly - 5, 26, ly + 5, "#755537");
+  rect(ctx, 19, ly + 5, 9, 2, "#9b7341");
+  ctx.restore();
+  drawOfficialHead(ctx, { ...pose, x, y: bust }, { clipBottom: 0.94 });
+  light(
+    ctx,
+    x + pose.facing * 23 * s,
+    y - 13 * s,
+    15 * s,
+    "#ffba5b",
+    pose.decoy ? 0.05 : 0.12,
+    1,
+  );
   ctx.restore();
 }
-
-function drawCape(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  bodyW: number,
-  bodyH: number,
-  fill: string,
-  inner: string,
-  trim: string,
-  crisp: boolean,
-  k: number,
-): void {
-  ctx.fillStyle = fill;
-  ctx.beginPath();
-  ctx.moveTo(x - bodyW * 0.15, y - bodyH * 0.15);
-  ctx.quadraticCurveTo(x - bodyW * 1.55, y + bodyH * 0.25, x - bodyW * 1.2, y + bodyH * 0.95);
-  ctx.quadraticCurveTo(x - bodyW * 0.15, y + bodyH * 0.55, x + bodyW * 0.25, y + bodyH * 0.35);
-  ctx.quadraticCurveTo(x + bodyW * 0.65, y + bodyH * 0.15, x + bodyW * 0.4, y - bodyH * 0.05);
-  ctx.closePath();
-  ctx.fill();
-  if (!crisp) {
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.setLineDash([2.2, 2.4]);
-    ctx.lineWidth = 0.9;
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  ctx.fillStyle = inner;
-  ctx.beginPath();
-  ctx.moveTo(x - bodyW * 0.02, y);
-  ctx.quadraticCurveTo(x - bodyW * 0.95, y + bodyH * 0.3, x - bodyW * 0.55, y + bodyH * 0.65);
-  ctx.quadraticCurveTo(x - bodyW * 0.05, y + bodyH * 0.3, x + bodyW * 0.12, y + bodyH * 0.05);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = trim;
-  ctx.lineWidth = Math.max(1, 1.25 * k);
-  ctx.beginPath();
-  ctx.moveTo(x - bodyW * 0.1, y - bodyH * 0.1);
-  ctx.lineTo(x - bodyW * 1.1, y + bodyH * 0.85);
-  ctx.stroke();
-}
-
-function drawHandLantern(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  k: number,
-  time: number,
-  crisp: boolean,
-): void {
-  const flick = 0.82 + 0.18 * Math.sin(time * 7 + x * 0.1);
-  ctx.strokeStyle = "#3A2C20";
-  ctx.lineWidth = Math.max(1, 1.35 * k);
-  ctx.beginPath();
-  ctx.moveTo(x, y + 2 * k);
-  ctx.lineTo(x, y - 9 * k);
-  ctx.stroke();
-  const w = 7 * k;
-  const h = 8 * k;
-  const top = y - 17 * k;
-  softGlow(ctx, x, top + h * 0.5, 13 * k, `rgba(255,210,120,${0.3 * flick})`, crisp);
-  ctx.fillStyle = mixHex("#E8B45A", "#FFF1C0", flick * 0.35);
-  if (crisp) {
-    ctx.fillRect(Math.round(x - w / 2), Math.round(top), Math.round(w), Math.round(h));
-    ctx.strokeStyle = "#1A1420";
-    ctx.strokeRect(Math.round(x - w / 2), Math.round(top), Math.round(w), Math.round(h));
-  } else {
-    roundedFill(ctx, x - w / 2, top, w, h, 1.5 * k);
-    ctx.strokeStyle = "#2A2420";
-    ctx.lineWidth = 0.9;
-    roundedStroke(ctx, x - w / 2, top, w, h, 1.5 * k);
-  }
-  ctx.fillStyle = `rgba(255,245,200,${0.55 * flick})`;
-  ctx.fillRect(x - w * 0.25, top + h * 0.25, w * 0.5, h * 0.45);
-  ctx.fillStyle = "#3A2C20";
-  ctx.fillRect(x - w * 0.55, top - 2 * k, w * 1.1, 2.1 * k);
-}
-
-function softGlow(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number,
-  color: string,
-  crisp: boolean,
-): void {
-  if (crisp) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(Math.round(x), Math.round(y), Math.round(r * 0.55), 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, color);
-  g.addColorStop(1, "rgba(255,210,120,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function roundedFill(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  roundedPath(ctx, x, y, w, h, r);
-  ctx.fill();
-}
-
-function roundedStroke(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  roundedPath(ctx, x, y, w, h, r);
-  ctx.stroke();
-}
-
-function roundedPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  const rr = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.lineTo(x + w - rr, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
-  ctx.lineTo(x + w, y + h - rr);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
-  ctx.lineTo(x + rr, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
-  ctx.lineTo(x, y + rr);
-  ctx.quadraticCurveTo(x, y, x + rr, y);
-  ctx.closePath();
-}
-
 export function fillHex(hex: string, alpha: number): string {
-  const raw = hex.replace("#", "");
-  const n = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
-  const r = Number.parseInt(n.slice(0, 2), 16);
-  const g = Number.parseInt(n.slice(2, 4), 16);
-  const b = Number.parseInt(n.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-export function mixHex(a: string, b: string, t: number): string {
-  const pa = parse(a);
-  const pb = parse(b);
-  const m = (i: number) => Math.round(pa[i]! * (1 - t) + pb[i]! * t);
-  return `rgb(${m(0)}, ${m(1)}, ${m(2)})`;
-}
-
-function parse(hex: string): [number, number, number] {
-  const raw = hex.replace("#", "");
-  const n = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
-  return [
-    Number.parseInt(n.slice(0, 2), 16),
-    Number.parseInt(n.slice(2, 4), 16),
-    Number.parseInt(n.slice(4, 6), 16),
-  ];
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${alpha})`;
 }

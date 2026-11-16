@@ -1,5 +1,10 @@
 import { EN } from "./en.js";
-import { MESSAGE_KEYS, type Locale, type MessageKey, type Messages } from "./keys.js";
+import {
+  MESSAGE_KEYS,
+  type Locale,
+  type MessageKey,
+  type Messages,
+} from "./keys.js";
 import { ZH } from "./zh.js";
 
 const PACKS: Record<Locale, Messages> = { zh: ZH, en: EN };
@@ -8,10 +13,17 @@ export function isLocale(value: string): value is Locale {
   return value === "zh" || value === "en";
 }
 
-export function t(locale: Locale, key: MessageKey): string {
+export function t(
+  locale: Locale,
+  key: MessageKey,
+  values: Record<string, string | number> = {},
+): string {
   const pack = PACKS[locale];
   const text = pack[key];
-  if (typeof text === "string" && text.length > 0) return text;
+  if (typeof text === "string" && text.length > 0)
+    return text.replace(/\{(\w+)\}/g, (match, name: string) =>
+      name in values ? String(values[name]) : match,
+    );
   return `[missing: ${key}]`;
 }
 
