@@ -28,9 +28,21 @@ import {
   drawAtmosphere,
   drawWind,
   drawGroundLight,
+  drawFrame,
+  dawnAmount,
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
+import {
+  cameraShake,
+  drawHitFlash,
+  drawInteractable,
+  drawInteractGround,
+  drawJuiceEffect,
+  drawShardTrail,
+  drawStun,
+  drawTreat,
+} from "./craft-juice.js";
 import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
@@ -49,12 +61,18 @@ export function drawWorld(
   titleCat?: CatPose,
 ): void {
   ctx.imageSmoothingEnabled = true;
+  const shake = sim
+    ? cameraShake(sim, view.time, !!view.reducedMotion)
+    : { x: 0, y: 0 };
+  ctx.save();
+  ctx.translate(shake.x, shake.y);
   drawScene(ctx);
   if (sim) drawNightShift(ctx, sim.elapsed / sim.sessionSeconds);
   drawWind(ctx, view.time);
   if (sim) {
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
+    drawInteractGround(ctx, sim, view.time);
   }
   const sprites: Sprite[] = [];
   for (const l of LAMPS) {
@@ -168,12 +186,20 @@ export function drawWorld(
         draw: () => drawEchoDecoy(ctx, decoy, view.time),
       });
     }
+    const reach = playerStats(sim).pickupRadius;
     for (const s of sim.pickups)
       if (s.alive)
         sprites.push({
           y: s.y,
-          draw: () => drawInkShard(ctx, s.x, s.y, view.time, s.id, s.value),
+          draw: () => {
+            drawShardTrail(ctx, s, sim, reach, view.time);
+            drawInkShard(ctx, s.x, s.y, view.time, s.id, s.value);
+          },
         });
+    for (const o of sim.interactables)
+      sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, view.time) });
+    for (const t of sim.treats)
+      if (t.alive) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
     if (sim.player.id === "nicole") {
       const full = playerStats(sim).fullMoon;
       orbitPositions(sim).forEach((p, i) =>
@@ -189,7 +215,11 @@ export function drawWorld(
       if (e.alive)
         sprites.push({
           y: e.y,
-          draw: () => drawCraftEnemy(ctx, e, view.time, look),
+          draw: () => {
+            drawCraftEnemy(ctx, e, view.time, look);
+            drawHitFlash(ctx, e);
+            drawStun(ctx, e, view.time);
+          },
         });
     for (const s of sim.enemyShots)
       if (s.alive)
@@ -218,13 +248,20 @@ export function drawWorld(
       if (s.alive) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
+      if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
       else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
   }
-  drawAtmosphere(ctx, view.time);
-  drawForeground(ctx, sim?.player);
+  drawAtmosphere(
+    ctx,
+    view.time,
+    sim ? dawnAmount(sim.elapsed / sim.sessionSeconds) : 0,
+  );
+  drawForeground(ctx, sim?.player, false);
+  ctx.restore();
+  drawFrame(ctx);
   // Subtle four-sided depth, leaving all gameplay visible.
   ctx.save();
   ctx.globalAlpha = 0.04;

@@ -1279,7 +1279,9 @@ export function drawGroundLight(
   glow(ctx, x, y, 55 * s, "#eab563", 0.13, 0.55);
 }
 export function drawWind(_ctx: Ctx, _time: number): void {}
-export function drawAtmosphere(ctx: Ctx, time: number): void {
+export function drawAtmosphere(ctx: Ctx, time: number, dawn = 0): void {
+  // Lamps dim as the sky brightens.
+  const dim = 1 - dawn * 0.6;
   for (const l of LAMPS)
     glow(
       ctx,
@@ -1287,7 +1289,7 @@ export function drawAtmosphere(ctx: Ctx, time: number): void {
       l.y - 38 * l.s,
       25 * l.s,
       "#f5bd5f",
-      0.14 + 0.01 * Math.sin(time * 5 + l.x),
+      (0.14 + 0.01 * Math.sin(time * 5 + l.x)) * dim,
     );
   // A few suspended details complete the still composition; they never resemble enemies.
   for (let i = 0; i < 10; i++) {
@@ -1419,6 +1421,7 @@ function buildForeground(): HTMLCanvasElement {
 export function drawForeground(
   ctx: Ctx,
   viewer?: { x: number; y: number },
+  withFrame = true,
 ): void {
   foreground ??= buildForeground();
   ctx.save();
@@ -1426,10 +1429,11 @@ export function drawForeground(
     viewer && viewer.y > 485 && (viewer.x < 390 || viewer.x > 620) ? 0.35 : 1;
   ctx.drawImage(foreground, 0, 0, W, H);
   ctx.restore();
-  drawFrame(ctx);
+  if (withFrame) drawFrame(ctx);
 }
 let frame: HTMLCanvasElement | undefined;
-function drawFrame(ctx: Ctx): void {
+/** The torn paper border; drawn outside the camera shake so edges never show. */
+export function drawFrame(ctx: Ctx): void {
   if (!frame) {
     frame = surface(W * 2, H * 2);
     const c = frame.getContext("2d")!;
@@ -1463,13 +1467,54 @@ function drawFrame(ctx: Ctx): void {
   }
   ctx.drawImage(frame, 0, 0, W, H);
 }
+/** 0 for most of the night, rising to 1 over the final tenth (the last 30 s of 300). */
+export function dawnAmount(progress: number): number {
+  return Math.max(0, Math.min(1, (progress - 0.9) / 0.1));
+}
+const MOON = { x: 770, y: 61 };
+/** Dawn: the moon sinks behind the hills, the horizon warms and the sky lifts. */
 export function drawNightShift(ctx: Ctx, progress: number): void {
-  const t = Math.max(0, (progress - 0.9) / 0.1);
+  const t = dawnAmount(progress);
   if (!t) return;
+  const ease = t * t * (3 - 2 * t);
   ctx.save();
+  // Rub the high moon out of the sky, then hang it lower, behind the first ridge.
+  const patch = ctx.createRadialGradient(MOON.x, MOON.y, 0, MOON.x, MOON.y, 70);
+  patch.addColorStop(0, "#2b2542");
+  patch.addColorStop(0.7, "#2b2542");
+  patch.addColorStop(1, "#2b254200");
+  ctx.globalAlpha = ease;
+  ctx.fillStyle = patch;
+  ctx.fillRect(MOON.x - 72, MOON.y - 72, 144, 144);
+  ctx.globalAlpha = 1;
+  const clip = new Path2D();
+  clip.rect(0, 0, W, 128);
+  ctx.save();
+  ctx.clip(clip);
+  ctx.translate(MOON.x + ease * 26, MOON.y + ease * 74);
+  glow(ctx, 0, 0, 60, "#f2c48a", 0.2 + ease * 0.15);
+  piece(
+    ctx,
+    new Path2D(
+      "M 13 -28 C -8 -35 -33 -18 -32 4 C -32 28 -3 42 22 22 C 2 27 -18 16 -18 -4 C -17 -17 -4 -26 13 -28 Z",
+    ),
+    mix("#edd198", "#f6dcc0", ease),
+    { shadow: 1.6, texture: 0.6, edge: "#fff0c4" },
+  );
+  ctx.restore();
+  // A warm band rises from the horizon; the zenith turns a paler blue.
+  const sky = ctx.createLinearGradient(0, 0, 0, 250);
+  sky.addColorStop(0, "#5d6f9a");
+  sky.addColorStop(0.45, "#c48d94");
+  sky.addColorStop(0.8, "#f2b27e");
+  sky.addColorStop(1, "#f6c992");
   ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = Math.min(1, t) * 0.15;
-  ctx.fillStyle = "#ba9b86";
-  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = ease * 0.5;
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, 250);
+  // The yard catches a little of it, without washing out the ink.
+  ctx.globalAlpha = ease * 0.12;
+  ctx.fillStyle = "#e9b38a";
+  ctx.fillRect(0, 250, W, H - 250);
   ctx.restore();
 }
