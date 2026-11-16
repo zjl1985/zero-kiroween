@@ -81,6 +81,8 @@ function boot(): void {
     level: must<HTMLElement>("hud-level"),
     xp: must<HTMLElement>("hud-xp"),
     upgrades: must<HTMLElement>("hud-upgrades"),
+    boss: must<HTMLElement>("hud-boss"),
+    bossName: must<HTMLElement>("hud-boss-name"),
   };
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;
@@ -174,6 +176,17 @@ function boot(): void {
             sim.upgrades[evolutionFor(id)]
               ? upgradeName(locale, evolutionFor(id))
               : t(locale, "result.none"),
+          ],
+          [
+            t(locale, "result.boss"),
+            t(
+              locale,
+              sim.stats.bossDefeated
+                ? "result.boss_down"
+                : sim.boss.spawned
+                  ? "result.boss_left"
+                  : "result.none",
+            ),
           ],
         ]
           .map(

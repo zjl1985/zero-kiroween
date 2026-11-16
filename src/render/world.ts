@@ -1,5 +1,11 @@
 import { drawCraftCat } from "./craft-cat.js";
-import { drawCraftBlob, drawCraftShot, drawInkShard } from "./craft-combat.js";
+import { drawCraftShot, drawInkShard } from "./craft-combat.js";
+import {
+  drawCraftEnemy,
+  drawEnemyEffect,
+  drawEnemyGround,
+  drawEnemyShot,
+} from "./craft-enemies.js";
 import { playerStats } from "../game/upgrades.js";
 import {
   drawCombatGround,
@@ -46,7 +52,10 @@ export function drawWorld(
   drawScene(ctx);
   if (sim) drawNightShift(ctx, sim.elapsed / sim.sessionSeconds);
   drawWind(ctx, view.time);
-  if (sim) drawCombatGround(ctx, sim);
+  if (sim) {
+    drawCombatGround(ctx, sim);
+    drawEnemyGround(ctx, sim);
+  }
   const sprites: Sprite[] = [];
   for (const l of LAMPS) {
     drawGroundLight(ctx, l.x, l.y, view.time, l.s);
@@ -174,21 +183,19 @@ export function drawWorld(
         }),
       );
     }
+    // Googly eyes follow the cat.
+    const look = { x: sim.player.x, y: sim.player.y - 20 };
     for (const e of sim.enemies)
       if (e.alive)
         sprites.push({
           y: e.y,
-          draw: () =>
-            drawCraftBlob(
-              ctx,
-              e.x,
-              e.y,
-              view.time,
-              e.id,
-              e.hp,
-              e.slowTime > 0,
-              e.spawnTime,
-            ),
+          draw: () => drawCraftEnemy(ctx, e, view.time, look),
+        });
+    for (const s of sim.enemyShots)
+      if (s.alive)
+        sprites.push({
+          y: s.y0 + (s.ty - s.y0) * Math.min(1, s.t / s.flight),
+          draw: () => drawEnemyShot(ctx, s),
         });
     cat({
       id: sim.player.id,
@@ -213,7 +220,7 @@ export function drawWorld(
     for (const effect of sim.impacts) {
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
-      else drawSkillEffect(ctx, effect, sim);
+      else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
   }
   drawAtmosphere(ctx, view.time);

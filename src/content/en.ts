@@ -145,4 +145,11 @@ export const EN: Messages = {
   "result.none": "—",
   "notice.evolve-zero": "Echo Legion · Your shadow fights back",
   "notice.evolve-nicole": "Full Moon · The night bends around you",
+  "boss.name": "THE ERASER",
+  "hud.boss": "{name} {hp}/{max}",
+  "notice.boss-incoming": "The Eraser is coming · Watch the dashed outlines",
+  "notice.boss-defeated": "The Eraser is worn down · The page is safe",
+  "result.boss": "THE ERASER",
+  "result.boss_down": "Defeated",
+  "result.boss_left": "Outlasted",
 };

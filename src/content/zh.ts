@@ -140,4 +140,11 @@ export const ZH: Messages = {
   "result.none": "—",
   "notice.evolve-zero": "回声军团 · 影子开始反击",
   "notice.evolve-nicole": "满月 · 夜色绕你而行",
+  "boss.name": "橡皮擦",
+  "hud.boss": "{name} {hp}/{max}",
+  "notice.boss-incoming": "橡皮擦来了 · 留意虚线预警",
+  "notice.boss-defeated": "橡皮擦被磨平了 · 画纸守住了",
+  "result.boss": "橡皮擦",
+  "result.boss_down": "已击败",
+  "result.boss_left": "撑到天亮",
 };

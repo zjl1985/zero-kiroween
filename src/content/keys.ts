@@ -130,6 +130,13 @@ export const MESSAGE_KEYS = [
   "result.none",
   "notice.evolve-zero",
   "notice.evolve-nicole",
+  "boss.name",
+  "hud.boss",
+  "notice.boss-incoming",
+  "notice.boss-defeated",
+  "result.boss",
+  "result.boss_down",
+  "result.boss_left",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

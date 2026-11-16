@@ -1,7 +1,7 @@
 import { formatTime, t } from "../content/i18n.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import type { SimState } from "../game/types.js";
-import { nightPhase } from "../game/sim.js";
+import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { characterCopy, paintPortrait } from "./character-panel.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
 import { playerStats, UPGRADES } from "../game/upgrades.js";
@@ -27,6 +27,23 @@ export interface HudRefs {
   level: HTMLElement;
   xp: HTMLElement;
   upgrades: HTMLElement;
+  boss: HTMLElement;
+  bossName: HTMLElement;
+}
+/** The Eraser's paper-strip HP bar, shown only while it is on the page. */
+function renderBoss(refs: HudRefs, locale: Locale, sim: SimState): void {
+  const boss = bossEnemy(sim);
+  refs.boss.classList.toggle("hidden", !boss);
+  if (!boss) return;
+  const max = enemyMaxHp(boss),
+    name = t(locale, "boss.name");
+  text(refs.bossName, name);
+  refs.boss.style.setProperty("--boss", `${(boss.hp / max) * 100}%`);
+  refs.boss.classList.toggle("boss-winding", !!boss.act && boss.act.t > 0);
+  refs.boss.setAttribute(
+    "aria-label",
+    t(locale, "hud.boss", { name, hp: Math.ceil(boss.hp), max }),
+  );
 }
 /** Owned cards as small code-drawn emblems with their level. */
 function renderOwned(el: HTMLElement, locale: Locale, sim: SimState): void {
@@ -94,6 +111,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }),
   );
   renderOwned(refs.upgrades, locale, sim);
+  renderBoss(refs, locale, sim);
   text(refs.phase, t(locale, `hud.phase${nightPhase(sim)}` as MessageKey));
   refs.progress.style.setProperty(
     "--dawn",

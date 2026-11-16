@@ -18,10 +18,25 @@ import {
   UPGRADE_VALUES,
 } from "./upgrades.js";
 import {
+  BAT,
+  BOSS,
+  BOSS_ATTACKS,
+  CRUMPLE,
+  ENEMIES,
+  ENEMY_CAP,
+  ENEMY_FX_LIFE,
+  SMUDGE,
+  SPAWN_TABLE,
+  WAVES,
+  type BossAttack,
+  type EnemyKind,
+} from "./enemies.js";
+import {
   DEFAULT_WORLD,
   EFFECT_LIFE,
   STATS,
   YARD_TOP,
+  type BossAct,
   type FrameInput,
   type SimConfig,
   type SimState,
@@ -98,6 +113,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       shieldBlocks: 0,
       upgradesTaken: 0,
       shardsCollected: 0,
+      bossDefeated: false,
     },
     notice: null,
     xp: 0,
@@ -108,41 +124,94 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     pickups: [],
     nextPickupId: 1,
     pulseTimer: UPGRADE_VALUES["full-moon"].pulseInterval,
+    enemyShots: [],
+    hazards: [],
+    nextHazardId: 1,
+    boss: { spawned: false, defeated: false, id: null },
+    wavesDone: 0,
   };
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
   spawnBlob(state, world.width * 0.24, world.height * 0.85);
   spawnBlob(state, world.width * 0.39, YARD_TOP + 18);
   return state;
 }
-function spawnBlob(state: SimState, x: number, y: number): void {
-  const pos = keepInside(
-    x,
-    y,
-    STATS.enemyRadius,
-    state.world.width,
-    state.world.height,
-    16,
-    YARD_TOP,
-  );
-  state.enemies.push({
+/** Per-kind data, with optional per-enemy overrides (split blobs are smaller). */
+export function enemyRadius(e: EnemyState): number {
+  return e.radius ?? ENEMIES[e.kind].radius;
+}
+export function enemyMaxHp(e: EnemyState): number {
+  return e.maxHp ?? ENEMIES[e.kind].hp;
+}
+export function bossEnemy(state: SimState): EnemyState | undefined {
+  return state.boss.id === null
+    ? undefined
+    : state.enemies.find((e) => e.id === state.boss.id && e.alive);
+}
+function spawnBlob(state: SimState, x: number, y: number): EnemyState {
+  return spawnEnemy(state, "ink-blob", x, y);
+}
+function spawnEnemy(
+  state: SimState,
+  kind: EnemyKind,
+  x: number,
+  y: number,
+  hp: number = ENEMIES[kind].hp,
+  spawnTime = 0.65,
+): EnemyState {
+  const def = ENEMIES[kind],
+    pos = keepInside(
+      x,
+      y,
+      def.radius,
+      state.world.width,
+      state.world.height,
+      16,
+      YARD_TOP,
+    );
+  const e: EnemyState = {
     id: state.nextEnemyId++,
-    kind: "ink-blob",
+    kind,
     x: pos.x,
     y: pos.y,
-    hp: STATS.enemyHp,
+    hp,
     alive: true,
     orbitCooldown: 0,
     slowTime: 0,
-    spawnTime: 0.65,
-  });
+    spawnTime,
+    maxHp: hp,
+    radius: def.radius,
+  };
+  // No RNG here: bats get a swoop phase from their id.
+  if (kind === "paper-bat") e.phase = (e.id * 2.399) % (Math.PI * 2);
+  if (kind === "smudge") {
+    e.timer = SMUDGE.cooldown * 0.5;
+    e.windup = 0;
+  }
+  state.enemies.push(e);
+  return e;
 }
 export function nightPhase(state: SimState): 0 | 1 | 2 | 3 {
   const progress = state.elapsed / state.sessionSeconds;
   return progress < 0.2 ? 0 : progress < 0.6 ? 1 : progress < 0.9 ? 2 : 3;
 }
-function spawnAroundEdge(state: SimState, rng: Rng): void {
-  const { width, height } = state.world,
-    side = rng.int(0, 4);
+function pickKind(state: SimState, rng: Rng): EnemyKind {
+  const table = SPAWN_TABLE[nightPhase(state)]!;
+  // A single-entry table consumes no RNG, so the opening stays as it was.
+  if (table.length === 1) return table[0]![0];
+  const total = table.reduce((sum, [, w]) => sum + w, 0);
+  let roll = rng.float(0, total);
+  for (const [kind, w] of table) {
+    roll -= w;
+    if (roll < 0) return kind;
+  }
+  return table[table.length - 1]![0];
+}
+function edgePoint(
+  state: SimState,
+  rng: Rng,
+  side: number,
+): { x: number; y: number } {
+  const { width, height } = state.world;
   let x = side < 2 ? rng.float(28, width - 28) : side === 2 ? 28 : width - 28;
   let y =
     side === 0
@@ -158,7 +227,55 @@ function spawnAroundEdge(state: SimState, rng: Rng): void {
     );
     y = clamp(y, YARD_TOP + 16, height - 26);
   }
-  spawnBlob(state, x, y);
+  return { x, y };
+}
+function spawnAroundEdge(state: SimState, rng: Rng): void {
+  const side = rng.int(0, 4),
+    { x, y } = edgePoint(state, rng, side);
+  spawnEnemy(state, pickKind(state, rng), x, y);
+}
+/** Scripted waves (a bat flock from one side) at fixed times, and the Boss. */
+function stepSchedule(state: SimState, rng: Rng): void {
+  while (
+    state.wavesDone < WAVES.length &&
+    state.elapsed >= WAVES[state.wavesDone]!.at * state.sessionSeconds
+  ) {
+    const wave = WAVES[state.wavesDone++]!,
+      side = rng.int(2, 4);
+    for (let i = 0; i < wave.count && livingEnemies(state) < ENEMY_CAP; i++) {
+      const { x, y } = edgePoint(state, rng, side);
+      spawnEnemy(state, wave.kind, x, y, ENEMIES[wave.kind].hp, 0.65 + i * 0.12);
+    }
+  }
+  if (
+    !state.boss.spawned &&
+    state.elapsed >= BOSS.spawnAt * state.sessionSeconds
+  )
+    spawnBoss(state);
+}
+function spawnBoss(state: SimState): void {
+  // The Eraser makes room for itself by rubbing out the oldest ink at the cap.
+  for (const e of state.enemies) {
+    if (livingEnemies(state) < ENEMY_CAP) break;
+    if (!e.alive) continue;
+    e.alive = false;
+    effect(state, e.x, e.y, "erase", ENEMY_FX_LIFE.erase);
+  }
+  const { width } = state.world,
+    x = state.player.x < width / 2 ? width * 0.78 : width * 0.22,
+    boss = spawnEnemy(
+      state,
+      "eraser-boss",
+      x,
+      YARD_TOP + 40,
+      ENEMIES["eraser-boss"].hp,
+      BOSS.spawnTime,
+    );
+  boss.timer = BOSS.firstAttack;
+  boss.act = null;
+  boss.combo = 0;
+  state.boss = { spawned: true, defeated: false, id: boss.id };
+  notify(state, "boss-incoming");
 }
 export function snapshot(state: SimState): unknown {
   // Snapshot every combat-bearing field; rendering has no RNG or simulation side effects.
@@ -219,6 +336,8 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   state.impacts = state.impacts.filter((e) => e.life > 0);
   for (const f of state.fields) f.life -= dt;
   state.fields = state.fields.filter((f) => f.life > 0);
+  for (const h of state.hazards) h.life -= dt;
+  state.hazards = state.hazards.filter((h) => h.life > 0);
   if (state.notice) {
     state.notice.life -= dt;
     if (state.notice.life <= 0) state.notice = null;
@@ -241,11 +360,14 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     stepMoonPulse(state, dt);
   }
   stepShots(state, dt);
-  stepEnemies(state, dt);
+  stepEnemies(state, dt, rng);
+  stepEnemyShots(state, dt);
   stepPickups(state, dt, rng);
   if (state.ended === "playing") {
+    stepSchedule(state, rng);
     const phase = nightPhase(state),
-      cap = [7, 10, 14, 18][phase]!;
+      // A live Boss leaves room on the page for its own summons.
+      cap = Math.min(ENEMY_CAP, [7, 10, 14, 18][phase]! - (bossEnemy(state) ? 4 : 0));
     state.spawnTimer -= dt;
     if (state.spawnTimer <= 0) {
       for (
@@ -260,6 +382,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   state.enemies = state.enemies.filter((e) => e.alive);
   state.shots = state.shots.filter((s) => s.alive);
   state.pickups = state.pickups.filter((s) => s.alive);
+  state.enemyShots = state.enemyShots.filter((s) => s.alive);
   state.rngState = rng.state();
 }
 function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
@@ -278,6 +401,12 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
     state.stroke.points.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 24)
       ? STATS.strokeSlow
       : 1;
+  if (
+    state.hazards.some(
+      (h) => Math.hypot(p.x - h.x, (p.y - h.y) * 1.6) <= h.radius,
+    )
+  )
+    p.slow *= SMUDGE.puddleSlow;
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
       length(input.ax, input.ay) < 0.15
@@ -316,12 +445,13 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
       for (const e of state.enemies)
         if (e.alive && Math.hypot(e.x - p.x, e.y - p.y) <= ps.fieldRadius) {
           e.slowTime = 0.5;
-          const push = normalize(e.x - p.x, e.y - p.y);
+          const push = normalize(e.x - p.x, e.y - p.y),
+            knock = 20 * ENEMIES[e.kind].knockback;
           const pos = safePosition(
             state,
-            e.x + push.x * 20,
-            e.y + push.y * 20,
-            STATS.enemyRadius,
+            e.x + push.x * knock,
+            e.y + push.y * knock,
+            enemyRadius(e),
           );
           e.x = pos.x;
           e.y = pos.y;
@@ -452,11 +582,12 @@ function stepMoonPulse(state: SimState, dt: number): void {
     if (Math.hypot(e.x - p.x, e.y - p.y) > reach) continue;
     hurtEnemy(state, e, moon.pulseDamage);
     const dir = normalize(e.x - p.x, e.y - p.y),
+      knock = moon.pulsePush * ENEMIES[e.kind].knockback,
       pos = safePosition(
         state,
-        e.x + dir.x * moon.pulsePush,
-        e.y + dir.y * moon.pulsePush,
-        STATS.enemyRadius,
+        e.x + dir.x * knock,
+        e.y + dir.y * knock,
+        enemyRadius(e),
       );
     e.x = pos.x;
     e.y = pos.y;
@@ -482,16 +613,17 @@ function stepOrbit(state: SimState): void {
     maybeReink(state, star.x, star.y, 9);
     for (const e of state.enemies) {
       if (!e.alive || e.spawnTime > 0 || e.orbitCooldown > 0) continue;
-      if (circlesOverlap(star.x, star.y, 9, e.x, e.y, STATS.enemyRadius)) {
+      if (circlesOverlap(star.x, star.y, 9, e.x, e.y, enemyRadius(e))) {
         hurtEnemy(state, e, ps.orbitDamage);
         e.orbitCooldown = n.orbitHitInterval;
         e.slowTime = Math.max(e.slowTime, 0.3);
         const dir = normalize(e.x - state.player.x, e.y - state.player.y),
+          knock = 12 * ENEMIES[e.kind].knockback,
           pos = safePosition(
             state,
-            e.x + dir.x * 12,
-            e.y + dir.y * 12,
-            STATS.enemyRadius,
+            e.x + dir.x * knock,
+            e.y + dir.y * knock,
+            enemyRadius(e),
           );
         e.x = pos.x;
         e.y = pos.y;
@@ -507,7 +639,42 @@ function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
   effect(state, e.x, e.y, e.alive ? "hit" : "defeat", e.alive ? 0.16 : 0.32);
   if (!e.alive) {
     state.stats.kills++;
-    dropShard(state, e.x, e.y, XP.shardValue);
+    if (e.kind === "eraser-boss") defeatBoss(state, e);
+    else dropShard(state, e.x, e.y, ENEMIES[e.kind].xp);
+    if (e.kind === "crumple") splitCrumple(state, e);
+  }
+}
+/** A crumpled ball bursts into small blobs, as far as the cap allows. */
+function splitCrumple(state: SimState, e: EnemyState): void {
+  effect(state, e.x, e.y, "crumple", ENEMY_FX_LIFE.crumple);
+  for (let i = 0; i < CRUMPLE.splitCount; i++) {
+    if (livingEnemies(state) >= ENEMY_CAP) break;
+    const side = i % 2 ? 1 : -1;
+    spawnEnemy(
+      state,
+      "ink-blob",
+      e.x + side * CRUMPLE.splitOffset,
+      e.y + (i >> 1) * CRUMPLE.splitOffset,
+      CRUMPLE.splitHp,
+      0.2,
+    );
+  }
+}
+function defeatBoss(state: SimState, e: EnemyState): void {
+  state.boss.defeated = true;
+  state.stats.bossDefeated = true;
+  e.act = null;
+  effect(state, e.x, e.y, "boss-down", ENEMY_FX_LIFE["boss-down"]);
+  notify(state, "boss-defeated");
+  // A ring of heavy shards, placed without RNG.
+  for (let i = 0; i < BOSS.rewardShards; i++) {
+    const a = (i / BOSS.rewardShards) * Math.PI * 2;
+    dropShard(
+      state,
+      e.x + Math.cos(a) * 22,
+      e.y + Math.sin(a) * 14,
+      BOSS.rewardValue,
+    );
   }
 }
 function dropShard(state: SimState, x: number, y: number, value: number): void {
@@ -606,7 +773,7 @@ function stepShots(state: SimState, dt: number): void {
           e.spawnTime <= 0 &&
           !hits.includes(e.id) &&
           pointSegDist(e.x, e.y, ox, oy, s.x, s.y) <=
-            STATS.shotRadius + STATS.enemyRadius,
+            STATS.shotRadius + enemyRadius(e),
       )
       .sort(
         (a, b) =>
@@ -623,17 +790,51 @@ function stepShots(state: SimState, dt: number): void {
     if (s.life <= 0) s.alive = false;
   }
 }
-function stepEnemies(state: SimState, dt: number): void {
+/**
+ * Applies `damage` to the cat unless it is invulnerable. Shields, Nicole's
+ * rescue and defeat are handled here for every enemy source.
+ */
+function hurtPlayer(state: SimState, damage: number): boolean {
+  const p = state.player,
+    n = CHARACTERS.nicole;
+  if (p.invuln > 0 || state.ended !== "playing") return false;
+  p.invuln = STATS.hurtIframes;
+  if (p.shield > 0 && p.shieldTime > 0) {
+    p.shield--;
+    state.stats.shieldBlocks++;
+    effect(state, p.x, p.y, "shield", 0.4);
+    notify(state, "shield-block");
+    return true;
+  }
+  p.hp = Math.max(0, p.hp - damage);
+  state.stats.damageTaken += damage;
+  effect(state, p.x, p.y, "hurt", 0.35);
+  if (p.id === "nicole" && !p.rescueUsed && p.hp > 0 && p.hp <= n.rescueThreshold) {
+    p.rescueUsed = true;
+    p.shield = n.rescueCharges;
+    p.shieldTime = n.rescueDuration;
+    effect(state, p.x, p.y, "rescue", 0.8);
+    notify(state, "nicole-rescue");
+  }
+  if (p.hp <= 0) state.ended = "lost";
+  return true;
+}
+function stepEnemies(state: SimState, dt: number, rng: Rng): void {
   const p = state.player,
     n = CHARACTERS.nicole,
     ps = playerStats(state);
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
+    const def = ENEMIES[e.kind],
+      boss = e.kind === "eraser-boss",
+      radius = enemyRadius(e);
     let tx = p.x,
       ty = p.y;
+    // The Eraser only follows the decoy when it is almost on top of it.
+    const lure = boss ? Math.min(ps.decoyRange, BOSS.lureRange) : ps.decoyRange;
     if (
       state.decoy.live &&
-      Math.hypot(e.x - state.decoy.x, e.y - state.decoy.y) <= ps.decoyRange
+      Math.hypot(e.x - state.decoy.x, e.y - state.decoy.y) <= lure
     ) {
       tx = state.decoy.x;
       ty = state.decoy.y;
@@ -642,74 +843,238 @@ function stepEnemies(state: SimState, dt: number): void {
       (f) => Math.hypot(e.x - f.x, e.y - f.y) <= (f.radius ?? n.fieldRadius),
     );
     if (inside) e.slowTime = Math.max(e.slowTime, 0.15);
-    const speed =
-        (STATS.enemySpeed + nightPhase(state) * 4) *
-        (e.slowTime > 0 ? n.slowMultiplier : 1),
+    const slow = e.slowTime > 0 ? (boss ? BOSS.slowMultiplier : n.slowMultiplier) : 1,
+      speed = (def.speed + (boss ? 0 : nightPhase(state) * 4)) * slow,
       dir = normalize(tx - e.x, ty - e.y);
-    // A small deterministic separation keeps crowds legible rather than stacking sprites.
     let dx = dir.x * speed * dt,
       dy = dir.y * speed * dt;
-    for (const other of state.enemies) {
-      if (other.id === e.id || !other.alive) continue;
-      const dist = Math.hypot(e.x - other.x, e.y - other.y);
-      if (dist > 0 && dist < 20) {
-        dx += ((e.x - other.x) / dist) * (20 - dist) * dt * 2;
-        dy += ((e.y - other.y) / dist) * (20 - dist) * dt * 2;
+    if (e.kind === "paper-bat") {
+      // Swoop across the line of approach on a sine path.
+      const swoop =
+        Math.cos(state.elapsed * BAT.swoopFrequency + (e.phase ?? 0)) *
+        BAT.swoopAmount *
+        speed *
+        dt;
+      dx += -dir.y * swoop;
+      dy += dir.x * swoop;
+    } else if (e.kind === "smudge") {
+      const move = stepSmudge(state, e, dt, Math.hypot(p.x - e.x, p.y - e.y));
+      dx *= move;
+      dy *= move;
+    } else if (boss) {
+      const move = stepBoss(state, e, dt, rng);
+      if (move === null) dx = dy = 0;
+      else if (move !== "approach") {
+        dx = move.dx * dt;
+        dy = move.dy * dt;
       }
+      if (!e.alive || state.ended !== "playing") return;
     }
-    const kept = safePosition(state, e.x + dx, e.y + dy, STATS.enemyRadius);
+    // A small deterministic separation keeps crowds legible rather than stacking sprites.
+    if (!boss)
+      for (const other of state.enemies) {
+        if (other.id === e.id || !other.alive) continue;
+        const dist = Math.hypot(e.x - other.x, e.y - other.y),
+          gap = Math.max(20, (radius + enemyRadius(other)) * 0.9);
+        if (dist > 0 && dist < gap) {
+          dx += ((e.x - other.x) / dist) * (gap - dist) * dt * 2;
+          dy += ((e.y - other.y) / dist) * (gap - dist) * dt * 2;
+        }
+      }
+    const kept = safePosition(state, e.x + dx, e.y + dy, radius);
     e.x = kept.x;
     e.y = kept.y;
     if (
       p.invuln > 0 ||
-      !circlesOverlap(e.x, e.y, STATS.enemyRadius, p.x, p.y, STATS.playerRadius)
+      !circlesOverlap(e.x, e.y, radius, p.x, p.y, STATS.playerRadius)
     )
       continue;
-    p.invuln = STATS.hurtIframes;
-    if (p.shield > 0 && p.shieldTime > 0) {
-      p.shield--;
-      state.stats.shieldBlocks++;
-      effect(state, p.x, p.y, "shield", 0.4);
-      notify(state, "shield-block");
-    } else {
-      p.hp = Math.max(0, p.hp - STATS.contactDamage);
-      state.stats.damageTaken++;
-      effect(state, p.x, p.y, "hurt", 0.35);
-      if (
-        p.id === "nicole" &&
-        !p.rescueUsed &&
-        p.hp > 0 &&
-        p.hp <= n.rescueThreshold
-      ) {
-        p.rescueUsed = true;
-        p.shield = n.rescueCharges;
-        p.shieldTime = n.rescueDuration;
-        effect(state, p.x, p.y, "rescue", 0.8);
-        notify(state, "nicole-rescue");
-      }
-    }
+    hurtPlayer(state, def.contactDamage);
     const push = normalize(p.x - e.x, p.y - e.y),
       pos = safePosition(
         state,
-        p.x + push.x * 8,
-        p.y + push.y * 8,
+        p.x + push.x * (boss ? 16 : 8),
+        p.y + push.y * (boss ? 16 : 8),
         STATS.playerRadius,
       );
     p.x = pos.x;
     p.y = pos.y;
-    const enemyPos = safePosition(
-      state,
-      e.x - push.x * 18,
-      e.y - push.y * 18,
-      STATS.enemyRadius,
-    );
+    const back = 18 * def.knockback,
+      enemyPos = safePosition(
+        state,
+        e.x - push.x * back,
+        e.y - push.y * back,
+        radius,
+      );
     e.x = enemyPos.x;
     e.y = enemyPos.y;
-    if (p.hp <= 0) {
-      state.ended = "lost";
-      return;
-    }
+    if (state.ended !== "playing") return;
   }
+}
+/** Returns a movement factor: smudges stand still while in range or winding up. */
+function stepSmudge(
+  state: SimState,
+  e: EnemyState,
+  dt: number,
+  dist: number,
+): number {
+  const p = state.player;
+  e.timer = Math.max(0, (e.timer ?? 0) - dt);
+  if ((e.windup ?? 0) > 0) {
+    e.windup = Math.max(0, e.windup! - dt);
+    if (e.windup <= 0) throwInk(state, e);
+    return 0;
+  }
+  if (dist > SMUDGE.range) return 1;
+  if (e.timer <= 0) {
+    e.windup = SMUDGE.windup;
+    e.tx = p.x;
+    e.ty = p.y;
+  }
+  return 0;
+}
+function throwInk(state: SimState, e: EnemyState): void {
+  const tx = e.tx ?? state.player.x,
+    ty = e.ty ?? state.player.y,
+    d = Math.hypot(tx - e.x, ty - e.y);
+  state.enemyShots.push({
+    id: state.nextHazardId++,
+    x0: e.x,
+    y0: e.y,
+    tx,
+    ty,
+    t: 0,
+    flight: Math.max(SMUDGE.minFlight, d / SMUDGE.dropSpeed),
+    alive: true,
+  });
+  e.timer = SMUDGE.cooldown;
+}
+/** Ink drops arc to their locked target, splash, and leave a slowing puddle. */
+function stepEnemyShots(state: SimState, dt: number): void {
+  if (state.ended !== "playing") return;
+  const p = state.player;
+  for (const s of state.enemyShots) {
+    if (!s.alive) continue;
+    s.t += dt;
+    if (s.t < s.flight) continue;
+    s.alive = false;
+    effect(state, s.tx, s.ty, "splat", ENEMY_FX_LIFE.splat);
+    state.hazards.push({
+      id: state.nextHazardId++,
+      kind: "puddle",
+      x: s.tx,
+      y: s.ty,
+      radius: SMUDGE.puddleRadius,
+      life: SMUDGE.puddleLife,
+      maxLife: SMUDGE.puddleLife,
+    });
+    if (Math.hypot(p.x - s.tx, p.y - s.ty) <= SMUDGE.splashRadius + STATS.playerRadius)
+      hurtPlayer(state, SMUDGE.splashDamage);
+  }
+}
+/** Starts a telegraphed Boss attack aimed at the cat. Exported for tests. */
+export function startBossAttack(
+  state: SimState,
+  e: EnemyState,
+  kind: BossAttack,
+): BossAct {
+  const d = normalize(state.player.x - e.x, state.player.y - e.y),
+    dir = d.x || d.y ? d : { x: 1, y: 0 };
+  e.act = {
+    kind,
+    t: BOSS[kind].telegraph,
+    run: 0,
+    x: e.x,
+    y: e.y,
+    dx: dir.x,
+    dy: dir.y,
+  };
+  return e.act;
+}
+/** True when (x, y) with `pad` lies inside the erase sweep rectangle. */
+export function inSweep(a: BossAct, x: number, y: number, pad = 0): boolean {
+  const rx = x - a.x,
+    ry = y - a.y,
+    along = rx * a.dx + ry * a.dy,
+    across = Math.abs(rx * a.dy - ry * a.dx);
+  return (
+    along >= -ENEMIES["eraser-boss"].radius - pad &&
+    along <= BOSS.sweep.length + pad &&
+    across <= BOSS.sweep.width / 2 + pad
+  );
+}
+/** Boss brain: approach, then rotate through telegraphed attacks. */
+function stepBoss(
+  state: SimState,
+  e: EnemyState,
+  dt: number,
+  rng: Rng,
+): { dx: number; dy: number } | "approach" | null {
+  const a = e.act;
+  if (a) {
+    if (a.t > 0) {
+      a.t -= dt;
+      if (a.t > 0) return null;
+      resolveBossAttack(state, e, a);
+      return null;
+    }
+    if (a.kind === "charge" && a.run > 0) {
+      a.run -= dt;
+      if (a.run <= 0) endBossAttack(e);
+      return { dx: a.dx * BOSS.charge.speed, dy: a.dy * BOSS.charge.speed };
+    }
+    endBossAttack(e);
+    return null;
+  }
+  e.timer = (e.timer ?? 0) - dt;
+  if (e.timer <= 0) {
+    // Never the same attack twice in a row.
+    const next = ((e.combo ?? 0) + 1 + rng.int(0, 2)) % BOSS_ATTACKS.length;
+    e.combo = next;
+    startBossAttack(state, e, BOSS_ATTACKS[next]!);
+    return null;
+  }
+  return "approach";
+}
+function endBossAttack(e: EnemyState): void {
+  e.act = null;
+  e.timer = BOSS.attackGap;
+}
+function resolveBossAttack(state: SimState, e: EnemyState, a: BossAct): void {
+  if (a.kind === "sweep") {
+    eraseSweep(state, a);
+    endBossAttack(e);
+  } else if (a.kind === "summon") {
+    effect(state, e.x, e.y, "summon", ENEMY_FX_LIFE.summon);
+    for (let i = 0; i < BOSS.summon.count; i++) {
+      if (livingEnemies(state) >= ENEMY_CAP) break;
+      const ang = (i / BOSS.summon.count) * Math.PI * 2 + Math.PI / 2;
+      spawnEnemy(
+        state,
+        "ink-blob",
+        e.x + Math.cos(ang) * BOSS.summon.distance,
+        e.y + Math.sin(ang) * BOSS.summon.distance * 0.6,
+        ENEMIES["ink-blob"].hp,
+        0.35,
+      );
+    }
+    endBossAttack(e);
+  } else {
+    a.run = BOSS.charge.time;
+  }
+}
+/** The erase sweep damages the cat inside it and rubs the page line blank. */
+function eraseSweep(state: SimState, a: BossAct): void {
+  const p = state.player,
+    s = state.stroke,
+    mid = BOSS.sweep.length / 2;
+  effect(state, a.x + a.dx * mid, a.y + a.dy * mid, "erase", ENEMY_FX_LIFE.erase);
+  if (inSweep(a, p.x, p.y, STATS.playerRadius)) hurtPlayer(state, BOSS.sweep.damage);
+  if (s.points.some((q) => inSweep(a, q.x, q.y, s.thickness / 2))) {
+    s.ink = 0;
+    s.blankTime = STATS.strokeBlankTime;
+  }
+  for (const h of state.hazards) if (inSweep(a, h.x, h.y)) h.life = 0;
 }
 function stepStroke(state: SimState, dt: number): void {
   const s = state.stroke;
