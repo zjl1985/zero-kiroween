@@ -309,7 +309,9 @@ function boot(): void {
   const resume = () => {
     last = performance.now();
     clock.acc = 0;
-    show("play");
+    // A pause taken over the card hand returns to the same hand.
+    if (sim?.pendingChoice) openCards();
+    else show("play");
   };
   const openCards = () => {
     cardsArmedAt = performance.now() + 320;
@@ -406,7 +408,7 @@ function boot(): void {
   must("btn-lang").addEventListener("click", language);
   must("btn-pause-lang").addEventListener("click", language);
   must("btn-hud-pause").addEventListener("click", () => {
-    if (screen === "play") show("pause");
+    if (screen === "play" || screen === "upgrade") show("pause");
   });
   must("btn-resume").addEventListener("click", resume);
   must("btn-back").addEventListener("click", title);
@@ -420,7 +422,8 @@ function boot(): void {
     }
   });
   const background = () => {
-    if (screen === "play") show("pause", true);
+    // Pausing also stops the ambience, including over the card hand.
+    if (screen === "play" || screen === "upgrade") show("pause", true);
   };
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) background();
@@ -451,9 +454,11 @@ function boot(): void {
         if (screen === "play") renderHud(hudRefs, locale, sim);
       }
     } else if (screen === "upgrade") {
-      input.consumePause();
-      const choice = input.consumeChoice();
-      if (choice !== null) pick(choice);
+      if (input.consumePause()) show("pause");
+      else {
+        const choice = input.consumeChoice();
+        if (choice !== null) pick(choice);
+      }
     } else if (screen === "pause" && input.consumePause()) resume();
     else input.consumePause();
     if (sim) cueSounds(sim);

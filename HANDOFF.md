@@ -26,8 +26,8 @@
 - `upgrades.ts`：全部升级卡与经验曲线。5 张通用卡（vitality、swift、magnet、focus、scholar）、Zero 专属 5 张（bolt-power、quick-draw、split-bolt、pierce、long-shadow）、Nicole 专属 5 张（extra-star、wide-orbit、star-weight、deep-fold、moon-shield），填充卡 snack（回 1 心）。进化：Zero 的 **Echo Legion**（quick-draw 2 级 + long-shadow 2 级解锁，留影自行射击并在消失时爆裂），Nicole 的 **Full Moon**（extra-star 2 级 + star-weight 2 级解锁，+2 月星并周期性月光脉冲）。数值在 `UPGRADE_VALUES`、`XP`，`playerStats(state)` 计算派生属性，`rollChoices` 抽 3 张卡且可进化时进化卡占第一位。
 - `enemies.ts`：敌人种类与刷怪表。ink-blob、paper-bat（俯冲）、crumple（死亡分裂成 2 个小团）、smudge（停在射程外投掷有预警的墨滴并留下减速水洼）、eraser-boss（90 血，234 秒即 78% 进度出场，横扫 / 召唤 / 冲撞三种带预警攻击）。`SPAWN_TABLE`、`WAVES`（固定时点小波次）、`ENEMY_CAP = 18`、`BOSS` 都在这里。
 - `interactions.ts`：庭院互动物件。3 个南瓜灯（触碰点亮 6 秒灼烧并推开墨团，14 秒充能）、月亮灯笼（位于 LAMPS[3]，40 秒充满，触碰后全场眩晕 2.4 秒，对 Boss 0.9 秒）、鱼干（35 秒起随机出现，回 1 心，使用模拟 RNG）。
-- `sim.ts`：刷怪、四个夜间阶段、战斗、经验碎片掉落与拾取、升级暂停（`pendingChoice` 期间时间冻结，`chooseUpgrade(state, i)`）、Boss 行为、连杀（`STATS.streakWindow` 2.6 秒，每 10 连杀奖励经验）、阶段提示、胜负。
-- `types.ts`：`SimState`、共享 `STATS`、`EFFECT_LIFE`。`input.ts`：WASD / 方向键、空格技能、Esc / P 暂停、1 / 2 / 3 选卡。
+- `sim.ts`：刷怪、四个夜间阶段、战斗、经验碎片掉落与拾取、升级暂停（`pendingChoice` 期间时间冻结，`chooseUpgrade(state, i)`）、Boss 行为、连杀（`STATS.streakWindow` 2.6 秒，每 10 连杀奖励经验）、阶段提示（Boss / 进化横幅不会被技能、鱼干等普通提示覆盖）、胜负。Zero 进化后在回声未消失时再次冲刺，旧回声也会爆开。
+- `types.ts`：`SimState`、共享 `STATS`、`EFFECT_LIFE`。`input.ts`：WASD / 方向键、空格技能、Esc / P 暂停（选卡界面也可暂停，恢复后回到同一手牌；切到后台同样暂停并关闭环境音）、1 / 2 / 3 选卡。
 
 ### 渲染（`src/render/`）
 

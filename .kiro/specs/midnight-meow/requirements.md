@@ -59,7 +59,7 @@ Midnight Meow is a browser night-watch game. The player picks Zero or Nicole and
 ### Acceptance criteria
 
 1. THE game SHALL support WASD / arrow keys to move, Space to use the skill, and 1 / 2 / 3 (or a click / tap) to pick an upgrade card.
-2. WHEN Esc or P is pressed, or the page is hidden, THE game SHALL pause.
+2. WHEN Esc or P is pressed, the HUD pause chip is clicked, or the page is hidden, during play or while upgrade cards are shown, THE game SHALL pause (stopping the ambience); resuming SHALL return to the same card hand if one is pending.
 3. WHERE the device prefers touch, THE game SHALL show a joystick and a skill button.
 4. THE game SHALL respect `prefers-reduced-motion`.
 
@@ -108,7 +108,7 @@ Midnight Meow is a browser night-watch game. The player picks Zero or Nicole and
 
 1. WHEN an enemy is hit, THE game SHALL flash it, show a damage tag, and on defeat dissolve it into paper flakes.
 2. WHEN kills follow each other within 2.6 seconds, THE game SHALL count a kill streak, show a badge from 3 kills, and grant bonus XP every 10 kills.
-3. THE game SHALL show a ribbon notice for each new night phase, level-up and evolution bursts, and a warning vignette at critical health.
+3. THE game SHALL show a ribbon notice for each new night phase, level-up and evolution bursts, and a warning vignette at critical health. Boss and evolution banners SHALL NOT be replaced by routine notices (skill use, treats, pumpkins, shield blocks).
 4. Over the last 30 seconds, THE scene SHALL move toward dawn (lower moon, warmer horizon, dimmer lamps).
 5. Camera shake and UI motion SHALL be disabled under `prefers-reduced-motion`.
 6. Rendering SHALL NOT consume the simulation RNG or mutate simulation state.

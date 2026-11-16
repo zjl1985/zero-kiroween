@@ -63,6 +63,19 @@ test("defeating an enemy drops an ink shard", () => {
   assert.equal(s.pickups[0].value, XP.shardValue);
 });
 
+test("a shard collected this step is never folded into a new one at the cap", () => {
+  const s = quiet("zero");
+  const far = (i) => ({ id: s.nextPickupId++, x: 60 + i, y: 60, value: 1, alive: true, age: 0 });
+  s.pickups.push({ ...far(0), value: 100, alive: false });
+  for (let i = 0; i < XP.maxPickups; i++) s.pickups.push(far(i));
+  const e = enemy(s, 300, 330, 1);
+  s.shots.push({ id: 99, x: e.x, y: e.y, vx: 0, vy: 0, life: 1, alive: true });
+  step(s, idle, DT);
+  assert.equal(e.alive, false);
+  assert.equal(s.pickups.filter((p) => p.alive).length, XP.maxPickups);
+  assert.equal(s.pickups.at(-1).value, XP.shardValue + 1);
+});
+
 test("shards drift to the cat, grant XP and level up into three distinct valid cards", () => {
   const s = quiet("nicole");
   s.pickups.push({ id: 1, x: s.player.x + 40, y: s.player.y, value: xpForLevel(1), alive: true, age: 0 });
@@ -135,6 +148,36 @@ test("evolutions are offered only after their prerequisites and always lead the 
     assert.equal(s.notice.kind, cat === "zero" ? "evolve-zero" : "evolve-nicole");
     assert.equal(isEligible(s, def), false);
   }
+});
+
+test("re-dashing over a live Echo Legion decoy still bursts the old echo", () => {
+  const z = quiet("zero");
+  z.upgrades["echo-legion"] = 1;
+  step(z, { ax: 1, ay: 0, dash: true }, DT);
+  assert.equal(z.decoy.live, true);
+  const first = { x: z.decoy.x, y: z.decoy.y };
+  const e = enemy(z, first.x, first.y + 10, 1000);
+  z.player.dashCooldown = 0;
+  z.player.dashTime = 0;
+  z.impacts = [];
+  const hp = e.hp;
+  step(z, { ax: 1, ay: 0, dash: true }, DT);
+  assert.equal(z.decoy.live, true, "a fresh decoy replaced the old one");
+  assert.ok(z.impacts.some((i) => i.kind === "echo-burst"), "old echo burst");
+  assert.ok(e.hp < hp, "burst hurt the enemy next to the old echo");
+});
+
+test("the Boss banner survives routine notices such as a skill use", () => {
+  const z = quiet("zero");
+  z.notice = { kind: "boss-incoming", life: 2.2 };
+  step(z, { ax: 1, ay: 0, dash: true }, DT);
+  assert.equal(z.notice.kind, "boss-incoming");
+  z.notice = { kind: "zero-dash", life: 2.2 };
+  z.player.dashCooldown = 0;
+  z.player.dashTime = 0;
+  z.pendingChoice = { options: ["echo-legion"] };
+  chooseUpgrade(z, 0);
+  assert.equal(z.notice.kind, "evolve-zero", "major notices still replace routine ones");
 });
 
 test("Echo Legion decoy fires bolts and bursts; Full Moon adds stars and pulses", () => {

@@ -329,7 +329,16 @@ function effect(
 ): void {
   state.impacts.push({ x, y, kind, life, seed: ++state.fxSeq, ...extra });
 }
+/** Boss and evolution banners outrank routine notices (skills, treats, shields). */
+const MAJOR_NOTICES: ReadonlySet<Notice> = new Set<Notice>([
+  "boss-incoming",
+  "boss-defeated",
+  "evolve-zero",
+  "evolve-nicole",
+]);
 function notify(state: SimState, kind: Notice): void {
+  const live = state.notice;
+  if (live && MAJOR_NOTICES.has(live.kind) && !MAJOR_NOTICES.has(kind)) return;
   state.notice = { kind, life: 2.2 };
 }
 function safePosition(state: SimState, x: number, y: number, radius: number) {
@@ -467,6 +476,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
     if (dir.x) p.facing = dir.x < 0 ? -1 : 1;
     state.stats.skillUses++;
     if (p.id === "zero") {
+      // A re-dash replaces a live echo; it still bursts as it fades.
+      if (state.decoy.live && ps.echo) echoBurst(state);
       state.decoy = {
         live: true,
         x: p.x,
@@ -849,10 +860,15 @@ function defeatBoss(state: SimState, e: EnemyState): void {
   }
 }
 function dropShard(state: SimState, x: number, y: number, value: number): void {
-  if (state.pickups.length >= XP.maxPickups) {
-    // Fold the oldest shard's worth into the newest so nothing is lost.
-    const old = state.pickups.shift()!;
-    value += old.value;
+  // Shards collected this step stay in the array (alive = false) until the
+  // end-of-step filter, so only living shards count toward the cap.
+  let living = 0;
+  for (const s of state.pickups) if (s.alive) living++;
+  if (living >= XP.maxPickups) {
+    // Fold the oldest living shard's worth into the newest so nothing is lost.
+    const i = state.pickups.findIndex((s) => s.alive);
+    value += state.pickups[i].value;
+    state.pickups.splice(i, 1);
   }
   state.pickups.push({
     id: state.nextPickupId++,
