@@ -20,8 +20,9 @@ import type { SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
 import { drawPixelStroke, drawImpact, drawFootDust } from "./pixel.js";
 import {
-  drawScene,
+  drawSky,
   drawNightShift,
+  drawDawnWash,
   drawForeground,
   drawProp,
   drawLamp,
@@ -33,6 +34,9 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
+import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
+import { createCamera, inView, viewRect, type Camera } from "./camera.js";
+import type { Locale } from "../content/keys.js";
 import {
   cameraShake,
   drawHitFlash,
@@ -49,6 +53,10 @@ export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   time: number;
   reducedMotion?: boolean;
+  /** Follow camera from main.ts; defaults to the start-yard framing. */
+  camera?: Camera;
+  /** For the navigation arrow labels. */
+  locale?: Locale;
 }
 interface Sprite {
   y: number;
@@ -64,22 +72,51 @@ export function drawWorld(
   const shake = sim
     ? cameraShake(sim, view.time, !!view.reducedMotion)
     : { x: 0, y: 0 };
+  const cam = view.camera ?? createCamera(),
+    seed = sim?.seed ?? 0,
+    progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
+    view0 = viewRect(cam),
+    near = viewRect(cam, 140);
+  // Screen-space sky behind the world; hidden once the camera is far south.
   ctx.save();
   ctx.translate(shake.x, shake.y);
-  drawScene(ctx);
-  if (sim) drawNightShift(ctx, sim.elapsed / sim.sessionSeconds);
+  if (view0.y0 < 250) {
+    drawSky(ctx);
+    if (sim) drawNightShift(ctx, progress);
+  }
+  // World space, snapped to device pixels so cached chunks stay crisp.
+  ctx.translate(
+    Math.round((VIEW_WIDTH / 2 - cam.x) * 2) / 2,
+    Math.round((VIEW_HEIGHT / 2 - cam.y) * 2) / 2,
+  );
+  drawChunks(ctx, seed, cam);
+  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT);
   drawWind(ctx, view.time);
   if (sim) {
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
     drawInteractGround(ctx, sim, view.time);
   }
-  const sprites: Sprite[] = [];
+  const fadeFor = (x: number, y: number, s: number) =>
+    !!sim &&
+    Math.abs(sim.player.x - x) < 36 * s &&
+    sim.player.y < y + 5 &&
+    sim.player.y > y - 28 * s;
+  const town = worldSprites(ctx, seed, cam, view.time, (d) =>
+    d.kind === "tree" || d.kind === "cottage" || d.kind === "clock-tower" || d.kind === "chapel" || d.kind === "stall"
+      ? fadeFor(d.x, d.y, d.s * 2.4)
+      : fadeFor(d.x, d.y, d.s),
+  );
+  const sprites: Sprite[] = [...town.sprites];
+  const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
-    drawGroundLight(ctx, l.x, l.y, view.time, l.s);
+    if (!inView(near, l.x, l.y)) continue;
+    lamps.push(l);
     sprites.push({ y: l.y, draw: () => drawLamp(ctx, l, view.time) });
   }
+  for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s);
   for (const p of YARD_PROPS) {
+    if (!inView(near, p.x, p.y)) continue;
     if (p.kind === "pumpkin" || p.kind === "candles")
       drawGroundLight(ctx, p.x, p.y, view.time, p.s * 0.6);
     sprites.push({
@@ -102,7 +139,7 @@ export function drawWorld(
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
       drawGroundLight(ctx, pose.x + pose.facing * 21, pose.y, view.time, 0.7);
-      const nearest = LAMPS.reduce((a, b) =>
+      const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>
         Math.hypot(a.x - pose.x, a.y - pose.y) <
         Math.hypot(b.x - pose.x, b.y - pose.y)
           ? a
@@ -188,7 +225,7 @@ export function drawWorld(
     }
     const reach = playerStats(sim).pickupRadius;
     for (const s of sim.pickups)
-      if (s.alive)
+      if (s.alive && inView(near, s.x, s.y))
         sprites.push({
           y: s.y,
           draw: () => {
@@ -197,9 +234,9 @@ export function drawWorld(
           },
         });
     for (const o of sim.interactables)
-      sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, view.time) });
+      if (inView(near, o.x, o.y)) sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, view.time) });
     for (const t of sim.treats)
-      if (t.alive) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
+      if (t.alive && inView(near, t.x, t.y)) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
     if (sim.player.id === "nicole") {
       const full = playerStats(sim).fullMoon;
       orbitPositions(sim).forEach((p, i) =>
@@ -211,8 +248,9 @@ export function drawWorld(
     }
     // Googly eyes follow the cat.
     const look = { x: sim.player.x, y: sim.player.y - 20 };
+    // Off-screen ink is culled; the Eraser is large, so it gets a wider margin.
     for (const e of sim.enemies)
-      if (e.alive)
+      if (e.alive && inView(near, e.x, e.y, e.kind === "eraser-boss" ? 80 : 0))
         sprites.push({
           y: e.y,
           draw: () => {
@@ -245,7 +283,7 @@ export function drawWorld(
   for (const sprite of sprites) sprite.draw();
   if (sim) {
     for (const s of sim.shots)
-      if (s.alive) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
+      if (s.alive && inView(near, s.x, s.y)) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
       if (drawJuiceEffect(ctx, effect)) continue;
@@ -254,13 +292,17 @@ export function drawWorld(
       else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
   }
-  drawAtmosphere(
-    ctx,
-    view.time,
-    sim ? dawnAmount(sim.elapsed / sim.sessionSeconds) : 0,
-  );
-  drawForeground(ctx, sim?.player, false);
+  drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress) : 0, lamps);
   ctx.restore();
+  // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
+  if (sim) drawNavArrows(ctx, sim, cam, view.locale ?? "zh", view.time);
+  drawForeground(
+    ctx,
+    sim
+      ? { x: sim.player.x - view0.x0, y: sim.player.y - view0.y0 }
+      : undefined,
+    false,
+  );
   drawFrame(ctx);
   // Subtle four-sided depth, leaving all gameplay visible.
   ctx.save();

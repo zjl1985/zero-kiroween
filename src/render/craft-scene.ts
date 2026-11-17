@@ -24,7 +24,9 @@ import {
 } from "./scene.js";
 export { LAMPS, YARD_PROPS };
 const W = 960,
-  H = 540;
+  H = 540,
+  /** Height of the screen-space sky sheet. */
+  SKY_H = 250;
 function pathCenter(y: number): number {
   return (
     oldPathCenter(y) + (y < 348 ? 17 * Math.max(0, 1 - (y - 222) / 126) : 0)
@@ -34,12 +36,13 @@ let background: HTMLCanvasElement | undefined,
   foreground: HTMLCanvasElement | undefined;
 const propCache = new Map<string, HTMLCanvasElement>();
 
-function paperSky(ctx: Ctx): void {
+/** The screen-space sky sheet: pigment wash, stars, clouds, moon and two bats. */
+function skySheet(ctx: Ctx): void {
   const g = ctx.createLinearGradient(0, 0, 0, 210);
   g.addColorStop(0, "#24203c");
   g.addColorStop(0.55, "#39304f");
   g.addColorStop(1, "#68506c");
-  const p = box(0, 0, W, 240);
+  const p = box(0, 0, W, SKY_H);
   ctx.fillStyle = g;
   ctx.fill(p);
   grain(ctx, p, 0.85);
@@ -84,10 +87,27 @@ function paperSky(ctx: Ctx): void {
   stitch(ctx, oval(0, 2, 43, 43, 12, 0.018), "#b99565", 0.65);
   stitch(ctx, oval(0, 2, 48, 48, 13, 0.012), "#b99565", 0.35);
   ctx.restore();
-  // Paper silhouettes soften into the distance; each ridge casts its own thin edge.
+  for (const [x, y, s] of [
+    [348, 49, 1],
+    [600, 109, 0.75],
+  ]) {
+    const p = new Path2D(
+      `M ${x - 13 * s} ${y + 3 * s} Q ${x - 8 * s} ${y - 9 * s} ${x - 3 * s} ${y - 1 * s} L ${x - s} ${y - 5 * s} L ${x + s} ${y - 1 * s} Q ${x + 8 * s} ${y - 9 * s} ${x + 13 * s} ${y + 3 * s} Q ${x + 6 * s} ${y - 1 * s} ${x + 2 * s} ${y + 5 * s} L ${x - 2 * s} ${y + 5 * s} Q ${x - 6 * s} ${y - 1 * s} ${x - 13 * s} ${y + 3 * s} Z`,
+    );
+    piece(ctx, p, "#241c34", { shadow: 0.7, texture: 0.6, thickness: 0.4 });
+  }
+}
+/**
+ * The paper hills along the north edge of the world, in world coordinates.
+ * The ridge is a continuous function of x, so chunks drawn separately meet
+ * without seams; each ridge casts its own thin edge.
+ */
+export function horizonHills(ctx: Ctx, x0: number, x1: number): void {
+  const start = Math.floor(x0 / 22) * 22 - 22,
+    end = Math.ceil(x1 / 22) * 22 + 22;
   for (let layer = 0; layer < 3; layer++) {
-    const pts: Point[] = [[0, 230]];
-    for (let x = -10; x <= 970; x += 22)
+    const pts: Point[] = [[start, 250]];
+    for (let x = start; x <= end; x += 22)
       pts.push([
         x,
         137 +
@@ -95,13 +115,17 @@ function paperSky(ctx: Ctx): void {
           Math.sin(x * 0.013 + layer * 2) * 15 +
           Math.sin(x * 0.038 + layer) * 7,
       ]);
-    pts.push([960, 245]);
+    pts.push([end, 250]);
     piece(ctx, path(pts), ["#51415e", "#39354f", "#2e3241"][layer]!, {
       shadow: 2,
       texture: 0.65,
       thickness: 0.8,
     });
-    for (let i = 0; i < 10; i++)
+    for (
+      let i = Math.floor((x0 - 90) / 98);
+      i <= Math.ceil((x1 + 20) / 98);
+      i++
+    )
       pine(
         ctx,
         55 + i * 98 + hash(i * 17 + layer) * 21,
@@ -139,7 +163,7 @@ function cloud(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   void seed;
   ctx.restore();
 }
-function pine(ctx: Ctx, x: number, y: number, s: number, c: string): void {
+export function pine(ctx: Ctx, x: number, y: number, s: number, c: string): void {
   const pts: Point[] = [
     [x - 2 * s, y],
     [x - 2 * s, y - 18 * s],
@@ -159,43 +183,72 @@ function pine(ctx: Ctx, x: number, y: number, s: number, c: string): void {
   ];
   piece(ctx, path(pts), c, { shadow: 1, texture: 0.6, thickness: 0.4 });
 }
-function ground(ctx: Ctx): void {
+export interface GroundLamp {
+  x: number;
+  y: number;
+}
+/**
+ * Moss-green ground paper for the world rectangle (x0, y0, w, h), in world
+ * coordinates. Noise and hatching are functions of world position, so tiles
+ * drawn separately meet without seams. In the top row (`top`) the sheet has
+ * the wavy horizon edge at y ~190; lamps warm the paper around them.
+ */
+export function groundTile(
+  ctx: Ctx,
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+  lamps: readonly GroundLamp[],
+  top: boolean,
+  yard = false,
+): void {
   const p = new Path2D();
-  p.moveTo(0, 194);
-  for (let x = 0; x <= 960; x += 12)
-    p.lineTo(x, 190 + Math.sin(x * 0.015) * 8 + Math.sin(x * 0.043) * 2);
-  p.lineTo(960, 540);
-  p.lineTo(0, 540);
-  p.closePath();
-  piece(ctx, p, "#52574b", { shadow: 2, texture: 0.7, edge: "#68705b" });
-  const c = surface(960, 360),
+  const gy0 = top ? 180 : y0;
+  if (top) {
+    p.moveTo(x0 - 12, 250);
+    for (let x = Math.floor(x0 / 12) * 12 - 12; x <= x0 + w + 12; x += 12)
+      p.lineTo(x, 190 + Math.sin(x * 0.015) * 8 + Math.sin(x * 0.043) * 2);
+    p.lineTo(x0 + w + 12, y0 + h + 12);
+    p.lineTo(x0 - 12, y0 + h + 12);
+    p.closePath();
+  } else p.rect(x0 - 12, y0 - 12, w + 24, h + 24);
+  piece(ctx, p, "#52574b", {
+    shadow: top ? 2 : 0,
+    texture: 0.7,
+    edge: top ? "#68705b" : "#52574b",
+  });
+  const th = y0 + h - gy0,
+    c = surface(w, th),
     cc = c.getContext("2d")!,
-    im = cc.createImageData(960, 360);
-  for (let y = 0; y < 360; y++)
-    for (let x = 0; x < 960; x++) {
-      const worldY = y + 180,
+    im = cc.createImageData(w, th);
+  for (let y = 0; y < th; y++)
+    for (let x = 0; x < w; x++) {
+      const wx = x0 + x,
+        wy = y + gy0,
         n =
-          noise(x, worldY, 85, 15) * 0.2 +
-          noise(x, worldY, 22, 316) * 0.3 +
-          noise(x, worldY, 3, 818) * 0.5;
-      const fine = hash(x * 17 + y * 797),
-        light = Math.max(
-          0,
-          1 - Math.hypot((x - 490) / 460, (worldY - 340) / 270),
-        );
+          noise(wx, wy, 85, 15) * 0.2 +
+          noise(wx, wy, 22, 316) * 0.3 +
+          noise(wx, wy, 3, 818) * 0.5;
+      const fine = hash(wx * 17 + wy * 797);
       let r = 45 + n * 29 + fine * 7,
         g = 49 + n * 28 + fine * 6,
         b = 40 + n * 22 + fine * 5;
-      r += light * 5;
-      g += light * 4;
-      for (const l of LAMPS) {
-        const k =
-          Math.max(0, 1 - Math.hypot((x - l.x) / 78, (worldY - l.y) / 47)) ** 2;
+      if (yard) {
+        const light = Math.max(0, 1 - Math.hypot((wx - 490) / 460, (wy - 340) / 270));
+        r += light * 5;
+        g += light * 4;
+      }
+      for (const l of lamps) {
+        const dx = (wx - l.x) / 78,
+          dy = (wy - l.y) / 47;
+        if (dx > 1 || dx < -1 || dy > 1 || dy < -1) continue;
+        const k = Math.max(0, 1 - Math.hypot(dx, dy)) ** 2;
         r += k * 48;
         g += k * 27;
         b += k * 4;
       }
-      const i = (y * 960 + x) * 4;
+      const i = (y * w + x) * 4;
       im.data[i] = r;
       im.data[i + 1] = g;
       im.data[i + 2] = b;
@@ -204,19 +257,25 @@ function ground(ctx: Ctx): void {
   cc.putImageData(im, 0, 0);
   ctx.save();
   ctx.clip(p);
-  ctx.drawImage(c, 0, 180);
+  ctx.drawImage(c, x0, gy0);
   grain(ctx, p, 0.45);
   ctx.restore();
   // Quiet, short hatching follows patches of moss; it never becomes confetti.
-  for (let i = 0; i < 6500; i++) {
-    const x = hash(i * 17) * 960,
-      y = 205 + hash(i * 37) * 325;
-    const center = y >= 225 ? pathCenter(y) : 0;
-    if (y > 225 && Math.abs(x - center) < 24) continue;
+  const moss = [new Path2D(), new Path2D()],
+    area = w * (y0 + h - Math.max(gy0, 205)),
+    count = Math.round(area * 0.0208),
+    salt = Math.floor(x0 * 3 + y0 * 7);
+  for (let i = 0; i < count; i++) {
+    const x = x0 + hash(i * 17 + salt) * w,
+      y = Math.max(gy0, 205) + hash(i * 37 + salt) * (y0 + h - Math.max(gy0, 205));
+    if (yard && y > 225 && Math.abs(x - pathCenter(y)) < 24) continue;
     if (noise(x, y, 30, 65) < 0.43) continue;
-    const c = hash(i * 29) > 0.85 ? "#92906a" : "#6c7358";
-    line(ctx, x, y, x + 1.2, y - 1.5, c, 0.35, 0.32);
+    const m = moss[hash(i * 29 + salt) > 0.85 ? 1 : 0]!;
+    m.moveTo(x, y);
+    m.lineTo(x + 1.2, y - 1.5);
   }
+  stroke(ctx, moss[0]!, "#6c7358", 0.35, 0.32);
+  stroke(ctx, moss[1]!, "#92906a", 0.35, 0.32);
 }
 function road(ctx: Ctx): void {
   const left: Point[] = [],
@@ -268,7 +327,7 @@ function road(ctx: Ctx): void {
     piece(ctx, p, "#a89e88", { shadow: 0.5, texture: 0.75, thickness: 0.45 });
   }
 }
-function leaf(
+export function leaf(
   ctx: Ctx,
   x: number,
   y: number,
@@ -332,7 +391,7 @@ function leaf(
   void seed;
   ctx.restore();
 }
-function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
+export function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -447,7 +506,7 @@ function windowArt(ctx: Ctx, x: number, y: number, w: number, h: number): void {
     thickness: 0.7,
   });
 }
-function cottage(
+export function cottage(
   ctx: Ctx,
   x: number,
   y: number,
@@ -677,7 +736,7 @@ function cottage(
     );
   ctx.restore();
 }
-function lantern(ctx: Ctx, x: number, y: number, s: number, post = true): void {
+export function lantern(ctx: Ctx, x: number, y: number, s: number, post = true): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -742,7 +801,7 @@ function lantern(ctx: Ctx, x: number, y: number, s: number, post = true): void {
   line(ctx, -5, top + 25, 5, top + 25, "#d7b175", 0.65);
   ctx.restore();
 }
-function bush(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
+export function bush(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   shadow(ctx, x, y + 2, 29 * s, 6 * s);
   for (let i = 0; i < 4; i++) {
     const xx = x + (i - 1.5) * 13 * s,
@@ -782,7 +841,7 @@ function bush(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
         seed + i,
       );
 }
-function flower(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
+export function flower(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   line(ctx, x, y, x, y - 10 * s, "#8c915b", 0.7 * s);
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2,
@@ -805,7 +864,7 @@ function flower(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
     thickness: 0.2,
   });
 }
-function pumpkin(
+export function pumpkin(
   ctx: Ctx,
   x: number,
   y: number,
@@ -874,7 +933,7 @@ function pumpkin(
   leaf(ctx, 12, 1, 9, 4, 1.0, "#b38c46", seed);
   ctx.restore();
 }
-function fence(ctx: Ctx, x: number, y: number, s: number): void {
+export function fence(ctx: Ctx, x: number, y: number, s: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -915,7 +974,7 @@ function fence(ctx: Ctx, x: number, y: number, s: number): void {
   }
   ctx.restore();
 }
-function stone(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
+export function stone(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   shadow(ctx, x, y + 2, 12 * s, 4 * s);
   const p = path(
     [
@@ -950,7 +1009,7 @@ function stone(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   );
   void seed;
 }
-function candles(ctx: Ctx, x: number, y: number, s: number): void {
+export function candles(ctx: Ctx, x: number, y: number, s: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -992,7 +1051,7 @@ function candles(ctx: Ctx, x: number, y: number, s: number): void {
   }
   ctx.restore();
 }
-function grassTuft(
+export function grassTuft(
   ctx: Ctx,
   x: number,
   y: number,
@@ -1196,12 +1255,12 @@ function bunting(ctx: Ctx): void {
     );
   }
 }
-function buildBackground(): HTMLCanvasElement {
+function buildStartYard(): HTMLCanvasElement {
   const c = surface(W * 2, H * 2),
     ctx = c.getContext("2d")!;
   ctx.scale(2, 2);
-  paperSky(ctx);
-  ground(ctx);
+  horizonHills(ctx, 0, W);
+  groundTile(ctx, 0, 0, W, H, LAMPS, true, true);
   road(ctx);
   tree(ctx, 82, 246, 1.12, 9);
   tree(ctx, 858, 246, 1.13, 6);
@@ -1229,10 +1288,21 @@ function buildBackground(): HTMLCanvasElement {
     stone(ctx, x, y, x > 900 ? 1.6 : 0.8, x);
   return c;
 }
-export function drawScene(ctx: Ctx): void {
-  background ??= buildBackground();
+/** The start yard below the sky (hills, ground, road, cottages, garden), at 2x, world 0..960 x 0..540. */
+export function startYard(): HTMLCanvasElement {
+  return (background ??= buildStartYard());
+}
+let skyCanvas: HTMLCanvasElement | undefined;
+/** Screen-space sky; the world's ground covers it once the camera leaves the north edge. */
+export function drawSky(ctx: Ctx): void {
+  if (!skyCanvas) {
+    skyCanvas = surface(W * 2, SKY_H * 2);
+    const sc = skyCanvas.getContext("2d")!;
+    sc.scale(2, 2);
+    skySheet(sc);
+  }
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(background, 0, 0, W, H);
+  ctx.drawImage(skyCanvas, 0, 0, W, SKY_H);
 }
 export function drawProp(ctx: Ctx, p: SceneProp): void {
   const key = `${p.kind}-${p.s}-${p.seed}`;
@@ -1256,7 +1326,7 @@ export function drawProp(ctx: Ctx, p: SceneProp): void {
 const lamps = new Map<number, HTMLCanvasElement>();
 export function drawLamp(
   ctx: Ctx,
-  l: (typeof LAMPS)[number],
+  l: { x: number; y: number; s: number },
   _time: number,
 ): void {
   let c = lamps.get(l.s);
@@ -1279,10 +1349,15 @@ export function drawGroundLight(
   glow(ctx, x, y, 55 * s, "#eab563", 0.13, 0.55);
 }
 export function drawWind(_ctx: Ctx, _time: number): void {}
-export function drawAtmosphere(ctx: Ctx, time: number, dawn = 0): void {
+export function drawAtmosphere(
+  ctx: Ctx,
+  time: number,
+  dawn = 0,
+  lamps: readonly { x: number; y: number; s: number }[] = LAMPS,
+): void {
   // Lamps dim as the sky brightens.
   const dim = 1 - dawn * 0.6;
-  for (const l of LAMPS)
+  for (const l of lamps)
     glow(
       ctx,
       l.x,
@@ -1317,15 +1392,6 @@ export function drawAtmosphere(ctx: Ctx, time: number, dawn = 0): void {
       { shadow: 0, texture: 0.7, thickness: 0.3 },
     );
     ctx.restore();
-  }
-  for (const [x, y, s] of [
-    [348, 49, 1],
-    [600, 109, 0.75],
-  ]) {
-    const p = new Path2D(
-      `M ${x - 13 * s} ${y + 3 * s} Q ${x - 8 * s} ${y - 9 * s} ${x - 3 * s} ${y - 1 * s} L ${x - s} ${y - 5 * s} L ${x + s} ${y - 1 * s} Q ${x + 8 * s} ${y - 9 * s} ${x + 13 * s} ${y + 3 * s} Q ${x + 6 * s} ${y - 1 * s} ${x + 2 * s} ${y + 5 * s} L ${x - 2 * s} ${y + 5 * s} Q ${x - 6 * s} ${y - 1 * s} ${x - 13 * s} ${y + 3 * s} Z`,
-    );
-    piece(ctx, p, "#241c34", { shadow: 0.7, texture: 0.6, thickness: 0.4 });
   }
 }
 function buildForeground(): HTMLCanvasElement {
@@ -1512,9 +1578,24 @@ export function drawNightShift(ctx: Ctx, progress: number): void {
   ctx.globalAlpha = ease * 0.5;
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, 250);
-  // The yard catches a little of it, without washing out the ink.
+  ctx.restore();
+}
+/** The ground catches a little of the dawn, without washing out the ink. World space. */
+export function drawDawnWash(
+  ctx: Ctx,
+  progress: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  const t = dawnAmount(progress);
+  if (!t) return;
+  const ease = t * t * (3 - 2 * t);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
   ctx.globalAlpha = ease * 0.12;
   ctx.fillStyle = "#e9b38a";
-  ctx.fillRect(0, 250, W, H - 250);
+  ctx.fillRect(x, Math.max(y, 250), w, y + h - Math.max(y, 250));
   ctx.restore();
 }

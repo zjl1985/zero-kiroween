@@ -252,7 +252,7 @@ export function drawShardTrail(ctx: Ctx, s: PickupState, sim: SimState, reach: n
 }
 
 function propScale(o: InteractState): number {
-  return YARD_PROPS.find((p) => p.kind === "pumpkin" && p.x === o.x && p.y === o.y)?.s ?? 1;
+  return o.s ?? YARD_PROPS.find((p) => p.kind === "pumpkin" && p.x === o.x && p.y === o.y)?.s ?? 1;
 }
 
 /** Ground light under lit pumpkins and the charged lantern; drawn before sprites. */

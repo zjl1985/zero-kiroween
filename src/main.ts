@@ -15,6 +15,7 @@ import { paintUpgradeCards, upgradeName } from "./ui/upgrade-cards.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
+import { createCamera, followCamera, type Camera } from "./render/camera.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
@@ -95,6 +96,8 @@ function boot(): void {
   const clock = createClock();
   let last = performance.now(),
     renderTime = 0;
+  // The follow camera is presentation state; it never enters the sim.
+  let camera: Camera = createCamera();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
   const hudRefs = {
@@ -304,6 +307,7 @@ function boot(): void {
     clock.acc = 0;
     last = performance.now();
     cues = cueState(sim);
+    camera = createCamera();
     show("play");
   };
   const resume = () => {
@@ -334,6 +338,7 @@ function boot(): void {
     must(`upgrade-card-${i}`).addEventListener("click", () => pick(i));
   const title = () => {
     sim = null;
+    camera = createCamera();
     show("title");
   };
   const language = () => {
@@ -462,13 +467,19 @@ function boot(): void {
     } else if (screen === "pause" && input.consumePause()) resume();
     else input.consumePause();
     if (sim) cueSounds(sim);
+    if (sim && screen !== "title")
+      camera = followCamera(
+        camera,
+        sim.player,
+        reducedMotion.matches ? 1 : Math.min(real, 0.1),
+      );
     const time = reducedMotion.matches ? 0 : renderTime;
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     drawWorld(
       ctx,
       screen === "title" ? null : sim,
-      { time, reducedMotion: reducedMotion.matches },
+      { time, reducedMotion: reducedMotion.matches, camera, locale },
       screen === "title" && size.w > size.h
         ? {
             id: selectedCat,

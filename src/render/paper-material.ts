@@ -68,7 +68,27 @@ export function grain(ctx: Ctx, path: Path2D, opacity = 0.48): void {
   ctx.globalCompositeOperation = "multiply";
   ctx.globalAlpha *= opacity;
   ctx.fillStyle = p;
-  ctx.fillRect(-1800, -1800, 3600, 3600);
+  // Cover the whole canvas in user space, wherever the camera has moved it.
+  const m = ctx.getTransform().inverse(),
+    cw = ctx.canvas.width,
+    ch = ctx.canvas.height;
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const [cx, cy] of [
+    [0, 0],
+    [cw, 0],
+    [0, ch],
+    [cw, ch],
+  ] as const) {
+    const q = m.transformPoint({ x: cx, y: cy });
+    x0 = Math.min(x0, q.x);
+    y0 = Math.min(y0, q.y);
+    x1 = Math.max(x1, q.x);
+    y1 = Math.max(y1, q.y);
+  }
+  ctx.fillRect(x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4);
   ctx.restore();
 }
 export function path(points: readonly Point[], smooth = false): Path2D {
