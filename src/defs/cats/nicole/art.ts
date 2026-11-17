@@ -10,12 +10,12 @@ import { NICOLE_STATS } from "./stats.js";
 export const NICOLE_ART: CatArt = {
   id: "nicole",
   face: {
-    outline: "M 13 27 Q 11 18 13 9 Q 14 6 17 10 L 27 20 Q 35 17 44 20 L 55 9 Q 58 6 58 10 L 57 27 Q 62 34 57 42 Q 50 51 35 51 Q 22 51 15 44 Q 9 37 13 27 Z",
+    outline: "M 13.6 13.6 L 13.6 8 Q 13.6 7.2 14.5 7.2 L 19 7.2 L 29.6 20 L 42.4 20 L 49.6 7.2 L 54.4 7.2 Q 55.2 7.2 55.2 8 L 55.2 13.6 L 58.4 16 L 57.6 22 L 54.4 24 L 57.8 30 L 58.4 40.5 L 51.6 48 Q 35 49.5 17.5 48 L 11 41 L 11 30 L 14.4 24 L 11.2 21.6 L 11.2 15.5 Z",
     patches: [
-      { color: "headDark", path: "M 11 29 L 12 7 L 27 20 L 31 19 Q 25 25 19 26 Q 16 34 19 44 L 14 44 Q 8 37 11 29 Z" },
-      { color: "headDark", path: "M 38 19 Q 42 16 46 20 L 59 7 L 57 28 Q 65 40 53 49 L 48 48 Q 54 40 50 30 Q 43 28 41 23 Z" },
-      { color: "headLight", path: "M 24 37 Q 30 35 35 38 Q 42 35 47 38 Q 49 43 43 46 Q 35 49 27 46 Q 21 43 24 37 Z" },
-      { color: "white", path: "M 23 47 Q 34 51 47 47 L 46 53 L 24 53 Z" },
+      { color: "headDark", path: "M 11 15 L 16 8 L 29 21 L 25 24 L 21 26 L 20 30 L 17 30 L 17 41 L 19 46 L 14 44 L 11 40 Z" },
+      { color: "headDark", path: "M 40.8 20 L 53 8 L 58 16 L 55.5 25 L 58 34 L 56 45 L 51 49 L 47 47 L 49 40 L 46 31 L 43 27 L 43 22 Z" },
+      { color: "headLight", path: "M 28 34.4 L 40 34.4 L 43 38 L 42 40.8 L 27.2 40.8 L 26.5 37.5 Z" },
+      { color: "white", path: "M 26 43.5 L 31 43.5 L 29 46.5 L 34 48 L 23 48 L 24 45 Z" },
     ],
   },
   body: {

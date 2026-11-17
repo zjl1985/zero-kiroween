@@ -147,48 +147,52 @@ export function paperFace(id: CatId) {
     const cut = (shape: Path2D, color: string, thickness = 0.4) =>
       paperCut(ctx, shape, { color, edge: mix(color, "#fff0d4", 0.25), thickness, shadow: 0.22, texture: 0.16 });
     cut(face.outline, p.head, 0.65);
+    stroke(ctx, face.outline, p.ink, 1.2, 0.9);
     ctx.save(); ctx.clip(face.outline);
-    cut(new Path2D("M 12 29 Q 16 38 23 44 Q 35 50 49 44 L 55 40 Q 47 55 25 51 Q 12 46 12 29 Z"), mix(p.head, p.headDark, 0.16), 0.2);
+    cut(new Path2D("M 11 30 L 16 40 L 19 44 L 51 44 L 57 39 L 52 48 L 18 48 L 11 41 Z"), mix(p.head, p.headDark, 0.16), 0.2);
     for (const layer of face.layers) cut(layer.path, p[layer.color] ?? p.head);
     for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(35, 0); ctx.scale(side, 1);
-      cut(new Path2D("M 12 22 L 21 12 L 20 26 Q 16 22 12 22 Z"), p.earInner, 0.35);
-      stroke(ctx, new Path2D("M 16 21 L 19 16"), mix(p.earInner, p.headLight, 0.55), 0.65, 0.7);
+      ctx.save(); ctx.translate(34.8, 0); ctx.scale(side, 1);
+      cut(new Path2D("M 12 21.6 L 18.5 12.5 L 20.8 20.8 L 18 22.2 Z"), p.earInner, 0.35);
+      stroke(ctx, new Path2D("M 17 20.8 L 18.5 16"), mix(p.earInner, p.headLight, 0.55), 0.65, 0.7);
       ctx.restore();
     }
-    for (const x of [22, 48]) {
-      const blush = new Path2D(); blush.ellipse(x, 40, 3.2, 1.6, x < 35 ? 0.12 : -0.12, 0, Math.PI * 2);
+    for (const x of [22, 47]) {
+      const blush = new Path2D(); blush.ellipse(x, 37.8, 2.8, 1.2, x < 35 ? 0.12 : -0.12, 0, Math.PI * 2);
       ctx.save(); ctx.globalAlpha *= 0.65; cut(blush, p.blush, 0.2); ctx.restore();
     }
     const glasses = original.accessories?.includes("glasses"), sunglasses = original.accessories?.includes("sunglasses");
     for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(35 + side * 10, 33);
+      ctx.save(); ctx.translate(34.8 + side * 11.76, 32.72);
       if (sunglasses) {
-        cut(new Path2D("M -7 -4 Q 0 -5 7 -4 L 6 2 Q 0 6 -6 2 Z"), p.ink, 0.55);
-        cut(new Path2D("M -4 -3 L -1 -3 L -3 0 L -5 -1 Z"), p.white, 0.15);
-        stroke(ctx, new Path2D("M 2 -3 L 5 -3"), p.headLight, 0.45, 0.55);
+        cut(new Path2D("M -4.4 -3.92 L 4.4 -3.92 Q 4.96 -3.92 4.96 -3.3 L 4.96 3.2 Q 4.96 3.76 4.4 3.76 L -4.4 3.76 Q -4.96 3.76 -4.96 3.2 L -4.96 -3.3 Q -4.96 -3.92 -4.4 -3.92 Z"), p.ink, 0.55);
+        cut(new Path2D("M -3.5 -3 L -1.2 -3 L -1.2 -1.4 L -3.5 -1.4 Z"), p.white, 0.15);
+        stroke(ctx, new Path2D("M 1.5 -3 L 3.5 -3"), p.headLight, 0.45, 0.55);
       } else {
-        const eye = new Path2D(); eye.ellipse(0, 0.5, 2.2, 3.1, 0, 0, Math.PI * 2); cut(eye, p.ink, 0.25);
-        const glint = new Path2D(); glint.ellipse(-0.6, -0.8, 0.75, 1, 0, 0, Math.PI * 2); cut(glint, p.white, 0.1);
-        stroke(ctx, new Path2D("M -3 -2 Q 0 -4 3 -2"), p.headDark, 0.55);
+        const eye = new Path2D("M -2.5 -2.8 L 2.4 -2.8 L 2.7 2.8 Q 0.2 3.8 -2.5 2.8 Z"); cut(eye, p.ink, 0.25);
+        const glint = new Path2D("M -1.9 -2.6 L 0.5 -2.6 L 0.5 -0.2 L -1.9 -0.2 Z"); cut(glint, p.white, 0.1);
+        stroke(ctx, new Path2D("M -2.6 -3.1 L 2.6 -3.1"), p.headDark, 0.55);
         if (glasses) {
-          const frame = new Path2D(); frame.ellipse(0, 0, 6.4, 5.6, 0, 0, Math.PI * 2); stroke(ctx, frame, p.ink, 1.15);
-          stroke(ctx, new Path2D("M -4 -3 Q -2 -5 1 -4"), p.headLight, 0.5, 0.9);
+          const frame = new Path2D("M -4.3 -4.4 L 4.3 -4.4 Q 4.96 -4.4 4.96 -3.7 L 4.96 3.7 Q 4.96 4.4 4.3 4.4 L -4.3 4.4 Q -4.96 4.4 -4.96 3.7 L -4.96 -3.7 Q -4.96 -4.4 -4.3 -4.4 Z"); stroke(ctx, frame, p.ink, 1.15);
+          stroke(ctx, new Path2D("M -3.5 -4 L 1 -4"), p.headLight, 0.5, 0.9);
         }
       }
       ctx.restore();
     }
-    if (glasses || sunglasses) stroke(ctx, new Path2D("M 31 32 Q 35 30 39 32 M 18 31 L 14 29 M 52 31 L 56 29"), p.ink, 1.1);
-    cut(new Path2D("M 32.5 39 Q 35 37.8 37.5 39 L 35 41 Z"), p.nose, 0.25);
-    stroke(ctx, new Path2D("M 35 41 L 35 42 Q 32 45 30.5 42.5 M 35 42 Q 38 45 39.5 42.5"), p.ink, 0.65);
+    if (glasses || sunglasses) stroke(ctx, new Path2D("M 28 32.2 L 41.6 32.2 M 18 30.8 L 15.5 29.8 M 51.6 30.8 L 54 29.8"), p.ink, 1.1);
+    cut(new Path2D("M 32 34.4 L 36.8 34.4 L 35 36 L 33.8 36 Z"), p.nose, 0.25);
+    stroke(ctx, new Path2D("M 34.4 36 L 34.4 37 L 31.2 38.4 M 34.4 37 L 37.6 38.4"), p.ink, 0.65);
     if (original.accessories?.includes("gold-chain")) {
-      stroke(ctx, new Path2D("M 24 47 Q 35 55 46 47"), p.mark ?? p.headLight, 1.1);
-      cut(new Path2D("M 33 49 L 37 49 L 37 52 L 33 52 Z"), p.mark ?? p.headLight, 0.3);
+      stroke(ctx, new Path2D("M 27.2 44.2 L 32 46 L 36.8 44.2 L 41.6 46"), p.mark ?? p.headLight, 0.6);
+      for (const [x, y] of [[28.4, 44.2], [32.4, 45.8], [36.4, 44.2], [40.4, 45.8]]) {
+        const link = new Path2D(); link.rect(x - 1.2, y - 0.85, 2.4, 1.7);
+        cut(link, p.mark ?? p.headLight, 0.3);
+      }
     }
     grain(ctx, face.outline, 0.08); ctx.restore();
     for (const side of [-1, 1]) {
       ctx.save(); ctx.translate(35, 0); ctx.scale(side, 1);
-      const whiskers = new Path2D("M 18 36 Q 23 34 29 35 M 19 39 Q 24 39 28 41");
+      const whiskers = new Path2D("M 20 31.2 L 29.4 30.8 M 20 34.4 L 31 34.4 M 20 37.6 L 29.4 38");
       stroke(ctx, whiskers, p.headDark, 1.1, 0.9); stroke(ctx, whiskers, p.headLight, 0.35, 0.75); ctx.restore();
     }
   });

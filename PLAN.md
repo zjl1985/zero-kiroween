@@ -122,3 +122,7 @@ Zero（男猫）与 Nicole（女猫）开局二选一，局内单角色，无常
 ## 猫头重画与 Allo（仅本地）
 
 猫头已改为定义文件内手工曲线轮廓，不再沿像素网格描边；保留 Zero 的金额发／墨镜／金链、Nicole 的深色头发／圆框眼镜／浅色口鼻。英文网页和 Canvas 文字接入本地 Allo 及 OFL 许可证。构建与 246 项测试通过，18 组双语小屏静态菜单布局无横向文字溢出。第一次美术截图因旧预览服务断开模块连接失败，重拍许可仍待用户答复，不能标为美术验收。禁止 push／部署。
+
+## Reference-faithful paper heads and English README
+
+The local head correction follows original pixel-cat proportions and rectangular eyewear while remaining code-drawn papercraft. The round-eyed redesign is superseded. A successful reference/current/body comparison sheet was viewed; author approval remains pending. README is fully English, with current status and Allo licensing. Build and 246 tests pass. Local commit only; no push or deployment.

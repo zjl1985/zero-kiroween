@@ -1,32 +1,14 @@
-# 猫猫守夜 / Midnight Meow
+# Midnight Meow
 
-后续 agent 请先读 [HANDOFF.md](HANDOFF.md) 和 [PLAN.md](PLAN.md)；增加或修改内容时按项目技能 [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)（英文）操作。**当前只做一种纸片画风，不是双画风。**
+A papercraft survivor roguelike built for Kiroween 2026. Choose one cat, explore a seeded night town, and survive ten minutes until dawn. Collect ink shards, build a loadout, evolve weapons through treasure chests, and use the town's paper, fire, water, and landmarks to stay alive.
 
-一座由代码绘制的纸片夜镇：有纸张纤维、切边厚度、层叠投影、缝线、暖窗、秋树和弯曲小路。玩法是类 Vampire Survivors 的 roguelike：选一只猫，在有界的种子地图（最多 10 × 10 屏）里跟着镜头走街串巷，守满 10 分钟到天亮。途中收集墨晶升级武器与被动，从精英掉的宝箱里进化，穿过五个分区，探索 24 处、12 种地标，包括钟楼、南瓜田、纸风车磨坊，以及新增的纸灯茶屋、折纸温室与星象台，击退墨团群（同时最多 100 只）与追猎的 Eraser Boss。纸做的篱笆、草丛、稻草人、草垛会被撕碎或烧掉，火会在纸草间蔓延。
+Characters, scenery, textures, lighting, and effects are drawn entirely with TypeScript and Canvas. Sound is synthesized with Web Audio. There are no image or audio assets; offscreen canvases cache procedural drawings. Allo is bundled separately as a licensed font.
 
-场景没有使用背景图片、贴图素材或生成图片。纹理、纸片造型、角色与光照均由 TypeScript / Canvas 生成；离屏 Canvas 只缓存这些绘制结果。音效由 Web Audio 振荡器与生成噪声合成，没有音频文件。
+**Work in progress.** The latest cat-head redesign was rejected by the author. The required direction is to use the original pixel cats as references for face shape, proportions, expression, markings, and accessories, then draw those identities in papercraft. Neither a different face nor a direct switch back to pixel rendering satisfies that requirement. A new local revision now follows those reference proportions and rectangular eyewear; it still needs author review.
 
-## 纸片世界的互动规则
+## Run locally
 
-- **你也会着火**：接触火焰后，离开火堆仍会携带短暂余火并持续掉血，自己点的火也不例外；护盾、无敌和濒危技能仍正常生效。
-- **浅水灭火，深水绕行**：涉水会灭火、短暂保持潮湿并减速。深水不可通行，桥面不会弄湿纸片。起点院子东侧有浅水池；地图上水的轮廓和实际碰撞一致。
-- **纸材会反应**：切开墨汁桶会溅出暂时防燃的墨汁，墨渍敌人的落墨也能染到物件；纸板、纸布与蜡烛都可能燃烧。折月和纸鹤起飞可以临时折平纸物，打开通路。
-- **再生不是刷资源**：草、花、芦苇、灌木和蘑菇会延时再生，烧过恢复更慢；角色站在原位时不会突然长出障碍。整局只结算一次掉落，手工结构不会自动再生。
-- **地标有用途**：茶屋停留回复生命；在温室使用折叠可照料植物、获得鱼干；星象台停留对齐星图，冻结附近墨影并给墨晶；纸鹤的风能驱动风车释放阵风。地标都有冷却，靠近时 HUD 会显示说明。
-
-两只猫的面部现在从原始官方数据提取分层纸片轮廓，敌人、武器轨迹和水火状态也统一成纸片表现。地图仍是五个分区、12 种／24 处地标；没有导入图片或音频素材。
-
-## 场景与角色细化
-
-- **角色装束**：Zero 的分叉短摆外套、怀表链和格栅提灯；Nicole 的钟形外套、叠层披风、月牙挎包和花瓣提灯。四肢、袖口、鞋底和折痕分层绘制，尾巴、披风与提灯按姿态轻摆；保留原有脸部识别点和各自技能。
-- **五区地景**：成组石板与排水格、农田垄沟与藤蔓、林地苔藓与蕨叶、水渠芦苇与低对比反光、草甸折纸花；屋舍与树冠也补充结构细节。
-- **探索地点**：新增纸灯茶屋、折纸温室、星象台及其庭院摆设；地标分布从 14 处增至 24 处，仍保留道路和入口通路，不扩大地图或敌人上限。
-
-这些是最新代码改动，不代表美术验收完成。地图布置发生变化，同一个种子在新旧版本中会生成不同布局。
-
-## 运行
-
-需要 Node.js 22+、npm，以及 Python 3（仅用于本地静态预览，Vercel 不需要 Python）。
+Requirements: Node.js 22+, npm, and Python 3 for the local preview server. Vercel does not require Python.
 
 ```bash
 npm ci
@@ -34,95 +16,135 @@ npm run build
 npm start
 ```
 
-打开 <http://localhost:4173/>。`npm run build` 先编译到 `dist/`（供测试），再生成独立发布目录 `site/`；`npm start` 只提供 `site/`，与部署内容一致。修改源码后需要重新构建，当前没有热更新。
+Open <http://localhost:4173/>. The build compiles TypeScript into `dist/` for tests, then creates the standalone `site/` directory. The preview server serves `site/`. Rebuild after source changes; there is no hot reload.
 
-- <http://localhost:4173/?start=1>：跳过标题，直接用保存的角色开始一局。
-- `?seed=N`（例如 `/?start=1&seed=7`）：固定本局种子，便于复现。只接受 1–10 位十进制数字，范围 `0..4294967295`（含两端）；缺失、格式不合法或越界时，每局使用新种子，不会溢出回绕。
-- <http://localhost:4173/?gallery=1>：纸片工坊图鉴页，列出所有已注册的猫、敌人、物件（各种状态）、地标、分区、武器与被动，不启动游戏与音频。
-
-## 部署到 Vercel
-
-这是纯静态站点，不需要后端、数据库、环境变量或运行时服务。仓库已包含 `vercel.json`：
-
-| 设置 | 值 |
+| URL option | Purpose |
 | --- | --- |
-| Framework Preset | Other |
-| Root Directory | 仓库根目录（`.`） |
-| Install Command | `npm ci` |
-| Build Command | `npm run build` |
-| Output Directory | `site` |
-| Node.js | 22 或更高的 Vercel 支持版本 |
+| `/?start=1` | Skip the title and start with the saved character. |
+| `/?start=1&seed=7` | Start a reproducible run with a fixed seed. |
+| `/?gallery=1` | Open the static Paper Workshop Gallery without starting gameplay or audio. |
 
-1. 将包含本次改动的代码提交、推送到你自己的 Git 仓库。
-2. 在 Vercel 的 **Add New → Project** 中导入该仓库，使用上述设置；构建命令和输出目录由 `vercel.json` 提供，不要覆盖成 `dist`。
-3. 点击 **Deploy**。部署成功后可以打开首页、`/?start=1&seed=7` 和 `/?gallery=1`。
+Seed pins accept 1–10 decimal digits in the inclusive range `0..4294967295`. Missing, malformed, or out-of-range values generate a fresh seed rather than wrapping. Content changes may produce different worlds or encounters for the same seed across versions.
 
-`site/` 每次构建都会重新生成，只包含 `index.html`、`styles.css` 和当前源码对应的编译后 JS；不包含 TS 源码、source map、测试、`.agents/` 或内部文档。开发编译目录中残留的已删除模块也不会发布。`.vercelignore` 另外排除 CLI 上传时不需要的本地文件。
+## Characters and controls
 
-资源文件名没有内容哈希，因此响应头要求缓存重新验证，避免新页面配上旧 JS。站点不需要 SPA 路由回退：上述模式都是首页的查询参数，缺失资源应正常返回 404。`npm start` 只用于本地预览，不是 Vercel 的启动命令。
+Choose **Zero** or **Nicole** at the start. Only the selected cat appears as the playable protagonist; the other cat does not follow as a companion.
 
-**用户已确认前版在 Vercel 可用。本轮纸片生态与美术更新仍在本地，提交并推送后才会进入后续部署；agent 尚未验证本轮线上画面。**
+| Character | Starting kit | Evolution |
+| --- | --- | --- |
+| Zero | Meowline ranged shots, an afterimage dash that draws enemies away, and a short burst of empowered piercing fire after dashing. | **Echo Legion:** max Meowline + Long Shadow, then open a chest. |
+| Nicole | Three orbiting Moonstars, Moonfold's slowing field and shields, and a one-time emergency shield. | **Full Moon:** max Moonstars + Deep Fold, then open a chest. |
 
-## 项目结构
+- Move with **WASD** or **arrow keys**; use the character skill with **Space**.
+- Pause with **Esc** or **P**.
+- Choose an upgrade with **1 / 2 / 3**, or click its card.
+- On touch devices, use the movement stick and skill button.
+- Mute controls are available on the title screen and HUD.
 
-内容按“定义 + 钩子 + 注册表”组织：每项内容是一个定义文件加一个放在旁边的美术文件，在索引里注册一行。
+A loadout has three weapon slots and four passive slots. Level-ups offer three choices. Elites and the Boss drop chests; evolutions happen only when a chest is opened. Filling the passive slots before obtaining an evolution's required partner can lock that evolution out for the run. Surviving until dawn wins even if the Boss is still alive.
 
-- `vercel.json` / `.vercelignore`：Vercel 静态部署配置与上传排除规则。
-- `scripts/build-site.mjs`：生成发布目录 `site/`，排除开发文件和过期模块。
-- `src/engine/`：与内容无关的注册表、事件总线、精灵缓存。
-- `src/defs/`：内容定义。`index.ts` 注册猫、武器、被动、进化、敌人行为与敌人；`world-index.ts` 注册材质、反应、物件、地标与分区；`cats/`、`weapons/`、`passives/`、`evolutions/`、`enemies/`、`reactions/`、`props/`、`landmarks/`、`biomes/` 各放一项一个文件或目录；`horde.ts`、`progression.ts`、`fire.ts` 等放数值。
-- `src/game/`：通用模拟（无 DOM）。`sim.ts`、`props.ts`（材质反应与火）、`stats.ts`、`world-gen.ts`（种子世界、道路、水域几何，纯哈希）、`water.ts`（涉水与深水扫掠）、`paper-status.ts`（燃烧／潮湿）、`landmark-actions.ts`（地标活动）、`interactions.ts`；`characters.ts`、`upgrades.ts`、`enemies.ts` 是保留旧导出名的外观层。
-- `src/render/`：`art-registry.ts` / `art-index.ts`（美术注册）、`paper-kit.ts` / `prop-kit.ts` / `variants.ts`（纸片工具与种子变体）、`craft-world.ts`（区块地面缓存、地标、立体书折叠、导航箭头）、`craft-props.ts`（物件与火）、`gallery.ts`、`timeline.ts`、`world.ts` 等。
-- `src/ui/`：守夜手账 HUD、升级卡、角色选择、结算页、图鉴布局。
-- `src/content/`：i18n（`keys.ts`、`en.ts`、`zh.ts`）。`src/audio/sfx.ts`：程序生成的音效与环境声。
-- `.kiro/`：steering、spec、hooks 与开发流程技能 `skills/midnight-meow-dev/`（加猫、加武器 / 被动 / 进化、加敌人、加物件与反应、加地标与分区、i18n、纸片工具与图鉴、测试与提交的配方）。
+## The paper town
 
-原有像素场景代码保留在仓库内作为造型 / 布局参考，当前游戏入口只展示纸片场景，没有画风切换按钮。
+The bounded world spans up to 10 × 10 screens, with a following camera, five districts, and 24 sites drawn from 12 landmark types. Roads, bridges, courtyards, gardens, and a hedge border connect the town. At most 100 enemies may be alive at once.
 
-## 角色与操作
+- **Fire is dangerous to everyone.** Cats and enemies can carry flames after leaving a fire, including fires created by the player. Normal shields, invulnerability, emergency protection, and defeat rules still apply.
+- **Shallow water extinguishes fire.** It slows movement and briefly leaves actors damp. Deep water blocks passage, while bridge decks stay dry. A shallow teaching basin lies east of the starting yard. Rendering and collision use shared water geometry.
+- **Paper materials react.** Cutting an ink vat spills a temporary fire-resistant coating. Card, cloth, straw, and wax can burn. Moonfold and crane launches temporarily fold obstacles to open routes.
+- **Plants regrow without farming rewards.** Grass, flowers, reeds, bushes, and mushrooms recover after a delay; burning takes longer. Regrowth waits for actors and fire to clear, and each plant pays its loot only once per run. Handcrafted structures stay destroyed.
+- **Landmarks have functions.** Staying near the teahouse restores health. Folding at the greenhouse tends plants and grants a treat. Aligning the observatory freezes nearby enemies and grants shards. Crane wind powers the windmill's gust. These activities have cooldowns and localized HUD guidance.
 
-开局在 Zero（男猫）和 Nicole（女猫）中二选一，局内只有选中的主角。
+The enemy roster includes Ink Blobs, Paper Bats, Crumples, Smudges, Kiro Ghosts, and the Eraser Boss. Kiro Ghosts can appear in the opening phase, with at most eight alive at once. Their folding tails accompany a periodic glide toward the player; they use the shared collision, water, and fire rules.
 
-- **Zero**：起始武器喵线（远程直射）；留影冲刺吸引敌人；冲刺后短暂穿透速射。进化 Echo Legion：喵线满级 + 长影，然后开宝箱。
-- **Nicole**：起始武器月星环（三枚月星环绕）；折月留下减速领域并获得护盾；首次濒危时触发一次额外护盾。进化 Full Moon：月星环满级 + 深折，然后开宝箱。
-- WASD / 方向键移动，空格施放专属技能；Esc / P 暂停；升级时按 1 / 2 / 3 或点击选卡。标题与 HUD 上有静音按钮。手机使用摇杆与技能按钮。
-- 击败敌人掉落墨晶，升级时三选一（3 个武器槽、4 个被动槽）；精英与 Boss 掉宝箱；连杀、南瓜灯、月亮灯笼、鱼干、可撕可烧的纸物件提供额外互动。
-- 数值在 `src/defs/` 的各个定义文件里（猫在 `src/defs/cats/<id>/stats.ts`），角色选择与 HUD 从同一份注册数据读取。
+## Art, effects, and interface
 
-最新 `npm run build` 与 `npm test` **246 项通过**，覆盖水火优先级、护盾／死亡、同帧涉水击退、桥面与深水碰撞、再生防刷、地标冷却、纸片绘制及发布产物。一张系统 Chrome 静态美术总览已捕获并查看，但没有做动画、录屏、音频或约 100 敌人的帧率检查，完整实战和手机 UI 仍未验收。美术未经用户认可，参赛作品没有完成；随机援护猫仍待确认；英文默认已在最新一轮完成。
+The game uses one papercraft / cut-paper art direction: layered cuts, folded surfaces, stitched edges, warm lantern light, and cool night colors. It has no art-style toggle.
+
+Zero wears a split coat with a watch chain and shuttered lantern; Nicole wears a bell coat, layered cape, moon satchel, and petal lantern. Enemies have distinct paper silhouettes, impact compression, edge glints, and dissolving scraps. Skills and upgrades use paper arrows, ribbons, stars, and flecks. Splash warnings show circular damage areas, and Boss charges show a directional corridor.
+
+The interface follows a night-watch journal theme, with character tickets, a moon-arc clock, lantern hearts, a folded map, upgrade cards, and a result journal. Pause, upgrade, and result menus use the full device area and allow long content to scroll. Narrow result pages use a single column.
+
+English is the default for new visitors. Valid saved language preferences are respected, and the complete Chinese translation and language toggle remain available. All user-facing strings go through `t(locale, key)`.
+
+### Typography
+
+English UI and Canvas labels use [Allo](https://allo.joshpuckett.me/) 1.0.1 by Josh Puckett. The unmodified fonts are bundled locally under [SIL OFL 1.1](assets/fonts/OFL.txt), with provenance in [SOURCE.txt](assets/fonts/SOURCE.txt).
+
+- `AlloVariableFriendly.woff2` provides weights 100–900 and optical sizing, with Friendly roundness fixed at 50.
+- `Allo-Oblique.woff2` provides regular italic text.
+- Chinese uses system-font fallbacks.
+
+The initial Canvas paint waits for the local normal font to load, with a fallback if loading fails.
+
+## Architecture
+
+Content uses **definitions, hooks, and registries**. Each content item has its own definition and adjacent art, registered through the appropriate index. Registration order is significant.
+
+| Location | Responsibility |
+| --- | --- |
+| `src/engine/` | Content-independent registries, event bus, and sprite cache. |
+| `src/defs/` | Cats, weapons, passives, evolutions, enemy behaviors, enemies, materials, reactions, props, landmarks, biomes, and gameplay tuning. |
+| `src/game/` | DOM-free simulation, progression, combat, world generation, collision, water, fire, regrowth, and landmark activities. |
+| `src/render/` | Registered art, paper primitives, cached scenery, camera, effects, gallery, and Canvas UI. |
+| `src/ui/` | HUD, character selection, upgrade cards, menus, touch controls, and layout helpers. |
+| `src/content/` | Message keys and complete English/Chinese language packs. |
+| `src/audio/` | Synthesized effects and ambience. |
+| `src/cats/` | Unmodified original Meow Wall reference data. |
+| `assets/fonts/` | Allo font files, license, and source information. |
+| `scripts/build-site.mjs` | Produces the isolated static distribution. |
+| `.kiro/` | Project specifications, steering, hooks, and development recipes. |
+
+The simulation is deterministic for the same seed and inputs. Seeded RNG is passed only to weapon steps and enemy steering; world generation, fire spread, and prop drops use hashes. Rendering reads state without mutating it or consuming simulation RNG.
+
+The generic simulation does not import art, UI, or the DOM. Gameplay numbers belong in definitions. Legacy pixel helpers remain as code dependencies and reference material; do not delete them blindly.
+
+## Resource management
+
+- Restarting a run or returning to the title clears world memo tables, chunk canvases, popup-fold state, and references to the previous run.
+- Evicted chunk canvases have their dimensions reset to release their backing pixels. The cache holds at most 14 chunk canvases, approximately 55 MiB of raw RGBA pixels before browser overhead.
+- The general sprite LRU holds at most 256 entries. Finite shared art is retained for reuse.
+- Short audio voices disconnect after ending. Turning ambience off or muting stops its looping sources and cancels cricket scheduling.
+- One AudioContext and a shared noise buffer remain available for the lifetime of the page.
+
+These bounds and cleanup paths do not establish a measured memory footprint or guarantee immediate browser garbage collection. Live heap/GPU memory and frame-rate measurements remain outstanding.
+
+## Verification and current limits
 
 ```bash
+npm run build
 npm test
 ```
 
-## 来源与记录
+The latest recorded code verification passed **246 tests**. Tests cover simulation determinism, progression, water/fire ordering, collision, regrowth rewards, landmark cooldowns, rendering commands, resource cleanup, translations, and static packaging.
 
-Zero / Nicole 的官方猫头数据来自作者自己的 [Meow Wall](https://meow-wall.vercel.app) 特别来宾，原始位置为 `zjl1985/meow-wall` 的 `src/components/mascot/mascot-art.ts`。新增身体、场景与材质在本仓库中实现。用户提供的图片仅作为美术质量参考，没有作为游戏素材导入。
+Static menu fixtures in both languages were checked at 320 × 568, 390 × 844, and 844 × 390. Allo loaded, and the tested pause, upgrade, and result layouts had no horizontal or text overflow. This is not evidence of complete touch-flow or gameplay acceptance.
 
-最新记录见 [REVIEW-IMPROVEMENTS.md](./REVIEW-IMPROVEMENTS.md)。文档中旧的“只做像素 / 删除全部纸质”条款已由用户最新的纸片美术方向覆盖；单角色二选一和纯代码绘制要求继续保留。
+The author rejected the earlier round-faced redesign. The current local correction uses the original pixel heads as visual references for broad cheeks, a flatter chin, compact eyes, rectangular eyewear, a small muzzle, and three whiskers on each side. One static comparison sheet was captured and viewed successfully, showing the original reference, revised paper head, and existing body side by side. This is visual review evidence, not author approval or a complete playtest.
 
-## Kiro 小幽灵
+Full-run balance, audio quality, live memory usage, and frame rate near the enemy cap remain unverified. Neutral town NPCs and random helper cats are not implemented; helper cats require explicit approval. Passing tests does not mean the art is approved or the competition entry is complete.
 
-Kiro 小幽灵已接入为纸片敌人，开局阶段即可随机出现，同时最多 8 只。它收拢纸尾后加速滑行追近，受到冻结时停止滑行周期，沿用火焰、涉水和碰撞规则；纸片工坊图鉴提供中英文名称。新刷怪表会改变相同种子下的战斗过程，外观与实战平衡仍待浏览器验收。
+Documentation-only edits do not require rerunning gameplay tests. For code changes, follow the project verification rules: build and tests, at most one static screenshot, and no animation or recording checks unless requested.
 
-本次接续验证：`npm run build` 与 `npm test` 通过（238/238）。未新增截图、动画、录屏、音频或帧率检查；改动随本次 Kiro 接续提交保存，尚未推送。
+## Static deployment configuration
 
-## 阶段提示与小屏菜单修复（2026-11-17）
+The repository contains a Vercel configuration for a static site with no backend, database, or environment variables.
 
-阶段提示被 Boss／进化提示挡住时会延后补显，不再丢失。暂停、升级与结算菜单使用完整设备区域，长内容可滚动；窄屏结算改为单列，双语长文案允许换行。实际统计是 13 项，旧文档的 14 项计数不准确。构建和 239 项测试通过；已查看一张 390 × 844 英文结算静态样张（随后微调日期与爪印留白，未再次截图），不代表完整手机流程、动画或实战验收。用户明确要求先完善游戏，暂不处理部署。
+| Setting | Value |
+| --- | --- |
+| Framework Preset | Other |
+| Root Directory | Repository root (`.`) |
+| Install Command | `npm ci` |
+| Build Command | `npm run build` |
+| Output Directory | `site` |
+| Node.js | 22 or a newer supported version |
 
-### 静态美术检查（2026-11-17）
+The build recreates `site/` from an explicit allowlist: HTML, CSS, current compiled JavaScript, the two Allo fonts, and their license/source notes. It excludes TypeScript, source maps, tests, private task state, internal documentation, and stale compiled modules. Do not substitute `dist/` for the publish directory.
 
-已查看 output/playwright/kiro-world-art-review.png：两猫分别置于种子 7 的起点场景，小幽灵另有展开／收尾／左右朝向、深浅底色放大样张。幽灵在场景中可辨认，但发现身体与尾部横缝；已改为完整纸片先缓存再裁切，避免在接缝处生成阴影。遵守单张截图限制，修正后未再次截图；不代表动态表现或整套美术通过验收。猫脸仍显方、细节偏密，后续继续打磨。用户已要求检查后提交并推送，未核实部署状态。
+Assets use cache revalidation because filenames are not content-hashed. The query-string entry modes do not require an SPA fallback; missing resources should return 404. `npm start` is a local preview command, not a production server command.
 
-## English-first polish
+The existing Git integration can deploy automatically when commits are pushed. **Local commits are permitted; do not push or deploy without a new explicit authorization.** The earlier push request applied to that checkpoint, not to subsequent work. Deployment instructions are not permission to publish.
 
-New visitors now start in English; saved language preferences and the Chinese toggle remain available. Cat faces use softer paper corners and lighter inner edges. Graveyard ground is less dense, foreground buildings fade more when covering the cat, ink splash warnings show their circular damage area, and Boss charges show a wide directional lane. Restarting or leaving a run releases map caches; ended sound nodes disconnect and disabled ambience stops its loops. Browser memory peaks, FPS, audio quality and full-run balance have not yet been measured.
+## References and contributor guidance
 
-本轮验证：构建和 243 项测试通过；三种手机横竖屏尺寸、中英双语的 18 组静态菜单布局无横向溢出，长页可滚动。新访客图鉴默认英文。这里只验证静态布局，不代表完整触控操作、平衡、音频或性能验收。
+The original Zero and Nicole reference heads come from the author's [Meow Wall](https://meow-wall.vercel.app), originally in `zjl1985/meow-wall` at `src/components/mascot/mascot-art.ts`. Original reference data remains unchanged. The body, town, materials, and effects are implemented in this repository. Reference images guide the art; they are not imported as game assets.
 
-## Typography and redrawn paper heads
-
-English UI and Canvas labels use [Allo](https://allo.joshpuckett.me/) 1.0.1 by Josh Puckett, bundled locally under SIL OFL 1.1 with its license in `assets/fonts/OFL.txt`. The Friendly variable WOFF2 supplies weights 100–900; a regular oblique supplies italic text. Chinese falls back to system fonts. The build copies only the two font files and their license/source notes, alongside HTML/CSS/JS.
-
-Cat heads now use authored curved ears, cheeks and chin silhouettes, rather than traced pixel boundaries. Original source data remains unchanged; palette, hair, eyewear and chain identity are carried into the new cut-paper drawing. World heads and UI portraits share the same finite cache.
+Before changing the project, read [AGENTS.md](AGENTS.md), [HANDOFF.md](HANDOFF.md), and [PLAN.md](PLAN.md). Follow the [Midnight Meow development skill](.kiro/skills/midnight-meow-dev/SKILL.md) and its recipes. [REVIEW-IMPROVEMENTS.md](REVIEW-IMPROVEMENTS.md) contains earlier review notes; superseded art directions there and all documents under `docs/archive/` are historical, not current instructions.

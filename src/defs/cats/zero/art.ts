@@ -10,14 +10,14 @@ import { ZERO_STATS } from "./stats.js";
 export const ZERO_ART: CatArt = {
   id: "zero",
   face: {
-    outline: "M 13 27 L 12 9 Q 12 6 15 8 L 27 20 Q 35 17 43 20 L 55 8 Q 59 6 58 10 L 57 28 Q 62 34 58 40 L 52 46 Q 35 54 19 47 L 12 41 Q 8 34 13 27 Z",
+    outline: "M 13.6 13.6 L 13.6 8 Q 13.6 7.2 14.5 7.2 L 19 7.2 L 29.6 20 L 40.8 20 L 49.6 7.2 L 54.4 7.2 Q 55.2 7.2 55.2 8 L 55.2 13.6 L 58.4 16 L 57.6 22 L 54.4 24 L 57.8 30 L 58.4 40.5 L 51.6 48 Q 35 49.5 17.5 48 L 11 41 L 11 30 L 14.4 24 L 11.2 21.6 L 11.2 15.5 Z",
     patches: [
-      { color: "headDark", path: "M 12 28 L 12 8 L 27 20 L 24 25 L 18 24 L 16 38 L 13 41 Z" },
-      { color: "headDark", path: "M 43 20 L 58 7 L 57 29 L 59 37 L 54 42 L 51 25 Z" },
-      { color: "headLight", path: "M 20 37 Q 27 34 35 38 Q 43 34 51 38 L 48 45 Q 35 51 22 45 Z" },
-      { color: "headDark", path: "M 18 23 Q 22 16 31 18 L 40 19 L 47 24 L 40 25 L 34 22 L 27 26 Z" },
-      { color: "mark", path: "M 18 23 Q 23 15 31 19 Q 38 17 46 23 L 39 22 L 34 27 L 31 23 L 25 25 L 26 21 Z" },
-      { color: "headDark", path: "M 18 46 Q 35 51 53 45 L 52 53 L 18 53 Z" },
+      { color: "headDark", path: "M 11 15 L 16 8 L 29 21 L 25 24 L 18 21 L 17 40 L 14 44 L 11 40 Z" },
+      { color: "headDark", path: "M 41 20 L 53 8 L 58 17 L 55 25 L 57 39 L 53 44 L 51 23 Z" },
+      { color: "headLight", path: "M 28 34.4 L 40 34.4 L 43 38 L 42 40.8 L 27.2 40.8 L 26.5 37.5 Z" },
+      { color: "headDark", path: "M 20 21 L 26 17.5 L 35 19 L 44 21 L 43 24 L 36 22 L 30 25 L 25 22 Z" },
+      { color: "mark", path: "M 19.5 21 L 25 18 L 34 18.8 L 43 21 L 40 23 L 36.5 21.5 L 32 26.4 L 29 23 L 24.5 24 L 26 20.5 Z" },
+      { color: "headDark", path: "M 17 44.2 Q 34 46 53 44.2 L 52 49.5 L 17 49.5 Z" },
     ],
   },
   body: {

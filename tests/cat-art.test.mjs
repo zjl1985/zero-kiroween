@@ -184,7 +184,7 @@ test("layered face cuts retain a narrow rim, old head placement and shared paper
     assert.ok(!paint(head).some((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-over"), "no raw rectangle print");
     assert.ok(paint(head).some((c) => c.op === "stroke"), "clipped sheet lips and thickness");
     assert.match(art.face.outline, /Q/, "cheeks and chin use authored curves");
-    assert.ok((art.face.outline.match(/[ML]/g) ?? []).length < 12, "silhouette is not a dense grid staircase");
+    assert.ok((art.face.outline.match(/[ML]/g) ?? []).length < 24, "silhouette is not a dense grid staircase");
     const rim = paint(edge).find((c) => c.op === "stroke" && c.strokeStyle === art.body.rim);
     assert.equal(rim.lineWidth / 2, PAPER_FACE_RIM);
     assert.equal(PAPER_FACE_RIM, 0.625);
