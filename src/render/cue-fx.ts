@@ -22,7 +22,7 @@ import {
   type Phase,
 } from "./timeline.js";
 
-const ACCENT = { zero: "#c4553f", nicole: "#7d64b8" } as const;
+const ACCENT: Readonly<Record<string, string>> = { zero: "#c4553f", nicole: "#7d64b8" };
 const CONFETTI = ["#f0cf83", "#efe3c8", "#e58e5f", "#c9b2f0", "#f4d48e"] as const;
 
 /** Real seconds since `phase` began (negative before it). */

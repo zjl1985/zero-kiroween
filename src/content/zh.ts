@@ -211,4 +211,9 @@ export const ZH: Messages = {
   "result.elites": "击败精英",
   "result.chests": "打开宝箱",
   "result.paw": "{name} 的爪印",
+  "enemy.ink-blob.name": "墨团",
+  "enemy.paper-bat.name": "纸蝙蝠",
+  "enemy.crumple.name": "纸团",
+  "enemy.smudge.name": "墨渍",
+  "enemy.eraser-boss.name": "橡皮擦",
 };

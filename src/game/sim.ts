@@ -1,3 +1,22 @@
+/**
+ * The deterministic night simulation. It is content-agnostic: cats, weapons,
+ * passives, evolutions and enemies come from the registries filled by
+ * src/defs/index.ts, and act through their hooks with the SimContext below.
+ */
+import "../defs/index.js";
+import { BEHAVIOURS, CATS, ENEMY_DEFS, EVOLUTION_DEFS, PASSIVE_DEFS, SIM_EVENTS, WEAPON_DEFS } from "../defs/registries.js";
+import { moonStarPositions } from "../defs/weapons/moon-stars.js";
+import type {
+  EnemyDef,
+  EnemyKind,
+  EnemyMove,
+  EvolutionDef,
+  PlayerStats,
+  SimContext,
+  SimEvents,
+  UpgradeId,
+  WeaponTiming,
+} from "../defs/types.js";
 import { avoidScenery } from "./scenery.js";
 import { createRng, type Rng } from "./rng.js";
 import {
@@ -15,44 +34,19 @@ import {
   nearColliders,
   viewCentre,
 } from "./world-gen.js";
+import { circlesOverlap, clamp, length, normalize, pointSegDist } from "./collision.js";
+import { chestCandidates, readyEvolution, rollChoices, upgradeDef, xpForLevel, XP } from "./upgrades.js";
+import { playerStats } from "./stats.js";
 import {
-  circlesOverlap,
-  clamp,
-  length,
-  normalize,
-  pointSegDist,
-} from "./collision.js";
-import { CHARACTERS, character } from "./characters.js";
-import {
-  chestCandidates,
-  playerStats,
-  readyEvolution,
-  rollChoices,
-  START_WEAPON,
-  upgradeDef,
-  xpForLevel,
-  XP,
-  UPGRADE_VALUES,
-  type EvolutionDef,
-  type UpgradeId,
-} from "./upgrades.js";
-import {
-  BAT,
-  BOSS,
-  BOSS_ATTACKS,
-  CRUMPLE,
   ELITE,
-  ENEMIES,
   ENEMY_FX_LIFE,
+  FILLER_KIND,
   HORDE,
   KIND_CAP,
   PHASE_AT,
-  SMUDGE,
   SPAWN_TABLE,
   WAVES,
   WAVE_RING,
-  type BossAttack,
-  type EnemyKind,
   type WaveDef,
 } from "./enemies.js";
 import {
@@ -61,7 +55,6 @@ import {
   FX_CAP,
   STATS,
   YARD_TOP,
-  type BossAct,
   type FrameInput,
   type Impact,
   type SimConfig,
@@ -73,6 +66,37 @@ import {
   type EffectKind,
 } from "./types.js";
 import { CHEST, FISH, MOON_LANTERN, PUMPKIN } from "./interactions.js";
+
+export { inSweep, startBossAttack } from "../defs/enemies/eraser-boss/attacks.js";
+
+/** Helpers handed to def hooks. */
+const ctx: SimContext = {
+  stats: playerStats,
+  effect,
+  notify,
+  hurtEnemy,
+  hurtPlayer,
+  spawnEnemy,
+  spawnShot(state, shot) {
+    state.shots.push({ id: state.nextShotId++, ...shot });
+  },
+  safePosition,
+  nearestEnemy,
+  enemyRadius,
+  knockOf,
+  livingEnemies,
+  maybeReink,
+  dropShard,
+  dropChest,
+};
+function emit<K extends keyof SimEvents>(name: K, state: SimState, payload: SimEvents[K]): void {
+  SIM_EVENTS.emit(name, state, payload, ctx);
+}
+function enemyDef(kind: EnemyKind): EnemyDef {
+  return ENEMY_DEFS.get(kind);
+}
+/** The kind that arrives on its own schedule (the Boss), if any is registered. */
+const ARRIVAL = ENEMY_DEFS.all().find((d) => d.arrival);
 
 function defaultStroke(width: number, height: number): StrokePoint[] {
   const cx = width * 0.5,
@@ -89,8 +113,9 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
   const world = config.world ?? DEFAULT_WORLD,
     seed = config.seed ?? 1,
     rng = createRng(seed),
-    id = config.cat ?? "zero",
-    def = character(id);
+    id = config.cat ?? CATS.all()[0]!.id,
+    cat = CATS.get(id),
+    def = cat.stats;
   const seconds = config.sessionSeconds ?? STATS.sessionSeconds;
   const state: SimState = {
     seed,
@@ -154,14 +179,15 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     xp: 0,
     level: 1,
     xpToNext: xpForLevel(1),
-    upgrades: { [START_WEAPON[id]]: 1 },
-    build: { weapons: [START_WEAPON[id]], passives: [] },
+    upgrades: { [cat.startWeapon]: 1 },
+    build: { weapons: [cat.startWeapon], passives: [] },
     weaponTimers: {},
     chestReveal: null,
     pendingChoice: null,
     pickups: [],
     nextPickupId: 1,
-    pulseTimer: UPGRADE_VALUES["full-moon"].pulseInterval,
+    // Weapon defs set their own timers below (Full Moon's pulse).
+    pulseTimer: 0,
     enemyShots: [],
     hazards: [],
     nextHazardId: 1,
@@ -181,6 +207,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     chests: [],
     nextChestId: 1,
   };
+  for (const w of WEAPON_DEFS.all()) w.init?.(state);
   syncChunks(state);
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
   spawnBlob(state, world.width * 0.24, world.height * 0.85);
@@ -189,14 +216,14 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
 }
 /** Per-kind data, with optional per-enemy overrides (split blobs are smaller). */
 export function enemyRadius(e: EnemyState): number {
-  return e.radius ?? ENEMIES[e.kind].radius;
+  return e.radius ?? enemyDef(e.kind).stats.radius;
 }
 export function enemyMaxHp(e: EnemyState): number {
-  return e.maxHp ?? ENEMIES[e.kind].hp;
+  return e.maxHp ?? enemyDef(e.kind).stats.hp;
 }
 /** Elites shrug off most knockback. */
 function knockOf(e: EnemyState): number {
-  return ENEMIES[e.kind].knockback * (e.elite ? ELITE.knockbackMul : 1);
+  return enemyDef(e.kind).stats.knockback * (e.elite ? ELITE.knockbackMul : 1);
 }
 export function bossEnemy(state: SimState): EnemyState | undefined {
   return state.boss.id === null
@@ -204,7 +231,7 @@ export function bossEnemy(state: SimState): EnemyState | undefined {
     : state.enemies.find((e) => e.id === state.boss.id && e.alive);
 }
 function spawnBlob(state: SimState, x: number, y: number): EnemyState {
-  return spawnEnemy(state, "ink-blob", x, y);
+  return spawnEnemy(state, FILLER_KIND, x, y);
 }
 /** Index into the HORDE tables: one step per tenth of the night (a minute of 600 s). */
 export function hordeStep(state: SimState): number {
@@ -217,7 +244,7 @@ export function hordeCap(state: SimState): number {
 }
 /** Common enemies toughen as the night goes on. */
 function commonHp(state: SimState, kind: EnemyKind): number {
-  const hp = ENEMIES[kind].hp * (1 + HORDE.hpPerMinute * hordeStep(state));
+  const hp = enemyDef(kind).stats.hp * (1 + HORDE.hpPerMinute * hordeStep(state));
   return Math.round(hp * 10) / 10;
 }
 function spawnEnemy(
@@ -228,8 +255,8 @@ function spawnEnemy(
   hp: number = commonHp(state, kind),
   spawnTime = 0.65,
 ): EnemyState {
-  const def = ENEMIES[kind],
-    pos = clampToWorld(x, y, def.radius + 6);
+  const def = enemyDef(kind),
+    pos = clampToWorld(x, y, def.stats.radius + 6);
   const e: EnemyState = {
     id: state.nextEnemyId++,
     kind,
@@ -241,14 +268,10 @@ function spawnEnemy(
     slowTime: 0,
     spawnTime,
     maxHp: hp,
-    radius: def.radius,
+    radius: def.stats.radius,
   };
-  // No RNG here: bats get a swoop phase from their id.
-  if (kind === "paper-bat") e.phase = (e.id * 2.399) % (Math.PI * 2);
-  if (kind === "smudge") {
-    e.timer = SMUDGE.cooldown * 0.5;
-    e.windup = 0;
-  }
+  // Kind setup (bat swoop phase, smudge reload, Boss attack timer) uses no RNG.
+  def.onSpawn?.(e, state);
   state.enemies.push(e);
   return e;
 }
@@ -265,7 +288,7 @@ function pickKind(state: SimState, rng: Rng): EnemyKind {
   const kind = rollKind(state, rng),
     cap = KIND_CAP[kind];
   // Kinds at their own cap (smudges, crumples) fall back to plain ink.
-  return cap !== undefined && livingOfKind(state, kind) >= cap ? "ink-blob" : kind;
+  return cap !== undefined && livingOfKind(state, kind) >= cap ? FILLER_KIND : kind;
 }
 function rollKind(state: SimState, rng: Rng): EnemyKind {
   const table = SPAWN_TABLE[nightPhase(state)]!;
@@ -333,11 +356,8 @@ function stepSchedule(state: SimState, rng: Rng): void {
     // The Eraser owns the page while it is out; that elite slot is skipped.
     if (!bossEnemy(state)) spawnElite(state, rng, index);
   }
-  if (
-    !state.boss.spawned &&
-    state.elapsed >= BOSS.spawnAt * state.sessionSeconds
-  )
-    spawnBoss(state, rng);
+  if (ARRIVAL && !state.boss.spawned && state.elapsed >= ARRIVAL.arrival!.at * state.sessionSeconds)
+    spawnBoss(state, rng, ARRIVAL);
 }
 /** Room left under the hard cap, minus the Boss's summon room while it is out. */
 function waveRoom(state: SimState): number {
@@ -386,7 +406,7 @@ function makeRoom(state: SimState, limit: number): void {
   let living = livingEnemies(state);
   for (const e of state.enemies) {
     if (living < limit) break;
-    if (!e.alive || e.elite || e.kind === "eraser-boss") continue;
+    if (!e.alive || e.elite || enemyDef(e.kind).boss) continue;
     e.alive = false;
     living--;
     effect(state, e.x, e.y, "erase", ENEMY_FX_LIFE.erase);
@@ -398,25 +418,15 @@ function spawnElite(state: SimState, rng: Rng, index: number): void {
   const { x, y } = ringPoint(state, rng),
     e = spawnEnemy(state, kind, x, y, Math.round(commonHp(state, kind) * ELITE.hpMul), 1);
   e.elite = true;
-  e.radius = ENEMIES[kind].radius * ELITE.radiusMul;
+  e.radius = enemyDef(kind).stats.radius * ELITE.radiusMul;
   notify(state, "elite");
 }
-function spawnBoss(state: SimState, rng: Rng): void {
+function spawnBoss(state: SimState, rng: Rng, def: EnemyDef): void {
   // The Eraser makes room for itself and its summons by rubbing out old ink.
   makeRoom(state, HORDE.hardCap - HORDE.bossRoom);
   // It enters from the ring just outside the view, wherever the cat is.
   const { x, y } = ringPoint(state, rng),
-    boss = spawnEnemy(
-      state,
-      "eraser-boss",
-      x,
-      y,
-      ENEMIES["eraser-boss"].hp,
-      BOSS.spawnTime,
-    );
-  boss.timer = BOSS.firstAttack;
-  boss.act = null;
-  boss.combo = 0;
+    boss = spawnEnemy(state, def.id, x, y, def.stats.hp, def.arrival!.spawnTime);
   state.boss = { spawned: true, defeated: false, id: boss.id };
   notify(state, "boss-incoming");
 }
@@ -448,8 +458,7 @@ function effect(
 const MAJOR_NOTICES: ReadonlySet<Notice> = new Set<Notice>([
   "boss-incoming",
   "boss-defeated",
-  "evolve-zero",
-  "evolve-nicole",
+  ...EVOLUTION_DEFS.all().map((e) => e.notice),
 ]);
 function notify(state: SimState, kind: Notice): void {
   const live = state.notice;
@@ -525,7 +534,7 @@ function discoverLandmarks(state: SimState): void {
 function leashEnemies(state: SimState, rng: Rng): void {
   const p = state.player;
   for (const e of state.enemies) {
-    if (!e.alive || e.kind === "eraser-boss") continue;
+    if (!e.alive || enemyDef(e.kind).boss) continue;
     if (Math.hypot(e.x - p.x, e.y - p.y) <= SPAWN_RING.leash) continue;
     const pos = ringPoint(state, rng),
       kept = clampToWorld(pos.x, pos.y, enemyRadius(e) + 6);
@@ -561,11 +570,8 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     state.chestReveal.life -= dt;
     if (state.chestReveal.life <= 0) state.chestReveal = null;
   }
-  if (state.decoy.live) {
-    state.decoy.time = Math.max(0, state.decoy.time - dt);
-    state.decoy.live = state.decoy.time > 0;
-    if (!state.decoy.live && playerStats(state).echo) echoBurst(state);
-  }
+  // Kit timers (Zero's decoy) count down here.
+  emit("tick", state, { dt });
   for (const e of state.enemies) {
     e.orbitCooldown = Math.max(0, e.orbitCooldown - dt);
     e.slowTime = Math.max(0, e.slowTime - dt);
@@ -580,21 +586,17 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   }
   const px = state.player.x,
     py = state.player.y;
-  stepPlayer(state, input, dt);
+  stepPlayer(state, input, dt, rng);
   state.stats.distance += Math.hypot(state.player.x - px, state.player.y - py);
   syncChunks(state);
   discoverLandmarks(state);
-  stepDecoy(state, dt);
   stepStroke(state, dt);
-  if (state.player.id === "nicole") {
-    stepOrbit(state);
-    stepMoonPulse(state, dt);
-  }
-  stepWeapons(state, dt, rng);
+  runWeapons(state, "aura", dt, rng);
+  runWeapons(state, "auto", dt, rng);
   stepShots(state, dt);
   stepEnemies(state, dt, rng);
   if (state.ended === "playing") leashEnemies(state, rng);
-  stepEnemyShots(state, dt);
+  for (const d of ENEMY_DEFS.all()) d.stepWorld?.(state, dt, ctx);
   stepChests(state, dt, rng);
   stepPickups(state, dt, rng);
   stepInteractables(state, dt);
@@ -638,9 +640,27 @@ function stepHorde(state: SimState, dt: number, rng: Rng): void {
     state.spawnTimer += interval;
   }
 }
-function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
+/**
+ * Runs every owned weapon with this timing, in registration order. The
+ * chosen cat's starting weapon is always owned.
+ */
+function runWeapons(
+  state: SimState,
+  timing: WeaponTiming,
+  dt: number,
+  rng: Rng,
+  ps: PlayerStats = playerStats(state),
+): void {
+  const start = CATS.get(state.player.id).startWeapon;
+  for (const w of WEAPON_DEFS.all()) {
+    if (w.timing !== timing || !w.step) continue;
+    if ((state.upgrades[w.id] ?? 0) > 0 || w.id === start) w.step(state, ps, dt, rng, ctx);
+  }
+}
+function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): void {
   const p = state.player,
-    def = character(p.id),
+    cat = CATS.get(p.id),
+    def = cat.stats,
     ps = playerStats(state);
   p.invuln = Math.max(0, p.invuln - dt);
   p.dashCooldown = Math.max(0, p.dashCooldown - dt);
@@ -654,12 +674,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
     state.stroke.points.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 24)
       ? STATS.strokeSlow
       : 1;
-  if (
-    state.hazards.some(
-      (h) => Math.hypot(p.x - h.x, (p.y - h.y) * 1.6) <= h.radius,
-    )
-  )
-    p.slow *= SMUDGE.puddleSlow;
+  // Leftovers of enemy kinds (smudge puddles) slow the cat.
+  for (const d of ENEMY_DEFS.all()) if (d.catSlow) p.slow *= d.catSlow(state);
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
       length(input.ax, input.ay) < 0.15
@@ -672,48 +688,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
     p.vy = dir.y * def.dashSpeed;
     if (dir.x) p.facing = dir.x < 0 ? -1 : 1;
     state.stats.skillUses++;
-    if (p.id === "zero") {
-      // A re-dash replaces a live echo; it still bursts as it fades.
-      if (state.decoy.live && ps.echo) echoBurst(state);
-      state.decoy = {
-        live: true,
-        x: p.x,
-        y: p.y,
-        time: ps.decoyLife,
-        fire: UPGRADE_VALUES["echo-legion"].fireInterval * 0.5,
-      };
-      p.empowerTime = CHARACTERS.zero.empowerDuration;
-      p.attackCooldown = 0;
-      effect(state, p.x, p.y, "dash", 0.4);
-      notify(state, "zero-dash");
-    } else {
-      const n = CHARACTERS.nicole;
-      state.fields.push({
-        x: p.x,
-        y: p.y,
-        life: ps.fieldDuration,
-        radius: ps.fieldRadius,
-        duration: ps.fieldDuration,
-      });
-      p.shield = Math.max(p.shield, ps.shieldCharges);
-      p.shieldTime = Math.max(p.shieldTime, n.shieldDuration);
-      for (const e of state.enemies)
-        if (e.alive && Math.hypot(e.x - p.x, e.y - p.y) <= ps.fieldRadius) {
-          e.slowTime = 0.5;
-          const push = normalize(e.x - p.x, e.y - p.y),
-            knock = 20 * knockOf(e);
-          const pos = safePosition(
-            state,
-            e.x + push.x * knock,
-            e.y + push.y * knock,
-            enemyRadius(e),
-          );
-          e.x = pos.x;
-          e.y = pos.y;
-        }
-      effect(state, p.x, p.y, "fold", 0.6);
-      notify(state, "nicole-fold");
-    }
+    cat.onSkill(state, ps, ctx);
+    emit("dash", state, { dx: dir.x, dy: dir.y });
   }
   if (p.dashTime > 0) {
     p.dashTime = Math.max(0, p.dashTime - dt);
@@ -730,25 +706,9 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number): void {
   const pos = safePosition(state, p.x, p.y, STATS.playerRadius);
   p.x = pos.x;
   p.y = pos.y;
-  if (p.id === "zero") maybeShoot(state);
+  // Hand weapons (Meow Bolt) fire from where the cat now stands.
+  runWeapons(state, "move", dt, rng, ps);
   maybeReink(state, p.x, p.y, STATS.playerRadius);
-}
-function maybeShoot(state: SimState): void {
-  const p = state.player,
-    z = CHARACTERS.zero,
-    ps = playerStats(state);
-  if (p.attackCooldown > 0) return;
-  const target = nearestEnemy(state, p.x, p.y, z.shotSpeed * z.shotLife + 25);
-  if (!target) return;
-  const dir = normalize(target.x - p.x, target.y - p.y);
-  if (!dir.x && !dir.y) return;
-  const empowered = p.empowerTime > 0;
-  p.attackCooldown = empowered ? ps.empoweredInterval : ps.attackInterval;
-  const base = Math.atan2(dir.y, dir.x);
-  for (let i = 0; i < ps.bolts; i++) {
-    const a = base + (i - (ps.bolts - 1) / 2) * ps.spread;
-    fireBolt(state, p.x, p.y, Math.cos(a), Math.sin(a), empowered, false);
-  }
 }
 function nearestEnemy(
   state: SimState,
@@ -770,124 +730,9 @@ function nearestEnemy(
   }
   return target;
 }
-function fireBolt(
-  state: SimState,
-  x: number,
-  y: number,
-  dx: number,
-  dy: number,
-  empowered: boolean,
-  echo: boolean,
-): void {
-  const z = CHARACTERS.zero;
-  state.shots.push({
-    id: state.nextShotId++,
-    x: x + dx * 14,
-    y: y + dy * 14,
-    vx: dx * z.shotSpeed,
-    vy: dy * z.shotSpeed,
-    life: z.shotLife,
-    alive: true,
-    empowered,
-    ...(echo ? { echo: true } : {}),
-    hits: [],
-  });
-}
-/** Echo Legion: the evolved afterimage keeps firing its own bolts. */
-function stepDecoy(state: SimState, dt: number): void {
-  const d = state.decoy;
-  if (!d.live || state.player.id !== "zero" || !playerStats(state).echo)
-    return;
-  const echo = UPGRADE_VALUES["echo-legion"];
-  d.fire -= dt;
-  if (d.fire > 0) return;
-  const target = nearestEnemy(state, d.x, d.y, echo.range);
-  if (!target) {
-    d.fire = 0;
-    return;
-  }
-  const dir = normalize(target.x - d.x, target.y - d.y);
-  if (!dir.x && !dir.y) return;
-  d.fire = echo.fireInterval;
-  fireBolt(state, d.x, d.y, dir.x, dir.y, false, true);
-}
-function echoBurst(state: SimState): void {
-  const d = state.decoy,
-    echo = UPGRADE_VALUES["echo-legion"],
-    reach = playerStats(state).echoBurstRadius;
-  effect(state, d.x, d.y, "echo-burst", EFFECT_LIFE["echo-burst"], { radius: reach });
-  for (const e of state.enemies)
-    if (
-      e.alive &&
-      e.spawnTime <= 0 &&
-      Math.hypot(e.x - d.x, e.y - d.y) <= reach
-    )
-      hurtEnemy(state, e, echo.burstDamage);
-}
-/** Full Moon: a periodic pulse from Nicole that hits and pushes the crowd. */
-function stepMoonPulse(state: SimState, dt: number): void {
-  const ps = playerStats(state);
-  if (!ps.fullMoon) return;
-  const moon = UPGRADE_VALUES["full-moon"],
-    p = state.player;
-  state.pulseTimer -= dt;
-  if (state.pulseTimer > 0) return;
-  state.pulseTimer = moon.pulseInterval;
-  const reach = ps.orbitRadius + ps.pulseReach;
-  effect(state, p.x, p.y, "moon-pulse", EFFECT_LIFE["moon-pulse"], { radius: reach });
-  for (const e of state.enemies) {
-    if (!e.alive || e.spawnTime > 0) continue;
-    if (Math.hypot(e.x - p.x, e.y - p.y) > reach) continue;
-    hurtEnemy(state, e, moon.pulseDamage);
-    const dir = normalize(e.x - p.x, e.y - p.y),
-      knock = moon.pulsePush * knockOf(e),
-      pos = safePosition(
-        state,
-        e.x + dir.x * knock,
-        e.y + dir.y * knock,
-        enemyRadius(e),
-      );
-    e.x = pos.x;
-    e.y = pos.y;
-    e.slowTime = Math.max(e.slowTime, 0.4);
-  }
-}
 /** These are the very same coordinates used to draw Nicole's stars. */
 export function orbitPositions(state: SimState): { x: number; y: number }[] {
-  const n = CHARACTERS.nicole,
-    ps = playerStats(state);
-  return Array.from({ length: ps.orbitCount }, (_, i) => {
-    const a = state.elapsed * n.orbitSpeed + (i * Math.PI * 2) / ps.orbitCount;
-    return {
-      x: state.player.x + Math.cos(a) * ps.orbitRadius,
-      y: state.player.y + Math.sin(a) * ps.orbitRadius,
-    };
-  });
-}
-function stepOrbit(state: SimState): void {
-  const n = CHARACTERS.nicole,
-    ps = playerStats(state);
-  for (const star of orbitPositions(state)) {
-    maybeReink(state, star.x, star.y, 9);
-    for (const e of state.enemies) {
-      if (!e.alive || e.spawnTime > 0 || e.orbitCooldown > 0) continue;
-      if (circlesOverlap(star.x, star.y, 9, e.x, e.y, enemyRadius(e))) {
-        hurtEnemy(state, e, ps.orbitDamage);
-        e.orbitCooldown = n.orbitHitInterval;
-        e.slowTime = Math.max(e.slowTime, 0.3);
-        const dir = normalize(e.x - state.player.x, e.y - state.player.y),
-          knock = 12 * knockOf(e),
-          pos = safePosition(
-            state,
-            e.x + dir.x * knock,
-            e.y + dir.y * knock,
-            enemyRadius(e),
-          );
-        e.x = pos.x;
-        e.y = pos.y;
-      }
-    }
-  }
+  return moonStarPositions(state, playerStats(state));
 }
 function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
   if (!e.alive) return;
@@ -901,17 +746,21 @@ function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
     amount: Math.round(dealt * 10) / 10,
     src: e.kind,
   });
+  emit("hit", state, { enemy: e, damage, dealt });
   if (!e.alive) {
+    const def = enemyDef(e.kind);
     state.stats.kills++;
     effect(state, e.x, e.y, "dissolve", EFFECT_LIFE.dissolve, { src: e.kind });
     countStreak(state, e);
-    if (e.kind === "eraser-boss") defeatBoss(state, e);
-    else dropShard(state, e.x, e.y, ENEMIES[e.kind].xp * (e.elite ? ELITE.xpMul : 1));
+    if (def.dropsShard !== false)
+      dropShard(state, e.x, e.y, def.stats.xp * (e.elite ? ELITE.xpMul : 1));
     if (e.elite) {
       state.stats.elitesDefeated++;
       dropChest(state, e.x, e.y, false);
     }
-    if (e.kind === "crumple") splitCrumple(state, e);
+    // Kind effects on defeat: crumple splits, the Eraser's reward.
+    for (const onDeath of def.onDeath ?? []) onDeath(state, e, ctx);
+    emit("kill", state, { enemy: e });
   }
 }
 /** Kills inside the streak window chain; milestones pay a little bonus XP. */
@@ -960,6 +809,7 @@ function stepInteractables(state: SimState, dt: number): void {
         state.stats.pumpkinsLit++;
         effect(state, o.x, o.y, "pumpkin-light", EFFECT_LIFE["pumpkin-light"]);
         notify(state, "pumpkin-lit");
+        emit("touchProp", state, { id: o.id, kind: o.kind });
       }
     } else {
       const was = o.charge;
@@ -968,6 +818,7 @@ function stepInteractables(state: SimState, dt: number): void {
       if (o.charge >= 1 && touching) {
         o.charge = 0;
         moonStun(state, o.x, o.y);
+        emit("touchProp", state, { id: o.id, kind: o.kind });
       }
     }
   }
@@ -993,7 +844,7 @@ function moonStun(state: SimState, x: number, y: number): void {
   notify(state, "moon-stun");
   for (const e of state.enemies) {
     if (!e.alive) continue;
-    e.stun = e.kind === "eraser-boss" ? MOON_LANTERN.bossStun : MOON_LANTERN.stunTime;
+    e.stun = enemyDef(e.kind).boss ? MOON_LANTERN.bossStun : MOON_LANTERN.stunTime;
     if (e.spawnTime <= 0) hurtEnemy(state, e, MOON_LANTERN.damage);
   }
 }
@@ -1027,40 +878,6 @@ function stepTreats(state: SimState, dt: number): void {
     effect(state, t.x, t.y, "treat", EFFECT_LIFE.treat);
   }
 }
-/** A crumpled ball bursts into small blobs, as far as the cap allows. */
-function splitCrumple(state: SimState, e: EnemyState): void {
-  effect(state, e.x, e.y, "crumple", ENEMY_FX_LIFE.crumple);
-  for (let i = 0; i < CRUMPLE.splitCount; i++) {
-    if (livingEnemies(state) >= HORDE.hardCap) break;
-    const side = i % 2 ? 1 : -1;
-    spawnEnemy(
-      state,
-      "ink-blob",
-      e.x + side * CRUMPLE.splitOffset,
-      e.y + (i >> 1) * CRUMPLE.splitOffset,
-      CRUMPLE.splitHp,
-      0.2,
-    );
-  }
-}
-function defeatBoss(state: SimState, e: EnemyState): void {
-  state.boss.defeated = true;
-  state.stats.bossDefeated = true;
-  e.act = null;
-  effect(state, e.x, e.y, "boss-down", ENEMY_FX_LIFE["boss-down"]);
-  notify(state, "boss-defeated");
-  // A ring of heavy shards, placed without RNG.
-  for (let i = 0; i < BOSS.rewardShards; i++) {
-    const a = (i / BOSS.rewardShards) * Math.PI * 2;
-    dropShard(
-      state,
-      e.x + Math.cos(a) * 22,
-      e.y + Math.sin(a) * 14,
-      BOSS.rewardValue,
-    );
-  }
-  dropChest(state, e.x, e.y, true);
-}
 /** Drops a chest where an elite or the Eraser fell, kept inside the map and clear of scenery. */
 function dropChest(state: SimState, x: number, y: number, big: boolean): void {
   const pos = safePosition(state, x, y, CHEST.radius + 4);
@@ -1086,6 +903,8 @@ function stepChests(state: SimState, dt: number, rng: Rng): void {
     return;
   }
 }
+/** The filler card's id (the warm snack). */
+const FILLER_UPGRADE = PASSIVE_DEFS.all().find((p) => p.filler)!.id;
 /** Grants a chest's contents and records them in state.chestReveal for the HUD. */
 export function openChest(state: SimState, rng: Rng, big: boolean): void {
   let levels = big ? CHEST.bigLevels : CHEST.levels;
@@ -1104,37 +923,33 @@ export function openChest(state: SimState, rng: Rng, big: boolean): void {
   for (let i = 0; i < levels; i++) {
     const pool = chestCandidates(state);
     // A fully grown build gets a warm snack instead.
-    const id: UpgradeId = pool.length ? pool[rng.int(0, pool.length)]! : "snack";
+    const id: UpgradeId = pool.length ? pool[rng.int(0, pool.length)]! : FILLER_UPGRADE;
     applyLevel(state, id);
     reveal.items.push({ id, level: state.upgrades[id]! });
   }
   state.chestReveal = reveal;
+  emit("chestOpen", state, { big, evolved: reveal.evolved });
 }
 /** The evolution takes its base weapon's slot; the base weapon's levels keep feeding its stats. */
 function evolve(state: SimState, evo: EvolutionDef): void {
   const p = state.player,
-    slot = state.build.weapons.indexOf(evo.weapon);
+    slot = state.build.weapons.indexOf(evo.replaces);
   state.upgrades[evo.id] = 1;
   if (slot >= 0) state.build.weapons[slot] = evo.id;
   else state.build.weapons.push(evo.id);
-  if (evo.id === "full-moon")
-    state.pulseTimer = UPGRADE_VALUES["full-moon"].pulseInterval * 0.5;
+  evo.onEvolve?.(state);
   effect(state, p.x, p.y, "evolve", EFFECT_LIFE.evolve);
-  notify(state, p.id === "zero" ? "evolve-zero" : "evolve-nicole");
+  notify(state, evo.notice);
 }
 /** One level of a weapon, passive or the filler; new items take a slot. */
 function applyLevel(state: SimState, id: UpgradeId): void {
   const def = upgradeDef(id)!,
-    p = state.player,
     was = state.upgrades[id] ?? 0;
   state.upgrades[id] = was + 1;
   state.stats.upgradesTaken++;
   if (was === 0 && def.slot === "weapon") state.build.weapons.push(id);
   else if (was === 0 && def.slot === "passive") state.build.passives.push(id);
-  if (id === "vitality") {
-    p.maxHp += UPGRADE_VALUES.vitality.maxHp;
-    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.vitality.heal);
-  } else if (id === "snack") p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.snack.heal);
+  PASSIVE_DEFS.find(id)?.onLevel?.(state, ctx);
 }
 function dropShard(state: SimState, x: number, y: number, value: number): void {
   // Shards collected this step stay in the array (alive = false) until the
@@ -1144,7 +959,7 @@ function dropShard(state: SimState, x: number, y: number, value: number): void {
   if (living >= XP.maxPickups) {
     // Fold the oldest living shard's worth into the newest so nothing is lost.
     const i = state.pickups.findIndex((s) => s.alive);
-    value += state.pickups[i].value;
+    value += state.pickups[i]!.value;
     state.pickups.splice(i, 1);
   }
   state.pickups.push({
@@ -1170,6 +985,7 @@ function stepPickups(state: SimState, dt: number, rng: Rng): void {
       state.xp += s.value * ps.xpMultiplier;
       state.stats.shardsCollected += s.value;
       effect(state, s.x, s.y, "collect", EFFECT_LIFE.collect);
+      emit("pickup", state, { value: s.value });
       continue;
     }
     if (d <= ps.pickupRadius) {
@@ -1188,6 +1004,7 @@ function levelUp(state: SimState, rng: Rng): void {
   const options = rollChoices(state, rng);
   effect(state, state.player.x, state.player.y, "levelup", EFFECT_LIFE.levelup);
   if (options.length) state.pendingChoice = { options };
+  emit("levelUp", state, { level: state.level });
 }
 /** Applies card `index` of the pending choice. Returns false if nothing was applied. */
 export function chooseUpgrade(state: SimState, index: number): boolean {
@@ -1235,6 +1052,7 @@ function stepShots(state: SimState, dt: number): void {
       seedBurst(state, s);
       continue;
     }
+    // Shots without their own numbers are bolts and use the bolt stats.
     const pierce = s.pierce ?? (s.empowered ? ps.empoweredPierce : ps.pierce);
     for (const e of targets) {
       hurtEnemy(state, e, s.damage ?? ps.shotDamage);
@@ -1250,7 +1068,7 @@ function stepShots(state: SimState, dt: number): void {
     }
   }
 }
-/** Paper cranes turn toward the nearest ink at a capped rate. */
+/** Homing shots (paper cranes) turn toward the nearest ink at a capped rate. */
 function steerShot(state: SimState, s: ShotState, dt: number): void {
   const speed = Math.hypot(s.vx, s.vy);
   if (!speed) return;
@@ -1266,7 +1084,7 @@ function steerShot(state: SimState, s: ShotState, dt: number): void {
   s.vx = Math.cos(a) * speed;
   s.vy = Math.sin(a) * speed;
 }
-/** A pumpkin seed bursts over its radius, hurting every ink blot inside. */
+/** A bursting shot (pumpkin seed) hurts every ink blot inside its radius. */
 function seedBurst(state: SimState, s: ShotState): void {
   s.alive = false;
   const r = s.burst!;
@@ -1275,113 +1093,13 @@ function seedBurst(state: SimState, s: ShotState): void {
     if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + enemyRadius(e))
       hurtEnemy(state, e, s.damage ?? 1);
 }
-/** Count down a weapon timer; true when it fires this step. */
-function weaponReady(state: SimState, id: string, dt: number): boolean {
-  const t = (state.weaponTimers[id] ?? 0) - dt;
-  state.weaponTimers[id] = Math.max(0, t);
-  return t <= 0;
-}
-/** Night claw, star fall, paper crane and pumpkin seed: the auto weapons beyond the kit. */
-function stepWeapons(state: SimState, dt: number, rng: Rng): void {
-  const ps = playerStats(state),
-    p = state.player;
-  if (ps.claw && weaponReady(state, "night-claw", dt)) {
-    const c = ps.claw,
-      target = nearestEnemy(state, p.x, p.y, c.reach);
-    if (target) {
-      state.weaponTimers["night-claw"] = c.interval;
-      const angle = Math.atan2(target.y - p.y, target.x - p.x),
-        cos = Math.cos(c.arc);
-      effect(state, p.x, p.y, "claw", EFFECT_LIFE.claw, { angle, radius: c.reach });
-      for (const e of state.enemies) {
-        if (!e.alive || e.spawnTime > 0) continue;
-        const dx = e.x - p.x,
-          dy = e.y - p.y,
-          d = Math.hypot(dx, dy);
-        if (d > c.reach + enemyRadius(e)) continue;
-        if (d > 0 && (dx * Math.cos(angle) + dy * Math.sin(angle)) / d < cos) continue;
-        hurtEnemy(state, e, c.damage);
-      }
-    }
-  }
-  if (ps.starFall && weaponReady(state, "star-fall", dt)) {
-    const f = ps.starFall,
-      pool = state.enemies.filter(
-        (e) => e.alive && e.spawnTime <= 0 && Math.hypot(e.x - p.x, e.y - p.y) <= f.range,
-      );
-    if (pool.length) {
-      state.weaponTimers["star-fall"] = f.interval;
-      for (let i = 0; i < f.count && pool.length; i++) {
-        const t = pool.splice(rng.int(0, pool.length), 1)[0]!,
-          x = t.x,
-          y = t.y;
-        effect(state, x, y, "star-fall", EFFECT_LIFE["star-fall"], { radius: f.radius });
-        for (const e of state.enemies)
-          if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - x, e.y - y) <= f.radius + enemyRadius(e))
-            hurtEnemy(state, e, f.damage);
-      }
-    }
-  }
-  if (ps.crane && weaponReady(state, "paper-crane", dt)) {
-    const c = ps.crane,
-      target = nearestEnemy(state, p.x, p.y, c.range);
-    if (target) {
-      state.weaponTimers["paper-crane"] = c.interval;
-      const base = Math.atan2(target.y - p.y, target.x - p.x);
-      for (let i = 0; i < c.count; i++) {
-        // Cranes leave in a wide fan and curl back onto the ink.
-        const a = base + (i - (c.count - 1) / 2) * 0.9;
-        state.shots.push({
-          id: state.nextShotId++,
-          x: p.x,
-          y: p.y,
-          vx: Math.cos(a) * c.speed,
-          vy: Math.sin(a) * c.speed,
-          life: c.life,
-          alive: true,
-          weapon: "crane",
-          damage: c.damage,
-          pierce: c.pierce,
-          homing: c.turn,
-          hits: [],
-        });
-      }
-    }
-  }
-  if (ps.seed && weaponReady(state, "pumpkin-seed", dt)) {
-    const s = ps.seed,
-      target = nearestEnemy(state, p.x, p.y, s.range);
-    if (target) {
-      state.weaponTimers["pumpkin-seed"] = s.interval;
-      const base = Math.atan2(target.y - p.y, target.x - p.x),
-        d = Math.hypot(target.x - p.x, target.y - p.y);
-      for (let i = 0; i < s.count; i++) {
-        const a = base + (i - (s.count - 1) / 2) * s.spread;
-        state.shots.push({
-          id: state.nextShotId++,
-          x: p.x,
-          y: p.y,
-          vx: Math.cos(a) * s.speed,
-          vy: Math.sin(a) * s.speed,
-          // Lands on the target's spot if nothing is hit on the way.
-          life: Math.max(s.minFlight, d / s.speed),
-          alive: true,
-          weapon: "seed",
-          damage: s.damage,
-          burst: s.radius,
-          hits: [],
-        });
-      }
-    }
-  }
-}
 /**
- * Applies `damage` to the cat unless it is invulnerable. Shields, Nicole's
- * rescue and defeat are handled here for every enemy source.
+ * Applies `damage` to the cat unless it is invulnerable. Shields and defeat
+ * are handled here for every enemy source; kit reactions (Nicole's rescue)
+ * subscribe to the "damaged" event.
  */
 function hurtPlayer(state: SimState, damage: number): boolean {
-  const p = state.player,
-    n = CHARACTERS.nicole;
+  const p = state.player;
   if (p.invuln > 0 || state.ended !== "playing") return false;
   p.invuln = STATS.hurtIframes + playerStats(state).hurtIframes;
   if (p.shield > 0 && p.shieldTime > 0) {
@@ -1394,31 +1112,24 @@ function hurtPlayer(state: SimState, damage: number): boolean {
   p.hp = Math.max(0, p.hp - damage);
   state.stats.damageTaken += damage;
   effect(state, p.x, p.y, "hurt", 0.35);
-  if (p.id === "nicole" && !p.rescueUsed && p.hp > 0 && p.hp <= n.rescueThreshold) {
-    p.rescueUsed = true;
-    p.shield = n.rescueCharges;
-    p.shieldTime = n.rescueDuration;
-    effect(state, p.x, p.y, "rescue", 0.8);
-    notify(state, "nicole-rescue");
-  }
+  emit("damaged", state, { damage });
   if (p.hp <= 0) state.ended = "lost";
   return true;
 }
 function stepEnemies(state: SimState, dt: number, rng: Rng): void {
   const p = state.player,
-    n = CHARACTERS.nicole,
+    catSlow = CATS.get(p.id).enemySlow ?? 1,
     ps = playerStats(state);
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
     // Moon-lantern stun: frozen ink neither moves nor bites.
     if ((e.stun ?? 0) > 0) continue;
-    const def = ENEMIES[e.kind],
-      boss = e.kind === "eraser-boss",
+    const def = enemyDef(e.kind),
       radius = enemyRadius(e);
     let tx = p.x,
       ty = p.y;
-    // The Eraser only follows the decoy when it is almost on top of it.
-    const lure = boss ? Math.min(ps.decoyRange, BOSS.lureRange) : ps.decoyRange;
+    // Some kinds (the Eraser) only follow the decoy when it is almost on top of it.
+    const lure = def.lureRange !== undefined ? Math.min(ps.decoyRange, def.lureRange) : ps.decoyRange;
     if (
       state.decoy.live &&
       Math.hypot(e.x - state.decoy.x, e.y - state.decoy.y) <= lure
@@ -1427,45 +1138,35 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       ty = state.decoy.y;
     }
     const inside = state.fields.some(
-      (f) => Math.hypot(e.x - f.x, e.y - f.y) <= (f.radius ?? n.fieldRadius),
+      (f) => Math.hypot(e.x - f.x, e.y - f.y) <= (f.radius ?? 0),
     );
     if (inside) e.slowTime = Math.max(e.slowTime, 0.15);
-    const slow = e.slowTime > 0 ? (boss ? BOSS.slowMultiplier : n.slowMultiplier) : 1,
-      far = boss && Math.hypot(p.x - e.x, p.y - e.y) > BOSS.huntRange,
-      // The Eraser hunts across the map at speed, then slows to fight up close.
-      base = boss
-        ? far
-          ? BOSS.huntSpeed
-          : def.speed
-        : (def.speed + nightPhase(state) * HORDE.speedPerPhase) * (e.elite ? ELITE.speedMul : 1),
-      speed = base * slow,
-      dir = normalize(tx - e.x, ty - e.y);
-    let dx = dir.x * speed * dt,
-      dy = dir.y * speed * dt;
-    if (e.kind === "paper-bat") {
-      // Swoop across the line of approach on a sine path.
-      const swoop =
-        Math.cos(state.elapsed * BAT.swoopFrequency + (e.phase ?? 0)) *
-        BAT.swoopAmount *
-        speed *
-        dt;
-      dx += -dir.y * swoop;
-      dy += dir.x * swoop;
-    } else if (e.kind === "smudge") {
-      const move = stepSmudge(state, e, dt, Math.hypot(p.x - e.x, p.y - e.y));
-      dx *= move;
-      dy *= move;
-    } else if (boss) {
-      const move = stepBoss(state, e, dt, rng);
-      if (move === null) dx = dy = 0;
-      else if (move !== "approach") {
-        dx = move.dx * dt;
-        dy = move.dy * dt;
-      }
-      if (!e.alive || state.ended !== "playing") return;
+    const slow = e.slowTime > 0 ? (def.slowMultiplier ?? catSlow) : 1;
+    let base: number | undefined;
+    for (const ref of def.behaviours) {
+      const b = BEHAVIOURS.get(ref.id);
+      if (b.speed) base = b.speed(state, e, def, ref.params);
     }
+    const speed =
+        (base ??
+          (def.stats.speed + nightPhase(state) * HORDE.speedPerPhase) * (e.elite ? ELITE.speedMul : 1)) *
+        slow,
+      dir = normalize(tx - e.x, ty - e.y),
+      move: EnemyMove = {
+        dx: dir.x * speed * dt,
+        dy: dir.y * speed * dt,
+        dir,
+        speed,
+        dt,
+        dist: Math.hypot(p.x - e.x, p.y - e.y),
+      };
+    for (const ref of def.behaviours) {
+      const b = BEHAVIOURS.get(ref.id);
+      if (b.steer && b.steer(state, e, move, ref.params, rng, ctx) === "halt") return;
+    }
+    let { dx, dy } = move;
     // Simple O(n^2) separation (fine at <= HORDE.hardCap) so crowds read as a crowd.
-    if (!boss)
+    if (def.crowd !== false)
       for (const other of state.enemies) {
         if (other.id === e.id || !other.alive) continue;
         const ox = e.x - other.x,
@@ -1477,8 +1178,7 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
         dx += (ox / dist) * (gap - dist) * dt * 2;
         dy += (oy / dist) * (gap - dist) * dt * 2;
       }
-    // The Eraser rubs straight through scenery (no pathfinding); it only keeps to the map.
-    const kept = boss
+    const kept = def.throughScenery
       ? clampToWorld(e.x + dx, e.y + dy, radius)
       : safePosition(state, e.x + dx, e.y + dy, radius);
     e.x = kept.x;
@@ -1488,12 +1188,12 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       !circlesOverlap(e.x, e.y, radius, p.x, p.y, STATS.playerRadius)
     )
       continue;
-    hurtPlayer(state, def.contactDamage);
+    hurtPlayer(state, def.stats.contactDamage);
     const push = normalize(p.x - e.x, p.y - e.y),
       pos = safePosition(
         state,
-        p.x + push.x * (boss ? 16 : 8),
-        p.y + push.y * (boss ? 16 : 8),
+        p.x + push.x * def.contactPush,
+        p.y + push.y * def.contactPush,
         STATS.playerRadius,
       );
     p.x = pos.x;
@@ -1509,176 +1209,6 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     e.y = enemyPos.y;
     if (state.ended !== "playing") return;
   }
-}
-/** Returns a movement factor: smudges stand still while in range or winding up. */
-function stepSmudge(
-  state: SimState,
-  e: EnemyState,
-  dt: number,
-  dist: number,
-): number {
-  const p = state.player;
-  e.timer = Math.max(0, (e.timer ?? 0) - dt);
-  if ((e.windup ?? 0) > 0) {
-    e.windup = Math.max(0, e.windup! - dt);
-    if (e.windup <= 0) throwInk(state, e);
-    return 0;
-  }
-  if (dist > SMUDGE.range) return 1;
-  if (e.timer <= 0) {
-    e.windup = SMUDGE.windup;
-    e.tx = p.x;
-    e.ty = p.y;
-  }
-  return 0;
-}
-function throwInk(state: SimState, e: EnemyState): void {
-  const tx = e.tx ?? state.player.x,
-    ty = e.ty ?? state.player.y,
-    d = Math.hypot(tx - e.x, ty - e.y);
-  state.enemyShots.push({
-    id: state.nextHazardId++,
-    x0: e.x,
-    y0: e.y,
-    tx,
-    ty,
-    t: 0,
-    flight: Math.max(SMUDGE.minFlight, d / SMUDGE.dropSpeed),
-    alive: true,
-  });
-  e.timer = SMUDGE.cooldown;
-}
-/** Ink drops arc to their locked target, splash, and leave a slowing puddle. */
-function stepEnemyShots(state: SimState, dt: number): void {
-  if (state.ended !== "playing") return;
-  const p = state.player;
-  for (const s of state.enemyShots) {
-    if (!s.alive) continue;
-    s.t += dt;
-    if (s.t < s.flight) continue;
-    s.alive = false;
-    effect(state, s.tx, s.ty, "splat", ENEMY_FX_LIFE.splat);
-    state.hazards.push({
-      id: state.nextHazardId++,
-      kind: "puddle",
-      x: s.tx,
-      y: s.ty,
-      radius: SMUDGE.puddleRadius,
-      life: SMUDGE.puddleLife,
-      maxLife: SMUDGE.puddleLife,
-    });
-    if (Math.hypot(p.x - s.tx, p.y - s.ty) <= SMUDGE.splashRadius + STATS.playerRadius)
-      hurtPlayer(state, SMUDGE.splashDamage);
-  }
-}
-/** Starts a telegraphed Boss attack aimed at the cat. Exported for tests. */
-export function startBossAttack(
-  state: SimState,
-  e: EnemyState,
-  kind: BossAttack,
-): BossAct {
-  const d = normalize(state.player.x - e.x, state.player.y - e.y),
-    dir = d.x || d.y ? d : { x: 1, y: 0 };
-  e.act = {
-    kind,
-    t: BOSS[kind].telegraph,
-    run: 0,
-    x: e.x,
-    y: e.y,
-    dx: dir.x,
-    dy: dir.y,
-  };
-  return e.act;
-}
-/** True when (x, y) with `pad` lies inside the erase sweep rectangle. */
-export function inSweep(a: BossAct, x: number, y: number, pad = 0): boolean {
-  const rx = x - a.x,
-    ry = y - a.y,
-    along = rx * a.dx + ry * a.dy,
-    across = Math.abs(rx * a.dy - ry * a.dx);
-  return (
-    along >= -ENEMIES["eraser-boss"].radius - pad &&
-    along <= BOSS.sweep.length + pad &&
-    across <= BOSS.sweep.width / 2 + pad
-  );
-}
-/** Boss brain: approach, then rotate through telegraphed attacks. */
-function stepBoss(
-  state: SimState,
-  e: EnemyState,
-  dt: number,
-  rng: Rng,
-): { dx: number; dy: number } | "approach" | null {
-  const a = e.act;
-  if (a) {
-    if (a.t > 0) {
-      a.t -= dt;
-      if (a.t > 0) return null;
-      resolveBossAttack(state, e, a);
-      return null;
-    }
-    if (a.kind === "charge" && a.run > 0) {
-      a.run -= dt;
-      if (a.run <= 0) endBossAttack(e);
-      return { dx: a.dx * BOSS.charge.speed, dy: a.dy * BOSS.charge.speed };
-    }
-    endBossAttack(e);
-    return null;
-  }
-  e.timer = (e.timer ?? 0) - dt;
-  // Attacks wait until the hunt has closed in on the cat.
-  const near =
-    Math.hypot(state.player.x - e.x, state.player.y - e.y) <= BOSS.huntRange;
-  if (e.timer <= 0 && near) {
-    // Never the same attack twice in a row.
-    const next = ((e.combo ?? 0) + 1 + rng.int(0, 2)) % BOSS_ATTACKS.length;
-    e.combo = next;
-    startBossAttack(state, e, BOSS_ATTACKS[next]!);
-    return null;
-  }
-  return "approach";
-}
-function endBossAttack(e: EnemyState): void {
-  e.act = null;
-  e.timer = BOSS.attackGap;
-}
-function resolveBossAttack(state: SimState, e: EnemyState, a: BossAct): void {
-  if (a.kind === "sweep") {
-    eraseSweep(state, a);
-    endBossAttack(e);
-  } else if (a.kind === "summon") {
-    effect(state, e.x, e.y, "summon", ENEMY_FX_LIFE.summon);
-    for (let i = 0; i < BOSS.summon.count; i++) {
-      if (livingEnemies(state) >= HORDE.hardCap) break;
-      const ang = (i / BOSS.summon.count) * Math.PI * 2 + Math.PI / 2;
-      spawnEnemy(
-        state,
-        "ink-blob",
-        e.x + Math.cos(ang) * BOSS.summon.distance,
-        e.y + Math.sin(ang) * BOSS.summon.distance * 0.6,
-        undefined,
-        0.35,
-      );
-    }
-    endBossAttack(e);
-  } else {
-    a.run = BOSS.charge.time;
-  }
-}
-/** The erase sweep damages the cat inside it and rubs the page line blank. */
-function eraseSweep(state: SimState, a: BossAct): void {
-  const p = state.player,
-    s = state.stroke,
-    mid = BOSS.sweep.length / 2,
-    // The rub-out mark stays on the map even when the sweep reaches past the edge.
-    mark = clampToWorld(a.x + a.dx * mid, a.y + a.dy * mid, 0);
-  effect(state, mark.x, mark.y, "erase", ENEMY_FX_LIFE.erase);
-  if (inSweep(a, p.x, p.y, STATS.playerRadius)) hurtPlayer(state, BOSS.sweep.damage);
-  if (s.points.some((q) => inSweep(a, q.x, q.y, s.thickness / 2))) {
-    s.ink = 0;
-    s.blankTime = STATS.strokeBlankTime;
-  }
-  for (const h of state.hazards) if (inSweep(a, h.x, h.y)) h.life = 0;
 }
 function stepStroke(state: SimState, dt: number): void {
   const s = state.stroke;

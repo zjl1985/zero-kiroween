@@ -3,8 +3,8 @@ import { star } from "./combat-fx.js";
 import { crescent } from "./craft-combat.js";
 import { upgradeDef, type UpgradeId } from "../game/upgrades.js";
 
-const POOL_PAPER = { any: "#3a4a52", zero: "#4a3a2c", nicole: "#3e3756" } as const;
-const POOL_INK = { any: "#e6d3a6", zero: "#ecc47e", nicole: "#cdb8f2" } as const;
+const POOL_PAPER: Readonly<Record<string, string>> = { any: "#3a4a52", zero: "#4a3a2c", nicole: "#3e3756" };
+const POOL_INK: Readonly<Record<string, string>> = { any: "#e6d3a6", zero: "#ecc47e", nicole: "#cdb8f2" };
 
 function heart(ctx: Ctx, x: number, y: number, r: number, color: string): void {
   const p = new Path2D(

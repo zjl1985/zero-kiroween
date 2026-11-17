@@ -1,0 +1,23 @@
+/** Nicole's numbers: base kit, moon-stars orbit, fold-moon field, shields and rescue. */
+export const NICOLE_STATS = {
+  maxHp: 6,
+  speed: 96,
+  accent: "#bda5ef",
+  dashSpeed: 265,
+  dashTime: 0.18,
+  cooldown: 5.5,
+  invulnerability: 0.22,
+  orbitRadius: 47,
+  orbitSpeed: 3.2,
+  orbitCount: 3,
+  orbitDamage: 1.5,
+  orbitHitInterval: 0.55,
+  fieldRadius: 78,
+  fieldDuration: 3.5,
+  slowMultiplier: 0.4,
+  shieldCharges: 2,
+  shieldDuration: 4.5,
+  rescueThreshold: 2,
+  rescueCharges: 2,
+  rescueDuration: 4,
+} as const;

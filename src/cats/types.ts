@@ -20,7 +20,8 @@ export type PixelToken = "K" | "D" | "H" | "L" | "R" | "B" | "W" | "N" | "M";
 
 export type AccessoryId = "sunglasses" | "glasses" | "gold-chain";
 
-export type CatId = "zero" | "nicole";
+/** Any registered cat id (src/defs/cats/<id>/); validated by the CATS registry. */
+export type CatId = string;
 
 export interface CatDef {
   id: CatId;

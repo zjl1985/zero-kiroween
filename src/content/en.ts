@@ -218,4 +218,9 @@ export const EN: Messages = {
   "result.elites": "ELITES DEFEATED",
   "result.chests": "CHESTS OPENED",
   "result.paw": "Paw stamp of {name}",
+  "enemy.ink-blob.name": "Ink Blob",
+  "enemy.paper-bat.name": "Paper Bat",
+  "enemy.crumple.name": "Crumple",
+  "enemy.smudge.name": "Smudge",
+  "enemy.eraser-boss.name": "The Eraser",
 };

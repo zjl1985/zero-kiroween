@@ -198,6 +198,11 @@ export const MESSAGE_KEYS = [
   "result.elites",
   "result.chests",
   "result.paw",
+  "enemy.ink-blob.name",
+  "enemy.paper-bat.name",
+  "enemy.crumple.name",
+  "enemy.smudge.name",
+  "enemy.eraser-boss.name",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

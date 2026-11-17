@@ -13,7 +13,12 @@ import { paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { paintWindowFlower, textSeed } from "../render/journal-ui.js";
 
 /** Paper colour of each pool's window flower (matches the card --tone in styles.css). */
-const FLOWER_TONE = { zero: "#c4553f", nicole: "#7d64b8", any: "#3f7f86", evolution: "#b8433d" } as const;
+const FLOWER_TONE: Readonly<Record<string, string>> = {
+  zero: "#c4553f",
+  nicole: "#7d64b8",
+  any: "#3f7f86",
+  evolution: "#b8433d",
+};
 
 export function upgradeName(locale: Locale, id: UpgradeId): string {
   return t(locale, `upgrade.${id}.name` as MessageKey);

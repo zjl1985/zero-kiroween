@@ -1,6 +1,7 @@
-import {CHARACTERS} from "./characters.js";
-import type { CatId } from "../cats/types.js";
-import { ENEMIES, type BossAttack, type EnemyKind } from "./enemies.js";
+import type { BossAttack } from "../defs/enemies/eraser-boss/def.js";
+import { INK_BLOB_STATS } from "../defs/enemies/ink-blob/def.js";
+import { ZERO_STATS } from "../defs/cats/zero/stats.js";
+import type { CatId, EnemyKind } from "../defs/types.js";
 export interface FrameInput {
   ax: number;
   ay: number;
@@ -237,7 +238,7 @@ export interface MoonField {
   x: number;
   y: number;
   life: number;
-  /** Radius and duration at cast time; defaults to Nicole's base values. */
+  /** Radius and duration at cast time. */
   radius?: number;
   duration?: number;
 }
@@ -391,14 +392,14 @@ export const DEFAULT_WORLD: WorldBounds = { width: 960, height: 540 };
 export const YARD_TOP = 264;
 export const STATS = {
   playerRadius: 12,
-  // Ink-blob aliases; per-kind numbers live in ENEMIES (src/game/enemies.ts).
-  enemyRadius: ENEMIES["ink-blob"].radius,
-  enemySpeed: ENEMIES["ink-blob"].speed,
-  enemyHp: ENEMIES["ink-blob"].hp,
+  // Ink-blob aliases; per-kind numbers live in src/defs/enemies/<id>/def.ts.
+  enemyRadius: INK_BLOB_STATS.radius,
+  enemySpeed: INK_BLOB_STATS.speed,
+  enemyHp: INK_BLOB_STATS.hp,
   contactDamage: 1,
   hurtIframes: 0.8,
   shotRadius: 3,
-  shotDamage: CHARACTERS.zero.shotDamage,
+  shotDamage: ZERO_STATS.shotDamage,
   strokeFadePerSecond: 0.06,
   strokeReink: 0.55,
   strokeBlankTime: 2.4,
@@ -407,8 +408,8 @@ export const STATS = {
   /** The sky warms toward dawn over these last seconds of the night. */
   dawnSeconds: 30,
   // Legacy common dash constants remain aliases for the starting Zero loadout.
-  dashCooldown: CHARACTERS.zero.cooldown,
-  decoyTime: CHARACTERS.zero.decoyLife,
+  dashCooldown: ZERO_STATS.cooldown,
+  decoyTime: ZERO_STATS.decoyLife,
   /** White flash on a damaged enemy. */
   hitFlash: 0.14,
   /** Seconds a kill streak survives without another kill. */

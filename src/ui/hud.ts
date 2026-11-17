@@ -44,7 +44,7 @@ export interface HudRefs {
   bannerLine: HTMLElement;
 }
 /** Cat accent used on the minimap marker (matches --accent in styles.css). */
-const ACCENT = { zero: "#f0b863", nicole: "#c9b2f0" } as const;
+const ACCENT: Readonly<Record<string, string>> = { zero: "#f0b863", nicole: "#c9b2f0" };
 /** Chunks each run has seen, kept outside the sim (presentation state only). */
 const explored = new WeakMap<SimState, Set<number>>();
 let motion: MediaQueryList | null = null;
