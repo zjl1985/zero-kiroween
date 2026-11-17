@@ -24,6 +24,7 @@ import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
 import { createSfx } from "./audio/sfx.js";
+import { paintGallery } from "./render/gallery.js";
 import { moonArc } from "./ui/journal-geometry.js";
 import {
   advanceCues,
@@ -100,6 +101,46 @@ function cueState(s: SimState) {
     burning: Object.keys(s.fire.cells).length,
     ended: s.ended,
   };
+}
+/**
+ * `?gallery=1`: the paper workshop page instead of the game. Shows every
+ * registered cat, enemy, prop, landmark and icon; no sim, no audio.
+ */
+function bootGallery(): void {
+  const prefs = initialPrefs();
+  let locale = prefs.locale;
+  const page = must<HTMLElement>("gallery-screen"),
+    canvas = must<HTMLCanvasElement>("gallery-canvas");
+  must("app").classList.add("hidden");
+  page.classList.remove("hidden");
+  document.body.dataset.screen = "gallery";
+  document.body.dataset.cat = prefs.cat;
+  let painted = "";
+  const paint = () => {
+    const width = Math.max(280, Math.floor(canvas.parentElement!.clientWidth)),
+      dpr = Math.min(2, window.devicePixelRatio || 1),
+      key = `${locale}:${width}:${dpr}`;
+    if (key === painted) return;
+    painted = key;
+    document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
+    document.title = t(locale, "gallery.title");
+    must("gallery-title").textContent = t(locale, "gallery.title");
+    must("gallery-sub").textContent = t(locale, "gallery.subtitle");
+    must("btn-gallery-lang").textContent = t(locale, "title.language");
+    canvas.setAttribute("aria-label", t(locale, "gallery.title"));
+    paintGallery(canvas, locale, width, dpr);
+  };
+  must("btn-gallery-lang").addEventListener("click", () => {
+    locale = locale === "zh" ? "en" : "zh";
+    savePrefs({ ...prefs, locale });
+    paint();
+  });
+  let pending = 0;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(paint);
+  });
+  paint();
 }
 function boot(): void {
   const prefs = initialPrefs();
@@ -577,4 +618,5 @@ function boot(): void {
   };
   requestAnimationFrame(frame);
 }
-boot();
+if (new URLSearchParams(location.search).get("gallery") === "1") bootGallery();
+else boot();

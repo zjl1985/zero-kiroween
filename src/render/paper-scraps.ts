@@ -4,20 +4,10 @@
  * hashes, never the sim RNG.
  */
 import { hash, mix, oval, path, piece, shadow, stroke, type Ctx, type Point } from "./paper-material.js";
+import { paperCut, tornEdge } from "./paper-kit.js";
 
-/** A jagged torn edge between two points (fresh tears show pale fibre). */
-export function tornEdge(ax: number, ay: number, bx: number, by: number, teeth: number, depth: number, seed: number): Point[] {
-  const out: Point[] = [];
-  for (let i = 0; i <= teeth; i++) {
-    const t = i / teeth,
-      nx = -(by - ay),
-      ny = bx - ax,
-      len = Math.hypot(nx, ny) || 1,
-      d = (i % 2 ? 1 : -0.4) * depth * (0.5 + hash(seed + i * 13));
-    out.push([ax + (bx - ax) * t + (nx / len) * d, ay + (by - ay) * t + (ny / len) * d]);
-  }
-  return out;
-}
+/** Moved to the paper kit; re-exported so older imports keep working. */
+export { tornEdge };
 /** Small paper pieces lying flat around (x, y), each with a cut edge and a thin shadow. */
 export function scrapPieces(
   ctx: Ctx,
@@ -72,7 +62,8 @@ export function ashPatch(ctx: Ctx, x: number, y: number, rx: number, ry: number,
 /** A short torn stub of a paper piece standing on the ground. */
 export function tornStub(ctx: Ctx, x: number, y: number, w: number, h: number, color: string, seed: number): void {
   const top = tornEdge(x + w / 2, y - h, x - w / 2, y - h, 4, 2.2, seed);
-  piece(ctx, path([[x - w / 2, y + 1], [x + w / 2, y + 1], ...top]), color, {
+  paperCut(ctx, [[x - w / 2, y + 1], [x + w / 2, y + 1], ...top], {
+    color,
     shadow: 1.2,
     edge: mix(color, "#f0d9a8", 0.55),
     texture: 0.7,

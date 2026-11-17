@@ -1,5 +1,7 @@
 import type { PropArt } from "../../../render/art-registry.js";
-import { hash, mix, path, piece, shadow, type Ctx } from "../../../render/paper-material.js";
+import { paperCut } from "../../../render/paper-kit.js";
+import { hash, mix, shadow, type Ctx } from "../../../render/paper-material.js";
+import { variant } from "../../../render/variants.js";
 import { ashPatch, scrapPieces } from "../../../render/paper-scraps.js";
 
 const BLADES = ["#6f774f", "#848a5c", "#5e6846", "#979468"] as const;
@@ -7,14 +9,17 @@ const BLADES = ["#6f774f", "#848a5c", "#5e6846", "#979468"] as const;
 /** One cut-paper blade: a tapered strip with a fold line, leaning by `lean`. */
 function blade(ctx: Ctx, x: number, y: number, h: number, w: number, lean: number, color: string): void {
   const tip: [number, number] = [x + lean * h, y - h];
-  const p = path([
-    [x - w, y],
-    [x - w * 0.3 + lean * h * 0.5, y - h * 0.55],
-    tip,
-    [x + w * 0.5 + lean * h * 0.45, y - h * 0.5],
-    [x + w, y],
-  ]);
-  piece(ctx, p, color, { shadow: 0.9, edge: mix(color, "#e8d49a", 0.45), texture: 0.6, thickness: 0.55 });
+  paperCut(
+    ctx,
+    [
+      [x - w, y],
+      [x - w * 0.3 + lean * h * 0.5, y - h * 0.55],
+      tip,
+      [x + w * 0.5 + lean * h * 0.45, y - h * 0.5],
+      [x + w, y],
+    ],
+    { color, shadow: 0.9, edge: mix(color, "#e8d49a", 0.45), texture: 0.6, thickness: 0.55 },
+  );
 }
 /** Clumps of blades over an oval patch; `height` shortens them when damaged. */
 function patch(ctx: Ctx, x: number, y: number, s: number, v: number, height: number, count: number): void {
@@ -27,7 +32,7 @@ function patch(ctx: Ctx, x: number, y: number, s: number, v: number, height: num
       const k = hash(v * 31 + c * 13 + i),
         h = (14 + k * 14) * s * height,
         lean = (hash(v + c * 5 + i * 3) - 0.5) * 0.7;
-      blade(ctx, cx + (i - count / 2) * 3.2 * s, cy, h, 2.4 * s, lean, BLADES[(i + c + v) % 4]!);
+      blade(ctx, cx + (i - count / 2) * 3.2 * s, cy, h, 2.4 * s, lean, variant(v * 97 + c * 11 + i, { palette: BLADES, shift: 0.4 }).color);
     }
   }
 }

@@ -12,12 +12,14 @@ import {
   chunkContent,
   chunkOf,
   isStartChunk,
+  landmarkParts,
   landmarks,
   roads,
   type ChunkContent,
   type Decor,
   type DecorKind,
   type Landmark,
+  type LandmarkKind,
   type Road,
 } from "../game/world-gen.js";
 import type { SimState } from "../game/types.js";
@@ -279,7 +281,7 @@ function stringLights(ctx: Ctx, x: number, y: number, s: number, _seed: number):
 }
 
 // ---------------------------------------------------------------- decor sprite cache
-interface Bounds {
+export interface Bounds {
   l: number;
   r: number;
   t: number;
@@ -590,6 +592,44 @@ function landmarkGround(ctx: Ctx, l: Landmark): void {
 }
 function landmarkReach(l: Landmark): number {
   return l.kind === "stone-bridge" ? Math.max(l.radius, (l.span ?? 0) + 30) : l.radius + 40;
+}
+
+/** Span of the river band in a stand-alone landmark preview. */
+const PREVIEW_SPAN = 260;
+/**
+ * A landmark kind on its own, centred on (0, 0): its ground art, then its
+ * decor (flat first, tall ones y-sorted). For the ?gallery=1 page; the world
+ * itself draws landmarks through the chunk caches and worldSprites.
+ */
+export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds; draw(ctx: Ctx, time: number): void } {
+  const l: Landmark = {
+      id: `preview-${kind}`,
+      kind,
+      x: 0,
+      y: 0,
+      radius: LANDMARK.radius[kind],
+      seed,
+      ...(kind === "stone-bridge" ? { span: PREVIEW_SPAN } : {}),
+    },
+    { decor } = landmarkParts(l),
+    reach = landmarkReach(l),
+    bounds: Bounds = { l: -reach, r: reach, t: -reach * 0.7, b: reach * 0.7 };
+  for (const d of decor) {
+    const bd = decorBounds(d);
+    if (!bd) continue;
+    bounds.l = Math.min(bounds.l, d.x + bd.l);
+    bounds.r = Math.max(bounds.r, d.x + bd.r);
+    bounds.t = Math.min(bounds.t, d.y + bd.t);
+    bounds.b = Math.max(bounds.b, d.y + bd.b);
+  }
+  return {
+    bounds,
+    draw(ctx, time) {
+      landmarkGround(ctx, l);
+      for (const d of decor) if (FLAT_DECOR.has(d.kind)) flatDecor(ctx, d);
+      for (const d of decor.filter((d) => !FLAT_DECOR.has(d.kind)).sort((a, b) => a.y - b.y)) drawDecor(ctx, d, time);
+    },
+  };
 }
 
 // ---------------------------------------------------------------- chunk caches

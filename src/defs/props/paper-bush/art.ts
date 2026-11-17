@@ -1,7 +1,9 @@
 import type { PropArt } from "../../../render/art-registry.js";
 import { bush, leaf } from "../../../render/craft-scene.js";
-import { hash, oval, path, piece, shadow, stitch } from "../../../render/paper-material.js";
-import { ashPatch, scrapPieces, tornEdge } from "../../../render/paper-scraps.js";
+import { paperCut, stitchAlong, tornEdge } from "../../../render/paper-kit.js";
+import { hash, oval, path, shadow } from "../../../render/paper-material.js";
+import { ashPatch, scrapPieces } from "../../../render/paper-scraps.js";
+import { variant } from "../../../render/variants.js";
 
 const GREENS = ["#556044", "#6c7150", "#737850", "#5a6548"] as const;
 
@@ -42,11 +44,19 @@ export const PAPER_BUSH_ART: PropArt = {
           bite = k >= 2 + ((v + i) % 5) && k <= 5 + ((v + i) % 5);
         pts.push([xx + Math.cos(a) * r * (bite ? 0.62 : 1), yy + Math.sin(a) * r * 0.86 * (bite ? 0.7 : 1)]);
       }
-      const lobe = path(pts, true);
-      piece(ctx, lobe, GREENS[(i + v) % 4]!, { shadow: 1.7, edge: "#d9cf9a", texture: 0.8, thickness: 0.8 });
-      stitch(ctx, oval(xx, yy, r * 0.82, r * 0.7, v + i, 0.12), "#b4a76a", 0.5);
+      const look = variant(v * 3 + i, { palette: GREENS, shift: 0.35, wear: [0.15, 0.5] });
+      paperCut(ctx, path(pts, true), {
+        color: look.color,
+        shadow: 1.7,
+        edge: "#d9cf9a",
+        texture: 0.8,
+        thickness: 0.8,
+        wear: look.wear,
+        seed: v + i,
+      });
+      stitchAlong(ctx, oval(xx, yy, r * 0.82, r * 0.7, v + i, 0.12), "#b4a76a", 0.5);
       const t = tornEdge(xx + r * 0.4, yy - r * 0.5, xx + r * 0.8, yy + r * 0.2, 4, 1.4, v + i);
-      piece(ctx, path([...t, [xx + r * 0.5, yy + r * 0.1]]), "#e3d8a6", { shadow: 0, thickness: 0.3, texture: 0.3 });
+      paperCut(ctx, [...t, [xx + r * 0.5, yy + r * 0.1]], { color: "#e3d8a6", shadow: 0, thickness: 0.3, texture: 0.3 });
     }
     scrapPieces(ctx, x + 6 * s, y + 4, 20 * s, GREENS, v * 5 + 1, 5);
   },

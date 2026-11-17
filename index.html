@@ -301,6 +301,20 @@
         </div>
       </div>
     </div>
+    <!-- ?gallery=1: every registered piece of paper art, painted by src/render/gallery.ts. -->
+    <section id="gallery-screen" class="gallery-screen hidden" aria-labelledby="gallery-title">
+      <header class="gallery-head">
+        <div>
+          <p class="eyebrow">MIDNIGHT MEOW</p>
+          <h1 id="gallery-title"></h1>
+          <p id="gallery-sub" class="gallery-sub"></p>
+        </div>
+        <button type="button" id="btn-gallery-lang" class="btn ghost"></button>
+      </header>
+      <div class="gallery-sheet">
+        <canvas id="gallery-canvas" role="img"></canvas>
+      </div>
+    </section>
     <script type="module" src="./dist/main.js"></script>
   </body>
 </html>

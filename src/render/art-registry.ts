@@ -15,6 +15,7 @@ import type { CatId, EnemyKind, PropPhase, UpgradeId, WeaponId } from "../defs/t
 import type { EnemyState, Impact, ShotState, SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
+import type { VariantBase } from "./variants.js";
 
 export type SkillIconKind = "attack" | "active" | "passive";
 /** Paper colours of the shared cat body (craft-cat.ts) for one cat. */
@@ -146,7 +147,15 @@ export interface PropArt {
   readonly flames: readonly (readonly [number, number])[];
   /** Paper colours of the flecks and scraps that flutter off it. */
   readonly scraps: readonly string[];
+  /**
+   * Per-placement look on top of the cached variant: size, tilt and mirror
+   * from the prop's world seed (render/variants.ts). Palette picks inside
+   * `paint` should use `variant(v, ...)` too. Default: PROP_LOOK.
+   */
+  readonly look?: Omit<VariantBase, "palette">;
 }
+/** Default per-placement look of props: a little size, tilt and mirroring. */
+export const PROP_LOOK: Omit<VariantBase, "palette"> = { scale: [0.94, 1.06], angle: [-0.025, 0.025], flip: true };
 
 export const CAT_ART = createRegistry<CatArt>("cat art");
 export const ENEMY_ART = createRegistry<EnemyArt>("enemy art");

@@ -1,12 +1,16 @@
 import type { PropArt } from "../../../render/art-registry.js";
 import { fence } from "../../../render/craft-scene.js";
-import { line, mix, path, piece, shadow, type Ctx } from "../../../render/paper-material.js";
-import { ashPatch, scrapPieces, tornEdge, tornStub } from "../../../render/paper-scraps.js";
+import { foldLine, paperCut, tornEdge } from "../../../render/paper-kit.js";
+import { line, mix, shadow, type Ctx } from "../../../render/paper-material.js";
+import { ashPatch, scrapPieces, tornStub } from "../../../render/paper-scraps.js";
+import { variant } from "../../../render/variants.js";
 
 const RAIL = "#624b35",
   PICKET = "#6b4d34",
   EDGE = "#b2884f",
-  FIBRE = "#e6cf9f";
+  FIBRE = "#e6cf9f",
+  /** Picket papers a damaged fence picks from per picket (render/variants.ts). */
+  PICKETS = [PICKET, "#73533a", "#644832"] as const;
 
 /** A picket that may be torn off at `cut` (fraction of its height) and lean by `lean`. */
 function picket(ctx: Ctx, xx: number, cut: number, lean: number, seed: number): void {
@@ -24,19 +28,32 @@ function picket(ctx: Ctx, xx: number, cut: number, lean: number, seed: number): 
           [3, -28],
         ] as [number, number][])
       : tornEdge(3, top, -3, top, 3, 1.8, seed);
-  piece(ctx, path([[-3, 0], [3, 0], ...head]), PICKET, { shadow: 2, edge: cut >= 1 ? EDGE : FIBRE, texture: 0.8, thickness: 0.8 });
+  const look = variant(seed, { palette: PICKETS, shift: 0.4, wear: [0.1, 0.6] });
+  paperCut(ctx, [[-3, 0], [3, 0], ...head], {
+    color: look.color,
+    shadow: 2,
+    edge: cut >= 1 ? EDGE : FIBRE,
+    texture: 0.8,
+    thickness: 0.8,
+    wear: look.wear,
+    seed,
+  });
   line(ctx, -1, Math.max(top + 4, -25), -1, -2, "#ac8251", 0.65);
   ctx.restore();
 }
 function rail(ctx: Ctx, yy: number, x1: number, seed: number): void {
   // Left end is whole; the right end is torn at x1.
   const torn = tornEdge(x1, yy - 1, x1, yy + 4, 3, 2.4, seed);
-  piece(ctx, path([[-39, yy + 1], ...torn.slice().reverse().map(([a, b]) => [a, b] as [number, number]), [-39, yy + 5]]), RAIL, {
+  paperCut(ctx, [[-39, yy + 1], ...torn.slice().reverse(), [-39, yy + 5]], {
+    color: RAIL,
     shadow: 1.3,
     edge: mix(EDGE, FIBRE, 0.4),
     texture: 0.8,
     thickness: 0.7,
+    wear: 0.3,
+    seed,
   });
+  foldLine(ctx, -36, yy + 3, x1 - 4, yy + 3, 0.35);
 }
 
 export const PAPER_FENCE_ART: PropArt = {

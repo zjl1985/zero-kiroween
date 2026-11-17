@@ -11,10 +11,11 @@ import { cachedSprite } from "../engine/sprite.js";
 import type { Impact, SimState } from "../game/types.js";
 import { EFFECT_LIFE } from "../game/types.js";
 import { chunkContent, chunkOf } from "../game/world-gen.js";
-import { PROP_ART, type PropArt } from "./art-registry.js";
+import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { glow, hash, mix, path, piece, type Ctx, type Point } from "./paper-material.js";
+import { variant } from "./variants.js";
 
 const PAD = 8;
 type Add = (y: number, draw: () => void) => void;
@@ -65,6 +66,38 @@ function flame(ctx: Ctx, x: number, y: number, size: number, k: number, seed: nu
 }
 const flicker = (time: number, seed: number) => 0.5 + 0.5 * Math.sin(time * (8 + hash(seed) * 5) + seed);
 
+/**
+ * One prop at its base point in a phase. The cached sprite holds the art
+ * variant; the placement look (size, tilt, mirror) comes from the prop's
+ * seed through render/variants.ts. Also used by the ?gallery=1 page.
+ */
+export function drawProp(
+  ctx: Ctx,
+  art: PropArt,
+  p: PropSpot,
+  phase: 0 | 1 | 2,
+  burnt: boolean,
+  burning: boolean,
+  time: number,
+): void {
+  const sprite = propSprite(art, p, phase, burnt),
+    look = variant(p.seed, { palette: art.scraps, ...(art.look ?? PROP_LOOK) });
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(look.angle);
+  ctx.scale(look.flip * look.scale, look.scale);
+  if (burning) {
+    // Charring: the paper browns while its edges glow.
+    ctx.save();
+    ctx.filter = "sepia(0.7) brightness(0.66)";
+    sprite.draw(ctx, { x: 0, y: 0 });
+    ctx.restore();
+    glow(ctx, 0, -10 * p.s, 46 * p.s, "#f08a3c", 0.45, 0.6);
+    art.flames.forEach(([fx, fy], i) => flame(ctx, fx * p.s, fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i));
+  } else sprite.draw(ctx, { x: 0, y: 0 });
+  ctx.restore();
+}
+
 /** Props inside the view as y-sorted sprites, burning ones with flames. */
 export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: Camera, time: number, add: Add): void {
   const view = viewRect(cam, 60),
@@ -82,20 +115,7 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
           phase = m?.phase ?? 0,
           burnt = !!m?.burnt,
           burning = !!sim && m?.burnAt !== undefined && phase < 2 && sim.elapsed - m.burnAt < FIRE.tick * 1.6;
-        add(p.y, () => {
-          const sprite = propSprite(art, p, phase, burnt);
-          if (burning) {
-            // Charring: the paper browns while its edges glow.
-            ctx.save();
-            ctx.filter = "sepia(0.7) brightness(0.66)";
-            sprite.draw(ctx, { x: p.x, y: p.y });
-            ctx.restore();
-            glow(ctx, p.x, p.y - 10 * p.s, 46 * p.s, "#f08a3c", 0.45, 0.6);
-            art.flames.forEach(([fx, fy], i) =>
-              flame(ctx, p.x + fx * p.s, p.y + fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i),
-            );
-          } else sprite.draw(ctx, { x: p.x, y: p.y });
-        });
+        add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time));
       }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [number, number, number][] {

@@ -401,8 +401,8 @@ function inLandmark(seed: number, x: number, y: number, pad: number): boolean {
   }
   return false;
 }
-/** Decor, colliders and interaction spots of one landmark, relative to its centre. */
-function landmarkParts(l: Landmark): Pick<ChunkContent, "decor" | "colliders" | "spots"> {
+/** Decor, colliders and interaction spots of one landmark, placed around its centre. */
+export function landmarkParts(l: Landmark): Pick<ChunkContent, "decor" | "colliders" | "spots"> {
   const { x, y, seed } = l,
     decor: Decor[] = [],
     colliders: Capsule[] = [],
