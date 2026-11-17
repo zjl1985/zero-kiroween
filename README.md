@@ -2,7 +2,7 @@
 
 后续 agent 请先读 [HANDOFF.md](HANDOFF.md) 和 [PLAN.md](PLAN.md)。**当前只做一种纸片画风，不是双画风。**
 
-一座由代码绘制的纸片小镇：有纸张纤维、切边厚度、层叠投影、缝线、暖窗、秋树和弯曲小路。选一只猫守到天亮（300 秒），途中收集墨晶升级、进化，击退多种墨团与 Eraser Boss。
+一座由代码绘制的纸片夜镇：有纸张纤维、切边厚度、层叠投影、缝线、暖窗、秋树和弯曲小路。玩法是类 Vampire Survivors 的 roguelike：选一只猫，在有界的种子地图（最多 10 × 10 屏）里跟着镜头走街串巷，守满 10 分钟到天亮。途中收集墨晶升级武器与被动，从精英掉的宝箱里进化，发现钟楼、南瓜田、石桥等地标，击退墨团群（同时最多 100 只）与追猎的 Eraser Boss。
 
 场景没有使用背景图片、贴图素材或生成图片。纹理、纸片造型、角色与光照均由 TypeScript / Canvas 生成；离屏 Canvas 只缓存这些绘制结果。音效由 Web Audio 振荡器与生成噪声合成，没有音频文件。
 
@@ -20,10 +20,13 @@ npm start
 
 ## 当前代码
 
-- `src/render/paper-material.ts`、`craft-scene.ts`、`craft-cat.ts`、`craft-combat.ts`：纸张材质、夜间小镇、纸片猫、墨团与弹道。
-- `src/render/craft-enemies.ts`、`craft-juice.ts`：敌人造型与预警、受击闪白、伤害数字、纸屑溶解、震屏、升级与连杀效果、庭院物件状态。
+- `src/game/world-gen.ts`：有界种子世界（`WORLD` 10 × 10 屏）、区块、地标、道路、刷怪环；`sim.ts` 与渲染共用这份纯哈希数据。
+- `src/game/upgrades.ts`、`enemies.ts`、`interactions.ts`：武器 / 被动与宝箱进化、敌人群（`HORDE.hardCap` 100）、精英与 Boss、南瓜灯 / 月亮灯笼 / 鱼干 / 宝箱的数据。
+- `src/render/camera.ts`、`craft-world.ts`：跟随镜头、区块地面缓存、地标建筑、导航箭头。
+- `src/render/paper-material.ts`、`craft-scene.ts`、`craft-cat.ts`、`craft-combat.ts`、`craft-enemies.ts`、`craft-juice.ts`：纸张材质、天空与山丘、纸片猫、墨团与弹道、敌人与预警、受击反馈与物件状态。
+- `src/render/timeline.ts`、`cue-fx.ts`：进化、Boss、黎明等重点事件的蓄势 / 展开 / 爆发 / 收束节奏与表现。
 - `src/render/world.ts`：层叠绘制、遮挡与黎明天色；以 2 倍内部画布呈现细纹理与轮廓。
-- `src/game/upgrades.ts`、`enemies.ts`、`interactions.ts`：升级与进化、敌人与 Boss、南瓜灯 / 月亮灯笼 / 鱼干的数据。
+- `src/ui/hud.ts`、`journal.ts`、`journal-geometry.ts`、`src/render/journal-ui.ts`：守夜手账风格的 HUD 与结算页。
 - `src/audio/sfx.ts`：程序生成的音效与环境声。
 
 原有像素场景代码保留在仓库内作为造型 / 布局参考，当前游戏入口只展示纸片场景，没有画风切换按钮。
@@ -32,13 +35,13 @@ npm start
 
 开局在 Zero（男猫）和 Nicole（女猫）中二选一，局内只有选中的主角。
 
-- **Zero**：喵线远程攻击；留影冲刺吸引敌人；冲刺后短暂穿透速射。进化：Echo Legion。
-- **Nicole**：三枚月星环绕攻击；折月留下减速领域并获得护盾；首次濒危时触发一次额外护盾。进化：Full Moon。
+- **Zero**：起始武器喵线（远程直射）；留影冲刺吸引敌人；冲刺后短暂穿透速射。进化 Echo Legion：喵线满级 + 长影，然后开宝箱。
+- **Nicole**：起始武器月星环（三枚月星环绕）；折月留下减速领域并获得护盾；首次濒危时触发一次额外护盾。进化 Full Moon：月星环满级 + 深折，然后开宝箱。
 - WASD / 方向键移动，空格施放专属技能；Esc / P 暂停；升级时按 1 / 2 / 3 或点击选卡。标题与 HUD 上有静音按钮。手机使用摇杆与技能按钮。
-- 击败敌人掉落墨晶，升级时三选一；连杀、南瓜灯、月亮灯笼和鱼干提供额外互动。
-- 数值在 `src/game/characters.ts`、`upgrades.ts`、`enemies.ts`、`interactions.ts`，角色选择与 HUD 从同一份数据读取。
+- 击败敌人掉落墨晶，升级时三选一（3 个武器槽、4 个被动槽）；精英与 Boss 掉宝箱；连杀、南瓜灯、月亮灯笼和鱼干提供额外互动。
+- 数值在 `src/game/characters.ts`、`upgrades.ts`、`enemies.ts`、`interactions.ts`、`world-gen.ts`，角色选择与 HUD 从同一份数据读取。
 
-当前验证只有 `npm run build` 与 `npm test`；新特效尚未在真实浏览器中查看，音频尚未试听，美术未经用户认可。随机援护猫、英文默认、部署仍待制作。
+当前验证只有 `npm run build` 与 `npm test`。大地图、新 UI 与特效都没有人在真实浏览器中看过，音频没有试听，平衡只用临时机器人粗测过，约 100 只敌人时的性能未测，美术未经用户认可。随机援护猫、英文默认、部署仍待制作。
 
 ```bash
 npm test

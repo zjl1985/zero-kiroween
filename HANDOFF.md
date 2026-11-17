@@ -1,12 +1,14 @@
 # Handoff — 当前有效要求
 
-更新：2026-11-16（参赛级玩法轮次之后）。供下一位 agent 直接继续工作。
+更新：2026-11-16（有界夜镇 / 幸存者类玩法轮次之后）。供下一位 agent 直接继续工作。
 
 ## 第一件事：不要恢复双画风
 
 **唯一目标是参考图中的纸片 / 剪纸美术。不是“纸质和像素任选”，也不是“先做纸质，之后补像素”。** 仓库内的像素工具、旧布局代码是代码依赖，不是第二套产品画风；不要添加画风切换。
 
 ## 用户最后明确的要求
+
+状态标注说明：“已在代码中实现”只表示代码存在、可编译、测试通过；**没有人在浏览器中看过，用户也没有认可**。
 
 1. **先把游戏做到参赛级别**：场景、特效、互动、进化等都要有分量，不再只打磨静态画面。
 2. 参考 [Snapblocks](https://www.snapblocks.site/) 的一些特效思路。它是付费 React 组件库；只按公开描述用 Canvas / CSS 重新实现思路，**不复制任何代码**。
@@ -15,65 +17,105 @@
 5. 不使用图片或音频素材；场景、纹理、光影、音效全部由代码生成。
 6. 只选择一名主角：Zero 是男猫，Nicole 是女猫。局内不能把未选的角色作为伙伴放出来。
 7. 两只猫的技能、升级与进化必须不同，不能只换外观。
+8. **2026-11-16 最新纠正：场景要是能移动探索的大地图，镜头随主角移动。** 用户以 https://tibo.dog/?lang=zh-CN 的大场景体验说明目标，明确否定当前固定单屏场景方向。地图应超出视口，包含不同区域、地标和互动，不能仅靠背景平移制造大地图假象。
+   - 状态：**已在代码中实现，未在浏览器中查看，用户未认可。** 有界种子世界 10 × 10 屏、跟随镜头、14 个地标、道路、树篱边界、区块缓存与导航箭头（`9ff49b9`、`e5e2ece`）。
+9. **UI 要有自己的设计。** 用户认为当前 UI 太像 Tibo Dog；后续重做信息布局、组件造型和交互表达，以猫猫守夜的剪纸夜镇主题建立辨识度，不能只换颜色或字体。Tibo Dog 只作为空间体验参考，不作为 UI 模板。
+   - 状态：**已在代码中实现，未在浏览器中查看，用户未认可。** “守夜手账”方向（`cd8b776`），详见下文 UI 一节。
+10. **猫头浅色包边待修正。** 用户同意此前建议：移除独立宽衬纸造成的头套感，沿猫脸实际轮廓保留极窄暖灰纸边，以底侧阴影体现厚度。定位：`src/render/craft-cat.ts` 的 `facePaper` 与猫脸轮廓分别定义。
+    - 状态：**已在代码中修改（`82c0bd2`），未截图确认，用户未认可。** 宽衬纸已换成贴合轮廓的窄纸边；是否正是用户所指区域仍待用户确认。
+11. 记录 https://github.com/Vincentwei1021/video-shotcraft 的借鉴方向：进化的蓄势、展开、爆发、收束节奏；Boss / 进化 / 黎明的重点表现；升级卡的错峰发牌与叠层运动。用现有 Canvas / CSS 按纸片主题实现。之后可用于参赛宣传片参考；本次没有安装该技能，也没有授权录像。
+    - 状态：**节奏编排已在代码中实现（`9ae4631`），没有人看过动效。** 没有安装该技能，没有录像。
+12. **2026-11-16 补充：玩法改成类 Vampire Survivors 的 roguelike（幸存者类），但不需要几百只敌人。** 用户原话：“地图不需要无限，最多 100”；“我说的类似，不需要几百，就是类似这种的 roguelike 的”。
+    - 本轮理解：“最多 100”同时用于地图大小与敌人数量。地图 = 最多 10 × 10 屏（9600 × 5400 世界单位，`WORLD`，可调），不是无限地图；同时存活的敌人硬上限 100（`HORDE.hardCap`，可调），高峰约 60–100 只。两个数都是数据常量，用户若有不同理解只需改数据。
+    - 状态：**已在代码中实现（`b1c31d2`、`f0357d9`），只用临时空闲机器人粗测过平衡，未真实试玩。**
 
 ## 当前代码与入口
 
-提交序列：`80910a0` 纸片场景与角色 → `d47aca6` 升级与进化 → `45202d4` 敌人种类与 Eraser Boss → `8735a2a` / `604f3c8` / `36eca29` 手感、黎明、庭院互动、程序音频与 UI 特效 → 本次文档提交。
+提交序列：`80910a0` 纸片场景与角色 → `d47aca6` 升级与进化 → `45202d4` 敌人种类与 Eraser Boss → `8735a2a` / `604f3c8` / `36eca29` 手感、黎明、庭院互动、程序音频与 UI 特效 → `eb5f5e4` 修复 → 本轮：`82c0bd2` 猫头窄纸边 → `9ff49b9` / `e5e2ece` 有界世界、地标与跟随镜头 → `b1c31d2` 幸存者节奏、精英、宝箱、追猎 Boss、10 分钟夜晚 → `f0357d9` 武器 / 被动与宝箱进化 → `cd8b776` 守夜手账 UI → `9ae4631` 动效节奏 → 本次文档提交。
+
+### 一局的数字（全部是数据常量）
+
+- 夜晚 600 秒（`STATS.sessionSeconds`），最后 30 秒为黎明（`STATS.dawnSeconds`）。四个夜间阶段在 15% / 45% / 80%（90 / 270 / 480 秒，`PHASE_AT`）。
+- 世界：`WORLD` 10 × 10 屏 = 9600 × 5400，x −4320..5280，y 0..5400。起始庭院保留原 0..960 × 0..540 坐标，位于北边中部；北边是山丘与天空，角色在 `WORLD.playTop` 264 以下；西、东、南三边是纸树篱（`WORLD.edge` 36）。区块 480 × 540（`CHUNK`），共 20 × 10 个。
+- 敌人：`HORDE.capByMinute` [12, 18, 26, 34, 44, 54, 64, 74, 84, 96]，`spawnPerSecondByMinute` 0.7..4.2，**`hardCap` 100**（分裂、召唤、波次、精英都计入），普通敌人每分钟 +15% 血量。`KIND_CAP` smudge 8、crumple 14。9 个波次（side / ring / line），ring 波次从屏幕外合围。
+- 精英：60 秒起每 60 秒一只，到 500 秒为止（`ELITE`），9 倍血、带纸王冠，掉宝箱。
+- Eraser Boss：540 秒（`BOSS.spawnAt` 0.9）在视野外出场，420 血；离猫超过 360 时以 92 速度追猎；横扫 / 召唤 / 冲撞带预警；击败掉大宝箱。
 
 ### 模拟（`src/game/`，无 DOM）
 
+- `world-gen.ts`：`SCREEN`、`WORLD`、`CHUNK`、`START_CHUNKS`、`ACTIVE`（加载 1100 / 卸载 1500）、`SPAWN_RING`（视野外刷怪环，leash 1500）、`LANDMARK`。`chunkContent(seed, cx, cy)` 是 (种子, 区块坐标) 的纯哈希，模拟与渲染都可调用，不消耗模拟 RNG。地标每 5 × 3 超级格一个（共 14 个，起始格除外）：钟楼、南瓜田、石桥、教堂墓园、灯笼集市、月亮坡，每种至少一个；道路主干从起始庭院南出口向南，每个地标一条支路。`nearColliders` 只取 3 × 3 区块内的碰撞体。
 - `characters.ts`：两只猫的基础参数（见下表）。
-- `upgrades.ts`：全部升级卡与经验曲线。5 张通用卡（vitality、swift、magnet、focus、scholar）、Zero 专属 5 张（bolt-power、quick-draw、split-bolt、pierce、long-shadow）、Nicole 专属 5 张（extra-star、wide-orbit、star-weight、deep-fold、moon-shield），填充卡 snack（回 1 心）。进化：Zero 的 **Echo Legion**（quick-draw 2 级 + long-shadow 2 级解锁，留影自行射击并在消失时爆裂），Nicole 的 **Full Moon**（extra-star 2 级 + star-weight 2 级解锁，+2 月星并周期性月光脉冲）。数值在 `UPGRADE_VALUES`、`XP`，`playerStats(state)` 计算派生属性，`rollChoices` 抽 3 张卡且可进化时进化卡占第一位。
-- `enemies.ts`：敌人种类与刷怪表。ink-blob、paper-bat（俯冲）、crumple（死亡分裂成 2 个小团）、smudge（停在射程外投掷有预警的墨滴并留下减速水洼）、eraser-boss（90 血，234 秒即 78% 进度出场，横扫 / 召唤 / 冲撞三种带预警攻击）。`SPAWN_TABLE`、`WAVES`（固定时点小波次）、`ENEMY_CAP = 18`、`BOSS` 都在这里。
-- `interactions.ts`：庭院互动物件。3 个南瓜灯（触碰点亮 6 秒灼烧并推开墨团，14 秒充能）、月亮灯笼（位于 LAMPS[3]，40 秒充满，触碰后全场眩晕 2.4 秒，对 Boss 0.9 秒）、鱼干（35 秒起随机出现，回 1 心，使用模拟 RNG）。
-- `sim.ts`：刷怪、四个夜间阶段、战斗、经验碎片掉落与拾取、升级暂停（`pendingChoice` 期间时间冻结，`chooseUpgrade(state, i)`）、Boss 行为、连杀（`STATS.streakWindow` 2.6 秒，每 10 连杀奖励经验）、阶段提示（Boss / 进化横幅不会被技能、鱼干等普通提示覆盖）、胜负。Zero 进化后在回声未消失时再次冲刺，旧回声也会爆开。
-- `types.ts`：`SimState`、共享 `STATS`、`EFFECT_LIFE`。`input.ts`：WASD / 方向键、空格技能、Esc / P 暂停（选卡界面也可暂停，恢复后回到同一手牌；切到后台同样暂停并关闭环境音）、1 / 2 / 3 选卡。
+- `upgrades.ts`：武器 / 被动构筑。`BUILD` 3 个武器槽、4 个被动槽；`START_WEAPON`（Zero `meow-bolt`，Nicole `moon-stars`）；`WEAPON_STEPS` 每级数值；`WEAPONS` 一级数值；`EVOLUTIONS`；`UPGRADE_VALUES`、`XP`；`playerStats`、`rollChoices`、`readyEvolution`、`chooseUpgrade`。升级时三选一，只出本猫池中未满级或有空槽的武器 / 被动，**升级卡不出进化**；不够三张时补 snack（回 1 心）。
+- `enemies.ts`：`ENEMIES`（ink-blob、paper-bat、crumple、smudge、eraser-boss）、`HORDE`、`KIND_CAP`、`PHASE_AT`、`ELITE`、`SPAWN_TABLE`、`WAVES`、`WAVE_RING`、`BOSS`。
+- `interactions.ts`：南瓜灯（触碰点亮 6 秒灼烧并推开墨团，14 秒充能）、月亮灯笼（40 秒充满，全场眩晕 2.4 秒，Boss 0.9 秒）、鱼干（45 秒起约每 50 秒，在猫附近 180–380 处出现，回 1 心）、`CHEST`（宝箱）。起始庭院的南瓜与灯笼位置与 `scene.ts` 一致；更多南瓜与灯笼来自南瓜田、月亮坡、灯笼集市等地标。
+- `sim.ts`：区块加载 / 卸载、视野外刷怪环、四个夜间阶段、战斗与六种武器（`stepWeapons`）、经验碎片、升级暂停（`pendingChoice`）、精英与宝箱（`openChest`）、Boss 追猎与攻击、连杀、提示、胜负。`hordeStep` / `hordeCap` 按十分之一局长取索引，短局测试也会爬升。
+- `types.ts`：`SimState`（含 `loadedChunks`、`landmarksFound`、`chests`、`build`、`chestReveal`）、`STATS`、`EFFECT_LIFE`、`FX_CAP`。`input.ts`：WASD / 方向键、空格技能、Esc / P 暂停、1 / 2 / 3 选卡。
+
+### 武器、被动与宝箱进化
+
+- 武器：喵线 meow-bolt（Zero 起始，7 级）、夜爪 night-claw（Zero，5 级）、月星环 moon-stars（Nicole 起始，7 级）、落星 star-fall（Nicole，5 级）、纸鹤 paper-crane（通用，追踪，5 级）、南瓜籽 pumpkin-seed（通用，爆裂，5 级）。
+- 被动：vitality、swift、magnet、focus、scholar、paper-armor、night-eyes（通用）；long-shadow（Zero）；deep-fold、moon-shield（Nicole）。
+- **进化只在开宝箱时发生**：Echo Legion = 喵线满级 + 拥有长影；Full Moon = 月星环满级 + 拥有深折。条件满足时开宝箱即进化，进化武器占用原武器槽。否则宝箱给随机已拥有项 +1 级（普通 1 级，Boss 大宝箱 3 级），都满了就给 snack。HUD 会弹出纸条列出宝箱给了什么。
 
 ### 渲染（`src/render/`）
 
-- `paper-material.ts`、`craft-scene.ts`、`craft-cat.ts`、`craft-combat.ts`、`combat-fx.ts`：纸张材质、夜间小镇、纸片猫、墨团与弹道、技能效果。
-- `craft-enemies.ts`：各敌人造型、会追视并眨眼的纸片眼睛、水洼 / 落点 / Boss 虚线预警、敌方投射物与击败效果。
-- `craft-juice.ts`：镜头震动、受击闪白、眩晕星、伤害数字、纸屑溶解、升级 / 进化 / 连杀纸片爆发、碎片拖尾、南瓜与月亮灯笼状态、鱼干。
-- `upgrade-icons.ts`：升级卡图标。`world.ts`：分层合成与遮挡；最后 30 秒月亮下沉、地平线变暖、路灯变暗（黎明）。
+- `camera.ts`：跟随镜头（死区 60 × 40，平滑 7/s，夹在世界内）；世界平移对齐设备像素。
+- `craft-world.ts`：每区块 2x 离屏地面缓存（最多 14 个，每帧最多预建 1 个）、道路、树篱、地标地面；高的装饰和地标建筑（钟楼、教堂、墓碑、集市摊、串灯）是按 y 排序、按边界裁剪的缓存精灵；敌人 / 拾取物 / 弹道按视野 +140 裁剪；`navTargets` 给地标、宝箱、Boss 的屏幕边缘箭头。
+- `paper-material.ts`、`craft-scene.ts`（屏幕空间天空、世界空间山丘与地面、黎明）、`craft-cat.ts`、`craft-combat.ts`、`combat-fx.ts`（含新武器效果）、`craft-enemies.ts`（含精英金光与纸王冠）、`craft-juice.ts`（含宝箱与开箱纸屑）、`upgrade-icons.ts`、`world.ts`（分层合成与遮挡）。
+- `timeline.ts`（纯函数）：每种重点事件（进化、Boss 出场、Boss 击败、黎明、胜利收尾）分为蓄势、展开、爆发、收束四拍；慢动作（只改变每帧送入的 `FIXED_DT` 步数，模拟仍确定）、≤1.1 的缩放、轻微震动；发牌错峰 70 ms。`cue-fx.ts`：这些事件在世界内与屏幕上的纸片表现。减少动态时只剩短暂淡入淡出。
+- `journal-ui.ts`：HUD 与结算页的 Canvas 画法（月亮弧、灯笼串、烛芯、小地图、爪印、剪纸窗花）。
 
-### UI 与音频
+### UI（`src/ui/`、`index.html`、`styles.css`）：守夜手账
 
-- `src/ui/upgrade-cards.ts`：扇形手牌的升级卡；`hud.ts`：经验条、等级、已拥有卡、连杀徽章、Boss 血条；`ink.ts`：逐词显现文字；`character-panel.ts`、`touch.ts`。
-- `src/audio/sfx.ts`：只用振荡器与生成噪声的 Web Audio 音效和环境声（风、低音、蟋蟀）；首次 pointerdown / keydown 后创建 AudioContext。标题与 HUD 有静音按钮，保存为偏好 `muted`。
+- HUD：左上行李牌（头像、名字、击败数）；上中月亮弧（时间与阶段）和灯笼串（每颗心一盏灯，护盾是纸环）；右上折叠小地图（已探索区块）与静音 / 全屏 / 暂停；左下缝线条：烛芯技能按钮、24 针经验缝线、等级纸钮、武器三角旗与被动圆角签；Boss 血条是蓝纸套里的橡皮，越打越短。
+- 升级卡：窗格剪纸卡，每张有窗花，武器是红三角旗、被动是靛蓝签、进化是双层；从一叠纸里错峰发出（`timeline.ts` 的 `DEAL`）。
+- 标题：舞台幕布框住画布上的猫，节目单 + 打孔票选择角色，选择页显示起始武器与进化条件。暂停是折页手账；结算是手账页，记录时间、击败、等级、进化、步数、发现的地标、Boss、最长连杀、精英、宝箱、南瓜，盖爪印章。
+- `journal-geometry.ts`（纯函数，有测试）、`journal.ts`（结算页）、`upgrade-cards.ts`、`hud.ts`、`character-panel.ts`、`ink.ts`、`touch.ts`。
+
+### 音频与偏好
+
+- `src/audio/sfx.ts`：只用振荡器与生成噪声；首次 pointerdown / keydown 后创建 AudioContext。静音保存为偏好 `muted`。
 - 偏好 `{ locale, cat, muted }` 存在 `localStorage` 的 `midnight-meow-prefs`。
 
 ### 参考 Snapblocks 的效果（按公开描述重做，未复制代码）
 
-Petal Dissolve（击败纸屑溶解）、Crumple Reveal（crumple 展开再撕成两半）、Tear Ticket（结算票根沿齿孔撕下）、Fan Deck / Fan Carousel（升级卡扇形展开，聚焦卡抬起）、Ink Reveal（标题标语与 Boss 名逐词 / 逐字显现）、Trail Pamphlet / Pleated Strip（暂停面板与 Boss 横幅折页展开）、Eye Button（敌人眼睛）、Glowcap / Lumen（最后阶段与胜利时月亮翻成太阳）、Magnetic Button（开始按钮向指针倾斜）。全部尊重 `prefers-reduced-motion`；减少动态时不震屏。
+Petal Dissolve（击败纸屑溶解）、Crumple Reveal（crumple 展开再撕成两半）、Ink Reveal（标题标语与 Boss 名逐词 / 逐字显现）、Pleated Strip（Boss 横幅折页展开）、Eye Button（敌人眼睛）、Magnetic Button（开始按钮向指针倾斜）。旧的扇形手牌、票根撕下与 Glowcap 已随手账 UI 重做移除。全部尊重 `prefers-reduced-motion`；减少动态时不震屏。
 
 ## 已实现的角色差异
 
-实际参数以 `src/game/characters.ts` 为准：
+实际参数以 `src/game/characters.ts`、`src/game/upgrades.ts` 为准：
 
 | | Zero | Nicole |
 |---|---|---|
 | 生命 / 移速 | 4 / 126 | 6 / 96 |
-| 自动攻击 | 喵线远程直射 | 三枚月星环绕，命中有间隔并轻推敌人 |
+| 起始武器 | 喵线：远程直射 | 月星环：三枚月星环绕，命中有间隔并轻推敌人 |
 | 主动技能 | 留影冲刺：1.2 秒诱饵，3 秒冷却 | 折月：短位移、3.5 秒减速 60% 领域、4.5 秒内两次护盾，5.5 秒冷却 |
 | 被动 | 冲刺后 2 秒射速加倍，可穿透命中两个目标 | 首次生命降至 2 时获得两次护盾，持续 4 秒，每局一次 |
-| 专属升级 / 进化 | 弹道伤害、射速、分叉、穿透、长影 → Echo Legion | 月星数量、轨道、重量、深折、护盾 → Full Moon |
+| 专属武器 / 被动 | 夜爪；长影 | 落星；深折、月盾 |
+| 进化（开宝箱） | Echo Legion：喵线满级 + 长影 | Full Moon：月星环满级 + 深折 |
 
 Zero 的留影（包括 Echo Legion 的射击留影）是技能效果，不是常驻第二角色。
 
 ## 验证与证据边界
 
-- `npm run build` 与 `npm test` 通过（51 项）。这只说明代码可编译、模拟行为符合测试。
-- **还没有人在真实浏览器中看过新的敌人、特效、UI 动效**：本机沙盒阻止 playwright 打开浏览器。**音频也没有人试听过**，音量平衡未知。
+- `npm run build` 与 `npm test` 通过（89 项）。这只说明代码可编译、模拟行为符合测试。
+- **没有人在真实浏览器中看过本轮任何内容**：大地图、地标、镜头、精英、宝箱、新武器、手账 UI、动效节奏都没有看过。本机沙盒阻止无头 Chromium 启动，所以本轮没有截图；只用假 2D 上下文在 Node 里跑过绘制冒烟测试。
+- **音频没有人试听过**，音量平衡未知。
+- **平衡只用临时空闲机器人粗测过**（无敌、每 4 秒冲刺、走向宝箱）：两只猫都能在 Boss 前进化；空闲 Zero 能击败 Eraser，空闲 Nicole 到黎明时 Eraser 还剩约 300 血。真实试玩未做。
+- **约 100 只敌人时的帧率没有在浏览器中测过**。没有空间哈希或对象池；`craft-enemies.ts` 每帧为每只敌人重画纸张材质。
 - **用户尚未认可美术**，不要标记美术或参赛作品完成。
 
 ## 仍未完成
 
-1. 用户对美术（对照纸片夜间小镇参考图）的验收。
-2. 随机援护猫：未制作。
-3. 英文默认：未切换（现默认 `zh`，`en` 完整）。
-4. 真实浏览器试玩与数值平衡（难度曲线、升级强度、Boss 血量、音量）。
+1. 真实浏览器试玩：100 只敌人上限下的难度曲线、武器与被动强度、Boss 血量（Nicole 可能打不动 Eraser）、音量。
+2. 真实浏览器性能测量（约 100 只敌人、区块缓存同步构建时冲进未建区块可能卡顿）。
+3. 用户对美术（对照纸片夜间小镇参考图）和新 UI 的验收，包括猫头窄纸边是否是用户所指的位置。
+4. 英文默认：未切换（现默认 `zh`，`en` 完整）。
 5. 部署与 Devpost 提交材料，截止 **2026-12-05 06:00（北京时间）**。没有部署或推送。
+6. 随机援护猫：未制作，开始前先与用户确认。
+
+已知小问题：支路可能穿过另一个地标的河；前景树叶与撕边画框仍是屏幕空间；卡牌文字在小屏上的 zh / en 长度未检查。
 
 ## 运行
 
-`npm run build` 后 `npm start`；默认端口 4173。`/?start=1` 直接进入所选角色的游戏。旧本地服务器可能还在运行，先检查端口再启动。`output/playwright/` 内的旧截图只在当前机器存在，Git 忽略，早于本轮玩法改动。
+`npm run build` 后 `npm start`；默认端口 4173。`/?start=1` 直接进入所选角色的游戏。旧本地服务器可能还在运行，先检查端口再启动。`output/playwright/` 内的旧截图只在当前机器存在，Git 忽略，早于本轮改动。
