@@ -49,10 +49,11 @@ test("the night lasts 600 s and the Eraser is due at 540 s", () => {
   assert.ok(HORDE.capByMinute.every((c) => c <= HORDE.hardCap));
 });
 
-test("phase 0 spawns only ink blobs", () => {
+test("phase 0 introduces Kiro ghosts among ink blobs", () => {
   const { seen } = survive(11, PHASE_AT[0] * NIGHT - 1);
   assert.ok(seen.length > 3);
-  assert.ok(seen.every((e) => e.kind === "ink-blob"));
+  assert.ok(seen.every((e) => ["ink-blob", "kiro-ghost"].includes(e.kind)));
+  assert.ok(seen.some((e) => e.kind === "kiro-ghost"));
 });
 
 test("later phases bring bats, crumples and smudges, deterministically", () => {
@@ -324,4 +325,31 @@ test("defeating the Eraser drops a large XP reward", () => {
     s.pickups.reduce((sum, p) => sum + p.value, 0) >= BOSS.rewardShards * BOSS.rewardValue,
     true,
   );
+});
+
+test("Kiro ghost glide approaches without RNG and its actor clock pauses under stun", async () => {
+  const { KIRO_GHOST_DEF } = await import("../dist/defs/enemies/kiro-ghost/def.js");
+  const { GHOST_GLIDE } = await import("../dist/defs/enemies/behaviours.js");
+  const s = createSim({ cat: "zero", seed: 7 });
+  s.spawnTimer = 1e6;
+  const e = { id: 901, kind: "kiro-ghost", x: s.player.x + 200, y: s.player.y,
+    hp: 100, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0, stun: 1 };
+  KIRO_GHOST_DEF.onSpawn(e, s);
+  s.enemies = [e];
+  const timer = e.timer;
+  step(s, idle, DT);
+  assert.equal(e.timer, timer);
+  e.stun = 0;
+  step(s, idle, DT);
+  assert.notEqual(e.timer, timer);
+  assert.ok(e.x < s.player.x + 200, "glides toward the cat");
+  let min = Infinity, max = 0;
+  for (let i = 0; i < 240; i++) {
+    const move = { dx: -42 * DT, dy: 0, dt: DT };
+    GHOST_GLIDE.steer(s, e, move);
+    assert.ok(move.dx < 0 && move.dy === 0, "pulse preserves approach direction");
+    min = Math.min(min, -move.dx / DT);
+    max = Math.max(max, -move.dx / DT);
+  }
+  assert.ok(min < 30 && max > 60, "alternates gathering and gliding");
 });

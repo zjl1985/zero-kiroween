@@ -29,6 +29,7 @@ export const FILLER_KIND: EnemyKind = "ink-blob";
 export const KIND_CAP: Partial<Record<EnemyKind, number>> = {
   smudge: 8,
   crumple: 14,
+  "kiro-ghost": 8,
 };
 /** Night phase boundaries as fractions of the session (90 s, 270 s, 480 s of 600). */
 export const PHASE_AT: readonly [number, number, number] = [0.15, 0.45, 0.8];
@@ -51,22 +52,25 @@ export const ELITE = {
 } as const;
 /** Regular spawn weights per night phase (0..3). */
 export const SPAWN_TABLE: readonly (readonly [EnemyKind, number][])[] = [
-  [["ink-blob", 1]],
+  [["ink-blob", 4], ["kiro-ghost", 1]],
   [
     ["ink-blob", 3],
     ["paper-bat", 2],
+    ["kiro-ghost", 1],
   ],
   [
     ["ink-blob", 2],
     ["paper-bat", 2],
     ["crumple", 1],
     ["smudge", 1],
+    ["kiro-ghost", 1],
   ],
   [
     ["ink-blob", 2],
     ["paper-bat", 3],
     ["crumple", 2],
     ["smudge", 2],
+    ["kiro-ghost", 1],
   ],
 ];
 /**

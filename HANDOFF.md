@@ -1,6 +1,6 @@
 # Handoff: current requirements
 
-Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. This round has not been pushed or deployed; `d5d6025` from the previous round is also local. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
+Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. The current local commits are `7a3102b` (paper ecology / cohesive art) and `d5d6025` (character / scenery refinement); both are committed but not pushed to `origin/main` or deployed. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
 
 Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.15). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its `references/` recipes (including the new paper-ecology contract) cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
 
@@ -179,24 +179,28 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 - **Frame rate at about 100 enemies with fire is unmeasured.** There is no spatial hash or object pool, and chunk caches build synchronously.
 - **The user has not approved the art.** Do not mark the art or the entry as finished.
 
+## Confirmed gameplay decisions (user, 2026-11-17)
+
+1. **Defeating the Boss is not required to win.** Surviving until dawn is a win even if the Boss is still alive; outrunning it is allowed. Do not add a Boss-kill victory gate.
+2. **Full passive slots can lock out an evolution.** If the required partner passive is missing and there is no free passive slot, that evolution is unavailable for the rest of the run. This is an intended build consequence, not a bug requiring a reserved slot or automatically granted passive. The user asked to record these rules only; no new hint or fallback mechanic is authorized by this decision.
+
 ## Pending user decisions (ask before changing)
 
-1. **The Boss can be outrun and dawn still counts as a win.** Should defeating the Boss gate the dawn win?
-2. **An evolution's partner passive can be locked out when the passive slots are full**, with no in-run hint. Add a hint, or reserve a slot for the partner?
-3. Whether the narrow cat head edge is the area the user meant.
-4. Removing the Chinese pack or the language toggle when English becomes the default.
-5. Random helper cats: not built, confirm first.
+1. Whether the narrow cat head edge is the area the user meant.
+2. Removing the Chinese pack or the language toggle when English becomes the default.
+3. Random helper cats: not built, confirm first.
 
 ## Remaining review notes
 
 - The per-shot, per-step `elementHit` scan and the prop collider scan in `safePosition` are unprofiled. Measure before adding a spatial hash or object pool.
 - Confirm the cached burning tint and quantized fold shading in a real browser; removing the two filter assignments does not prove a frame-rate improvement.
 - The prior review's camera-edge bug, stale comment, seed wrap and missing burnt-drop documentation are fixed (see latest changes above).
+- Low-impact notice ordering remains: `announcePhase` in `src/game/sim.ts` advances `phaseSeen` before `notify` can reject a phase notice behind a Boss / evolution notice (and explicitly skips it behind `boss-incoming`). The phase ribbon is then lost rather than queued/retried. Confirmed by code inspection during handoff cleanup; not fixed or newly tested. Preserve major-notice priority when fixing it.
 
 ## Still open
 
 1. Real browser playtest and balance: difficulty curve, weapon / passive strength, chest pacing, Boss HP, volume, plus props, fire, districts, landmarks and the gallery.
-2. Real browser performance: about 100 enemies with fire, hitches when entering unbuilt chunks, sprite caches for props and fire.
+2. Real browser performance (**explicitly deferred by the user; do not run without a renewed request**): about 100 enemies with fire, hitches when entering unbuilt chunks, sprite caches for props and fire.
 3. User review of art and UI: map, landmarks, district ground (whether the cat and ink stay readable on the darker graveyard woods, patch density, chunk-aligned district edges), prop phases, fire, pop-up folding, journal UI, gallery, cat head edge.
 4. Whether the 14-row result page fits its two-column layout is unchecked.
 5. Paper-ecology features are now implemented, not deferred: playtest their balance, feedback, safe access to water, folded-route readability and renewal pacing. Only renewable flora regrows, not handcrafted buildings/props; temporary actor wetness is not a new damage immunity to enemies.
@@ -204,6 +208,7 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 7. Gallery skill poses / landmark markers and the new art paths have command-recording coverage. The static sheet showed a subset of art, not a review of the full gallery or its mobile layout.
 8. English default: not switched (default `zh`, `en` complete). When switching, also update `<html lang>` and `<title>`.
 9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. The user has deployed the previous version to Vercel and confirmed it works. Publish the latest refinement after commit / push authorization; Devpost materials remain pending. See README for settings. Record a video only with the user's consent.
+10. **Kiro ghost integrated (2026-11-17).** The user asked to finish the interrupted implementation. Completed it as an enemy, following the existing enemy/art directory: code-drawn white paper with a violet backing, two dark eyes and folding tails. The actor-clock glide periodically varies approach speed and pauses under stun; shared collision, water and fire rules apply. Registered sim/art and zh/en gallery names. Regular spawning includes ghosts from phase 0 onward (opening weight 1 against 4 blobs), capped at 8; no elite or extra wave. Roster is now five common kinds plus the Eraser. Spawn outcomes intentionally differ from earlier versions for the same seed. No browser, motion, audio or performance review of this addition yet.
 
 Smaller items: foreground leaves and the torn frame remain screen space; zh / en card text length on small screens is unchecked. Road/water crossings now have matching visible dry decks and tested swept passage.
 
@@ -221,3 +226,5 @@ npm test        # production build + node --test tests/*.test.mjs (237 tests)
 - Verification is build + test, at most one static screenshot, no animation or recording checks.
 - Screenshots and probes in `output/playwright/` exist only on this machine and are git-ignored.
 - SSH push succeeded for `5b67387` to `origin/main`; the old blanket claim that pushing is blocked is obsolete. Only commit / push when the user authorizes it; never include `.agents/`, `output/`, `dist/` or `site/`.
+
+Kiro continuation verification: `npm run build` and `npm test` passed, 238/238 tests. No new screenshot, animation, recording, audio or FPS checks. Changes are saved in the Kiro continuation commit; not pushed. Existing historical probe references were not regenerated; same-seed snapshot tests pass, while spawn outcomes intentionally change.

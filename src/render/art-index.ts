@@ -12,6 +12,7 @@ import { CRUMPLE_ART } from "../defs/enemies/crumple/art.js";
 import { ERASER_BOSS_ART } from "../defs/enemies/eraser-boss/art.js";
 import { INK_BLOB_ART } from "../defs/enemies/ink-blob/art.js";
 import { PAPER_BAT_ART } from "../defs/enemies/paper-bat/art.js";
+import { KIRO_GHOST_ART } from "../defs/enemies/kiro-ghost/art.js";
 import { SMUDGE_ART } from "../defs/enemies/smudge/art.js";
 import { DEEP_FOLD_ART } from "../defs/passives/deep-fold.art.js";
 import { FOCUS_ART } from "../defs/passives/focus.art.js";
@@ -71,7 +72,7 @@ import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEA
 export * from "./art-registry.js";
 
 for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(a);
-for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART]) ENEMY_ART.register(a);
+for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART]) ENEMY_ART.register(a);
 for (const a of [
   MEOW_BOLT_ART,
   NIGHT_CLAW_ART,

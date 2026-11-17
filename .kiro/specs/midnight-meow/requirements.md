@@ -54,7 +54,7 @@ Current scope follows the user's explicit request to implement the remaining art
 ### Acceptance criteria
 
 1. THE session SHALL last 600 seconds (`STATS.sessionSeconds`), split into four night phases at 15%, 45% and 80% of the session.
-2. WHEN the timer reaches zero, THE game SHALL end the run as a win (dawn).
+2. WHEN the timer reaches zero while the cat has survived, THE game SHALL end the run as a win (dawn), regardless of whether the Boss was defeated. Defeating the Boss SHALL NOT be required for victory (user confirmed 2026-11-17).
 3. WHEN the cat's HP reaches zero, THE game SHALL end the run as a loss.
 4. WHEN a run ends, THE game SHALL show a result page with run stats and retry / back options.
 5. THE simulation SHALL be deterministic for the same seed and input, including world generation.
@@ -84,6 +84,7 @@ Current scope follows the user's explicit request to implement the remaining art
 6. WHEN Nicole has Moonstars at max level and owns Deep Fold and opens a chest, THE game SHALL evolve Moonstars into Full Moon, which adds 2 moonstars and a periodic moon pulse that damages and pushes nearby enemies.
 7. WHEN a chest is opened and no evolution is ready, THE game SHALL raise random owned items that are below max by one level each (1 level, 3 for the Boss chest), or give Warm Milk if nothing can grow, and SHALL show what the chest gave.
 8. THE HUD SHALL show XP, level and the weapon and passive slots; THE result page SHALL show the level reached and the evolution if taken.
+9. IF all passive slots are occupied and the evolution's required partner passive is not owned, THE corresponding evolution SHALL remain unavailable for that run. THE game SHALL NOT reserve a slot or automatically grant the missing partner to bypass that build choice (user confirmed 2026-11-17).
 
 ## Requirement 7: Enemy horde, elites and the Eraser boss
 

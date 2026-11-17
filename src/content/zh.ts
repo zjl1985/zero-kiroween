@@ -223,6 +223,7 @@ export const ZH: Messages = {
   "enemy.crumple.name": "纸团",
   "enemy.smudge.name": "墨渍",
   "enemy.eraser-boss.name": "橡皮擦",
+  "enemy.kiro-ghost.name": "Kiro 小幽灵",
   "gallery.title": "纸艺工坊图鉴",
   "gallery.subtitle": "所有已注册的猫、敌人、道具、地标与图标，全部由代码绘制",
   "gallery.section.cats": "猫猫",

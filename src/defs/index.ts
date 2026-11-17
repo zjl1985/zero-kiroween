@@ -11,11 +11,12 @@
 import type { SimState } from "../game/types.js";
 import { NICOLE } from "./cats/nicole/def.js";
 import { ZERO } from "./cats/zero/def.js";
-import { BOSS_HUNT, CHASE, KITE_LOB, SWOOP } from "./enemies/behaviours.js";
+import { BOSS_HUNT, CHASE, KITE_LOB, SWOOP, GHOST_GLIDE } from "./enemies/behaviours.js";
 import { CRUMPLE_DEF } from "./enemies/crumple/def.js";
 import { ERASER_BOSS } from "./enemies/eraser-boss/def.js";
 import { INK_BLOB } from "./enemies/ink-blob/def.js";
 import { PAPER_BAT } from "./enemies/paper-bat/def.js";
+import { KIRO_GHOST_DEF } from "./enemies/kiro-ghost/def.js";
 import { SMUDGE_DEF } from "./enemies/smudge/def.js";
 import { ECHO_LEGION_EVOLUTION } from "./evolutions/echo-legion.js";
 import { FULL_MOON_EVOLUTION } from "./evolutions/full-moon.js";
@@ -81,8 +82,8 @@ for (const p of [
 ])
   PASSIVE_DEFS.register(p);
 for (const e of [ECHO_LEGION_EVOLUTION, FULL_MOON_EVOLUTION]) EVOLUTION_DEFS.register(e);
-for (const b of [CHASE, SWOOP, KITE_LOB, BOSS_HUNT]) BEHAVIOURS.register(b);
-for (const e of [INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS]) ENEMY_DEFS.register(e);
+for (const b of [CHASE, SWOOP, KITE_LOB, BOSS_HUNT, GHOST_GLIDE]) BEHAVIOURS.register(b);
+for (const e of [INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS, KIRO_GHOST_DEF]) ENEMY_DEFS.register(e);
 
 /** Subscribes a def's hooks so they only run while `active(state)` holds. */
 function subscribe(hooks: SimHooks | undefined, active: (state: SimState) => boolean): void {

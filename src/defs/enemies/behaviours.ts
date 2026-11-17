@@ -9,9 +9,21 @@ import type { BAT } from "./paper-bat/def.js";
 import type { SMUDGE } from "./smudge/def.js";
 import type { BOSS } from "./eraser-boss/def.js";
 import { stepBoss } from "./eraser-boss/attacks.js";
+import { KIRO_GHOST, kiroGhostMotion } from "./kiro-ghost/def.js";
 
 /** Plain chase: the default move, unchanged. */
 export const CHASE: EnemyBehaviour = { id: "chase" };
+
+/** Keep the pulse on the actor clock so stuns pause both movement and folds. */
+export const GHOST_GLIDE: EnemyBehaviour = {
+  id: "ghost-glide",
+  steer(_state, e, move) {
+    e.timer = ((e.timer ?? 0) + move.dt) % KIRO_GHOST.cycle;
+    const { speed } = kiroGhostMotion(e.timer);
+    move.dx *= speed;
+    move.dy *= speed;
+  },
+};
 
 /** Swoop across the line of approach on a sine path. */
 export const SWOOP: EnemyBehaviour<typeof BAT> = {

@@ -210,6 +210,7 @@ export const MESSAGE_KEYS = [
   "enemy.crumple.name",
   "enemy.smudge.name",
   "enemy.eraser-boss.name",
+  "enemy.kiro-ghost.name",
   "gallery.title",
   "gallery.subtitle",
   "gallery.section.cats",

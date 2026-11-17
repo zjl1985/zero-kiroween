@@ -230,6 +230,7 @@ export const EN: Messages = {
   "enemy.crumple.name": "Crumple",
   "enemy.smudge.name": "Smudge",
   "enemy.eraser-boss.name": "The Eraser",
+  "enemy.kiro-ghost.name": "Kiro Ghost",
   "gallery.title": "Paper Workshop Gallery",
   "gallery.subtitle": "Every registered cat, enemy, prop, landmark and icon, drawn by code",
   "gallery.section.cats": "Cats",
