@@ -225,3 +225,21 @@ test("same seed and inputs still give the same snapshot with interactions", () =
   };
   assert.deepEqual(run(), run());
 });
+
+test("phase ribbons wait behind every major banner and appear once after it expires", () => {
+  for (const kind of ["boss-incoming", "boss-defeated", "evolve-zero", "evolve-nicole"]) {
+    const s = quiet("zero");
+    s.elapsed = s.sessionSeconds * 0.2;
+    s.elitesDone = 99;
+    s.notice = { kind, life: DT * 3 };
+    step(s, idle, DT);
+    assert.equal(s.notice.kind, kind);
+    assert.equal(s.phaseSeen, 0, kind + " must not consume the phase");
+    for (let i = 0; i < 4; i++) step(s, idle, DT);
+    assert.equal(s.notice.kind, "phase1");
+    assert.equal(s.phaseSeen, 1);
+    const life = s.notice.life;
+    step(s, idle, DT);
+    assert.ok(s.notice.life < life, "not refreshed every step");
+  }
+});

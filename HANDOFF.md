@@ -195,14 +195,14 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 - The per-shot, per-step `elementHit` scan and the prop collider scan in `safePosition` are unprofiled. Measure before adding a spatial hash or object pool.
 - Confirm the cached burning tint and quantized fold shading in a real browser; removing the two filter assignments does not prove a frame-rate improvement.
 - The prior review's camera-edge bug, stale comment, seed wrap and missing burnt-drop documentation are fixed (see latest changes above).
-- Low-impact notice ordering remains: `announcePhase` in `src/game/sim.ts` advances `phaseSeen` before `notify` can reject a phase notice behind a Boss / evolution notice (and explicitly skips it behind `boss-incoming`). The phase ribbon is then lost rather than queued/retried. Confirmed by code inspection during handoff cleanup; not fixed or newly tested. Preserve major-notice priority when fixing it.
+- Phase notice ordering is fixed: phaseSeen advances only when notify accepts the ribbon. Boss arrival/defeat and both evolution banners retain priority; the latest pending phase appears after they expire, without resetting every tick. Regression coverage exercises all four major banners.
 
 ## Still open
 
 1. Real browser playtest and balance: difficulty curve, weapon / passive strength, chest pacing, Boss HP, volume, plus props, fire, districts, landmarks and the gallery.
 2. Real browser performance (**explicitly deferred by the user; do not run without a renewed request**): about 100 enemies with fire, hitches when entering unbuilt chunks, sprite caches for props and fire.
 3. User review of art and UI: map, landmarks, district ground (whether the cat and ink stay readable on the darker graveyard woods, patch density, chunk-aligned district edges), prop phases, fire, pop-up folding, journal UI, gallery, cat head edge.
-4. Whether the 14-row result page fits its two-column layout is unchecked.
+4. Result layout now uses the full device overlay, scrollable panels, one column on narrow phones and wrapping labels/values. Current code renders 13 rows (older notes said 14). One 390 × 844 English fixture screenshot was viewed; all rows and buttons fit. Final date/stamp spacing was adjusted afterwards without another screenshot. Full mobile flows, upgrade choices and landscape browser layout remain unreviewed.
 5. Paper-ecology features are now implemented, not deferred: playtest their balance, feedback, safe access to water, folded-route readability and renewal pacing. Only renewable flora regrows, not handcrafted buildings/props; temporary actor wetness is not a new damage immunity to enemies.
 6. Legacy leftovers: the unused `drawMascot` in `src/render/layout.ts` has a `pose.id === "nicole"` branch, and `craft-juice.ts` has two `"eraser-boss"` presentation checks. Kept under "do not delete blindly".
 7. Gallery skill poses / landmark markers and the new art paths have command-recording coverage. The static sheet showed a subset of art, not a review of the full gallery or its mobile layout.
@@ -228,3 +228,11 @@ npm test        # production build + node --test tests/*.test.mjs (237 tests)
 - SSH push succeeded for `5b67387` to `origin/main`; the old blanket claim that pushing is blocked is obsolete. Only commit / push when the user authorizes it; never include `.agents/`, `output/`, `dist/` or `site/`.
 
 Kiro continuation verification: `npm run build` and `npm test` passed, 238/238 tests. No new screenshot, animation, recording, audio or FPS checks. Changes are saved in the Kiro continuation commit; not pushed. Existing historical probe references were not regenerated; same-seed snapshot tests pass, while spawn outcomes intentionally change.
+
+## Menu and phase fixes (2026-11-17)
+
+The user explicitly deferred deployment until the game is ready. Do not treat publishing as the next task. Fixed deferred phase banners, full-device pause/upgrade/result menus, scroll access for long pages, narrow-phone result rows and long bilingual text wrapping. Build and 239 tests pass. One static system-Chrome result fixture was captured/viewed at output/playwright/menu-result-mobile.png (English, 390 × 844); no animation, recording, audio, gameplay balance or FPS checks. Final date spacing was changed after the screenshot. This round is included in the subsequent user-authorized review commit and push. English default, broader art review and balance remain pending; performance sampling and helper cats retain their prior restrictions.
+
+## Static art review and publication authorization (2026-11-17)
+
+The user requested an art check followed by commit and push. One system-Chrome screenshot, output/playwright/kiro-world-art-review.png, was captured and viewed: seed-7 start-yard world renders for each cat separately plus six enlarged ghost samples (open/folded, left/right, light/dark backgrounds). These are static fixtures using production Canvas painters, not a live playthrough. Ghosts are readable in the scene; a horizontal body/hem seam was visible. Changed the painter to cache the complete sheet before clipping body/hem, so shadow generation is no longer clipped at the hinge. This correction was not re-screenshotted (one-screenshot limit). Existing finite-cache/read-only art tests cover the new sheet. Cat faces still appear angular/dense; broader art approval remains open. No animation, audio or FPS checks. The user authorizes pushing these changes; deployment status is not verified.

@@ -497,10 +497,11 @@ const MAJOR_NOTICES: ReadonlySet<Notice> = new Set<Notice>([
   "boss-defeated",
   ...EVOLUTION_DEFS.all().map((e) => e.notice),
 ]);
-function notify(state: SimState, kind: Notice): void {
+function notify(state: SimState, kind: Notice): boolean {
   const live = state.notice;
-  if (live && MAJOR_NOTICES.has(live.kind) && !MAJOR_NOTICES.has(kind)) return;
+  if (live && MAJOR_NOTICES.has(live.kind) && !MAJOR_NOTICES.has(kind)) return false;
   state.notice = { kind, life: 2.2 };
+  return true;
 }
 function safePosition(state: SimState, x: number, y: number, radius: number) {
   const dry = avoidDeepWater(state.seed, x, y, radius);
@@ -828,9 +829,8 @@ function countStreak(state: SimState, e: EnemyState): void {
 function announcePhase(state: SimState): void {
   const phase = nightPhase(state);
   if (phase <= state.phaseSeen) return;
-  state.phaseSeen = phase;
-  if (state.notice?.kind !== "boss-incoming")
-    notify(state, `phase${phase}` as Notice);
+  // Keep the latest phase pending while a major banner owns the ribbon.
+  if (notify(state, `phase${phase}` as Notice)) state.phaseSeen = phase;
 }
 /** Pumpkins light on touch and scorch nearby ink; the lantern charges, then stuns. */
 function stepInteractables(state: SimState, dt: number): void {

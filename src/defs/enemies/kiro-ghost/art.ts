@@ -43,13 +43,19 @@ function paintSheet(ctx: Ctx): void {
   ctx.restore();
 }
 
+// Paint shadows before slicing: clipping during shadow generation creates a
+// false horizontal edge at the hinge. Both slices reuse this complete sheet.
+function sheetPart() {
+  return enemyPart("kiro-ghost:sheet", 56, 64, paintSheet);
+}
+
 function bodyPart() {
   return enemyPart("kiro-ghost:body", 56, 64, (ctx) => {
     ctx.save();
     const upper = new Path2D();
     upper.rect(-28, -32, 56, 32 + HEM + 0.4);
     ctx.clip(upper);
-    paintSheet(ctx);
+    sheetPart().draw(ctx, { x: 0, y: 0 });
     // The mascot's eyes are black paper ovals, not the shared white googly eyes.
     for (const x of [1.8, 8.6]) {
       const eye = new Path2D();
@@ -66,7 +72,7 @@ function hemPart() {
     const lower = new Path2D();
     lower.rect(-28, HEM, 56, 32 - HEM);
     ctx.clip(lower);
-    paintSheet(ctx);
+    sheetPart().draw(ctx, { x: 0, y: 0 });
     ctx.restore();
   });
 }

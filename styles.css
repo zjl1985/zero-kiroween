@@ -1316,11 +1316,15 @@ body[data-cat="nicole"] .profile-title span {
 .journal-date {
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: #7d95b0;
+  color: #5b657a;
   margin-bottom: 6px;
+  padding-right: 64px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .result-panel h2 {
   margin: 4px 0 6px;
+  padding-right: 64px;
 }
 .paw-stamp {
   position: absolute;
@@ -1334,12 +1338,13 @@ body[data-cat="nicole"] .profile-title span {
 }
 .result-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 26px;
   row-gap: 4px;
   margin-top: 14px;
 }
 .result-stats div {
+  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -1350,15 +1355,18 @@ body[data-cat="nicole"] .profile-title span {
   color: var(--ink-soft);
   font-size: 9px;
   letter-spacing: 0.08em;
-  white-space: nowrap;
-  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
   /* A dotted leader runs to the value. */
   background: radial-gradient(circle, #8a7a6c88 0.8px, transparent 1.2px) 0 85% / 5px 4px repeat-x;
 }
 .result-stats dd {
   font: 15px Georgia, "Songti SC", serif;
   color: #2c3f63;
-  white-space: nowrap;
+  max-width: 60%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 .journal-landmarks {
   margin-top: 10px;
@@ -1505,6 +1513,8 @@ body[data-cat="nicole"] .profile-title span {
   background: #4d6f9e;
 }
 .card-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font: 17px "Songti SC", Georgia, serif;
   color: var(--ink-dark);
 }
@@ -1515,6 +1525,8 @@ body[data-cat="nicole"] .profile-title span {
   min-height: 11px;
 }
 .card-desc {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.6;
   color: var(--ink-soft);
@@ -2454,4 +2466,56 @@ body[data-screen="gallery"] {
 #gallery-canvas {
   display: block;
   width: 100%;
+}
+
+/* Menus use the whole device, not the letterboxed game's short overlay.
+   present() owns inline play bounds; these overrides apply only to menus. */
+body:is([data-screen="pause"], [data-screen="upgrade"], [data-screen="result"]) #overlay {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+body:is([data-screen="pause"], [data-screen="upgrade"]) #hud {
+  visibility: hidden;
+}
+#pause-screen,
+#result-screen {
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.upgrade-screen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  justify-content: safe center;
+  padding: calc(20px + env(safe-area-inset-top)) 10px calc(24px + env(safe-area-inset-bottom));
+}
+.upgrade-screen > * {
+  flex-shrink: 0;
+}
+.upgrade-card {
+  touch-action: pan-y;
+}
+@media (max-width: 480px) {
+  .result-stats {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 7px;
+  }
+  .result-stats dt {
+    font-size: 11px;
+  }
+  .result-stats dd {
+    font-size: 14px;
+  }
+  .result-panel .actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .result-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
