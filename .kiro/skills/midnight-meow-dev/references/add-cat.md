@@ -122,3 +122,5 @@ The ticket on the title screen is built by `buildCatTickets()` in `src/ui/charac
 - [ ] all keys in keys.ts, en.ts, zh.ts
 - [ ] no `"<id>"` literal in `src/game/*.ts`, non-legacy `src/render/*.ts`, `src/ui/*.ts`, `src/main.ts`
 - [ ] `npm run build && npm test` pass
+
+Paper head art: provide `CatArt.face` with an authored SVG-path silhouette and colour-role patches in the 70 × 55 head box. `paper-face.ts` combines these with the official palette/accessory metadata. Do not trace the pixel grid for the active game head.

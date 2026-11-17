@@ -1,3 +1,18 @@
+@font-face {
+  font-family: "Allo";
+  src: url("./assets/fonts/AlloVariableFriendly.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Allo";
+  src: url("./assets/fonts/Allo-Oblique.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* ===========================================================================
    Midnight Meow: the night-watch papercraft journal.
    Everything here is paper made in CSS: cut edges (clip-path), visible
@@ -21,7 +36,7 @@
   --accent-rgb: 231, 179, 102;
   --ink: #f0dfbf;
   --lift: drop-shadow(0 2px 0 #1a1222aa) drop-shadow(0 6px 8px #0b081466);
-  font-family: "Iowan Old Style", "Songti SC", "STSong", Georgia, serif;
+  font-family: "Allo", "Songti SC", "STSong", sans-serif;
   color-scheme: dark;
 }
 * {
@@ -90,7 +105,7 @@ dd {
   pointer-events: auto;
 }
 kbd {
-  font: 9px "SFMono-Regular", Consolas, monospace;
+  font: 9px "Allo", monospace;
   padding: 2px 5px 1px;
   border: 1px solid currentColor;
   border-bottom-width: 2px;
@@ -250,7 +265,7 @@ kbd {
   color: #e9c98f;
 }
 h1 {
-  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-family: "Allo", "Songti SC", "STSong", sans-serif;
   font-size: clamp(30px, 4cqw, 60px);
   letter-spacing: 0.14em;
   line-height: 1.15;
@@ -378,7 +393,7 @@ h1 {
   width: 16px;
   height: 16px;
   margin-top: -8px;
-  font: 700 10px/16px sans-serif;
+  font: 700 10px/16px "Allo", sans-serif;
   font-style: normal;
   text-align: center;
   color: #fff1dc;
@@ -777,7 +792,7 @@ body[data-cat="nicole"] .profile-title span {
   align-items: center;
 }
 #hud-time {
-  font: 22px Georgia, serif;
+  font: 22px "Allo", "Songti SC", sans-serif;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
   color: #f4e2bb;
@@ -882,7 +897,7 @@ body[data-cat="nicole"] .profile-title span {
   transform: rotate(3deg);
 }
 .streak-badge strong {
-  font: 700 19px Georgia, serif;
+  font: 700 19px "Allo", "Songti SC", sans-serif;
 }
 .streak-badge span {
   font-size: 9px;
@@ -1020,7 +1035,7 @@ body[data-cat="nicole"] .profile-title span {
 }
 .pleat-2 strong {
   display: block;
-  font: 700 26px "Songti SC", Georgia, serif;
+  font: 700 26px "Allo", "Songti SC", sans-serif;
   letter-spacing: 0.14em;
   --ink-fill: #3b2030;
   color: #3b2030;
@@ -1176,7 +1191,7 @@ body[data-cat="nicole"] .profile-title span {
   place-items: center;
   width: 32px;
   height: 32px;
-  font: 700 13px Georgia, serif;
+  font: 700 13px "Allo", "Songti SC", sans-serif;
   color: var(--ink-dark);
   background: radial-gradient(circle at 35% 30%, #f8ecd0, #d8bf8f);
   border-radius: 50%;
@@ -1265,7 +1280,7 @@ body[data-cat="nicole"] .profile-title span {
   box-shadow: -2px 2px 3px #3a2a2033;
 }
 .panel h2 {
-  font: 28px "Songti SC", Georgia, serif;
+  font: 28px "Allo", "Songti SC", sans-serif;
   color: var(--ink-dark);
   margin: 8px 0 12px;
 }
@@ -1361,7 +1376,7 @@ body[data-cat="nicole"] .profile-title span {
   background: radial-gradient(circle, #8a7a6c88 0.8px, transparent 1.2px) 0 85% / 5px 4px repeat-x;
 }
 .result-stats dd {
-  font: 15px Georgia, "Songti SC", serif;
+  font: 15px "Allo", "Songti SC", sans-serif;
   color: #2c3f63;
   max-width: 60%;
   white-space: normal;
@@ -1399,7 +1414,7 @@ body[data-cat="nicole"] .profile-title span {
   text-align: center;
 }
 .upgrade-screen h2 {
-  font: 26px "Songti SC", Georgia, serif;
+  font: 26px "Allo", "Songti SC", sans-serif;
   color: #f0d9b1;
   margin: 4px 0 20px;
   text-shadow: 0 2px #0b0d18;
@@ -1515,7 +1530,7 @@ body[data-cat="nicole"] .profile-title span {
 .card-name {
   min-width: 0;
   overflow-wrap: anywhere;
-  font: 17px "Songti SC", Georgia, serif;
+  font: 17px "Allo", "Songti SC", sans-serif;
   color: var(--ink-dark);
 }
 .card-level {
@@ -2449,7 +2464,7 @@ body[data-screen="gallery"] {
   clip-path: polygon(0 2%, 40% 0, 70% 3%, 100% 0, 99.2% 50%, 100% 100%, 60% 97%, 30% 100%, 0 98%);
 }
 .gallery-head h1 {
-  font: 30px "Songti SC", Georgia, serif;
+  font: 30px "Allo", "Songti SC", sans-serif;
   margin: 4px 0 6px;
 }
 .gallery-head .eyebrow {

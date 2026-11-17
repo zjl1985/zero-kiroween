@@ -631,5 +631,9 @@ function boot(): void {
   };
   requestAnimationFrame(frame);
 }
-if (new URLSearchParams(location.search).get("gallery") === "1") bootGallery();
-else boot();
+// Canvas labels are cached: wait for the local face before the first paint.
+const fontReady = document.fonts?.load('400 16px "Allo"') ?? Promise.resolve([]);
+void fontReady.catch(() => []).then(() => {
+  if (new URLSearchParams(location.search).get("gallery") === "1") bootGallery();
+  else boot();
+});

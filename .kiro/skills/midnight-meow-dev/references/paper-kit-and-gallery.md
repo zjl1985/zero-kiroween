@@ -31,7 +31,7 @@ Caching, `src/engine/sprite.ts`: `cachedSprite(key, w, h, scale, paint, anchor?)
 - Cold night tones against warm lamp and window light; keep cats, ink and danger readable.
 - Ground details come in clusters; houses have wall and roof volume; tree crowns are grouped leaf clusters.
 - Fix shape design before adding decoration. Noise over flat shapes does not count as paper.
-- Keep Zero's and Nicole's official Meow Wall data untouched (`src/cats/`). `paper-face.ts` traces visible color contours and silhouette from it, preserving last-rectangle-wins layering, holes, small details and original anchors. World heads and portraits share cached paper cuts and the narrow rim, not a replacement face.
+- Keep the official source data untouched. At the user’s explicit request, active heads now use authored curved silhouettes and identity patches from `CatArt.face`, with original palettes and recognizable eyewear/hair/chain interpreted as paper cuts. World and portrait rendering share cached cuts, old anchors and the narrow rim; source-contour helpers are reference-only.
 
 ## Ecology art contracts
 

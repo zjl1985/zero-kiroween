@@ -31,7 +31,8 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
 
 test("the published site contains only entry files and current compiled modules", () => {
   const modules = files(new URL("src/", root)).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
-  const expected = ["index.html", "styles.css", ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
+  const fontFiles = ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"];
+  const expected = ["index.html", "styles.css", ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
   assert.deepEqual(files(site), expected);
   for (const file of ["index.html", "styles.css"])
     assert.equal(readFileSync(new URL(file, site), "utf8"), readFileSync(new URL(file, root), "utf8"));
@@ -76,13 +77,27 @@ test("packaging removes old site output and excludes stale modules, maps and pri
   put(".agents/private.md", "private task state");
   put("index.html", '<script type="module" src="./dist/nested/live.js"></script>');
   put("styles.css", "body { margin: 0; }");
+  mkdirSync(join(fixture, "assets/fonts"), { recursive: true });
+  for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"])
+    copyFileSync(new URL(`assets/fonts/${file}`, root), join(fixture, "assets/fonts", file));
   mkdirSync(join(fixture, "scripts"));
   copyFileSync(new URL("scripts/build-site.mjs", root), join(fixture, "scripts/build-site.mjs"));
   execFileSync(process.execPath, [join(fixture, "scripts/build-site.mjs")], { cwd: tmpdir(), timeout: 10000 });
-  assert.deepEqual(readdirSync(join(fixture, "site")).sort(), ["dist", "index.html", "styles.css"]);
+  assert.deepEqual(readdirSync(join(fixture, "site")).sort(), ["assets", "dist", "index.html", "styles.css"]);
   assert.deepEqual(readdirSync(join(fixture, "site/dist")), ["nested"]);
   assert.deepEqual(readdirSync(join(fixture, "site/dist/nested")), ["live.js"]);
   assert.equal(readFileSync(join(fixture, "site/dist/nested/live.js"), "utf8"), "export const value = 7;\n");
   assert.equal(readFileSync(join(fixture, "dist/removed.js"), "utf8"), "stale module", "packaging does not delete development files");
   assert.equal(readFileSync(join(fixture, ".agents/private.md"), "utf8"), "private task state");
+});
+
+test("Allo fonts and their license are published unchanged, with local-only font URLs", () => {
+  for (const name of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2"]) {
+    const source = readFileSync(new URL(`assets/fonts/${name}`, root));
+    assert.equal(source.subarray(0, 4).toString(), "wOF2");
+    assert.deepEqual(readFileSync(new URL(`assets/fonts/${name}`, site)), source);
+  }
+  assert.match(readFileSync(new URL("assets/fonts/OFL.txt", site), "utf8"), /SIL OPEN FONT LICENSE Version 1.1/);
+  const css = readFileSync(new URL("styles.css", site), "utf8");
+  for (const [, url] of css.matchAll(/url\("([^"]+)"\)/g)) assert.ok(files(site).includes(url.replace(/^\.\//, "")));
 });

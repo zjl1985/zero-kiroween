@@ -4,7 +4,7 @@ import { catDetailPose, drawCatDetails } from "./cat-detail.js";
 import type { Ctx } from "./paper-material.js";
 import { paperFace, paperFaceEdge, PAPER_FACE_SCALE, PAPER_FACE_SIZE } from "./paper-face.js";
 
-/** Official colour regions become layered paper cuts; the tailored body keeps its own hinges. */
+/** Authored head cuts share original identity colours; the tailored body keeps its own hinges. */
 export function drawCraftCat(ctx: Ctx, pose: CatPose, look: CatBodyPalette): void {
   const k = (pose.scale ?? PAPER_FACE_SCALE) / PAPER_FACE_SCALE;
   const detail = catDetailPose(pose);

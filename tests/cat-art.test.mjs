@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { officialRects } from "../dist/cats/official.js";
+import { officialVariant, officialRects } from "../dist/cats/official.js";
 import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
 import { CAT_ART } from "../dist/render/art-index.js";
 import { CAT_DETAIL_BOUNDS, catDetailPose } from "../dist/render/cat-detail.js";
@@ -177,10 +177,14 @@ test("layered face cuts retain a narrow rim, old head placement and shared paper
     const ctx = draw(art), [edge, head] = images(ctx).slice(-2), face = officialFaceContours(art.id);
     assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55]);
     assert.deepEqual(edge.args.slice(1), [-37, -73, 74, 59]);
-    for (const layer of face.layers) assert.ok(fills(paint(head), layer.color).length, "every visible official colour is used unchanged");
+    const palette = officialVariant(art.id).palette;
+    for (const role of ["head", "headDark", "headLight", "earInner", "ink", "blush", "nose", "white"])
+      assert.ok(fills(paint(head), palette[role]).length, `original identity colour: ${role}`);
+    assert.ok(paint(head).some(c => c.op === "fill" && c.args[0]?.ops.some(op => op[0] === "path" && op[1] === art.face.outline)), "renderer uses the authored silhouette");
     assert.ok(!paint(head).some((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-over"), "no raw rectangle print");
     assert.ok(paint(head).some((c) => c.op === "stroke"), "clipped sheet lips and thickness");
-    assert.ok(paint(head).some((c) => c.op === "fill" && c.args[0]?.ops.some((op) => op[0] === "quadraticCurveTo")), "subpixel scissor turns, not generic replacement geometry");
+    assert.match(art.face.outline, /Q/, "cheeks and chin use authored curves");
+    assert.ok((art.face.outline.match(/[ML]/g) ?? []).length < 12, "silhouette is not a dense grid staircase");
     const rim = paint(edge).find((c) => c.op === "stroke" && c.strokeStyle === art.body.rim);
     assert.equal(rim.lineWidth / 2, PAPER_FACE_RIM);
     assert.equal(PAPER_FACE_RIM, 0.625);

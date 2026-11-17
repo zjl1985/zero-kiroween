@@ -28,5 +28,9 @@ function publishModules(directory) {
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 for (const file of ["index.html", "styles.css"]) copyFileSync(join(root, file), join(output, file));
+// Explicit font/license allowlist; no arbitrary media or downloaded archives ship.
+mkdirSync(join(output, "assets/fonts"), { recursive: true });
+for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"])
+  copyFileSync(join(root, "assets/fonts", file), join(output, "assets/fonts", file));
 publishModules(source);
-console.log("Static site built in site/ (HTML, CSS and JavaScript only).");
+console.log("Static site built in site/ (HTML, CSS, JavaScript and licensed fonts).");

@@ -118,7 +118,7 @@ function drawDamageTag(ctx: Ctx, e: Impact): void {
   }).draw(ctx, { x: 0, y: 0 });
   ctx.restore();
   ctx.fillStyle = "#3a2733";
-  ctx.font = `700 ${big ? 9 : 7.5}px Georgia, serif`;
+  ctx.font = `700 ${big ? 9 : 7.5}px Allo, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, 0, 0.5);

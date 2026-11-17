@@ -16,6 +16,7 @@ import type { EnemyState, Impact, LandmarkEventState, ShotState, SimState } from
 import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
 import type { VariantBase } from "./variants.js";
+import type { MascotPalette } from "../cats/meow-wall-art.js";
 
 export type SkillIconKind = "attack" | "active" | "passive";
 /** Paper colours of the shared cat body (craft-cat.ts) for one cat. */
@@ -57,9 +58,14 @@ export interface CatColors {
 }
 export interface CatArt {
   readonly id: CatId;
+  /** Authored paper silhouette and identity patches, in the shared 70 × 55 head box. */
+  readonly face: {
+    readonly outline: string;
+    readonly patches: readonly { readonly path: string; readonly color: keyof MascotPalette }[];
+  };
   readonly body: CatBodyPalette;
   readonly colors: CatColors;
-  /** The cat in the world (official head on a paper body). */
+  /** The cat in the world (authored paper head retaining the original identity). */
   draw(ctx: Ctx, pose: CatPose): void;
   /** Static gallery skill pose and effects, without constructing a simulation. */
   skillPreview(ctx: Ctx, pose: CatPose): void;

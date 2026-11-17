@@ -177,10 +177,10 @@ function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number): void {
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = INK;
-  ctx.font = `600 12px "Iowan Old Style", "Songti SC", Georgia, serif`;
+  ctx.font = `600 12px Allo, "Songti SC", sans-serif`;
   ctx.fillText(t(locale, cell.label), x + w / 2, ty + 13, w - 22);
   ctx.fillStyle = INK_SOFT;
-  ctx.font = `10px "Iowan Old Style", "Songti SC", Georgia, serif`;
+  ctx.font = `10px Allo, "Songti SC", sans-serif`;
   ctx.fillText(t(locale, stateLabel(cell.state)), x + w / 2, ty + 24, w - 22);
   ctx.restore();
 }
@@ -214,7 +214,7 @@ export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: n
     });
     ctx.save();
     ctx.fillStyle = INK;
-    ctx.font = `600 17px "Songti SC", "Iowan Old Style", Georgia, serif`;
+    ctx.font = `600 17px Allo, "Songti SC", sans-serif`;
     ctx.textBaseline = "middle";
     ctx.fillText(t(locale, hd.title), hd.x + 16, hd.y + 20, 230);
     ctx.restore();

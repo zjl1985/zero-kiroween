@@ -42,3 +42,7 @@ Local commits are allowed. Do not push or deploy unless the user explicitly lift
 ## Deleting files
 
 Delete files and directories with `trash` (moves them to the macOS Trash) by default. Files tracked in Git history and temporary files may be deleted directly, as may anything the user explicitly asks to delete directly. For other files, if `trash` is unavailable, never silently fall back to permanent deletion.
+
+## User-requested typography
+
+Use local Allo font files for English UI and Canvas text, with Chinese fallbacks. `assets/fonts/` contains the explicitly authorized, unmodified font files and OFL license; these are typography assets, not an exception for image/audio assets. Keep the build font allowlist and license intact.

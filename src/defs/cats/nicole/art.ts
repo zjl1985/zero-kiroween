@@ -9,6 +9,15 @@ import { NICOLE_STATS } from "./stats.js";
 
 export const NICOLE_ART: CatArt = {
   id: "nicole",
+  face: {
+    outline: "M 13 27 Q 11 18 13 9 Q 14 6 17 10 L 27 20 Q 35 17 44 20 L 55 9 Q 58 6 58 10 L 57 27 Q 62 34 57 42 Q 50 51 35 51 Q 22 51 15 44 Q 9 37 13 27 Z",
+    patches: [
+      { color: "headDark", path: "M 11 29 L 12 7 L 27 20 L 31 19 Q 25 25 19 26 Q 16 34 19 44 L 14 44 Q 8 37 11 29 Z" },
+      { color: "headDark", path: "M 38 19 Q 42 16 46 20 L 59 7 L 57 28 Q 65 40 53 49 L 48 48 Q 54 40 50 30 Q 43 28 41 23 Z" },
+      { color: "headLight", path: "M 24 37 Q 30 35 35 38 Q 42 35 47 38 Q 49 43 43 46 Q 35 49 27 46 Q 21 43 24 37 Z" },
+      { color: "white", path: "M 23 47 Q 34 51 47 47 L 46 53 L 24 53 Z" },
+    ],
+  },
   body: {
     rim: "#cbbfae",
     tail: "#a98e77",

@@ -12,7 +12,7 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 - Trees, houses, road, grass, cats, enemies, props and UI share one material language.
 - Houses need volume in walls and roof faces; tree crowns need grouped leaf clusters; ground details come in clusters, not evenly scattered.
 - Cold night tones should set off warm lamp and window light. Cats, ink blobs and danger must stay readable (check this on darker district ground such as graveyard-woods).
-- Keep official Meow Wall face data untouched (`src/cats/`). `paper-face.ts` derives cached color contours and silhouette with original overlap order, markings, holes and small facial details; world cats and portraits use those paper cuts at the existing anchors with a narrow rim. Do not redraw a substitute face or return to a pixel mode.
+- Keep official Meow Wall source data untouched (`src/cats/`). The user explicitly requested redrawn non-grid heads: each cat art entry supplies a curved `face.outline` and identity patches; `paper-face.ts` retains original palettes and accessory identities (gold hair/sunglasses/chain; dark hair/round frames) in authored paper cuts. World heads and portraits share the same cached cuts, anchors and narrow rim. Do not restore pixel tracing as the active head design.
 - Fix shape design before adding more decoration. Uniform noise, plain geometric blocks and more props do not replace good shapes.
 
 ## Paper kit

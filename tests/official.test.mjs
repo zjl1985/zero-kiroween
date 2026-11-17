@@ -9,7 +9,7 @@ import {
 } from "../dist/cats/meow-wall-art.js";
 import { officialRects, officialVariant } from "../dist/cats/official.js";
 
-test("Zero and Nicole use the official Meow Wall drawing path", () => {
+test("Zero and Nicole preserve the unmodified official source and identity metadata", () => {
   assert.equal(MASCOT_VIEWBOX_WIDTH, 386);
   assert.equal(MASCOT_VIEWBOX_HEIGHT, 288);
 

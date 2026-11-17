@@ -1,8 +1,11 @@
-import { officialRects, MASCOT_VIEWBOX_WIDTH, MASCOT_VIEWBOX_HEIGHT, type MascotRect } from "../cats/official.js";
+import { officialVariant, officialRects, MASCOT_VIEWBOX_WIDTH, MASCOT_VIEWBOX_HEIGHT, type MascotRect } from "../cats/official.js";
 import type { CatId } from "../cats/types.js";
 import { cachedSprite } from "../engine/sprite.js";
 import type { CatPose } from "./layout.js";
-import { grain, mix, type Ctx, type Point } from "./paper-material.js";
+import { grain, mix, stroke, type Ctx, type Point } from "./paper-material.js";
+
+import { paperCut } from "./paper-kit.js";
+import { catArt, type CatArt } from "./art-registry.js";
 
 export const PAPER_FACE_SCALE = 0.16;
 export const PAPER_FACE_RIM = 0.625;
@@ -124,59 +127,70 @@ export function scissorContour(points: readonly Point[], tolerance = 0.9): reado
   return result.length >= 4 && Math.abs(area(result) - area(points)) <= area(points) * 0.08 ? result : points;
 }
 
-function cutPath(loops: FaceContours["silhouette"]): Path2D {
-  const p = new Path2D();
-  for (const loop of loops) {
-    const pts = scissorContour(loop.map(([x, y]) => [4 + x * PAPER_FACE_SCALE, 4 + y * PAPER_FACE_SCALE] as Point));
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[(i + pts.length - 1) % pts.length]!, b = pts[i]!, c = pts[(i + 1) % pts.length]!,
-        ab = Math.hypot(a[0] - b[0], a[1] - b[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]),
-        // A small scissor turn, not smoothing away a marking, eyelash or accessory.
-        r = Math.min(1.25, ab * 0.4, bc * 0.4),
-        before: Point = [b[0] + (a[0] - b[0]) * r / ab, b[1] + (a[1] - b[1]) * r / ab],
-        after: Point = [b[0] + (c[0] - b[0]) * r / bc, b[1] + (c[1] - b[1]) * r / bc];
-      if (i === 0) p.moveTo(...before); else p.lineTo(...before);
-      p.quadraticCurveTo(...b, ...after);
-    }
-    p.closePath();
-  }
-  return p;
-}
-const paths = new WeakMap<FaceContours, { outline: Path2D; layers: { layer: FaceLayer; path: Path2D }[] }>();
+// Source contour helpers above remain for reference; runtime heads use authored curves.
+type FaceDesign = CatArt["face"];
+const paths = new WeakMap<FaceDesign, { outline: Path2D; layers: { color: FaceDesign["patches"][number]["color"]; path: Path2D }[] }>();
 function facePaths(id: CatId) {
-  const face = officialFaceContours(id);
-  let result = paths.get(face);
+  const design = catArt(id).face;
+  let result = paths.get(design);
   if (!result) {
-    result = { outline: cutPath(face.silhouette), layers: face.layers.map((layer) => ({ layer, path: cutPath(layer.contours) })) };
-    paths.set(face, result);
+    result = { outline: new Path2D(design.outline), layers: design.patches.map((patch) => ({ color: patch.color, path: new Path2D(patch.path) })) };
+    paths.set(design, result);
   }
   return result;
 }
+
+/** Authored paper cuts retain original palette and accessories without the pixel grid. */
 export function paperFace(id: CatId) {
   return cachedSprite(`paper-face:${id}`, PAPER_FACE_SIZE.w, PAPER_FACE_SIZE.h, 2, (ctx) => {
-    const face = facePaths(id);
-    ctx.save();
-    ctx.clip(face.outline);
-    // A backing sheet prevents hairline gaps between antialiased colour cuts.
-    ctx.fillStyle = [...face.layers].sort((a, b) => b.layer.area - a.layer.area)[0]!.layer.color;
-    ctx.fill(face.outline);
-    for (const { layer, path } of face.layers) {
-      ctx.fillStyle = layer.color;
-      ctx.fill(path);
-      if (layer.area < 600) continue; // tiny eye/nose/highlight details retain the exact ink
-      ctx.save();
-      ctx.clip(path);
-      ctx.lineWidth = 0.35;
-      ctx.strokeStyle = mix(layer.color, "#211a28", 0.2);
-      ctx.translate(0.28, 0.42);
-      ctx.stroke(path);
-      ctx.translate(-0.55, -0.72);
-      ctx.strokeStyle = mix(layer.color, "#fff0d4", 0.22);
-      ctx.stroke(path);
+    const face = facePaths(id), original = officialVariant(id), p = original.palette;
+    const cut = (shape: Path2D, color: string, thickness = 0.4) =>
+      paperCut(ctx, shape, { color, edge: mix(color, "#fff0d4", 0.25), thickness, shadow: 0.22, texture: 0.16 });
+    cut(face.outline, p.head, 0.65);
+    ctx.save(); ctx.clip(face.outline);
+    cut(new Path2D("M 12 29 Q 16 38 23 44 Q 35 50 49 44 L 55 40 Q 47 55 25 51 Q 12 46 12 29 Z"), mix(p.head, p.headDark, 0.16), 0.2);
+    for (const layer of face.layers) cut(layer.path, p[layer.color] ?? p.head);
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(35, 0); ctx.scale(side, 1);
+      cut(new Path2D("M 12 22 L 21 12 L 20 26 Q 16 22 12 22 Z"), p.earInner, 0.35);
+      stroke(ctx, new Path2D("M 16 21 L 19 16"), mix(p.earInner, p.headLight, 0.55), 0.65, 0.7);
       ctx.restore();
     }
-    grain(ctx, face.outline, 0.1);
-    ctx.restore();
+    for (const x of [22, 48]) {
+      const blush = new Path2D(); blush.ellipse(x, 40, 3.2, 1.6, x < 35 ? 0.12 : -0.12, 0, Math.PI * 2);
+      ctx.save(); ctx.globalAlpha *= 0.65; cut(blush, p.blush, 0.2); ctx.restore();
+    }
+    const glasses = original.accessories?.includes("glasses"), sunglasses = original.accessories?.includes("sunglasses");
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(35 + side * 10, 33);
+      if (sunglasses) {
+        cut(new Path2D("M -7 -4 Q 0 -5 7 -4 L 6 2 Q 0 6 -6 2 Z"), p.ink, 0.55);
+        cut(new Path2D("M -4 -3 L -1 -3 L -3 0 L -5 -1 Z"), p.white, 0.15);
+        stroke(ctx, new Path2D("M 2 -3 L 5 -3"), p.headLight, 0.45, 0.55);
+      } else {
+        const eye = new Path2D(); eye.ellipse(0, 0.5, 2.2, 3.1, 0, 0, Math.PI * 2); cut(eye, p.ink, 0.25);
+        const glint = new Path2D(); glint.ellipse(-0.6, -0.8, 0.75, 1, 0, 0, Math.PI * 2); cut(glint, p.white, 0.1);
+        stroke(ctx, new Path2D("M -3 -2 Q 0 -4 3 -2"), p.headDark, 0.55);
+        if (glasses) {
+          const frame = new Path2D(); frame.ellipse(0, 0, 6.4, 5.6, 0, 0, Math.PI * 2); stroke(ctx, frame, p.ink, 1.15);
+          stroke(ctx, new Path2D("M -4 -3 Q -2 -5 1 -4"), p.headLight, 0.5, 0.9);
+        }
+      }
+      ctx.restore();
+    }
+    if (glasses || sunglasses) stroke(ctx, new Path2D("M 31 32 Q 35 30 39 32 M 18 31 L 14 29 M 52 31 L 56 29"), p.ink, 1.1);
+    cut(new Path2D("M 32.5 39 Q 35 37.8 37.5 39 L 35 41 Z"), p.nose, 0.25);
+    stroke(ctx, new Path2D("M 35 41 L 35 42 Q 32 45 30.5 42.5 M 35 42 Q 38 45 39.5 42.5"), p.ink, 0.65);
+    if (original.accessories?.includes("gold-chain")) {
+      stroke(ctx, new Path2D("M 24 47 Q 35 55 46 47"), p.mark ?? p.headLight, 1.1);
+      cut(new Path2D("M 33 49 L 37 49 L 37 52 L 33 52 Z"), p.mark ?? p.headLight, 0.3);
+    }
+    grain(ctx, face.outline, 0.08); ctx.restore();
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(35, 0); ctx.scale(side, 1);
+      const whiskers = new Path2D("M 18 36 Q 23 34 29 35 M 19 39 Q 24 39 28 41");
+      stroke(ctx, whiskers, p.headDark, 1.1, 0.9); stroke(ctx, whiskers, p.headLight, 0.35, 0.75); ctx.restore();
+    }
   });
 }
 export function paperFaceEdge(id: CatId, rim: string) {

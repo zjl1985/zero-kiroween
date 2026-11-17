@@ -1,0 +1,7 @@
+Allo 1.0.1 by Josh Puckett
+https://allo.joshpuckett.me/
+Source archive: https://allo.joshpuckett.me/downloads/Allo-1.0.1.zip
+Downloaded 2026-11-17. Original font files are unmodified.
+AlloVariableFriendly.woff2: weight 100–900, optical size 9–32, fixed Friendly roundness 50.
+Allo-Oblique.woff2: regular oblique face used for italic text.
+Licensed under SIL Open Font License 1.1; see OFL.txt.

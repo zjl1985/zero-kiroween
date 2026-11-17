@@ -639,7 +639,7 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
     ctx.restore();
     // The label tab sits on the inner side of the pointer.
     const label = t(locale, target.label);
-    ctx.font = "700 10px Georgia, serif";
+    ctx.font = "700 10px Allo, sans-serif";
     const tw = ctx.measureText(label).width + 14,
       lx = -Math.cos(ang) * (tw / 2 + 10) - tw / 2,
       ly = -Math.sin(ang) * 16 - 8;

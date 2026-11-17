@@ -89,7 +89,7 @@ npm start
 - 击败敌人掉落墨晶，升级时三选一（3 个武器槽、4 个被动槽）；精英与 Boss 掉宝箱；连杀、南瓜灯、月亮灯笼、鱼干、可撕可烧的纸物件提供额外互动。
 - 数值在 `src/defs/` 的各个定义文件里（猫在 `src/defs/cats/<id>/stats.ts`），角色选择与 HUD 从同一份注册数据读取。
 
-最新 `npm run build` 与 `npm test` **243 项通过**，覆盖水火优先级、护盾／死亡、同帧涉水击退、桥面与深水碰撞、再生防刷、地标冷却、纸片绘制及发布产物。一张系统 Chrome 静态美术总览已捕获并查看，但没有做动画、录屏、音频或约 100 敌人的帧率检查，完整实战和手机 UI 仍未验收。美术未经用户认可，参赛作品没有完成；随机援护猫仍待确认；英文默认已在最新一轮完成。
+最新 `npm run build` 与 `npm test` **246 项通过**，覆盖水火优先级、护盾／死亡、同帧涉水击退、桥面与深水碰撞、再生防刷、地标冷却、纸片绘制及发布产物。一张系统 Chrome 静态美术总览已捕获并查看，但没有做动画、录屏、音频或约 100 敌人的帧率检查，完整实战和手机 UI 仍未验收。美术未经用户认可，参赛作品没有完成；随机援护猫仍待确认；英文默认已在最新一轮完成。
 
 ```bash
 npm test
@@ -120,3 +120,9 @@ Kiro 小幽灵已接入为纸片敌人，开局阶段即可随机出现，同时
 New visitors now start in English; saved language preferences and the Chinese toggle remain available. Cat faces use softer paper corners and lighter inner edges. Graveyard ground is less dense, foreground buildings fade more when covering the cat, ink splash warnings show their circular damage area, and Boss charges show a wide directional lane. Restarting or leaving a run releases map caches; ended sound nodes disconnect and disabled ambience stops its loops. Browser memory peaks, FPS, audio quality and full-run balance have not yet been measured.
 
 本轮验证：构建和 243 项测试通过；三种手机横竖屏尺寸、中英双语的 18 组静态菜单布局无横向溢出，长页可滚动。新访客图鉴默认英文。这里只验证静态布局，不代表完整触控操作、平衡、音频或性能验收。
+
+## Typography and redrawn paper heads
+
+English UI and Canvas labels use [Allo](https://allo.joshpuckett.me/) 1.0.1 by Josh Puckett, bundled locally under SIL OFL 1.1 with its license in `assets/fonts/OFL.txt`. The Friendly variable WOFF2 supplies weights 100–900; a regular oblique supplies italic text. Chinese falls back to system fonts. The build copies only the two font files and their license/source notes, alongside HTML/CSS/JS.
+
+Cat heads now use authored curved ears, cheeks and chin silhouettes, rather than traced pixel boundaries. Original source data remains unchanged; palette, hair, eyewear and chain identity are carried into the new cut-paper drawing. World heads and UI portraits share the same finite cache.
