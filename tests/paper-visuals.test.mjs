@@ -10,9 +10,9 @@ import { ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js
 import { drawActorPaperStatus, drawPaperFlame, drawPaperStatusEffect } from "../dist/render/paper-status-art.js";
 import { drawFireGround, drawProp, fireSprites } from "../dist/render/craft-props.js";
 import { drawLandmarkActivity } from "../dist/render/craft-juice.js";
-import { dangerRing } from "../dist/render/craft-enemies.js";
+import { drawCraftEnemy, dangerRing } from "../dist/render/craft-enemies.js";
 import { drawCraftShot } from "../dist/render/craft-combat.js";
-import { ring, star } from "../dist/render/combat-fx.js";
+import { drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount } from "../dist/render/craft-world.js";
 import { paperOccludesActor } from "../dist/render/world.js";
 
@@ -250,5 +250,22 @@ test("splash warnings preserve circular damage geometry and draw a legible cross
   const shape = ctx.calls.find(c => c.op === "fill").args[0];
   assert.deepEqual(shape.ops[0], ["arc", 30, 40, 20, 0, Math.PI * 2]);
   assert.ok(ctx.calls.some(c => c.op === "stroke" && c.strokeStyle === "#ffe2bb"));
+  restored(ctx);
+});
+
+test("enemy recoil and directional dash marks are read-only and reuse finite cuts", (t) => {
+  environment(t);
+  const art = ENEMY_ART.get("kiro-ghost"), times = [];
+  t.mock.method(art, "draw", (_ctx, _e, time) => times.push(time));
+  const e = Object.freeze({id: 2, kind: art.id, x: 20, y: 30, hitFlash: 0.14, stun: 1});
+  const ctx = canvas().getContext("2d");
+  drawCraftEnemy(ctx, e, 10, {x: 0, y: 0});
+  assert.deepEqual(times, [0], "stunned body does not keep flapping");
+  assert.ok(ctx.calls.some(c => c.op === "scale" && c.args[0] > 1 && c.args[1] < 1), "hit compresses around the feet");
+  const effect = Object.freeze({kind: "dash", x: 20, y: 30, life: 0.3});
+  drawSkillEffect(ctx, effect);
+  const count = spriteCacheSize();
+  drawSkillEffect(ctx, {...effect, life: 0.1});
+  assert.equal(spriteCacheSize(), count);
   restored(ctx);
 });

@@ -14,6 +14,9 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose, look: CatBodyPalette): voi
   ctx.scale(k * pose.facing, k);
   drawCatDetails(ctx, look, detail);
   ctx.translate(0, detail.bob);
+  ctx.translate(0, -38);
+  ctx.rotate(detail.headTilt);
+  ctx.translate(0, 38);
   const { w, h } = PAPER_FACE_SIZE;
   paperFaceEdge(pose.id, look.rim).draw(ctx, { x: -w / 2 - 2, y: -20 - h + 2 });
   paperFace(pose.id).draw(ctx, { x: -w / 2, y: -20 - h + 4 });

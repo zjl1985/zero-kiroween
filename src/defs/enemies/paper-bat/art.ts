@@ -25,6 +25,10 @@ function drawBat(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
       c.fill(path([[0, 0], [7, -1], [13, 2], [10, -1], [8, 5], [5, 1], [1, 6]]));
       foldLine(c, 0, 0, 15, -11, 0.75);
       foldLine(c, 1, 1, 8, 4, 0.4);
+      // A turned-over wing tip and shoulder tab make the hinge read as folded card.
+      piece(c, path([[11, -8], [16, -12], [14, -5]]), "#a291b0",
+        { shadow: 0.3, edge: "#d6c7d9", texture: 0.3, thickness: 0.45 });
+      line(c, 2, -1, 5, -3, "#cab8cd", 0.7, 0.75);
     }).draw(ctx, { x: 0, y: 0 });
     ctx.restore();
   }
@@ -33,6 +37,12 @@ function drawBat(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     c.fillStyle = "#51405e";
     c.fill(path([[0, -6], [3, -3], [2, 3], [0, 5]]));
     foldLine(c, 0, -6, 0, 5, 0.55);
+    for (const side of [-1, 1]) {
+      piece(c, path([[side * 2, -7], [side * 3, -9], [side * 3.2, -6]]), "#bd8d9d",
+        { shadow: 0, edge: "#ddbec7", texture: 0.15, thickness: 0.3 });
+      piece(c, path([[side * 1.2, 1.5], [side * 2.1, 1.5], [side * 1.5, 3.4]]), "#f0e2c7",
+        { shadow: 0, texture: 0.1, thickness: 0.2 });
+    }
     line(c, -1.5, 2, 1.5, 2, "#c5b4c4", 0.5);
   }).draw(ctx, { x: e.x, y });
   for (const dx of [-1.7, 1.7]) googly(ctx, e.x + dx, y - 3, 1.7, look, time, e.id + (dx > 0 ? 1 : 0));

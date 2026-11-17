@@ -103,6 +103,18 @@ export function drawCraftEnemy(
   time: number,
   look: Look,
 ): void {
+  const hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / 0.14));
+  ctx.save();
+  // Fold under a hit, then spring back. The feet stay anchored to collision space.
+  ctx.translate(e.x, e.y);
+  ctx.scale(1 + hit * 0.08, 1 - hit * 0.1);
+  ctx.rotate((e.id % 2 ? -1 : 1) * hit * 0.035);
+  ctx.translate(-e.x, -e.y);
+  drawEnemyBody(ctx, e, (e.stun ?? 0) > 0 ? 0 : time, look);
+  ctx.restore();
+}
+
+function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
   if (!e.elite) {
     ENEMY_ART.get(e.kind).draw(ctx, e, time, look);
     return;

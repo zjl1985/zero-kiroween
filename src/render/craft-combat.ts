@@ -60,7 +60,11 @@ export function drawCraftBlob(
     ctx.restore();
   }
   enemyPart(`ink-body:${v}`, 52, 44, (c) => {
-    const cut = new Path2D("M -16 9 L -12 2 Q -13 -8 -6 -12 L 1 -14 Q 12 -15 13 2 L 18 10 L 8 7 L 2 10 L -5 7 Z");
+    const cut = new Path2D([
+      "M -16 9 L -12 2 Q -13 -8 -6 -12 L 1 -14 Q 12 -15 13 2 L 18 10 L 8 7 L 2 10 L -5 7 Z",
+      "M -17 8 L -12 0 L -10 -9 L -3 -15 L 4 -12 Q 12 -10 13 2 L 17 9 L 7 6 L 0 11 L -6 7 Z",
+      "M -16 10 L -13 1 Q -14 -6 -8 -9 L -2 -16 L 3 -12 L 10 -8 L 13 2 L 17 10 L 5 8 L 0 10 L -7 6 Z",
+    ][v]!);
     piece(c, cut, "#3b2d49", { shadow: 1.5, edge: "#a38ab1", texture: 0.55, thickness: 1.1 });
     c.save(); c.clip(cut);
     c.fillStyle = "#574362";
@@ -72,7 +76,11 @@ export function drawCraftBlob(
     for (const dx of [-5, 5]) {
       piece(c, oval(dx, -1, 1.6, 2), "#f0c16d", { shadow: 0, texture: 0.15, edge: "#ffe1a0", thickness: 0.4 });
     }
-    line(c, -2, 4, 2, 4.5, "#b595ad", 0.65);
+    if (v === 1) {
+      line(c, -7, -5, -3, -3, "#d6b1bf", 0.65);
+      line(c, 3, -3, 7, -5, "#d6b1bf", 0.65);
+    }
+    stroke(c, new Path2D(v === 2 ? "M -3 4 Q 0 1 3 4" : "M -3 3 Q 0 6 3 3"), "#b595ad", 0.65);
   }).draw(ctx, { x, y: cy });
   if (slowed)
     stroke(

@@ -6,7 +6,7 @@ import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
 import { CAT_ART } from "../dist/render/art-index.js";
 import { CAT_DETAIL_BOUNDS, catDetailPose } from "../dist/render/cat-detail.js";
 import { drawCraftCat } from "../dist/render/craft-cat.js";
-import { officialFaceContours, traceFaceRects, PAPER_FACE_RIM } from "../dist/render/paper-face.js";
+import { officialFaceContours, traceFaceRects, scissorContour, PAPER_FACE_RIM } from "../dist/render/paper-face.js";
 
 // Static Canvas-command contracts, not pixel comparisons or an animation/capture loop.
 class RecordingPath {
@@ -264,7 +264,10 @@ test("cached body subparts and lamp halo fit the fixed local envelope in represe
     }
     const head = images(ctx).at(-1);
     assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55], "same head box at every pose");
-    assert.equal(head.transform[5], catDetailPose(p).bob, "only the existing bob shifts the head");
+    const [a, b, c, d, x, y] = head.transform;
+    assert.ok(Math.abs(x - c * 38) < 1e-9, "head tilts around the neck, without horizontal drift");
+    assert.ok(Math.abs(y - d * 38 - (catDetailPose(p).bob - 38)) < 1e-9, "neck anchor keeps the existing bob");
+    assert.ok(Math.abs(a * d - b * c - 1) < 1e-9, "head pose preserves scale");
   }
 });
 
@@ -274,4 +277,18 @@ test("generic tailoring has no cat literals, wall-clock/RNG dependencies or time
     for (const art of CAT_ART.all()) assert.ok(!text.includes(`"${art.id}"`), `${file} does not dispatch by cat id`);
     assert.doesNotMatch(text, /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b/);
   }
+});
+
+test("scissor cuts simplify staircase edges without mutating small face details", () => {
+  const small = Object.freeze([[0, 0], [2, 0], [2, 1], [0, 1]]);
+  assert.equal(scissorContour(small), small);
+  const stair = [[0, -20], [10, -20], [10, 10]];
+  for (let i = 9; i >= 0; i--) stair.push([i, i + 1], [i, i]);
+  stair.pop();
+  const before = structuredClone(stair), cut = scissorContour(stair);
+  assert.deepEqual(stair, before);
+  assert.ok(cut.length < stair.length, "large staircase becomes a scissor edge");
+  assert.ok(cut.length >= 4);
+  assert.ok(cut.flat().every(Number.isFinite));
+  for (const p of cut) assert.ok(stair.some(q => q[0] === p[0] && q[1] === p[1]), "no invented outward points");
 });

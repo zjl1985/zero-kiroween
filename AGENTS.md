@@ -35,6 +35,10 @@ Midnight Meow (猫猫守夜) is a browser game for Kiroween 2026: a survivor-lik
 - Random helper cats are not built. Ask the user before starting them.
 - Commit messages use gitmoji plus a type prefix, for example `✨ feat: ...` or `📝 docs: ...`. `.agents/` is local task state and is not committed.
 
+## Current publication restriction
+
+Local commits are allowed. Do not push or deploy unless the user explicitly lifts this restriction. Completing a task or passing tests is not publication authorization.
+
 ## Deleting files
 
 Delete files and directories with `trash` (moves them to the macOS Trash) by default. Files tracked in Git history and temporary files may be deleted directly, as may anything the user explicitly asks to delete directly. For other files, if `trash` is unavailable, never silently fall back to permanent deletion.

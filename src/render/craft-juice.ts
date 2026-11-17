@@ -44,16 +44,19 @@ export function cameraShake(sim: SimState, time: number, reduced: boolean): { x:
   };
 }
 
-/** A brief white paper flash over a freshly hit enemy. */
+/** Torn edge glints keep the enemy's eyes and attack pose visible on impact. */
 export function drawHitFlash(ctx: Ctx, e: EnemyState): void {
   const f = (e.hitFlash ?? 0) / 0.14;
   if (f <= 0) return;
   const r = enemyRadius(e);
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = Math.min(1, f) * 0.55;
-  ctx.fillStyle = "#fff6e6";
-  ctx.fill(oval(e.x, e.y - r * 0.9, r * 1.05, r * 0.95, e.id, 0.1));
+  ctx.globalAlpha *= Math.min(1, f) * 0.9;
+  const spread = 1 - Math.min(1, f);
+  for (const side of [-1, 1]) {
+    const x = e.x + side * r * (0.85 + spread * 0.35), y = e.y - r * 1.1;
+    stroke(ctx, path([[x - side * 3, y - 5], [x, y - 1], [x - side * 2, y + 4]]), "#fff1ca", 1.1);
+    paperFleck(ctx, x + side * spread * 5, y - 7 - spread * 4, 1.5 + f, "#ead6ac", side * (0.4 + spread));
+  }
   ctx.restore();
 }
 
@@ -464,12 +467,12 @@ export function drawJuiceEffect(ctx: Ctx, e: Impact): boolean {
     }
     case "levelup":
     case "evolve":
-      // Extra strip burst layered under the existing star burst in combat-fx.
+      // Just a few low strips: the main star/fleck burst owns the upper space.
       drawPaperBurst(
         ctx,
         e,
         EFFECT_LIFE[e.kind],
-        e.kind === "evolve" ? 20 : 12,
+        e.kind === "evolve" ? 6 : 4,
         e.kind === "evolve" ? 110 : 60,
         e.kind === "evolve" ? ["#f6dfa8", "#e8c06f", "#9d84d6", "#fff1ce"] : ["#f4d48e", "#efe3c8", "#9fc2c9"],
       );

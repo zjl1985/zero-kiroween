@@ -95,10 +95,39 @@ export function officialFaceContours(id: CatId): FaceContours {
   return face;
 }
 
+/** Join tiny staircase runs into scissor cuts, leaving small eye/whisker pieces intact. */
+export function scissorContour(points: readonly Point[], tolerance = 0.9): readonly Point[] {
+  if (points.length < 12) return points;
+  const simplify = (pts: readonly Point[]): Point[] => {
+    const a = pts[0]!, b = pts[pts.length - 1]!, dx = b[0] - a[0], dy = b[1] - a[1];
+    let far = tolerance * tolerance, split = -1;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p = pts[i]!, u = Math.max(0, Math.min(1,
+        ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+      const d = (p[0] - a[0] - u * dx) ** 2 + (p[1] - a[1] - u * dy) ** 2;
+      if (d > far) { far = d; split = i; }
+    }
+    return split < 0 ? [a, b] : [...simplify(pts.slice(0, split + 1)).slice(0, -1), ...simplify(pts.slice(split))];
+  };
+  const start = points[0]!;
+  let opposite = 1;
+  for (let i = 2; i < points.length; i++)
+    if (Math.hypot(points[i]![0] - start[0], points[i]![1] - start[1]) >
+        Math.hypot(points[opposite]![0] - start[0], points[opposite]![1] - start[1])) opposite = i;
+  const result = [...simplify(points.slice(0, opposite + 1)).slice(0, -1),
+    ...simplify([...points.slice(opposite), start]).slice(0, -1)];
+  const area = (ps: readonly Point[]) => Math.abs(ps.reduce((sum, p, i) => {
+    const q = ps[(i + 1) % ps.length]!;
+    return sum + p[0] * q[1] - q[0] * p[1];
+  }, 0));
+  // Narrow markings and holes must not disappear during simplification.
+  return result.length >= 4 && Math.abs(area(result) - area(points)) <= area(points) * 0.08 ? result : points;
+}
+
 function cutPath(loops: FaceContours["silhouette"]): Path2D {
   const p = new Path2D();
   for (const loop of loops) {
-    const pts = loop.map(([x, y]) => [4 + x * PAPER_FACE_SCALE, 4 + y * PAPER_FACE_SCALE] as Point);
+    const pts = scissorContour(loop.map(([x, y]) => [4 + x * PAPER_FACE_SCALE, 4 + y * PAPER_FACE_SCALE] as Point));
     for (let i = 0; i < pts.length; i++) {
       const a = pts[(i + pts.length - 1) % pts.length]!, b = pts[i]!, c = pts[(i + 1) % pts.length]!,
         ab = Math.hypot(a[0] - b[0], a[1] - b[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]),

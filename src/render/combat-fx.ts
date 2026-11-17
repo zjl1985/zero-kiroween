@@ -15,7 +15,7 @@ import {
 } from "./art-registry.js";
 import { orbitPositions } from "../game/sim.js";
 import { rect, type Ctx } from "./pixel-art.js";
-import { combatPart } from "./craft-combat.js";
+import { combatPart, paperFleck } from "./craft-combat.js";
 import { foldLine } from "./paper-kit.js";
 import { stroke } from "./paper-material.js";
 
@@ -132,14 +132,22 @@ export function drawSkillEffect(ctx: Ctx, e: Impact, state?: SimState): void {
   light(ctx, e.x, e.y - 15, 50, color, (1 - t) * 0.19, 0.7);
   if (e.kind === "hurt") {
     for (let i = 0; i < 5; i++)
-      rect(
-        ctx,
-        e.x + Math.cos(i * 1.25) * (15 + t * 12),
-        e.y - 22 + Math.sin(i * 1.25) * (15 + t * 12),
-        2,
-        2,
-        color,
-      );
+      paperFleck(ctx, e.x + Math.cos(i * 1.25) * (15 + t * 12),
+        e.y - 22 + Math.sin(i * 1.25) * (15 + t * 12) + t * t * 9,
+        2.4 * (1 - t) + 0.8, color, i * 1.25 + t * 2);
+  } else if (e.kind === "dash") {
+    const facing = state?.player.facing ?? 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.save();
+      ctx.translate(e.x - facing * (8 + i * 12 + t * 16), e.y - 18);
+      ctx.scale(facing, 1);
+      combatPart("dash-chevron", 28, 36, (c) => {
+        paperPiece(c, paperPath([[-6, -11], [7, 0], [-6, 11], [-3, 0]]), "#e9bf72",
+          { shadow: 0.4, edge: "#fff0c5", texture: 0.25, thickness: 0.6 });
+        foldLine(c, -3, -6, 3, 0, 0.5);
+      }).draw(ctx, { x: 0, y: 0, scale: 1 - i * 0.16 });
+      ctx.restore();
+    }
   } else {
     const r = e.kind === "fold" ? 18 + t * 60 : 14 + t * 35;
     ring(ctx, e.x, e.y, r, color, e.kind === "shield" ? 1 : 0.65);
@@ -194,7 +202,8 @@ function drawCelebration(ctx: Ctx, e: Impact, state?: SimState): void {
         r = 12 + ease * reach * 0.55,
         x = e.x + Math.cos(a) * r,
         y = e.y - 20 + Math.sin(a) * r * 0.5 - ease * (evolve ? 34 : 26);
-      star(ctx, x, y, (evolve ? 4 : 3) * (0.6 + fade * 0.6), color, a + t * 4);
+      if (i % 2) paperFleck(ctx, x, y + t * t * 18, (evolve ? 4 : 3) * (0.6 + fade * 0.6), color, a + t * 4);
+      else star(ctx, x, y, (evolve ? 4 : 3) * (0.6 + fade * 0.6), color, a + t * 4);
     }
   } else effectPainter(e.kind)?.(ctx, e, { t, fade, ease }, state);
   ctx.restore();

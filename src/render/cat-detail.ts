@@ -18,7 +18,8 @@ export function catDetailPose(pose: CatPose) {
     capeCut: pose.dashing ? 1 as const : 0 as const,
     cape: pose.dashing ? -0.055 : Math.sin(pose.time * (pose.moving ? 6 : 2) - 0.6) * (pose.moving ? 0.045 : 0.018),
     tail: pose.dashing ? 0.13 : Math.sin(pose.time * (pose.moving ? 6 : 2) + 0.7) * (pose.moving ? 0.1 : 0.055),
-    arm: pose.dashing ? -0.14 : stride * 0.09,
+    arm: pose.hurt ? -0.22 : pose.dashing ? -0.2 : stride * 0.13,
+    headTilt: pose.hurt ? -0.055 : pose.dashing ? 0.055 : stride * 0.025,
     lantern: pose.dashing ? 0.12 : Math.sin(pose.time * (pose.moving ? 6 : 2) - 0.8) * (pose.moving ? 0.075 : 0.025),
     light: 0.105 + Math.sin(pose.time * 2 + 0.4) * 0.008,
   };
@@ -140,6 +141,9 @@ function paintTorso(ctx: Ctx, look: CatBodyPalette): void {
   cut(ctx, box(-1.7, -15, 3.4, 3.1), look.metal, "#f4dfb0", 0.4, 0.25);
   cut(ctx, box(-0.8, -14.3, 1.6, 1.6), look.belt, look.trim, 0.25, 0);
   if (look.accessory === "watch-chain") {
+    // A folded watch-duty ribbon gives the dark coat a readable diagonal accent.
+    cut(ctx, path([[-10, -28], [-7, -29], [5, -14], [2, -13]]), look.lining, look.trim, 0.4, 0.3);
+    cut(ctx, path([[-9, -26], [-6, -27], [-3, -23], [-6, -22]]), look.metal, look.trim, 0.35, 0.25);
     cut(ctx, new Path2D("M -10 -19 L -4 -18 L -4 -14 L -9 -14 Z"), look.bib, look.bodyEdge, 0.45, 0.35);
     ink(ctx, "M -9 -18 L -5 -17.5", look.trim);
     ink(ctx, "M -6 -17 Q 0 -10 6 -17", look.capeFold, 1.6);
@@ -149,6 +153,12 @@ function paintTorso(ctx: Ctx, look: CatBodyPalette): void {
     line(ctx, 7, -16.7, 7, -15.3, look.capeFold, 0.4);
     line(ctx, 7, -15.3, 8, -14.8, look.capeFold, 0.4);
   } else {
+    // The moon coat has a scalloped paper rosette rather than the watch ribbon.
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5;
+      cut(ctx, oval(8 + Math.cos(a) * 1.8, -24 + Math.sin(a) * 1.8, 1.6, 1.2, i), look.lining, look.trim, 0.3, 0.2);
+    }
+    crescent(ctx, 8, -24, 1.3, look.metal);
     cut(ctx, path([[7, -28], [8.5, -27], [-8.5, -11], [-10, -12]]), look.belt, look.trim, 0.4, 0.3);
     cut(ctx, new Path2D("M -14 -16 L -6 -16 L -5 -9 Q -10 -6 -14 -10 Z"), look.cape, look.capeEdge, 0.65, 0.65);
     cut(ctx, new Path2D("M -14 -16 L -6 -16 L -6.5 -12 Q -10 -10 -14 -13 Z"), look.lining, look.trim, 0.45, 0.35);
