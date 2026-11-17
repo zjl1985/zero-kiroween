@@ -1,9 +1,23 @@
 import { avoidScenery } from "./scenery.js";
 import { createRng, type Rng } from "./rng.js";
 import {
+  ACTIVE,
+  LANDMARK,
+  SCREEN,
+  SPAWN_RING,
+  chunkContent,
+  chunkIndex,
+  chunkKey,
+  chunksNear,
+  clampToWorld,
+  insideWorld,
+  landmarks,
+  nearColliders,
+  viewCentre,
+} from "./world-gen.js";
+import {
   circlesOverlap,
   clamp,
-  keepInside,
   length,
   normalize,
   pointSegDist,
@@ -46,7 +60,7 @@ import {
   type Notice,
   type EffectKind,
 } from "./types.js";
-import { FISH, MOON_LANTERN, PUMPKIN, PUMPKIN_SPOTS } from "./interactions.js";
+import { FISH, MOON_LANTERN, PUMPKIN } from "./interactions.js";
 
 function defaultStroke(width: number, height: number): StrokePoint[] {
   const cx = width * 0.5,
@@ -120,6 +134,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       pumpkinsLit: 0,
       treatsEaten: 0,
       moonPulses: 0,
+      distance: 0,
     },
     notice: null,
     xp: 0,
@@ -135,35 +150,18 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     nextHazardId: 1,
     boss: { spawned: false, defeated: false, id: null },
     wavesDone: 0,
-    interactables: [
-      ...PUMPKIN_SPOTS.map((p, i) => ({
-        id: i + 1,
-        kind: "pumpkin" as const,
-        x: p.x,
-        y: p.y,
-        lit: 0,
-        cooldown: 0,
-        charge: 0,
-        tick: 0,
-      })),
-      {
-        id: PUMPKIN_SPOTS.length + 1,
-        kind: "lantern" as const,
-        x: MOON_LANTERN.x,
-        y: MOON_LANTERN.y,
-        lit: 0,
-        cooldown: 0,
-        charge: MOON_LANTERN.startCharge,
-        tick: 0,
-      },
-    ],
+    // Filled from the world chunks around the cat by syncChunks below.
+    interactables: [],
     treats: [],
     nextTreatId: 1,
     treatTimer: FISH.firstAt,
     streak: { count: 0, timer: 0, best: 0 },
     phaseSeen: 0,
     fxSeq: 0,
+    loadedChunks: [],
+    landmarksFound: [],
   };
+  syncChunks(state);
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
   spawnBlob(state, world.width * 0.24, world.height * 0.85);
   spawnBlob(state, world.width * 0.39, YARD_TOP + 18);
@@ -193,15 +191,7 @@ function spawnEnemy(
   spawnTime = 0.65,
 ): EnemyState {
   const def = ENEMIES[kind],
-    pos = keepInside(
-      x,
-      y,
-      def.radius,
-      state.world.width,
-      state.world.height,
-      16,
-      YARD_TOP,
-    );
+    pos = clampToWorld(x, y, def.radius + 6);
   const e: EnemyState = {
     id: state.nextEnemyId++,
     kind,
@@ -240,32 +230,44 @@ function pickKind(state: SimState, rng: Rng): EnemyKind {
   }
   return table[table.length - 1]![0];
 }
-function edgePoint(
-  state: SimState,
-  rng: Rng,
-  side: number,
-): { x: number; y: number } {
-  const { width, height } = state.world;
-  let x = side < 2 ? rng.float(28, width - 28) : side === 2 ? 28 : width - 28;
-  let y =
-    side === 0
-      ? YARD_TOP + 16
-      : side === 1
-        ? height - 26
-        : rng.float(YARD_TOP + 16, height - 28);
-  if (Math.hypot(x - state.player.x, y - state.player.y) < 120) {
-    x = clamp(
-      state.player.x + (x < state.player.x ? -160 : 160),
-      28,
-      width - 28,
-    );
-    y = clamp(y, YARD_TOP + 16, height - 26);
+/**
+ * A point on the ring just outside the camera view around the cat, inside the
+ * world. `side` 2 / 3 picks the left / right edge (scripted flocks); otherwise
+ * the angle is random. Points beyond the map edge are re-rolled, then the
+ * ring's axis points are tried, and only then is the point clamped inside.
+ */
+function ringPoint(state: SimState, rng: Rng, side?: 2 | 3): { x: number; y: number } {
+  const c = viewCentre(state.player.x, state.player.y),
+    hw = SCREEN.width / 2 + SPAWN_RING.marginX,
+    hh = SCREEN.height / 2 + SPAWN_RING.marginY,
+    pad = 22;
+  for (let i = 0; i < SPAWN_RING.tries; i++) {
+    let x: number, y: number;
+    if (side !== undefined) {
+      const left = (side === 2) !== (i % 2 === 1);
+      x = c.x + (left ? -hw : hw);
+      y = c.y + rng.float(-hh, hh) * 0.8;
+    } else {
+      const a = rng.float(0, Math.PI * 2),
+        cs = Math.cos(a),
+        sn = Math.sin(a),
+        t = Math.min(hw / Math.max(Math.abs(cs), 1e-6), hh / Math.max(Math.abs(sn), 1e-6));
+      x = c.x + cs * t;
+      y = c.y + sn * t;
+    }
+    if (insideWorld(x, y, pad)) return { x, y };
   }
-  return { x, y };
+  for (const [dx, dy] of [
+    [-hw, 0],
+    [hw, 0],
+    [0, hh],
+    [0, -hh],
+  ] as const)
+    if (insideWorld(c.x + dx, c.y + dy, pad)) return { x: c.x + dx, y: c.y + dy };
+  return clampToWorld(c.x + hw, c.y, pad);
 }
-function spawnAroundEdge(state: SimState, rng: Rng): void {
-  const side = rng.int(0, 4),
-    { x, y } = edgePoint(state, rng, side);
+function spawnAroundView(state: SimState, rng: Rng): void {
+  const { x, y } = ringPoint(state, rng);
   spawnEnemy(state, pickKind(state, rng), x, y);
 }
 /** Scripted waves (a bat flock from one side) at fixed times, and the Boss. */
@@ -275,9 +277,9 @@ function stepSchedule(state: SimState, rng: Rng): void {
     state.elapsed >= WAVES[state.wavesDone]!.at * state.sessionSeconds
   ) {
     const wave = WAVES[state.wavesDone++]!,
-      side = rng.int(2, 4);
+      side = rng.int(2, 4) as 2 | 3;
     for (let i = 0; i < wave.count && livingEnemies(state) < ENEMY_CAP; i++) {
-      const { x, y } = edgePoint(state, rng, side);
+      const { x, y } = ringPoint(state, rng, side);
       spawnEnemy(state, wave.kind, x, y, ENEMIES[wave.kind].hp, 0.65 + i * 0.12);
     }
   }
@@ -295,13 +297,18 @@ function spawnBoss(state: SimState): void {
     e.alive = false;
     effect(state, e.x, e.y, "erase", ENEMY_FX_LIFE.erase);
   }
-  const { width } = state.world,
-    x = state.player.x < width / 2 ? width * 0.78 : width * 0.22,
+  // It walks in from just past the side of the view with more room.
+  const p = state.player,
+    c = viewCentre(p.x, p.y),
+    hw = SCREEN.width / 2 + SPAWN_RING.marginX,
+    r = ENEMIES["eraser-boss"].radius,
+    right = insideWorld(c.x + hw, p.y, r + 6),
+    x = right ? c.x + hw : c.x - hw,
     boss = spawnEnemy(
       state,
       "eraser-boss",
       x,
-      YARD_TOP + 40,
+      p.y,
       ENEMIES["eraser-boss"].hp,
       BOSS.spawnTime,
     );
@@ -342,25 +349,81 @@ function notify(state: SimState, kind: Notice): void {
   state.notice = { kind, life: 2.2 };
 }
 function safePosition(state: SimState, x: number, y: number, radius: number) {
-  const a = keepInside(
-    x,
-    y,
-    radius,
-    state.world.width,
-    state.world.height,
-    10,
-    YARD_TOP,
+  const a = clampToWorld(x, y, radius);
+  // Only the colliders of the chunks around the actor are tested.
+  const b = avoidScenery(a.x, a.y, radius, nearColliders(state.seed, a.x, a.y));
+  return clampToWorld(b.x, b.y, radius);
+}
+/**
+ * Keeps interactables live for the chunks around the cat. Ids are stable from
+ * the chunk index, so leaving and coming back recreates the same objects.
+ * Idle pumpkins far away are dropped; moon-lanterns are few and keep their
+ * charge once found.
+ */
+function syncChunks(state: SimState): void {
+  const p = state.player,
+    near = chunksNear(p.x, p.y, ACTIVE.load),
+    keys = near.map((c) => chunkKey(c.cx, c.cy));
+  if (
+    keys.length === state.loadedChunks.length &&
+    keys.every((k, i) => k === state.loadedChunks[i])
+  )
+    return;
+  state.loadedChunks = keys;
+  const keep = new Set(
+    chunksNear(p.x, p.y, ACTIVE.drop).map((c) => chunkKey(c.cx, c.cy)),
   );
-  const b = avoidScenery(a.x, a.y, radius, state.world.width);
-  return keepInside(
-    b.x,
-    b.y,
-    radius,
-    state.world.width,
-    state.world.height,
-    10,
-    YARD_TOP,
+  state.interactables = state.interactables.filter(
+    (o) =>
+      o.kind === "lantern" ||
+      o.lit > 0 ||
+      o.cooldown > 0 ||
+      !o.chunk ||
+      keep.has(o.chunk),
   );
+  const have = new Set(state.interactables.map((o) => o.id));
+  for (const c of near) {
+    const content = chunkContent(state.seed, c.cx, c.cy),
+      base = 1 + chunkIndex(c.cx, c.cy) * 16;
+    content.spots.forEach((s, i) => {
+      const id = base + i;
+      if (have.has(id)) return;
+      state.interactables.push({
+        id,
+        kind: s.kind,
+        x: s.x,
+        y: s.y,
+        lit: 0,
+        cooldown: 0,
+        charge: s.kind === "lantern" ? MOON_LANTERN.startCharge : 0,
+        tick: 0,
+        s: s.s,
+        chunk: content.key,
+      });
+    });
+  }
+}
+/** Landmarks within the discovery radius are marked found once, with a notice. */
+function discoverLandmarks(state: SimState): void {
+  const p = state.player;
+  for (const l of landmarks(state.seed)) {
+    if (state.landmarksFound.includes(l.id)) continue;
+    if (Math.hypot(p.x - l.x, p.y - l.y) > LANDMARK.discoverRadius) continue;
+    state.landmarksFound.push(l.id);
+    notify(state, `found-${l.kind}` as Notice);
+  }
+}
+/** Non-Boss ink that fell far behind the cat re-enters from the view ring. */
+function leashEnemies(state: SimState, rng: Rng): void {
+  const p = state.player;
+  for (const e of state.enemies) {
+    if (!e.alive || e.kind === "eraser-boss") continue;
+    if (Math.hypot(e.x - p.x, e.y - p.y) <= SPAWN_RING.leash) continue;
+    const pos = ringPoint(state, rng),
+      kept = clampToWorld(pos.x, pos.y, enemyRadius(e) + 6);
+    e.x = kept.x;
+    e.y = kept.y;
+  }
 }
 export function step(state: SimState, input: FrameInput, dt: number): void {
   if (state.ended !== "playing" || dt <= 0) return;
@@ -403,7 +466,12 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     streak.timer = Math.max(0, streak.timer - dt);
     if (streak.timer <= 0) streak.count = 0;
   }
+  const px = state.player.x,
+    py = state.player.y;
   stepPlayer(state, input, dt);
+  state.stats.distance += Math.hypot(state.player.x - px, state.player.y - py);
+  syncChunks(state);
+  discoverLandmarks(state);
   stepDecoy(state, dt);
   stepStroke(state, dt);
   if (state.player.id === "nicole") {
@@ -412,6 +480,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   }
   stepShots(state, dt);
   stepEnemies(state, dt, rng);
+  if (state.ended === "playing") leashEnemies(state, rng);
   stepEnemyShots(state, dt);
   stepPickups(state, dt, rng);
   stepInteractables(state, dt);
@@ -430,7 +499,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
         i < [1, 2, 2, 3][phase]! && livingEnemies(state) < cap;
         i++
       )
-        spawnAroundEdge(state, rng);
+        spawnAroundView(state, rng);
       state.spawnTimer = [3.8, 3.4, 2.4, 1.65][phase]!;
     }
   }
@@ -793,19 +862,16 @@ function moonStun(state: SimState, x: number, y: number): void {
     if (e.spawnTime <= 0) hurtEnemy(state, e, MOON_LANTERN.damage);
   }
 }
-/** Fish treats appear on a timer at RNG-chosen yard spots. */
+/** Fish treats appear on a timer at an RNG-chosen spot near the cat. */
 function spawnTreat(state: SimState, dt: number, rng: Rng): void {
   state.treatTimer -= dt;
   if (state.treatTimer > 0) return;
   state.treatTimer = FISH.interval + rng.float(-FISH.jitter, FISH.jitter);
   if (state.treats.filter((t) => t.alive).length >= FISH.max) return;
-  const { width, height } = state.world,
-    p = state.player;
-  let x = rng.float(FISH.margin, width - FISH.margin),
-    y = rng.float(YARD_TOP + 30, height - FISH.margin);
-  if (Math.hypot(x - p.x, y - p.y) < FISH.avoidPlayer)
-    x = clamp(p.x + (x < p.x ? -1 : 1) * FISH.avoidPlayer * 1.5, FISH.margin, width - FISH.margin);
-  const pos = safePosition(state, x, y, FISH.radius);
+  const p = state.player,
+    a = rng.float(0, Math.PI * 2),
+    d = rng.float(FISH.near, FISH.far),
+    pos = safePosition(state, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.7, FISH.radius);
   state.treats.push({ id: state.nextTreatId++, x: pos.x, y: pos.y, life: FISH.life, alive: true });
   notify(state, "fish-treat");
 }

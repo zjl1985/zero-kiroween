@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { avoidScenery } from "../dist/game/scenery.js";
 import { createSim, step } from "../dist/game/sim.js";
 import { FIXED_DT } from "../dist/game/clock.js";
+import { STATS } from "../dist/game/types.js";
+import { WORLD } from "../dist/game/world-gen.js";
 test("a walking or dashing cat cannot pass through the near fence", () => {
   for (const dash of [false, true]) {
     const sim = createSim();
@@ -23,18 +25,20 @@ test("fence endpoints allow a route around them and leave open ground untouched"
   assert.ok(Math.hypot(position.x - 114, position.y - 438) >= 15);
 });
 
-test("an edge boulder and enemy knockback keep the player inside the world", () => {
+test("the yard boulder pushes an actor around it, and knockback keeps the player inside the world", () => {
   const clear = avoidScenery(938, 371, 12);
-  assert.ok(clear.x <= 938);
   assert.ok(Math.hypot(clear.x - 928, clear.y - 371) >= 22);
   const sim = createSim();
-  sim.player.x = 938;
-  sim.player.y = 400;
+  const edge = WORLD.maxX - WORLD.edge - STATS.playerRadius;
+  sim.player.x = edge;
+  sim.player.y = 2600;
   sim.player.attackCooldown = 10;
-  sim.enemies[0].x = 930;
-  sim.enemies[0].y = 400;
+  sim.enemies = [sim.enemies[0]];
+  sim.spawnTimer = 1e6;
+  sim.enemies[0].x = edge - 8;
+  sim.enemies[0].y = 2600;
   sim.enemies[0].spawnTime = 0;
   step(sim, { ax: 0, ay: 0, dash: false }, FIXED_DT);
-  assert.ok(sim.player.x <= 938);
+  assert.ok(sim.player.x <= edge);
   assert.equal(sim.player.hp, sim.player.maxHp - 1);
 });

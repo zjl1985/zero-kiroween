@@ -155,6 +155,19 @@ export const MESSAGE_KEYS = [
   "result.ticket_stub",
   "result.streak",
   "result.pumpkins",
+  "notice.found-clock-tower",
+  "notice.found-pumpkin-field",
+  "notice.found-stone-bridge",
+  "notice.found-graveyard",
+  "notice.found-lantern-market",
+  "notice.found-moon-hill",
+  "landmark.clock-tower",
+  "landmark.pumpkin-field",
+  "landmark.stone-bridge",
+  "landmark.graveyard",
+  "landmark.lantern-market",
+  "landmark.moon-hill",
+  "nav.boss",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

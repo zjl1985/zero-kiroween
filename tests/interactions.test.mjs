@@ -4,6 +4,7 @@ import { createSim, snapshot, step } from "../dist/game/sim.js";
 import { FISH, MOON_LANTERN, PUMPKIN, PUMPKIN_SPOTS } from "../dist/game/interactions.js";
 import { STATS } from "../dist/game/types.js";
 import { LAMPS, YARD_PROPS } from "../dist/render/scene.js";
+import { chunkContent, chunkOf, landmarks } from "../dist/game/world-gen.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 const idle = { ax: 0, ay: 0, dash: false, choose: 0 };
 
@@ -35,15 +36,41 @@ function addEnemy(s, x, y, hp = 10, kind = "ink-blob") {
   return e;
 }
 
-test("interactive objects sit on the drawn pumpkins and lamp", () => {
+test("interactive objects sit on the drawn pumpkins and lamps, in the yard and at landmarks", () => {
   for (const spot of PUMPKIN_SPOTS)
     assert.ok(
-      YARD_PROPS.some((p) => p.kind === "pumpkin" && p.x === spot.x && p.y === spot.y),
+      YARD_PROPS.some(
+        (p) => p.kind === "pumpkin" && p.x === spot.x && p.y === spot.y && p.s === spot.s,
+      ),
     );
   assert.ok(LAMPS.some((l) => l.x === MOON_LANTERN.x && l.y === MOON_LANTERN.y));
   const s = createSim();
-  assert.equal(s.interactables.filter((o) => o.kind === "pumpkin").length, PUMPKIN_SPOTS.length);
-  assert.equal(s.interactables.filter((o) => o.kind === "lantern").length, 1);
+  const yard = (o) => o.x >= 0 && o.x <= 960 && o.y <= 540;
+  assert.equal(s.interactables.filter((o) => o.kind === "pumpkin" && yard(o)).length, PUMPKIN_SPOTS.length);
+  assert.equal(s.interactables.filter((o) => o.kind === "lantern" && yard(o)).length, 1);
+  // Away from the yard, pumpkins come from pumpkin fields and lanterns from
+  // moon hills and lantern markets, each drawn by a matching decor prop.
+  for (const seed of [1, 7, 20261116]) {
+    let pumpkins = 0,
+      lanterns = 0;
+    for (const l of landmarks(seed)) {
+      const { cx, cy } = chunkOf(l.x, l.y);
+      const c = chunkContent(seed, cx, cy);
+      for (const spot of c.spots) {
+        assert.ok(Math.hypot(spot.x - l.x, spot.y - l.y) < l.radius);
+        const prop = spot.kind === "pumpkin" ? "pumpkin" : "lamp";
+        assert.ok(c.decor.some((d) => d.kind === prop && d.x === spot.x && d.y === spot.y && d.s === spot.s));
+        if (spot.kind === "pumpkin") {
+          pumpkins++;
+          assert.equal(l.kind, "pumpkin-field");
+        } else {
+          lanterns++;
+          assert.ok(l.kind === "moon-hill" || l.kind === "lantern-market");
+        }
+      }
+    }
+    assert.ok(pumpkins >= 3 && lanterns >= 2, `seed ${seed}: ${pumpkins} pumpkins, ${lanterns} lanterns`);
+  }
 });
 
 test("touching a pumpkin lights it and scorches a nearby enemy over time", () => {

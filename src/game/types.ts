@@ -98,6 +98,10 @@ export interface InteractState {
   charge: number;
   /** Pumpkin: seconds until the next aura tick. */
   tick: number;
+  /** Drawn scale of the prop (pumpkin size, lamp size). */
+  s?: number;
+  /** Key of the world chunk that owns this object. */
+  chunk?: string;
 }
 export interface TreatState {
   id: number;
@@ -237,6 +241,8 @@ export interface RunStats {
   pumpkinsLit: number;
   treatsEaten: number;
   moonPulses: number;
+  /** World units the cat has walked or dashed. */
+  distance: number;
 }
 export type Notice =
   | "zero-dash"
@@ -254,7 +260,13 @@ export type Notice =
   | "fish-treat"
   | "moon-ready"
   | "moon-stun"
-  | "streak";
+  | "streak"
+  | "found-clock-tower"
+  | "found-pumpkin-field"
+  | "found-stone-bridge"
+  | "found-graveyard"
+  | "found-lantern-market"
+  | "found-moon-hill";
 export interface UpgradeChoice {
   options: string[];
 }
@@ -304,6 +316,10 @@ export interface SimState {
   phaseSeen: number;
   /** Stable counter that seeds render-only scatter of effects. */
   fxSeq: number;
+  /** Keys of the world chunks whose interactables are live around the cat. */
+  loadedChunks: string[];
+  /** Ids of landmarks the cat has come close to, in discovery order. */
+  landmarksFound: string[];
 }
 export interface SimConfig {
   cat: CatId;
@@ -311,6 +327,7 @@ export interface SimConfig {
   world: WorldBounds;
   sessionSeconds: number;
 }
+/** The start yard frame; the explorable bounds are WORLD in src/game/world-gen.ts. */
 export const DEFAULT_WORLD: WorldBounds = { width: 960, height: 540 };
 export const YARD_TOP = 264;
 export const STATS = {
