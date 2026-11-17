@@ -1,6 +1,6 @@
 /** Nicole's look: cream body, plum cape, moon-violet accents, fold-moon fields. */
 import type { CatArt } from "../../../render/art-registry.js";
-import { drawOrbitStar, ring, star } from "../../../render/combat-fx.js";
+import { drawOrbitStar, drawSkillEffect, ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
 import { drawOfficialHead } from "../../../render/layout.js";
 import { glow as light } from "../../../render/paper-material.js";
@@ -35,6 +35,10 @@ export const NICOLE_ART: CatArt = {
   },
   draw(ctx, pose) {
     drawCraftCat(ctx, pose, NICOLE_ART.body);
+  },
+  skillPreview(ctx, pose) {
+    drawSkillEffect(ctx, { kind: "fold", x: pose.x, y: pose.y - 16, life: 0.5 });
+    NICOLE_ART.draw(ctx, { ...pose, dashing: false });
   },
   portrait(ctx, pose, scale) {
     drawOfficialHead(ctx, pose, { scale });

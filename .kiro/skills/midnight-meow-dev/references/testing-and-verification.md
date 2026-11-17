@@ -5,13 +5,13 @@ The user wants light verification: build, tests, and at most one static screensh
 ## Commands
 
 ```bash
-npm install      # only if node_modules is missing (TypeScript is the only dependency)
-npm run build    # tsc: src/ -> dist/ (git-ignored)
-npm test         # tsc && node --test tests/*.test.mjs
-npm start        # python3 -m http.server 4173
+npm ci           # Node.js 22+; only if dependencies need installing (TypeScript only)
+npm run build    # tsc -> dist/; package isolated static files -> site/ (both git-ignored)
+npm test         # npm run build && node --test tests/*.test.mjs
+npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, so `npm test` always builds first. The suite has 130 tests at the time of writing.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. The suite has 149 tests at the time of writing. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. Deployment setup is ready, but a live deployment has not been checked.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -20,6 +20,9 @@ Tests import compiled modules from `dist/`, so `npm test` always builds first. T
 | `registry.test.mjs` | def registries: pools, exclusives, evolution pairs, spawn tables, i18n keys, duplicate / unknown ids, event bus order, engine import isolation, no cat literals in `src/game` / render / UI / main, art registries match defs, icons, `cachedSprite`, landmark / biome art and layouts, biome prop mixes |
 | `reactions.test.mjs` | tearing, scraps opening colliders, fire spread and cap, non-flammable materials, determinism with props and fire, prop state across chunk reloads, migrated fence / bush props, reaction table integrity, pop-up fold, scarecrow burst, straw fire |
 | `gallery.test.mjs` | gallery sections, states, labels, layout bounds, seeded variants without `Math.random` |
+| `rendering.test.mjs` | Canvas command recording: registered skill previews, landmark markers / depth order, cached alpha-mask tinting (not pixel or performance checks) |
+| `seed.test.mjs` | uint32 bounds, zero, decimal syntax, invalid / overflowing seed rejection |
+| `deployment.test.mjs` | Vercel settings, isolated output allowlist, entry assets and module imports, stale-output cleanup |
 | `world.test.mjs` | 10 x 10 world and chunk tiling, pure chunk content, landmarks, start yard, exploring, edges, spawn ring, leash, discovery, camera, districts and biome props, prop cap |
 | `sim.test.mjs` | determinism, decoy without RNG, single player, hit feedback, `makeRoom` |
 | `characters.test.mjs` | Zero and Nicole kits |
@@ -54,7 +57,7 @@ In this sandbox, Playwright and headless Chromium have been blocked (permission 
 ## Query parameters
 
 - `?start=1`: skip the title, start a run with the saved cat.
-- `?seed=N`: pin the run seed (1 to 10 digits); otherwise every run gets a fresh seed from `crypto.getRandomValues`.
+- `?seed=N`: pin the run seed (1–10 decimal digits within `0..4294967295`, including zero). Missing, malformed or out-of-range values use a fresh seed from `crypto.getRandomValues`; they never wrap.
 - `?gallery=1`: the paper workshop gallery instead of the game.
 
 ## Kiro hooks

@@ -23,7 +23,7 @@ Props, `src/render/prop-kit.ts`: `phasedPaint(look)` builds a `PropArt.paint` fo
 
 Seeded looks, `src/render/variants.ts`: `variant(seed, { palette, shift?, scale?, angle?, wear?, flip? })` returns `{ index, color, scale, angle, wear, flip }`, deterministic per seed. It uses the render-only `visHash` (`src/render/hash.ts`), never `Math.random` (tested). Props also get a per-placement size / tilt / mirror from their world seed (`PropArt.look`, default `PROP_LOOK`).
 
-Caching, `src/engine/sprite.ts`: `cachedSprite(key, w, h, scale, paint, anchor?)` caches a painter on an offscreen canvas (LRU, `SPRITE_CACHE_LIMIT` 256). In Node (no DOM) it calls the painter directly. Painters behind a cache must be pure functions of their key.
+Caching, `src/engine/sprite.ts`: `cachedSprite(key, w, h, scale, paint, anchor?)` caches a painter on an offscreen canvas (LRU, `SPRITE_CACHE_LIMIT` 256). In Node (no DOM) it calls the painter directly. Painters behind a cache must be pure functions of their key. `src/render/sprite-tint.ts` caches `source-atop` tints on the sprite's own alpha, never on the scene; tint amounts must be fixed or quantized to avoid per-frame cache keys. Burning props use a brown tint; folding decor uses eight shade intervals.
 
 ## Rules for painters
 
@@ -67,11 +67,11 @@ function signBoard(ctx: Ctx, v: number): void {
 
 A newly registered cat, enemy, prop, landmark, biome, weapon or passive shows up automatically. A new content kind needs: a `GalleryKind` and states in `gallery-layout.ts`, a cell size, a painter in `gallery.ts`, `gallery.section.<name>` and `gallery.state.<state>` keys, and an update to the section count in `tests/gallery.test.mjs`.
 
-Limits: the gallery is static (time 0, fixed seeds). Pumpkins and lanterns at interaction spots are drawn from sim state by `craft-juice.ts`, so landmark previews leave them out. Nicole's `skill` cell uses the same dash pose as Zero's.
+The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview` draws its own skill pose and effect. Landmark previews build initial interaction-marker state from registered spots (including the moon lantern's starting charge), and use `craft-juice.ts` in world depth order without starting a sim or duplicating the decor bodies. None of this has been visually approved in a browser.
 
 ## Tests
 
-`tests/gallery.test.mjs`: every registered entry gets a cell; states per kind; labels are i18n keys; cells stay inside the page and never overlap; variants are stable, spread within ranges and never call `Math.random`; `tornEdge` stays exported. `tests/registry.test.mjs`: art registries match defs and `cachedSprite` is keyed, capped and DOM-free.
+`tests/gallery.test.mjs`: every registered entry gets a cell; states per kind; labels are i18n keys; cells stay inside the page and never overlap; variants are stable, spread within ranges and never call `Math.random`; `tornEdge` stays exported. `tests/registry.test.mjs`: art registries match defs and `cachedSprite` is keyed, capped and DOM-free. `tests/rendering.test.mjs` records Canvas commands to check skill dispatch, landmark markers / depth order and cached alpha-mask tinting; it does not check browser pixels or frame rate.
 
 ## Checklist
 

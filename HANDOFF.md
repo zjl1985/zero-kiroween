@@ -1,8 +1,8 @@
 # Handoff: current requirements
 
-Updated 2026-11-17, after the extensible skeleton and paper world round (task-extensible-paper-world, `852fd08` to `b582c47`). The review verdict was APPROVED and `npm test` passes 130 / 130. This file lets the next agent continue directly.
+Updated 2026-11-17, after correctness fixes and Vercel deployment preparation. `npm run build` and `npm test` pass (149 / 149). The Vercel configuration is ready; no live deployment has been performed. The earlier extensible skeleton and paper world round (task-extensible-paper-world, `852fd08` to `b582c47`) had an APPROVED review and 130 passing tests; that review does not cover the latest changes.
 
-Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.12). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its eight `references/` recipes cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
+Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.13). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its eight `references/` recipes cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
 
 ## First: do not restore the dual style
 
@@ -27,7 +27,18 @@ Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md]
 11. **A Vampire Survivors style roguelike, not hundreds of enemies.** The user said: "the map does not need to be infinite, at most 100" and "I mean similar, not hundreds, just this kind of roguelike". Read as a map of at most 10 x 10 screens (`WORLD`) and a hard cap of 100 living enemies (`HORDE.hardCap`). Both are tunable data.
 12. **Extensible skeleton and paper world** (this round): move to "definitions + hooks + registries" without changing gameplay, add material x element reactions (tear, burn, pop-up), build paper primitives, seeded variants and a gallery page, then add districts, landmarks and props, and finally package the workflow as an English project skill under `.kiro`. The user said: "whatever I don't understand, finish it the best way you can".
 
-## Commits this round
+## Latest fixes and deployment preparation
+
+- `makeRoom` determines off-screen enemies around clamped `viewCentre`, while retaining distance-from-player ordering and elite / Boss protection. Regression tests cover west, east and south edges, ties and fallback. The obsolete comment was removed.
+- `src/game/seed.ts` validates `?seed=N`: 1–10 decimal digits within `0..4294967295`. Invalid or overflowing pins use a fresh random seed instead of wrapping; zero remains valid.
+- Cat art owns `skillPreview`: Nicole's gallery card uses the fold effect, not Zero's dash. Landmark previews include the registered pumpkin / moon-lantern interaction markers in depth order, without duplicating their existing bodies.
+- The burning-prop and folding-decor hot paths use alpha-masked cached tint sprites instead of per-frame `ctx.filter`. Fold darkening has eight intervals; the fold transform stays continuous. Brown tint approximates the previous sepia effect. Browser appearance and performance are still unverified; `paper-material.ts`'s shadow blur is unchanged.
+- The prop recipe now states that burnt props drop nothing.
+- `vercel.json` configures a static build (`npm ci`, `npm run build`, output `site/`). `scripts/build-site.mjs` publishes only HTML, CSS and current compiled JS; no TS sources, source maps, stale modules or private docs. `npm start` now serves `site/`, not the repository. Node.js 22+ is required; Python is local-preview only.
+- `npm test` now runs the production build before the tests. Deployment tests check the file allowlist, module imports, entry assets and stale-output cleanup; rendering tests record Canvas commands, not browser pixels.
+- No gameplay decisions were changed (Boss / dawn, evolution slots, language default, helper cats). No browser, audio, frame-rate or live Vercel checks were performed, and no screenshot or recording was taken.
+
+## Previous round's commits
 
 | Commit | Change |
 |---|---|
@@ -77,7 +88,7 @@ src/content/  i18n: keys.ts, en.ts, zh.ts, i18n.ts
 
 New strings go into `keys.ts`, `en.ts` and `zh.ts`. New effect kinds or notices go into the `EffectKind` / `Notice` unions in `src/game/types.ts`.
 
-## This round's content
+## Previous round's content
 
 ### Paper reactions
 
@@ -137,7 +148,7 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Evidence limits
 
-- `npm run build` and `npm test` (130 tests) pass. That only shows the code compiles and the sim behaves as tested.
+- `npm run build` and `npm test` (149 tests) pass. That checks compilation, tested sim behavior, Canvas command dispatch and static packaging, not browser visuals, frame rate or a live deployment.
 - **Nobody has viewed anything in a real browser**: not this round's art layer, props, fire, pop-up folding, district ground, new landmarks or gallery, and not the earlier map, camera, elites, chests, weapons, journal UI or motion cues. The sandbox blocks Playwright and headless Chromium, so no screenshot was taken this round. Drawing was only smoke-run in Node against a fake Canvas context (no errors, no pixels checked).
 - **Nobody has heard the audio**, including the tear and crackle cues.
 - **Balance was only probed with throwaway idle bots**; an idle Nicole cannot finish the Eraser.
@@ -152,14 +163,11 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 4. Removing the Chinese pack or the language toggle when English becomes the default.
 5. Random helper cats: not built, confirm first.
 
-## Review notes (all low impact)
+## Remaining review notes
 
-1. `makeRoom` decides "off-screen" around the cat, not the clamped camera centre (`viewCentre`). Near the west, east and south edges it can erase ink that is visible. Fix: compute it around `viewCentre(p.x, p.y)` as `ringPoint` does, and add an edge test.
-2. `drawProp` (burning) and `drawFolded` (pieces not fully up) set `ctx.filter` on every frame. This may cost frames in Chromium, and Safari may ignore it. Cached charred / darkened sprites or a translucent dark overlay would avoid both.
-3. A stale "oldest common ink" doc comment sits above the current `makeRoom` comment in `src/game/sim.ts`; delete it.
-4. `?seed=N` accepts up to 10 digits and applies `>>> 0`, so values above 4294967295 wrap (`?seed=4294967296` equals `?seed=0`). Limit the range or document the wrap in the skill and README.
-5. The per-shot, per-step `elementHit` scan and the prop collider scan in `safePosition` are unprofiled.
-6. The prop recipe `references/add-prop-and-reaction.md` does not say that burnt props drop nothing (`drops` apply to tearing only).
+- The per-shot, per-step `elementHit` scan and the prop collider scan in `safePosition` are unprofiled. Measure before adding a spatial hash or object pool.
+- Confirm the cached burning tint and quantized fold shading in a real browser; removing the two filter assignments does not prove a frame-rate improvement.
+- The prior review's camera-edge bug, stale comment, seed wrap and missing burnt-drop documentation are fixed (see latest changes above).
 
 ## Still open
 
@@ -169,23 +177,23 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 4. Whether the 14-row result page fits its two-column layout is unchecked.
 5. Paper system gaps: the `ink` and `fold` elements have no source and no reaction rows; ink / wax materials have data but no props; props never regrow; the windmill sails are static with no wind interaction; the wishing-well pond and canal patches are walkable.
 6. Legacy leftovers: the unused `drawMascot` in `src/render/layout.ts` has a `pose.id === "nicole"` branch, and `craft-juice.ts` has two `"eraser-boss"` presentation checks. Kept under "do not delete blindly".
-7. In the gallery, Nicole's "skill" card reuses Zero's dash pose; landmark previews do not draw the pumpkins and lanterns at interaction spots.
+7. Gallery skill poses and landmark interaction markers are fixed in code and covered by command-recording tests, but have not been viewed in a real browser.
 8. English default: not switched (default `zh`, `en` complete). When switching, also update `<html lang>` and `<title>`.
-9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. Nothing is deployed yet. Record a video only with the user's consent.
+9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. Vercel configuration and isolated static output are ready, but nothing is deployed yet. See README for import settings. Record a video only with the user's consent.
 
 Smaller items: a side road may cross another landmark's river; foreground leaves and the torn frame are still screen space; zh / en card text length on small screens is unchecked.
 
 ## Run and verify
 
 ```bash
-npm install     # TypeScript only
-npm run build   # tsc, src/ -> dist/
-npm start       # python3 -m http.server 4173
-npm test        # tsc && node --test tests/*.test.mjs (130 tests)
+npm ci          # Node.js 22+, TypeScript only
+npm run build   # tsc -> dist/; package production files -> site/
+npm start       # python3 -m http.server 4173 --directory site
+npm test        # production build + node --test tests/*.test.mjs (149 tests)
 ```
 
 - Open `http://localhost:4173/`. An old local server may still hold port 4173; check the port first.
-- `/?start=1` starts a run with the saved cat; `?seed=N` pins the run seed (otherwise each run gets a fresh one); `/?gallery=1` opens the gallery.
+- `/?start=1` starts a run with the saved cat; `?seed=N` pins a decimal uint32 seed (0..4294967295; invalid or missing pins get a fresh one); `/?gallery=1` opens the gallery.
 - Verification is build + test, at most one static screenshot, no animation or recording checks.
 - Screenshots and probes in `output/playwright/` exist only on this machine and are git-ignored.
 - `main` carries local commits ahead of origin. The sandbox blocks SSH push and `gh`, so pushing has to happen outside it.

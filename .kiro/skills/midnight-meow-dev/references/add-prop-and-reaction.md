@@ -10,6 +10,7 @@ Registration for this whole area is `src/defs/world-index.ts` (not `src/defs/ind
 
 - `SimState.props` is one compact map of touched props for the whole run, so damage survives chunk unload and reload.
 - Fire spread rolls use `hash2(seed, cell, 900 + ticks)`, never the step RNG. Drops use `hash2` of the prop id. Keep it that way.
+- `drops` (including `burst`) apply only when a prop is torn. Burnt props become ash and drop nothing.
 - The cat is never hurt by fire; `FIRE.enemyDamage` applies to enemies only.
 - Scraps open the path: a prop's colliders apply only while it is not scraps. Damaged props keep their full collider.
 - Today `ink` and `fold` have no source (no weapon or enemy applies them) and no rows. Props do not regrow.

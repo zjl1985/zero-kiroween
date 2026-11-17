@@ -4,7 +4,7 @@ inclusion: always
 
 # Tech stack
 
-- TypeScript 5 (`strict`, ES2022, Node16 modules), compiled by `tsc` from `src/` to `dist/`. No framework, no bundler, no runtime dependencies.
+- TypeScript 5 (`strict`, ES2022, Node16 modules), compiled by `tsc` from `src/` to `dist/`. `scripts/build-site.mjs` packages only HTML, CSS and current compiled JS into `site/`; source maps and stale outputs stay out. Node.js 22+. No framework, no bundler, no runtime dependencies.
 - Architecture: definitions + hooks + registries. `src/engine/` holds content-agnostic tools (`createRegistry`, `createEventBus`, `cachedSprite`). `src/defs/` holds one def file per cat, weapon, passive, evolution, enemy, material, reaction row, prop, landmark and biome, registered with one line in `src/defs/index.ts` or `src/defs/world-index.ts`. `src/game/` is the generic simulation that looks defs up by id and calls their hooks through a `SimContext`. Art files sit beside their defs and are registered only by `src/render/art-index.ts`, so the sim never imports art.
 - Rendering: Canvas 2D. `src/main.ts` draws into a 2x internal back canvas, then presents it to the stage canvas. The 960 x 540 view follows the cat through a bounded world via `src/render/camera.ts`; ground (roads, landmark ground, district patches) is cached per chunk on 2x offscreen canvases (`craft-world.ts`), tall pieces and props are cached sprites (`cachedSprite`), and actors are culled to the view. New art uses the paper kit (`paper-kit.ts`, `prop-kit.ts`) and seeded variants (`variants.ts`).
 - Paper interactions: weapons carry elements (`fire`, `ink`, `wind`, `cut`, `fold`); props have a material; a material x element reaction table decides tearing or burning (`src/game/props.ts`). Fire lives on a cell grid with a cap (`FIRE` in `src/defs/fire.ts`). Landmark pieces fold up like a pop-up book near the cat (render only, `POPUP` in `timeline.ts`).
@@ -16,15 +16,16 @@ inclusion: always
 ## Commands
 
 ```bash
-npm install     # TypeScript only
-npm run build   # tsc
-npm start       # python3 -m http.server 4173
-npm test        # tsc && node --test tests/*.test.mjs
+npm ci          # TypeScript only
+npm run build   # tsc -> dist/; static publish output -> site/
+npm start       # python3 -m http.server 4173 --directory site
+npm test        # npm run build && node --test tests/*.test.mjs
 ```
 
 - Open `http://localhost:4173/`; `/?start=1` jumps straight into a run with the saved cat, `?seed=N` pins the run seed (otherwise each run gets a fresh one), `/?gallery=1` shows every registered entry on paper cards.
 - An old local server may still hold port 4173. Check the port before starting another one.
-- Tests import compiled modules from `dist/`, so they always build first.
+- Tests import compiled modules from `dist/` and inspect the static output in `site/`, so they always run the production build first.
+- `vercel.json` uses `npm ci`, `npm run build`, output `site/`, no framework or SPA fallback. The production site needs no Python, server process or environment variables. The deployment configuration is ready; no live deployment has been performed.
 
 ## Conventions
 

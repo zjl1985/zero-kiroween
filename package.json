@@ -2,11 +2,14 @@
   "name": "midnight-meow",
   "private": true,
   "type": "module",
-  "description": "猫猫守夜 / Midnight Meow — code-drawn pixel night watch",
+  "description": "猫猫守夜 / Midnight Meow — code-drawn papercraft night watch",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "build": "tsc",
-    "start": "python3 -m http.server 4173",
-    "test": "tsc && node --test tests/*.test.mjs"
+    "build": "tsc && node scripts/build-site.mjs",
+    "start": "python3 -m http.server 4173 --directory site",
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {},
   "devDependencies": {

@@ -54,9 +54,9 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 
 ## Verification routine
 
-1. `npm run build` (tsc to `dist/`).
-2. `npm test` (`tsc && node --test tests/*.test.mjs`; tests import from `dist/`).
-3. At most one static screenshot for art changes (`npm start` serves port 4173; check `lsof -i :4173` first). The sandbox has blocked Playwright and headless Chromium; if it fails, skip it and say so.
+1. `npm run build` (tsc to `dist/`, then isolated static output to `site/`; Node.js 22+).
+2. `npm test` (`npm run build && node --test tests/*.test.mjs`; tests import from `dist/` and inspect `site/`).
+3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first). The sandbox has blocked Playwright and headless Chromium; if it fails, skip it and say so.
 4. No animation or video-recording checks unless the user asks.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).

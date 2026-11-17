@@ -1,0 +1,13 @@
+.agents/
+.kiro/
+.playwright-cli/
+.vercel/
+node_modules/
+dist/
+site/
+output/
+docs/
+tests/
+*.md
+compare.html
+.DS_Store

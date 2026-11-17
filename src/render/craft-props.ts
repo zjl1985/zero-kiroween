@@ -16,6 +16,7 @@ import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { glow, hash, mix, path, piece, type Ctx, type Point } from "./paper-material.js";
 import { variant } from "./variants.js";
+import { tintedSprite } from "./sprite-tint.js";
 
 const PAD = 8;
 type Add = (y: number, draw: () => void) => void;
@@ -87,11 +88,8 @@ export function drawProp(
   ctx.rotate(look.angle);
   ctx.scale(look.flip * look.scale, look.scale);
   if (burning) {
-    // Charring: the paper browns while its edges glow.
-    ctx.save();
-    ctx.filter = "sepia(0.7) brightness(0.66)";
-    sprite.draw(ctx, { x: 0, y: 0 });
-    ctx.restore();
+    // Charring stays inside the cached paper silhouette; flames remain live.
+    tintedSprite(sprite, "#362417", 0.5).draw(ctx, { x: 0, y: 0 });
     glow(ctx, 0, -10 * p.s, 46 * p.s, "#f08a3c", 0.45, 0.6);
     art.flames.forEach(([fx, fy], i) => flame(ctx, fx * p.s, fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i));
   } else sprite.draw(ctx, { x: 0, y: 0 });

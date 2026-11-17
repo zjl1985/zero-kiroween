@@ -36,6 +36,10 @@ export const ZERO_ART: CatArt = {
   draw(ctx, pose) {
     drawCraftCat(ctx, pose, ZERO_ART.body);
   },
+  skillPreview(ctx, pose) {
+    light(ctx, pose.x, pose.y - 24, 46, "#ffd27a", 0.35);
+    ZERO_ART.draw(ctx, { ...pose, dashing: true });
+  },
   portrait(ctx, pose, scale) {
     drawOfficialHead(ctx, pose, { scale });
   },

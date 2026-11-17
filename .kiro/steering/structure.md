@@ -10,6 +10,10 @@ Content is built as definitions + hooks + registries. To add or change content, 
 index.html            DOM screens (theater title / playbill cat choice, journal HUD, folded pause page,
                       upgrade cards, journal result page, #gallery-screen); data-style="papercraft"
 styles.css            UI styling in the papercraft night-watch journal look (no url() textures)
+vercel.json           static deployment: npm ci, npm run build, output site/
+scripts/build-site.mjs   package HTML, CSS and current compiled JS; exclude maps and stale outputs
+site/                generated deployment output, git-ignored; npm start serves this directory
+.vercelignore        exclude local task state, development output and internal docs from CLI upload
 src/main.ts           boot, screen flow, resize, input wiring, follow camera, render loop, prefs,
                       audio cues and event timelines derived from sim counters; ?start=1, ?seed=N,
                       ?gallery=1 (bootGallery)
@@ -52,6 +56,7 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
   types.ts            SimState, STATS, EFFECT_LIFE, FX_CAP, EffectKind, Notice
   input.ts            keyboard input (WASD / arrows, Space skill, Esc / P pause, 1 / 2 / 3 cards)
   collision.ts, scenery.ts, rng.ts, clock.ts
+  seed.ts             pure decimal uint32 query-pin validation (invalid pins use fresh randomness)
 src/render/           Canvas drawing; reads SimState, never mutates it, never uses the sim RNG
   art-registry.ts     CatArt, EnemyArt, WeaponArt, PassiveArt, PropArt, LandmarkArt, DecorPiece, BiomeArt
                       and their registries; catArt, activeWeaponArt, upgradeIcon, effectPainter, shotArt
@@ -59,6 +64,7 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   paper-kit.ts        paperCut, paperStack, foldLine, stitchAlong, charEdge, tornEdge, warmGlow
   prop-kit.ts         phasedPaint (intact / damaged / scraps from one painter), post
   variants.ts         variant(seed, base): seeded colour, scale, tilt, wear, mirror (render hash only)
+  sprite-tint.ts      cached offscreen alpha-masked tints for burning props and folding decor
   paper-material.ts   low-level paper fiber, cut edges, thickness, shadows, stitching, glow
   paper-scraps.ts     scrap pieces, ash patch, torn stubs
   craft-props.ts      prop sprites per phase, fire ground and flames, prop impacts

@@ -415,10 +415,7 @@ function releaseWave(state: SimState, wave: WaveDef, rng: Rng): void {
     }
   }
 }
-/**
- * Makes room under `limit` living enemies by rubbing out the oldest common
- * ink (never elites or the Boss), so scheduled arrivals always fit.
- */
+
 /**
  * Rubs out common ink until fewer than `limit` are alive: off-screen ink
  * first, farthest from the cat first, so the fight in view is kept. Elites
@@ -428,6 +425,7 @@ export function makeRoom(state: SimState, limit: number): void {
   let living = livingEnemies(state);
   if (living < limit) return;
   const p = state.player,
+    c = viewCentre(p.x, p.y),
     hw = SCREEN.width / 2,
     hh = SCREEN.height / 2,
     order = state.enemies
@@ -435,7 +433,7 @@ export function makeRoom(state: SimState, limit: number): void {
       .map((e, i) => ({
         e,
         i,
-        off: Math.abs(e.x - p.x) > hw || Math.abs(e.y - p.y) > hh ? 1 : 0,
+        off: Math.abs(e.x - c.x) > hw || Math.abs(e.y - c.y) > hh ? 1 : 0,
         d: Math.hypot(e.x - p.x, e.y - p.y),
       }))
       .sort((a, b) => b.off - a.off || b.d - a.d || a.i - b.i);

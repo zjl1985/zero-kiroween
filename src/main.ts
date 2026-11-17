@@ -12,6 +12,7 @@ import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
 import { createClock, FIXED_DT } from "./game/clock.js";
 import { createInput } from "./game/input.js";
+import { parseSeed } from "./game/seed.js";
 import { bossEnemy, chooseUpgrade, createSim, step } from "./game/sim.js";
 import { evolutionFor, playerStats } from "./game/upgrades.js";
 import { paintUpgradeCards } from "./ui/upgrade-cards.js";
@@ -70,12 +71,12 @@ function savePrefs(prefs: Prefs): void {
   } catch {}
 }
 /**
- * A fresh night per run; `?seed=N` (a non-negative integer) pins the seed so a
+ * A fresh night per run; `?seed=N` (a decimal uint32) pins the seed so a
  * run can be replayed. The sim stays deterministic for a given seed.
  */
 function runSeed(): number {
-  const pinned = new URLSearchParams(location.search).get("seed");
-  if (pinned !== null && /^\d{1,10}$/.test(pinned)) return Number(pinned) >>> 0;
+  const pinned = parseSeed(new URLSearchParams(location.search).get("seed"));
+  if (pinned !== null) return pinned;
   return crypto.getRandomValues(new Uint32Array(1))[0]!;
 }
 /** Counters the audio layer diffs each frame; audio never lives in the sim. */

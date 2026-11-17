@@ -80,6 +80,7 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
      body: { rim, tail, paw, pawEdge, cape, capeEdge, capeFold, body, bodyEdge, bib, belt, arm, chain: false },
      colors: { hud, tone, cardPaper, cardInk, icon, levelUp, evolve },
      draw(ctx, pose) { drawCraftCat(ctx, pose, <ID>_ART.body); },
+     skillPreview(ctx, pose) { /* draw this cat's skill effect and pose without a sim or audio */ },
      portrait(ctx, pose, scale) { drawOfficialHead(ctx, pose, { scale }); },
      heroAura(ctx, x, y, time) { /* title aura, paper-kit / paper-material only */ },
      skillIcon(ctx, kind) { /* 32 x 32 glyph for "attack" | "active" | "passive" */ },
@@ -90,7 +91,7 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
 
    Register it in `src/render/art-index.ts`: append to
    `for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(a);`
-   `CAT_ART` order must equal `CATS` order (tested).
+   `CAT_ART` order must equal `CATS` order (tested). The required `skillPreview` owns the gallery skill pose: choose dashing only when it fits this cat's skill, and draw the cat as well as the effect.
 
 7. **i18n** (keys.ts + en.ts + zh.ts), see [i18n.md](i18n.md):
    `<id>.name`, `<id>.role`, `<id>.story`, `<id>.tactic`, `<id>.attack.name`, `<id>.attack.desc`, `<id>.active.name`, `<id>.active.short`, `<id>.active.desc`, `<id>.passive.name`, `<id>.passive.desc`, `cat.<id>.choice`, `notice.<skillNotice>`, the evolution's `notice.<notice>`, plus `upgrade.<id>.name/.desc` for each new weapon / passive.

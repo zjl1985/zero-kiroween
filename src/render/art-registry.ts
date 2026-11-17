@@ -56,6 +56,8 @@ export interface CatArt {
   readonly colors: CatColors;
   /** The cat in the world (official head on a paper body). */
   draw(ctx: Ctx, pose: CatPose): void;
+  /** Static gallery skill pose and effects, without constructing a simulation. */
+  skillPreview(ctx: Ctx, pose: CatPose): void;
   /** Head-only portrait for tickets and the HUD badge. */
   portrait(ctx: Ctx, pose: CatPose, scale: number): void;
   /** The title-screen aura behind the chosen cat. */

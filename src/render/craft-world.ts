@@ -23,7 +23,9 @@ import {
   type LandmarkKind,
   type Road,
 } from "../game/world-gen.js";
-import type { SimState } from "../game/types.js";
+import type { InteractState, SimState } from "../game/types.js";
+import { MOON_LANTERN } from "../game/interactions.js";
+import { cachedSprite } from "../engine/sprite.js";
 import { LANDMARK_DEFS } from "../defs/registries.js";
 import { BIOME_ART, LANDMARK_ART, decorPiece, landmarkReach } from "./art-registry.js";
 import { bossEnemy } from "../game/sim.js";
@@ -32,6 +34,8 @@ import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { popupStep, popupTarget } from "./timeline.js";
+import { drawInteractable } from "./craft-juice.js";
+import { tintedSprite } from "./sprite-tint.js";
 import {
   bush,
   candles,
@@ -96,14 +100,13 @@ const PAINT: Record<keyof typeof BOUNDS, Painter> = {
 };
 /** Variants per kind keep the cache small; pumpkins keep their carved bit (seed % 4). */
 const VARIANTS: Partial<Record<DecorKind, number>> = { pumpkin: 8, tree: 6, cottage: 4, bush: 6, stone: 4 };
-const spriteCache = new Map<string, HTMLCanvasElement>();
 const PAD = 8;
 function decorBounds(d: Decor): Bounds | null {
   if (d.kind === "lamp") return { l: -18, r: 18, t: -75 * d.s, b: 8 };
   const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
-function drawDecor(ctx: Ctx, d: Decor, time: number): void {
+function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0): void {
   if (d.kind === "lamp") {
     drawLamp(ctx, { x: d.x, y: d.y, s: Math.round(d.s * 20) / 20 }, time);
     return;
@@ -115,19 +118,19 @@ function drawDecor(ctx: Ctx, d: Decor, time: number): void {
   if (!b || !paint) return;
   const s = Math.round(d.s * 20) / 20,
     v = Math.abs(d.seed) % ((own ? VARIANTS[d.kind] : extra?.variants) ?? 1),
-    key = `${d.kind}-${s}-${v}`;
-  let c = spriteCache.get(key);
-  const w = (b.r - b.l) * s + PAD * 2,
-    h = (b.b - b.t) * s + PAD * 2;
-  if (!c) {
-    if (spriteCache.size > 220) spriteCache.clear();
-    c = surface(Math.ceil(w * 2), Math.ceil(h * 2));
-    const g = c.getContext("2d")!;
-    g.scale(2, 2);
-    paint(g, -b.l * s + PAD, -b.t * s + PAD, s, v);
-    spriteCache.set(key, c);
-  }
-  ctx.drawImage(c, d.x + b.l * s - PAD, d.y + b.t * s - PAD, Math.ceil(w * 2) / 2, Math.ceil(h * 2) / 2);
+    w = (b.r - b.l) * s + PAD * 2,
+    h = (b.b - b.t) * s + PAD * 2,
+    ax = -b.l * s + PAD,
+    ay = -b.t * s + PAD,
+    sprite = cachedSprite(
+      `decor:${d.kind}:${s}:${v}`,
+      w,
+      h,
+      2,
+      (c) => paint(c, ax, ay, s, v),
+      { x: ax / w, y: ay / h },
+    );
+  tintedSprite(sprite, "#000000", 0.28 * shade).draw(ctx, { x: d.x, y: d.y });
 }
 
 // ---------------------------------------------------------------- flat art baked in chunks
@@ -287,7 +290,11 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
       seed,
       ...(LANDMARK_DEFS.get(kind).span ? { span: PREVIEW_SPAN } : {}),
     },
-    { decor } = landmarkParts(l),
+    { decor, spots } = landmarkParts(l),
+    interactables: InteractState[] = spots.map((s, i) => ({
+      ...s, id: i + 1, lit: 0, cooldown: 0, tick: 0,
+      charge: s.kind === "lantern" ? MOON_LANTERN.startCharge : 0,
+    })),
     reach = landmarkReach(l),
     bounds: Bounds = { l: -reach, r: reach, t: -reach * 0.7, b: reach * 0.7 };
   for (const d of decor) {
@@ -298,12 +305,23 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
     bounds.t = Math.min(bounds.t, d.y + bd.t);
     bounds.b = Math.max(bounds.b, d.y + bd.b);
   }
+  for (const o of interactables) {
+    // Include the ready flame tag / hanging moon tag, not just the prop body.
+    const s = o.s ?? 1;
+    bounds.l = Math.min(bounds.l, o.x - 5);
+    bounds.r = Math.max(bounds.r, o.x + (o.kind === "lantern" ? 26 : 5));
+    bounds.t = Math.min(bounds.t, o.y - (o.kind === "lantern" ? 78 : 33 * s + 9));
+  }
   return {
     bounds,
     draw(ctx, time) {
       landmarkGround(ctx, l);
       for (const d of decor) if (FLAT_DECOR.has(d.kind)) flatDecor(ctx, d);
-      for (const d of decor.filter((d) => !FLAT_DECOR.has(d.kind)).sort((a, b) => a.y - b.y)) drawDecor(ctx, d, time);
+      const sprites: WorldSprite[] = decor.filter((d) => !FLAT_DECOR.has(d.kind))
+        .map((d) => ({ y: d.y, draw: () => drawDecor(ctx, d, time) }));
+      // Layouts already include the bodies; match the world's overlay order.
+      for (const o of interactables) sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, time) });
+      for (const sprite of sprites.sort((a, b) => a.y - b.y)) sprite.draw();
     },
   };
 }
@@ -454,17 +472,17 @@ function foldOf(d: Decor, pop: PopupView, dt: number): number {
   return next;
 }
 /** The hinge crease and darkening of a page that is not fully up. */
-function drawFolded(ctx: Ctx, d: Decor, bd: Bounds, f: number, paint: () => void): void {
+function drawFolded(ctx: Ctx, d: Decor, bd: Bounds, f: number, paint: (shade: number) => void): void {
   if (f >= 0.995) {
-    paint();
+    paint(0);
     return;
   }
   ctx.save();
-  ctx.filter = `brightness(${(0.72 + 0.28 * f).toFixed(3)})`;
   ctx.translate(d.x, d.y);
   ctx.scale(1, f);
   ctx.translate(-d.x, -d.y);
-  paint();
+  // Eight shade intervals keep tinted sprite keys bounded while the fold stays smooth.
+  paint(Math.round((1 - f) * 8) / 8);
   ctx.restore();
   // Paper hinge: a dark crease with a pale lip along the base.
   const l = d.x + bd.l * 0.75,
@@ -505,13 +523,13 @@ export function worldSprites(
         sprites.push({
           y: d.y,
           draw: () =>
-            drawFolded(ctx, d, bd, f, () => {
+            drawFolded(ctx, d, bd, f, (shade) => {
               if (fade?.(d)) {
                 ctx.save();
                 ctx.globalAlpha = 0.5;
-                drawDecor(ctx, d, time);
+                drawDecor(ctx, d, time, shade);
                 ctx.restore();
-              } else drawDecor(ctx, d, time);
+              } else drawDecor(ctx, d, time, shade);
             }),
         });
       }
