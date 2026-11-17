@@ -6,9 +6,9 @@ import {
 import type { CatId } from "./cats/types.js";
 import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
-import { createClock, FIXED_DT, tickClock } from "./game/clock.js";
+import { createClock, FIXED_DT } from "./game/clock.js";
 import { createInput } from "./game/input.js";
-import { chooseUpgrade, createSim, step } from "./game/sim.js";
+import { bossEnemy, chooseUpgrade, createSim, step } from "./game/sim.js";
 import { evolutionFor, playerStats } from "./game/upgrades.js";
 import { paintUpgradeCards } from "./ui/upgrade-cards.js";
 import { paintJournal } from "./ui/journal.js";
@@ -20,6 +20,18 @@ import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
 import { createSfx } from "./audio/sfx.js";
+import { moonArc } from "./ui/journal-geometry.js";
+import {
+  advanceCues,
+  beatLength,
+  BEATS,
+  cuePhase,
+  DEAL,
+  presentationSpeed,
+  presentationSteps,
+  type Cue,
+  type CueKind,
+} from "./render/timeline.js";
 
 type Screen = "title" | "play" | "pause" | "upgrade" | "result";
 const PREF_KEY = "midnight-meow-prefs";
@@ -65,6 +77,8 @@ function cueState(s: SimState) {
     treats: s.stats.treatsEaten,
     moon: s.stats.moonPulses,
     boss: s.boss.spawned,
+    bossDown: s.boss.defeated,
+    dawn: moonArc(s.elapsed, s.sessionSeconds).dawn,
     evolved: s.upgrades[evolutionFor(s.player.id)] ?? 0,
     chain: Math.floor(s.streak.count / STATS.streakMilestone),
     ended: s.ended,
@@ -130,11 +144,39 @@ function boot(): void {
     bannerName: must<HTMLElement>("boss-banner-name"),
     bannerLine: must<HTMLElement>("boss-banner-line"),
   };
+  // Presentation cues (timeline.ts): derived from sim counters like the audio
+  // cues above, aged in real time, never stored in the sim.
+  let motionCues: Cue[] = [],
+    finale = false,
+    lastBoss: { x: number; y: number } | null = null;
+  const cue = (kind: CueKind, at?: { x: number; y: number } | null) => {
+    motionCues = [...motionCues.filter((c) => c.kind !== kind), { kind, t: 0, x: at?.x, y: at?.y }];
+  };
+  const replay = (el: HTMLElement, cls: string) => {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  };
+  const cueMotion = (
+    s: SimState,
+    now: ReturnType<typeof cueState>,
+    p: ReturnType<typeof cueState>,
+  ) => {
+    if (now.evolved > p.evolved) cue("evolution");
+    if (now.boss && !p.boss) cue("boss", bossEnemy(s));
+    if (now.bossDown && !p.bossDown) cue("boss-down", lastBoss);
+    if (now.dawn && !p.dawn && now.ended === "playing") {
+      cue("dawn");
+      hudRefs.sky.style.setProperty("--flip-ms", `${Math.round(beatLength(BEATS.dawn) * 1000)}ms`);
+      replay(hudRefs.sky, "flip");
+    }
+  };
   const cueSounds = (s: SimState) => {
     const now = cueState(s),
       p = cues;
     cues = now;
     if (!p) return;
+    cueMotion(s, now, p);
     if (now.ended !== p.ended) {
       sfx.play(now.ended === "won" ? "win" : "lose");
       return;
@@ -278,6 +320,10 @@ function boot(): void {
     last = performance.now();
     cues = cueState(sim);
     camera = createCamera();
+    motionCues = [];
+    finale = false;
+    lastBoss = null;
+    hudRefs.sky.classList.remove("flip");
     show("play");
   };
   const resume = () => {
@@ -292,9 +338,10 @@ function boot(): void {
     show("upgrade");
     // Replay the deal-in animation for every new hand.
     const hand = must<HTMLElement>("upgrade-screen");
-    hand.classList.remove("dealt");
-    void hand.offsetWidth;
-    hand.classList.add("dealt");
+    hand.style.setProperty("--stagger", `${DEAL.staggerMs}ms`);
+    hand.style.setProperty("--flight", `${DEAL.flightMs}ms`);
+    hand.style.setProperty("--settle", `${DEAL.settleMs}ms`);
+    replay(hand, "dealt");
   };
   const pick = (index: number) => {
     if (!sim || screen !== "upgrade" || performance.now() < cardsArmedAt)
@@ -309,6 +356,8 @@ function boot(): void {
   const title = () => {
     sim = null;
     camera = createCamera();
+    motionCues = [];
+    finale = false;
     show("title");
   };
   const language = () => {
@@ -412,13 +461,26 @@ function boot(): void {
     if (screen === "play" || screen === "title")
       renderTime += Math.min(real, 0.1);
     if (screen === "play" && sim) {
-      if (input.consumePause()) show("pause");
+      if (finale) {
+        // The night is over: the sim stops and the dawn finale plays out, then the journal opens.
+        input.consumePause();
+        renderHud(hudRefs, locale, sim);
+        if (!motionCues.some((c) => c.kind === "finale")) {
+          finale = false;
+          show("result");
+        }
+      } else if (input.consumePause()) show("pause");
       else {
-        const count = tickClock(clock, real);
+        // Slow motion = fewer FIXED_DT steps per real second; dt never changes.
+        const speed = presentationSpeed(motionCues, reducedMotion.matches);
+        const count = presentationSteps(clock, real, speed);
         for (let i = 0; i < count; i++) {
           step(sim, input.sample(touch.stick), FIXED_DT);
           if (sim.ended !== "playing") {
-            show("result");
+            if (sim.ended === "won") {
+              finale = true;
+              cue("finale");
+            } else show("result");
             break;
           }
           if (sim.pendingChoice) {
@@ -437,6 +499,20 @@ function boot(): void {
     } else if (screen === "pause" && input.consumePause()) resume();
     else input.consumePause();
     if (sim) cueSounds(sim);
+    if (sim) {
+      const boss = bossEnemy(sim);
+      if (boss) {
+        lastBoss = { x: boss.x, y: boss.y };
+        // The arrival cue follows the Eraser as it walks in.
+        motionCues = motionCues.map((c) => (c.kind === "boss" ? { ...c, x: boss.x, y: boss.y } : c));
+      }
+      if (screen === "play") motionCues = advanceCues(motionCues, real, reducedMotion.matches);
+      // The Boss pamphlet waits folded through the anticipation beat, then unfolds.
+      hudRefs.banner.classList.toggle(
+        "waiting",
+        motionCues.some((c) => c.kind === "boss" && cuePhase(c, reducedMotion.matches).phase === "anticipation"),
+      );
+    }
     if (sim && screen !== "title")
       camera = followCamera(
         camera,
@@ -449,7 +525,7 @@ function boot(): void {
     drawWorld(
       ctx,
       screen === "title" ? null : sim,
-      { time, reducedMotion: reducedMotion.matches, camera, locale },
+      { time, reducedMotion: reducedMotion.matches, camera, locale, cues: motionCues },
       screen === "title" && size.w > size.h
         ? {
             id: selectedCat,

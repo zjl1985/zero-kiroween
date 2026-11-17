@@ -51,6 +51,8 @@ import {
 } from "./craft-juice.js";
 import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
+import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
+import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   time: number;
@@ -59,6 +61,8 @@ export interface ViewState {
   camera?: Camera;
   /** For the navigation arrow labels. */
   locale?: Locale;
+  /** Presentation cues (timeline.ts) from main.ts. */
+  cues?: readonly Cue[];
 }
 interface Sprite {
   y: number;
@@ -71,9 +75,12 @@ export function drawWorld(
   titleCat?: CatPose,
 ): void {
   ctx.imageSmoothingEnabled = true;
-  const shake = sim
-    ? cameraShake(sim, view.time, !!view.reducedMotion)
-    : { x: 0, y: 0 };
+  const reduced = !!view.reducedMotion,
+    cues = sim ? (view.cues ?? []) : [],
+    base = sim ? cameraShake(sim, view.time, reduced) : { x: 0, y: 0 },
+    tremble = cueTremble(cues, view.time, reduced),
+    shake = { x: base.x + tremble.x, y: base.y + tremble.y },
+    zoom = presentationZoom(cues, reduced);
   const cam = view.camera ?? createCamera(),
     seed = sim?.seed ?? 0,
     progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
@@ -83,6 +90,14 @@ export function drawWorld(
   // Screen-space sky behind the world; hidden once the camera is far south.
   ctx.save();
   ctx.translate(shake.x, shake.y);
+  // Cue zoom (presentation only) centres on the cat so it stays in place.
+  if (sim && zoom !== 1) {
+    const fx = sim.player.x - view0.x0,
+      fy = sim.player.y - 20 - view0.y0;
+    ctx.translate(fx, fy);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-fx, -fy);
+  }
   if (view0.y0 < 250) {
     drawSky(ctx);
     if (sim) drawNightShift(ctx, progress, session);
@@ -301,9 +316,11 @@ export function drawWorld(
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
       else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
+    if (cues.length) drawCueWorld(ctx, cues, sim, view.time, reduced);
   }
   drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps);
   ctx.restore();
+  if (sim && cues.length) drawCueScreen(ctx, cues, sim, cam, view.time, reduced);
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
   if (sim) drawNavArrows(ctx, sim, cam, view.locale ?? "zh", view.time);
   drawForeground(

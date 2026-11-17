@@ -1550,10 +1550,47 @@ body[data-cat="nicole"] .profile-title span {
 .upgrade-card.evolution kbd {
   color: #e8c06f;
 }
-/* Every new hand unfolds card by card from its centre crease (--deal staggers it). */
+/*
+ * Dealing: cards leave a stack under the hand one by one (--stagger, set from
+ * DEAL in timeline.ts), lift (anticipation), fly and turn face up (reveal),
+ * overshoot their spot (burst) and settle; the paper stack behind each card
+ * then closes up.
+ */
+.card-stack {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+}
+.card-stack i {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 12px calc(100% - 12px), 0 calc(100% - 12px), 0 12px, 12px 12px);
+  background:
+    repeating-linear-gradient(97deg, #0000 0 3px, #8a6d4714 3px 4px),
+    color-mix(in srgb, var(--tone) 18%, #d9c7a4);
+  transform: translate(var(--sx), var(--sy)) rotate(var(--sr));
+}
+.card-stack i:nth-child(1) {
+  --sx: 3px;
+  --sy: 4px;
+  --sr: 1deg;
+}
+.card-stack i:nth-child(2) {
+  --sx: -3px;
+  --sy: 7px;
+  --sr: -1.6deg;
+  background:
+    repeating-linear-gradient(97deg, #0000 0 3px, #8a6d4714 3px 4px),
+    color-mix(in srgb, var(--tone) 28%, #c7b28c);
+}
 .upgrade-screen.dealt .upgrade-card {
-  animation: card-unfold 0.55s cubic-bezier(0.25, 1.3, 0.45, 1) backwards;
-  animation-delay: calc(var(--deal) * 110ms);
+  animation: card-deal var(--flight, 460ms) linear backwards;
+  animation-delay: calc(var(--deal) * var(--stagger, 70ms));
+}
+.upgrade-screen.dealt .card-stack i {
+  animation: stack-settle var(--settle, 320ms) cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+  animation-delay: calc(var(--deal) * var(--stagger, 70ms) + var(--flight, 460ms) * 0.7);
 }
 .upgrade-screen.dealt h2,
 .upgrade-screen.dealt .eyebrow {
@@ -2156,18 +2193,108 @@ body[data-cat="nicole"] .profile-title span {
     filter: none;
   }
 }
-@keyframes card-unfold {
+@keyframes card-deal {
+  /* In the stack: under the middle card, face down (folded flat). */
   from {
     opacity: 0;
-    transform: translateY(40px) rotateY(-88deg) scaleX(0.3);
+    transform: translate(calc((1 - var(--deal)) * 208px), 150px) rotate(calc((1 - var(--deal)) * 5deg)) rotateY(-80deg) scale(0.8);
+    animation-timing-function: ease-in;
   }
-  55% {
+  /* Anticipation: the top card lifts off the stack. */
+  18% {
     opacity: 1;
-    transform: translateY(-6px) rotateY(14deg) scaleX(1);
+    transform: translate(calc((1 - var(--deal)) * 200px), 132px) rotate(calc((1 - var(--deal)) * 5deg - 3deg)) rotateY(-70deg) scale(0.84);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  /* Reveal and burst: it flies out, turns face up and overshoots its spot. */
+  62% {
+    transform: translate(0, -12px) rotate(calc(var(--tilt) * -1.6)) rotateY(8deg) scale(1.05);
+    animation-timing-function: ease-in-out;
+  }
+  /* Settle. */
+  82% {
+    transform: translate(0, 3px) rotate(calc(var(--tilt) * 1.2)) scale(0.99);
+    animation-timing-function: ease-out;
   }
   to {
     transform: rotate(var(--tilt));
   }
+}
+@keyframes stack-settle {
+  from {
+    opacity: 0;
+    transform: translate(calc(var(--sx) * 4), calc(var(--sy) * 3)) rotate(calc(var(--sr) * 5));
+  }
+}
+@keyframes chest-beat {
+  /* Folded shut, a short held breath, the unfold overshoots, then it settles. */
+  from {
+    opacity: 0;
+    transform: translateY(-14px) rotate(-6deg) scaleY(0.2);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(-6px) rotate(-4deg) scaleY(0.32);
+  }
+  62% {
+    transform: translateY(2px) rotate(0.5deg) scaleY(1.08);
+  }
+  to {
+    transform: rotate(-1deg);
+  }
+}
+@keyframes line-land {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) rotate(-3deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(3px) rotate(1deg);
+  }
+}
+/* Dawn: the moon tips edge-on, the sun comes round with a small bounce. */
+@keyframes sky-flip {
+  0% {
+    transform: none;
+  }
+  16% {
+    transform: perspective(400px) scale(0.94);
+  }
+  42% {
+    transform: perspective(400px) rotateY(90deg) scale(0.98);
+  }
+  58% {
+    transform: perspective(400px) rotateY(0deg) scale(1.12);
+    filter: drop-shadow(0 0 10px #ffcf8a);
+  }
+  74% {
+    transform: perspective(400px) scale(0.98);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes rm-fade {
+  from {
+    opacity: 0;
+  }
+}
+.sky-arc canvas.flip {
+  animation: sky-flip var(--flip-ms, 2400ms) linear both;
+}
+.chest-reveal.dealt {
+  transform-origin: 50% 0;
+  animation: chest-beat 0.62s linear both;
+}
+.chest-reveal.dealt span {
+  animation: line-land var(--flight, 460ms) cubic-bezier(0.3, 1.4, 0.5, 1) backwards;
+  animation-delay: calc(0.3s + var(--deal) * var(--stagger, 70ms));
+}
+/* The Boss pamphlet stays folded through the anticipation beat. */
+.boss-banner.waiting .pleat {
+  animation: none;
+  opacity: 0;
 }
 @keyframes card-title {
   from {
@@ -2241,5 +2368,11 @@ body[data-cat="nicole"] .profile-title span {
   .ink-word {
     color: inherit;
     background: none;
+  }
+  /* Short fades only: no flight, overshoot, zoom or flip. */
+  .upgrade-screen.dealt .upgrade-card,
+  .chest-reveal.dealt,
+  .boss-banner:not(.waiting) .pleat {
+    animation: rm-fade 0.2s ease-out both !important;
   }
 }

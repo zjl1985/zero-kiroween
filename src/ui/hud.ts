@@ -11,6 +11,7 @@ import { upgradeName } from "./upgrade-cards.js";
 import { landmarks } from "../game/world-gen.js";
 import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./journal-geometry.js";
 import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc, paintWick } from "../render/journal-ui.js";
+import { DEAL } from "../render/timeline.js";
 
 export interface HudRefs {
   time: HTMLElement;
@@ -180,12 +181,18 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
   el.classList.toggle("big", r.big);
   el.replaceChildren(
     title,
-    ...lines.map((line) => {
+    ...lines.map((line, i) => {
       const s = document.createElement("span");
       s.textContent = line;
+      s.style.setProperty("--deal", String(i + 1));
       return s;
     }),
   );
+  // Same rhythm as the card deal: the slip folds in, then each line lands in turn.
+  el.style.setProperty("--stagger", `${DEAL.staggerMs}ms`);
+  el.classList.remove("dealt");
+  void el.offsetWidth;
+  el.classList.add("dealt");
 }
 /** XP as a seam sewn stitch by stitch; the level sits in a paper button. */
 function renderSeam(refs: HudRefs, locale: Locale, sim: SimState): void {
