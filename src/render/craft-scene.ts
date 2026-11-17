@@ -23,6 +23,7 @@ import {
   pathCenter as oldPathCenter,
 } from "./scene.js";
 export { LAMPS, YARD_PROPS };
+import { STATS } from "../game/types.js";
 const W = 960,
   H = 540,
   /** Height of the screen-space sky sheet. */
@@ -1533,14 +1534,15 @@ export function drawFrame(ctx: Ctx): void {
   }
   ctx.drawImage(frame, 0, 0, W, H);
 }
-/** 0 for most of the night, rising to 1 over the final tenth (the last 30 s of 300). */
-export function dawnAmount(progress: number): number {
-  return Math.max(0, Math.min(1, (progress - 0.9) / 0.1));
+/** 0 for most of the night, rising to 1 over the last STATS.dawnSeconds of the session. */
+export function dawnAmount(progress: number, sessionSeconds: number = STATS.sessionSeconds): number {
+  const span = Math.min(1, STATS.dawnSeconds / Math.max(1, sessionSeconds));
+  return Math.max(0, Math.min(1, (progress - (1 - span)) / span));
 }
 const MOON = { x: 770, y: 61 };
 /** Dawn: the moon sinks behind the hills, the horizon warms and the sky lifts. */
-export function drawNightShift(ctx: Ctx, progress: number): void {
-  const t = dawnAmount(progress);
+export function drawNightShift(ctx: Ctx, progress: number, sessionSeconds?: number): void {
+  const t = dawnAmount(progress, sessionSeconds);
   if (!t) return;
   const ease = t * t * (3 - 2 * t);
   ctx.save();
@@ -1588,8 +1590,9 @@ export function drawDawnWash(
   y: number,
   w: number,
   h: number,
+  sessionSeconds?: number,
 ): void {
-  const t = dawnAmount(progress);
+  const t = dawnAmount(progress, sessionSeconds);
   if (!t) return;
   const ease = t * t * (3 - 2 * t);
   ctx.save();

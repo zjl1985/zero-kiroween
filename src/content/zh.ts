@@ -178,4 +178,8 @@ export const ZH: Messages = {
   "landmark.lantern-market": "灯笼集市",
   "landmark.moon-hill": "月亮坡",
   "nav.boss": "橡皮擦",
+  "nav.chest": "宝箱",
+  "notice.elite": "戴冠的墨精英出现了 · 它守着一只宝箱",
+  "notice.chest": "宝箱打开了 · 免费挑一枚纸符",
+  "upgrade.chest_kicker": "宝箱 · 免费纸符",
 };

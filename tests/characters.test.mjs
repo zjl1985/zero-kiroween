@@ -8,6 +8,7 @@ import {
   nightPhase,
 } from "../dist/game/sim.js";
 import { CHARACTERS as C } from "../dist/game/characters.js";
+import { HORDE } from "../dist/game/enemies.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 const idle = { ax: 0, ay: 0, dash: false };
 function quiet(cat = "zero") {
@@ -211,14 +212,14 @@ test("repeated ability inputs respect each character cooldown", () => {
   assert.equal(z.stats.skillUses, 2);
   assert.equal(n.stats.skillUses, 1);
 });
-test("five-minute simulation reaches dawn once, with finite state and bounded enemies", () => {
+test("a full night reaches dawn once, with finite state and enemies under the hard cap", () => {
   for (const cat of ["zero", "nicole"]) {
     const s = createSim({ cat, seed: 37 });
-    s.player.invuln = 1000;
+    s.player.invuln = 1e6;
     // Level-up cards freeze the night; the bot always takes the first card.
-    for (let i = 0; i < 40000 && s.ended === "playing"; i++) {
+    for (let i = 0; i < 80000 && s.ended === "playing"; i++) {
       step(s, { ax: 0, ay: 0, dash: false, choose: 0 }, DT);
-      assert.ok(s.enemies.length <= 18);
+      assert.ok(s.enemies.length <= HORDE.hardCap);
       assert.ok(Number.isFinite(s.player.x) && Number.isFinite(s.player.y));
     }
     assert.equal(s.ended, "won");

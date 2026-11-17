@@ -356,8 +356,50 @@ function drawEraserBody(
   stroke(ctx, mouth, "#6f3242", 1.2);
   ctx.restore();
 }
-/** Dispatches every enemy kind to its papercraft drawing. */
+/** Dispatches every enemy kind to its papercraft drawing. Elites are drawn larger with a crown. */
 export function drawCraftEnemy(
+  ctx: Ctx,
+  e: EnemyState,
+  time: number,
+  look: Look,
+): void {
+  if (!e.elite) {
+    drawEnemyBody(ctx, e, time, look);
+    return;
+  }
+  const base = ENEMIES[e.kind].radius,
+    k = enemyRadius(e) / base;
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.scale(k, k);
+  ctx.translate(-e.x, -e.y);
+  // The body is drawn at its base size inside the scale, with a gold rim glow.
+  glow(ctx, e.x, e.y - base, base * 2.4, "#f2c46a", 0.22);
+  drawEnemyBody(ctx, { ...e, radius: base }, time, look);
+  ctx.restore();
+  if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y - enemyRadius(e) * 2.05, enemyRadius(e) / 14, e.id, time);
+}
+/** A small folded gold-paper crown with stitched band. */
+function drawEliteCrown(ctx: Ctx, x: number, y: number, s: number, seed: number, time: number): void {
+  const bob = Math.sin(time * 2.6 + seed) * 1.2,
+    w = 13 * s,
+    h = 8 * s,
+    cy = y + bob,
+    crown = path([
+      [x - w, cy + h * 0.4],
+      [x - w * 0.95, cy - h * 0.7],
+      [x - w * 0.45, cy - h * 0.05],
+      [x, cy - h * 1.05],
+      [x + w * 0.45, cy - h * 0.05],
+      [x + w * 0.95, cy - h * 0.7],
+      [x + w, cy + h * 0.4],
+    ]);
+  piece(ctx, crown, "#e5bd62", { shadow: 1.2, edge: "#fff0c4", texture: 0.5, thickness: 0.8 });
+  stitch(ctx, path([[x - w * 0.9, cy + h * 0.15], [x + w * 0.9, cy + h * 0.15]]), "#9c7434", 0.8);
+  ctx.fillStyle = "#c2493f";
+  ctx.fill(oval(x, cy - h * 0.25, 1.6 * s, 1.6 * s, seed));
+}
+function drawEnemyBody(
   ctx: Ctx,
   e: EnemyState,
   time: number,

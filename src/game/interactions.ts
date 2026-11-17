@@ -35,8 +35,8 @@ export const MOON_LANTERN = {
 } as const;
 /** Fish treats appear now and then near the cat and restore a heart. */
 export const FISH = {
-  firstAt: 35,
-  interval: 42,
+  firstAt: 45,
+  interval: 50,
   jitter: 10,
   life: 16,
   heal: 1,
@@ -45,4 +45,17 @@ export const FISH = {
   /** Placed this far from the cat (world units), inside the map edge. */
   near: 180,
   far: 380,
+} as const;
+/**
+ * Paper chests dropped by elites and the Eraser. Touching one opens a free
+ * card choice (rolled by rollChoices, no XP spent); the Boss chest owes more
+ * picks. FEAT-004 adds chest-triggered evolution on top.
+ */
+export const CHEST = {
+  radius: 14,
+  touchRadius: 18,
+  /** Seconds after dropping before it can be opened (lets the drop land). */
+  settle: 0.4,
+  picks: 1,
+  bigPicks: 2,
 } as const;

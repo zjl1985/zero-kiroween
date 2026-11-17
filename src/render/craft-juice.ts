@@ -4,11 +4,11 @@
  * Everything is derived from SimState and view time; nothing here consumes the
  * sim RNG or writes to the state.
  */
-import { EFFECT_LIFE, type Impact, type InteractState, type SimState, type TreatState, type EnemyState, type PickupState } from "../game/types.js";
+import { EFFECT_LIFE, type ChestState, type Impact, type InteractState, type SimState, type TreatState, type EnemyState, type PickupState } from "../game/types.js";
 import { ENEMIES, type EnemyKind } from "../game/enemies.js";
 import { enemyRadius } from "../game/sim.js";
 import { PUMPKIN } from "../game/interactions.js";
-import { glow, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
+import { box, glow, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
 import { visHash } from "./hash.js";
 import { YARD_PROPS } from "./scene.js";
 
@@ -356,9 +356,62 @@ export function drawTreat(ctx: Ctx, t: TreatState, time: number): void {
   });
 }
 
+/**
+ * A cut-paper treasure chest: contact shadow, a darker side strip for card
+ * thickness, a rounded lid, gold paper bands with stitching and a keyhole.
+ * The Boss chest is larger and moon-blue. Bobs gently until opened.
+ */
+export function drawChest(ctx: Ctx, c: ChestState, time: number): void {
+  const s = c.big ? 1.4 : 1,
+    lift = Math.max(0, 1 - c.age / 0.4) * 18 + Math.sin(time * 2.4 + c.id) * 0.8,
+    x = c.x,
+    y = c.y,
+    w = 26 * s,
+    h = 14 * s,
+    lid = 9 * s,
+    x0 = x - w / 2,
+    top = y - h - lift,
+    body = c.big ? "#5d7fb0" : "#a8643d",
+    side = c.big ? "#3e5a86" : "#7a4429",
+    band = c.big ? "#e8e2c4" : "#e5bd62";
+  shadow(ctx, x, y + 1, w * 0.6, 4 * s);
+  glow(ctx, x, top - lid * 0.3, 34 * s, c.big ? "#cfe0ff" : "#ffd27a", 0.22 + Math.sin(time * 3 + c.id) * 0.05);
+  ctx.save();
+  // Card thickness: an offset darker strip behind the front face.
+  piece(ctx, box(x0 + 2.2 * s, top + 1.8 * s, w, h, c.id + 3), side, { shadow: 0, texture: 0.3, thickness: 0.6 });
+  piece(ctx, box(x0, top, w, h, c.id), body, { shadow: 1.4, edge: c.big ? "#a9c4ea" : "#e0a073", texture: 0.65, thickness: 0.9 });
+  // Rounded lid as its own cut piece, overlapping the body.
+  const lidPath = new Path2D(
+    `M ${x0 - 1} ${top + 1} L ${x0 - 1} ${top - lid * 0.35} Q ${x0 + w / 2} ${top - lid * 1.45} ${x0 + w + 1} ${top - lid * 0.35} L ${x0 + w + 1} ${top + 1} Z`,
+  );
+  piece(ctx, lidPath, mix(body, "#ffffff", 0.08), { shadow: 1, edge: c.big ? "#c4d7f4" : "#eab184", texture: 0.6, thickness: 0.9 });
+  // Gold paper bands down the front.
+  for (const bx of [x0 + w * 0.2, x0 + w * 0.8 - 3 * s]) {
+    const strap = box(bx, top - lid * 0.8, 3 * s, h + lid * 0.8, c.id + bx);
+    piece(ctx, strap, band, { shadow: 0.5, texture: 0.4, thickness: 0.5 });
+    stitch(ctx, strap, c.big ? "#8ea3c8" : "#9c7434", 0.7);
+  }
+  // Clasp and keyhole.
+  const clasp = box(x - 3.5 * s, top - 2 * s, 7 * s, 7 * s, c.id + 9);
+  piece(ctx, clasp, band, { shadow: 0.6, texture: 0.4, thickness: 0.5 });
+  ctx.fillStyle = "#2a1c22";
+  ctx.fill(oval(x, top + 0.6 * s, 1.1 * s, 1.1 * s, c.id));
+  line(ctx, x, top + 1.2 * s, x, top + 3.2 * s, "#2a1c22", 0.9 * s);
+  ctx.restore();
+}
+
 /** Effects owned by this module; returns false for kinds handled elsewhere. */
 export function drawJuiceEffect(ctx: Ctx, e: Impact): boolean {
   switch (e.kind) {
+    case "chest-open": {
+      const t = progress(e, EFFECT_LIFE["chest-open"]);
+      ctx.save();
+      ctx.globalAlpha = 1 - t;
+      glow(ctx, e.x, e.y - 14, 30 + t * 60, "#ffe2a0", 0.5);
+      ctx.restore();
+      drawPaperBurst(ctx, e, EFFECT_LIFE["chest-open"], 16, 70, ["#e5bd62", "#f6e4c6", "#a8643d", "#9fc2c9"]);
+      return true;
+    }
     case "damage":
       drawDamageTag(ctx, e);
       return true;

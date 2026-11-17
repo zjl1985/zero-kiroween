@@ -46,6 +46,7 @@ import {
   drawShardTrail,
   drawStun,
   drawTreat,
+  drawChest,
 } from "./craft-juice.js";
 import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
@@ -75,6 +76,7 @@ export function drawWorld(
   const cam = view.camera ?? createCamera(),
     seed = sim?.seed ?? 0,
     progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
+    session = sim?.sessionSeconds,
     view0 = viewRect(cam),
     near = viewRect(cam, 140);
   // Screen-space sky behind the world; hidden once the camera is far south.
@@ -82,7 +84,7 @@ export function drawWorld(
   ctx.translate(shake.x, shake.y);
   if (view0.y0 < 250) {
     drawSky(ctx);
-    if (sim) drawNightShift(ctx, progress);
+    if (sim) drawNightShift(ctx, progress, session);
   }
   // World space, snapped to device pixels so cached chunks stay crisp.
   ctx.translate(
@@ -90,7 +92,7 @@ export function drawWorld(
     Math.round((VIEW_HEIGHT / 2 - cam.y) * 2) / 2,
   );
   drawChunks(ctx, seed, cam);
-  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT);
+  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
   drawWind(ctx, view.time);
   if (sim) {
     drawCombatGround(ctx, sim);
@@ -237,6 +239,8 @@ export function drawWorld(
       if (inView(near, o.x, o.y)) sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, view.time) });
     for (const t of sim.treats)
       if (t.alive && inView(near, t.x, t.y)) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
+    for (const c of sim.chests)
+      if (c.alive && inView(near, c.x, c.y)) sprites.push({ y: c.y, draw: () => drawChest(ctx, c, view.time) });
     if (sim.player.id === "nicole") {
       const full = playerStats(sim).fullMoon;
       orbitPositions(sim).forEach((p, i) =>
@@ -286,13 +290,15 @@ export function drawWorld(
       if (s.alive && inView(near, s.x, s.y)) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
+      // Off-screen effects are culled; the moon pulse spreads over the whole view.
+      if (effect.kind !== "moon-stun" && !inView(near, effect.x, effect.y, 60)) continue;
       if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
       else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
   }
-  drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress) : 0, lamps);
+  drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps);
   ctx.restore();
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
   if (sim) drawNavArrows(ctx, sim, cam, view.locale ?? "zh", view.time);

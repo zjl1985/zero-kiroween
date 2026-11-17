@@ -168,6 +168,10 @@ export const MESSAGE_KEYS = [
   "landmark.lantern-market",
   "landmark.moon-hill",
   "nav.boss",
+  "nav.chest",
+  "notice.elite",
+  "notice.chest",
+  "upgrade.chest_kicker",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

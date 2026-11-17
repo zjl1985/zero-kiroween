@@ -83,6 +83,18 @@ export interface EnemyState {
   hitFlash?: number;
   /** Seconds frozen by the moon-lantern pulse. */
   stun?: number;
+  /** Elite variant: bigger, tougher, drops a chest. */
+  elite?: boolean;
+}
+/** A paper chest dropped by an elite (or a big one by the Eraser). */
+export interface ChestState {
+  id: number;
+  x: number;
+  y: number;
+  /** Boss chest: more card picks. */
+  big: boolean;
+  alive: boolean;
+  age: number;
 }
 /** A jack-o'-lantern or the moon-lantern in the yard. */
 export interface InteractState {
@@ -192,7 +204,8 @@ export type EffectKind =
   | "pumpkin-pulse"
   | "treat"
   | "moon-stun"
-  | "streak";
+  | "streak"
+  | "chest-open";
 export interface Impact {
   x: number;
   y: number;
@@ -227,7 +240,10 @@ export const EFFECT_LIFE = {
   treat: 0.6,
   "moon-stun": 1.1,
   streak: 0.9,
+  "chest-open": 1,
 } as const;
+/** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
+export const FX_CAP = { damage: 24, dissolve: 20 } as const;
 export interface RunStats {
   kills: number;
   skillUses: number;
@@ -243,6 +259,8 @@ export interface RunStats {
   moonPulses: number;
   /** World units the cat has walked or dashed. */
   distance: number;
+  elitesDefeated: number;
+  chestsOpened: number;
 }
 export type Notice =
   | "zero-dash"
@@ -266,9 +284,15 @@ export type Notice =
   | "found-stone-bridge"
   | "found-graveyard"
   | "found-lantern-market"
-  | "found-moon-hill";
+  | "found-moon-hill"
+  | "elite"
+  | "chest";
 export interface UpgradeChoice {
   options: string[];
+  /** "chest": a free card from a chest, no XP spent. Defaults to a level-up. */
+  source?: "level" | "chest";
+  /** Further free picks still owed by the same chest. */
+  extra?: number;
 }
 export interface SimState {
   seed: number;
@@ -320,6 +344,10 @@ export interface SimState {
   loadedChunks: string[];
   /** Ids of landmarks the cat has come close to, in discovery order. */
   landmarksFound: string[];
+  /** Elite slots already used (spawned or skipped). */
+  elitesDone: number;
+  chests: ChestState[];
+  nextChestId: number;
 }
 export interface SimConfig {
   cat: CatId;
@@ -344,7 +372,9 @@ export const STATS = {
   strokeReink: 0.55,
   strokeBlankTime: 2.4,
   strokeSlow: 0.65,
-  sessionSeconds: 300,
+  sessionSeconds: 600,
+  /** The sky warms toward dawn over these last seconds of the night. */
+  dawnSeconds: 30,
   // Legacy common dash constants remain aliases for the starting Zero loadout.
   dashCooldown: CHARACTERS.zero.cooldown,
   decoyTime: CHARACTERS.zero.decoyLife,

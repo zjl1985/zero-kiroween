@@ -183,4 +183,8 @@ export const EN: Messages = {
   "landmark.lantern-market": "Lantern Market",
   "landmark.moon-hill": "Moon Hill",
   "nav.boss": "The Eraser",
+  "nav.chest": "Chest",
+  "notice.elite": "A crowned ink elite appears · It guards a chest",
+  "notice.chest": "Chest opened · Take a free paper charm",
+  "upgrade.chest_kicker": "TREASURE CHEST · A FREE CHARM",
 };

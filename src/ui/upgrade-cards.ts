@@ -30,7 +30,12 @@ export function paintUpgradeCards(
     const el = document.getElementById(id);
     if (el && el.textContent !== value) el.textContent = value;
   };
-  set("upgrade-kicker", t(locale, "upgrade.kicker", { level: sim.level }));
+  set(
+    "upgrade-kicker",
+    sim.pendingChoice?.source === "chest"
+      ? t(locale, "upgrade.chest_kicker")
+      : t(locale, "upgrade.kicker", { level: sim.level }),
+  );
   set("upgrade-title", t(locale, "upgrade.title"));
   set("upgrade-hint", t(locale, touch ? "upgrade.hint_touch" : "upgrade.hint"));
   for (let i = 0; i < 3; i++) {

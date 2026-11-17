@@ -762,8 +762,8 @@ export interface NavTarget {
   label: MessageKey;
 }
 /**
- * Off-screen targets worth an arrow: the nearest undiscovered landmark and the
- * Boss while it is alive. FEAT-003 chests add themselves here (kind "chest").
+ * Off-screen targets worth an arrow: the nearest undiscovered landmark, the
+ * Boss while it is alive and the nearest unopened chest.
  */
 export function navTargets(sim: SimState): NavTarget[] {
   const out: NavTarget[] = [],
@@ -781,6 +781,18 @@ export function navTargets(sim: SimState): NavTarget[] {
   if (best) out.push({ x: best.x, y: best.y, kind: "landmark", label: `landmark.${best.kind}` as MessageKey });
   const boss = bossEnemy(sim);
   if (boss) out.push({ x: boss.x, y: boss.y, kind: "boss", label: "nav.boss" });
+  // The nearest unopened chest.
+  let chest: { x: number; y: number } | null = null,
+    chestD = Infinity;
+  for (const c of sim.chests) {
+    if (!c.alive) continue;
+    const d = Math.hypot(c.x - p.x, c.y - p.y);
+    if (d < chestD) {
+      chestD = d;
+      chest = c;
+    }
+  }
+  if (chest) out.push({ x: chest.x, y: chest.y, kind: "chest", label: "nav.chest" });
   return out;
 }
 const NAV_INSET = { side: 44, top: 78, bottom: 70 } as const;
@@ -804,15 +816,16 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
       ay = cy + dy * k,
       ang = Math.atan2(dy, dx),
       boss = target.kind === "boss",
+      chest = target.kind === "chest",
       bob = Math.sin(time * 3 + (boss ? 1 : 0)) * 1.5;
     ctx.save();
     ctx.translate(ax + Math.cos(ang) * bob, ay + Math.sin(ang) * bob);
     // The pointer: a folded paper triangle.
     ctx.save();
     ctx.rotate(ang);
-    piece(ctx, path([[16, 0], [2, -8], [5, 0], [2, 8]]), boss ? "#b4564a" : "#e9c27a", {
+    piece(ctx, path([[16, 0], [2, -8], [5, 0], [2, 8]]), boss ? "#b4564a" : chest ? "#a8643d" : "#e9c27a", {
       shadow: 1.6,
-      edge: boss ? "#f0a090" : "#fff0c4",
+      edge: boss ? "#f0a090" : chest ? "#e5bd62" : "#fff0c4",
       texture: 0.6,
       thickness: 0.8,
     });

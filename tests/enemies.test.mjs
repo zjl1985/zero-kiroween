@@ -6,28 +6,34 @@ import {
   startBossAttack,
   step,
   bossEnemy,
+  livingEnemies,
 } from "../dist/game/sim.js";
-import { BOSS, CRUMPLE, ENEMIES, WAVES } from "../dist/game/enemies.js";
+import { BOSS, CRUMPLE, ELITE, ENEMIES, HORDE, PHASE_AT, WAVES } from "../dist/game/enemies.js";
+import { CHEST } from "../dist/game/interactions.js";
+import { STATS } from "../dist/game/types.js";
+import { SCREEN, WORLD, insideWorld, viewCentre } from "../dist/game/world-gen.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 const idle = { ax: 0, ay: 0, dash: false, choose: 0 };
+const NIGHT = STATS.sessionSeconds;
 
 /** Runs a sturdy cat so the night keeps going; records every kind that spawns. */
 function survive(seed, seconds, cat = "zero") {
-  const s = createSim({ cat, seed, sessionSeconds: 300 }),
+  const s = createSim({ cat, seed, sessionSeconds: NIGHT }),
     seen = new Map();
   while (s.elapsed < seconds && s.ended === "playing") {
     s.player.hp = s.player.maxHp;
     step(s, idle, DT);
     for (const e of s.enemies)
-      if (!seen.has(e.id)) seen.set(e.id, { kind: e.kind, at: s.elapsed });
+      if (!seen.has(e.id)) seen.set(e.id, { kind: e.kind, at: s.elapsed, elite: !!e.elite });
   }
   return { s, seen: [...seen.values()] };
 }
 function quietBoss(seed = 7) {
-  const s = createSim({ cat: "zero", seed, sessionSeconds: 300 });
+  const s = createSim({ cat: "zero", seed, sessionSeconds: NIGHT });
   s.enemies = [];
   s.spawnTimer = 1e6;
   s.wavesDone = WAVES.length;
+  s.elitesDone = 1e3;
   s.elapsed = BOSS.spawnAt * s.sessionSeconds - 0.05;
   return s;
 }
@@ -36,22 +42,188 @@ function untilBoss(s) {
   return bossEnemy(s);
 }
 
+test("the night lasts 600 s and the Eraser is due at 540 s", () => {
+  assert.equal(STATS.sessionSeconds, 600);
+  assert.equal(Math.round(BOSS.spawnAt * STATS.sessionSeconds), 540);
+  assert.equal(HORDE.hardCap, 100);
+  assert.ok(HORDE.capByMinute.every((c) => c <= HORDE.hardCap));
+});
+
 test("phase 0 spawns only ink blobs", () => {
-  const { seen } = survive(11, 59);
+  const { seen } = survive(11, PHASE_AT[0] * NIGHT - 1);
   assert.ok(seen.length > 3);
   assert.ok(seen.every((e) => e.kind === "ink-blob"));
 });
 
 test("later phases bring bats, crumples and smudges, deterministically", () => {
-  const a = survive(11, 230),
-    b = survive(11, 230);
-  const kinds = new Set(a.seen.map((e) => e.kind));
+  const a = survive(11, 300),
+    b = survive(11, 300);
+  const kinds = new Set(a.seen.filter((e) => !e.elite).map((e) => e.kind));
   for (const k of ["paper-bat", "crumple", "smudge"]) assert.ok(kinds.has(k), k);
   assert.ok(
-    a.seen.filter((e) => e.kind === "paper-bat").every((e) => e.at >= 60),
+    a.seen.filter((e) => e.kind === "paper-bat").every((e) => e.at >= PHASE_AT[0] * NIGHT),
   );
   assert.deepEqual(a.seen, b.seen);
   assert.deepEqual(snapshot(a.s), snapshot(b.s));
+});
+
+test("the living crowd ramps up over the night and never passes the hard cap", () => {
+  const s = createSim({ cat: "zero", seed: 21, sessionSeconds: NIGHT });
+  let peak = 0,
+    early = 0,
+    late = 0;
+  while (s.ended === "playing") {
+    // A sturdy cat that keeps strolling, so the night runs its whole length.
+    s.player.hp = s.player.maxHp;
+    s.player.invuln = 1;
+    step(s, { ax: Math.sin(s.elapsed / 7), ay: Math.cos(s.elapsed / 9), dash: false, choose: 0 }, DT);
+    const living = livingEnemies(s);
+    assert.ok(living <= HORDE.hardCap, `${living} alive at ${s.elapsed.toFixed(1)} s`);
+    peak = Math.max(peak, living);
+    if (s.elapsed < 60) early = Math.max(early, living);
+    if (s.elapsed > 480) late = Math.max(late, living);
+  }
+  assert.equal(s.ended, "won");
+  assert.ok(late > early * 2, `early ${early}, late ${late}`);
+  assert.ok(late >= 60, `late peak ${late}`);
+  assert.ok(peak <= HORDE.hardCap);
+});
+
+test("elites spawn on their timer, crowned and tougher, and drop a chest", () => {
+  const s = createSim({ cat: "zero", seed: 4, sessionSeconds: NIGHT });
+  s.spawnTimer = 1e6;
+  s.wavesDone = WAVES.length;
+  s.elapsed = ELITE.first - 0.05;
+  for (let i = 0; i < 10 && !s.enemies.some((e) => e.elite); i++) {
+    s.player.hp = s.player.maxHp;
+    step(s, idle, DT);
+  }
+  const elite = s.enemies.find((e) => e.elite);
+  assert.ok(elite, "an elite arrived");
+  assert.ok(s.elapsed >= ELITE.first);
+  assert.equal(s.elitesDone, 1);
+  assert.equal(elite.kind, ELITE.kinds[0]);
+  assert.ok(elite.radius > ENEMIES[elite.kind].radius);
+  assert.ok(elite.maxHp >= ENEMIES[elite.kind].hp * ELITE.hpMul);
+  assert.ok(insideWorld(elite.x, elite.y));
+  // Defeat it next to the cat.
+  elite.spawnTime = 0;
+  elite.hp = 0.1;
+  elite.x = s.player.x + 40;
+  elite.y = s.player.y;
+  s.shots.push({ id: 999, x: elite.x, y: elite.y, vx: 0, vy: 0, life: 1, alive: true });
+  step(s, idle, DT);
+  assert.equal(elite.alive, false);
+  assert.equal(s.chests.length, 1);
+  assert.equal(s.chests[0].big, false);
+  assert.equal(s.stats.elitesDefeated, 1);
+  // The next slot comes ELITE.every seconds later.
+  s.enemies = [];
+  s.elapsed = ELITE.first + ELITE.every - 0.05;
+  for (let i = 0; i < 10 && s.elitesDone < 2; i++) step(s, idle, DT);
+  assert.equal(s.elitesDone, 2);
+  assert.equal(s.enemies.filter((e) => e.elite).length, 1);
+});
+
+test("touching a chest opens a free card that grants one upgrade level", () => {
+  const s = createSim({ cat: "nicole", seed: 8, sessionSeconds: NIGHT });
+  s.enemies = [];
+  s.spawnTimer = 1e6;
+  s.chests.push({ id: s.nextChestId++, x: s.player.x + 4, y: s.player.y, big: false, alive: true, age: CHEST.settle });
+  const level = s.level,
+    xp = s.xp,
+    taken = s.stats.upgradesTaken;
+  step(s, idle, DT);
+  assert.equal(s.chests.length, 0);
+  assert.equal(s.stats.chestsOpened, 1);
+  assert.equal(s.pendingChoice?.source, "chest");
+  const id = s.pendingChoice.options[0],
+    before = s.upgrades[id] ?? 0;
+  step(s, { ...idle, choose: 0 }, DT);
+  assert.equal(s.upgrades[id], before + 1);
+  assert.equal(s.stats.upgradesTaken, taken + 1);
+  // No XP was spent and no level was gained.
+  assert.equal(s.level, level);
+  assert.equal(s.xp, xp);
+  assert.equal(s.pendingChoice, null);
+});
+
+test("a Boss chest owes two picks", () => {
+  const s = createSim({ cat: "zero", seed: 8, sessionSeconds: NIGHT });
+  s.enemies = [];
+  s.spawnTimer = 1e6;
+  s.chests.push({ id: s.nextChestId++, x: s.player.x, y: s.player.y, big: true, alive: true, age: 1 });
+  step(s, idle, DT);
+  step(s, { ...idle, choose: 0 }, DT);
+  assert.equal(s.pendingChoice?.source, "chest");
+  step(s, { ...idle, choose: 0 }, DT);
+  assert.equal(s.pendingChoice, null);
+  assert.equal(s.stats.upgradesTaken, 2);
+});
+
+test("the Eraser enters outside the view, inside the map, wherever the cat is, and hunts it", () => {
+  for (const at of [
+    { x: 480, y: 400 },
+    { x: WORLD.minX + 120, y: WORLD.maxY - 120 },
+    { x: WORLD.maxX - 300, y: 2600 },
+  ]) {
+    const s = quietBoss(12);
+    Object.assign(s.player, at);
+    const boss = untilBoss(s);
+    assert.ok(boss, "the Boss spawned");
+    assert.ok(s.elapsed >= 540 - DT);
+    const c = viewCentre(s.player.x, s.player.y);
+    assert.ok(
+      Math.abs(boss.x - c.x) >= SCREEN.width / 2 || Math.abs(boss.y - c.y) >= SCREEN.height / 2,
+      `boss in view at ${boss.x},${boss.y}`,
+    );
+    assert.ok(insideWorld(boss.x, boss.y));
+    const d0 = Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
+    for (let i = 0; i < 60 * 4; i++) {
+      s.player.hp = s.player.maxHp;
+      step(s, idle, DT);
+    }
+    const d1 = Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
+    assert.ok(d1 < d0, `closed from ${d0.toFixed(0)} to ${d1.toFixed(0)}`);
+    assert.ok(insideWorld(boss.x, boss.y));
+    // Run far away: the Eraser hunts across the map at its hunt speed.
+    boss.act = null;
+    boss.timer = 1e6;
+    const away = s.player.x > 0 ? -1 : 1;
+    s.player.x += away * 1200;
+    const d2 = Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
+    for (let i = 0; i < 60 * 3; i++) step(s, idle, DT);
+    const d3 = Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
+    assert.ok(d2 - d3 > BOSS.huntSpeed * 2.5, `hunted from ${d2.toFixed(0)} to ${d3.toFixed(0)}`);
+    assert.ok(insideWorld(boss.x, boss.y));
+  }
+});
+
+test("dawn at 600 s is a win", () => {
+  const s = createSim({ cat: "zero", seed: 2, sessionSeconds: NIGHT });
+  s.enemies = [];
+  s.spawnTimer = 1e6;
+  s.wavesDone = WAVES.length;
+  s.elitesDone = 1e3;
+  s.boss.spawned = true;
+  s.elapsed = NIGHT - 0.5;
+  s.timeLeft = 0.5;
+  for (let i = 0; i < 60 && s.ended === "playing"; i++) step(s, idle, DT);
+  assert.equal(s.ended, "won");
+  assert.ok(s.elapsed >= NIGHT - 1e-6);
+});
+
+test("a full 600 s night steps in node within a generous budget", () => {
+  const s = createSim({ cat: "nicole", seed: 5, sessionSeconds: NIGHT }),
+    t0 = performance.now();
+  while (s.ended === "playing") {
+    s.player.hp = s.player.maxHp;
+    s.player.invuln = 1;
+    step(s, { ax: Math.cos(s.elapsed / 5), ay: Math.sin(s.elapsed / 6), dash: s.elapsed % 7 < DT, choose: 0 }, DT);
+  }
+  const ms = performance.now() - t0;
+  assert.equal(s.ended, "won");
+  assert.ok(ms < 20000, `took ${ms.toFixed(0)} ms`);
 });
 
 test("a crumpled ball splits into two small blobs on defeat", () => {
