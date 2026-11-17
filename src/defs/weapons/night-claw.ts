@@ -23,6 +23,7 @@ export const NIGHT_CLAW: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "auto",
+  elements: ["cut"],
   stats(s, level) {
     const b = stepBonus(STEPS, level);
     s.claw = level > 0 && {
@@ -51,5 +52,8 @@ export const NIGHT_CLAW: WeaponDef = {
       if (d > 0 && (dx * Math.cos(angle) + dy * Math.sin(angle)) / d < cos) continue;
       ctx.hurtEnemy(state, e, c.damage);
     }
+    // The swipe also tears paper props in front of the cat.
+    const r = c.reach / 2;
+    ctx.elementHit(state, p.x + Math.cos(angle) * r, p.y + Math.sin(angle) * r, r, "cut", c.damage);
   },
 };

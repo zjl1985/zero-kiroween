@@ -42,6 +42,8 @@ export const PAPER_CRANE: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "auto",
+  elements: ["wind"],
+  shotTag: "crane",
   stats(s, level) {
     const b = stepBonus(STEPS, level);
     s.crane = level > 0 && {

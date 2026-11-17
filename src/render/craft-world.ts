@@ -26,6 +26,7 @@ import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
 import { viewRect } from "./camera.js";
+import { popupStep, popupTarget } from "./timeline.js";
 import {
   bush,
   candles,
@@ -714,9 +715,49 @@ export interface VisibleLamp {
   y: number;
   s: number;
 }
+/** Pieces that fold up like a pop-up book page as the cat approaches. */
+const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree", "cottage", "clock-tower", "chapel", "stall"]);
+/** Render-only fold per piece (never SimState); pieces out of view are forgotten. */
+const folds = new Map<string, number>();
+let foldTime: number | null = null;
+export interface PopupView {
+  /** The cat's position; without it everything stands. */
+  cat: { x: number; y: number } | null;
+  reduced: boolean;
+}
+/** Current fold (0..1) of a piece, eased toward its distance target. */
+function foldOf(d: Decor, pop: PopupView, dt: number): number {
+  if (!pop.cat) return 1;
+  const key = `${d.kind}:${d.x},${d.y}`,
+    target = popupTarget(Math.hypot(d.x - pop.cat.x, d.y - pop.cat.y)),
+    // A piece entering the view starts where it should be.
+    next = popupStep(folds.get(key) ?? target, target, dt, pop.reduced);
+  folds.set(key, next);
+  return next;
+}
+/** The hinge crease and darkening of a page that is not fully up. */
+function drawFolded(ctx: Ctx, d: Decor, bd: Bounds, f: number, paint: () => void): void {
+  if (f >= 0.995) {
+    paint();
+    return;
+  }
+  ctx.save();
+  ctx.filter = `brightness(${(0.72 + 0.28 * f).toFixed(3)})`;
+  ctx.translate(d.x, d.y);
+  ctx.scale(1, f);
+  ctx.translate(-d.x, -d.y);
+  paint();
+  ctx.restore();
+  // Paper hinge: a dark crease with a pale lip along the base.
+  const l = d.x + bd.l * 0.75,
+    r = d.x + bd.r * 0.75;
+  line(ctx, l, d.y + 2, r, d.y + 2, "#14101f", 2, 0.45 * (1 - f));
+  line(ctx, l, d.y + 0.5, r, d.y + 0.5, "#e7cf9c", 0.8, 0.5 * (1 - f));
+}
 /**
  * Tall decor (trees, cottages, lamps, landmark buildings) inside the view,
  * as y-sorted sprites. Lamps are also returned for ground light and glow.
+ * With `pop`, buildings and trees fold up near the cat (pop-up book).
  */
 export function worldSprites(
   ctx: Ctx,
@@ -724,7 +765,11 @@ export function worldSprites(
   cam: Camera,
   time: number,
   fade?: (d: Decor) => boolean,
+  pop?: PopupView,
 ): { sprites: WorldSprite[]; lamps: VisibleLamp[] } {
+  const dt = foldTime === null ? 0 : Math.min(0.1, Math.max(0, time - foldTime));
+  foldTime = time;
+  if (folds.size > 800) folds.clear();
   const view = viewRect(cam),
     { a, b } = chunkRange(viewRect(cam, 480)),
     sprites: WorldSprite[] = [],
@@ -738,16 +783,18 @@ export function worldSprites(
         // Cull by the sprite's own bounds.
         if (d.x + bd.r < view.x0 || d.x + bd.l > view.x1 || d.y + bd.b < view.y0 || d.y + bd.t > view.y1) continue;
         if (d.kind === "lamp") lamps.push(d);
+        const f = pop && POP_KINDS.has(d.kind) ? foldOf(d, pop, dt) : 1;
         sprites.push({
           y: d.y,
-          draw: () => {
-            if (fade?.(d)) {
-              ctx.save();
-              ctx.globalAlpha = 0.5;
-              drawDecor(ctx, d, time);
-              ctx.restore();
-            } else drawDecor(ctx, d, time);
-          },
+          draw: () =>
+            drawFolded(ctx, d, bd, f, () => {
+              if (fade?.(d)) {
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                drawDecor(ctx, d, time);
+                ctx.restore();
+              } else drawDecor(ctx, d, time);
+            }),
         });
       }
     }

@@ -11,6 +11,9 @@
  */
 import { SOLID_SCENERY, type Capsule } from "./scenery.js";
 import { MOON_LANTERN, PUMPKIN_SPOTS } from "./interactions.js";
+import "../defs/world-index.js";
+import { PROP_DEFS } from "../defs/registries.js";
+import type { PropSpot } from "../defs/types.js";
 
 /** One screen in world units; matches the 960 x 540 view without importing render code. */
 export const SCREEN = { width: 960, height: 540 } as const;
@@ -149,9 +152,12 @@ export interface ChunkContent {
   start: boolean;
   /** Generic decor plus the parts of a landmark centred in this chunk. */
   decor: Decor[];
+  /** Static colliders only; props bring their own (PropDef.colliders) while not scraps. */
   colliders: Capsule[];
   landmark: Landmark | null;
   spots: InteractSpot[];
+  /** Tearable / burnable props (src/defs/props), ids "cx,cy#i". */
+  props: PropSpot[];
 }
 
 /** Decor tuning per generic chunk: [chance or count range, clearance]. */
@@ -260,6 +266,8 @@ const landmarkMemo = new Map<number, Landmark[]>();
 const roadMemo = new Map<number, Road[]>();
 const chunkMemo = new Map<string, ChunkContent>();
 const colliderMemo = new Map<string, Capsule[]>();
+const staticMemo = new Map<string, Capsule[]>();
+const propMemo = new Map<string, PropSpot[]>();
 function remember<K, V>(map: Map<K, V>, key: K, make: () => V, cap = 900): V {
   let v = map.get(key);
   if (v === undefined) {
@@ -275,6 +283,8 @@ export function clearWorldCache(): void {
   roadMemo.clear();
   chunkMemo.clear();
   colliderMemo.clear();
+  staticMemo.clear();
+  propMemo.clear();
 }
 
 // ---------------------------------------------------------------- landmarks
@@ -504,6 +514,13 @@ function landmarkParts(l: Landmark): Pick<ChunkContent, "decor" | "colliders" | 
 
 // ---------------------------------------------------------------- chunks
 const EMPTY: Pick<ChunkContent, "decor" | "colliders" | "spots"> = { decor: [], colliders: [], spots: [] };
+interface Placed {
+  kind: string;
+  x: number;
+  y: number;
+  s: number;
+  seed: number;
+}
 function startParts(cx: number): Pick<ChunkContent, "decor" | "colliders" | "spots"> {
   const x0 = cx * CHUNK.width,
     x1 = x0 + CHUNK.width,
@@ -523,16 +540,24 @@ function startParts(cx: number): Pick<ChunkContent, "decor" | "colliders" | "spo
   };
 }
 /** Deterministic generic decor of one chunk. */
-function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, "decor" | "colliders"> {
+function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, "decor" | "colliders" | "props"> {
   const x0 = cx * CHUNK.width,
     y0 = cy * CHUNK.height,
-    decor: Decor[] = [],
+    placed: Placed[] = [],
     colliders: Capsule[] = [],
     tall: { x: number; y: number; r: number }[] = [];
   let salt = 100;
   const h = () => hash2(seed, cx, cy, salt++);
   const range = (r: readonly [number, number]) => r[0] + Math.floor(h() * (r[1] - r[0] + 1));
-  const place = (kind: DecorKind, count: number, clear: number, s0: number, s1: number, yMin: number) => {
+  const place = (
+    kind: string,
+    count: number,
+    clear: number,
+    s0: number,
+    s1: number,
+    yMin: number,
+    flat = FLAT_DECOR.has(kind as DecorKind),
+  ) => {
     for (let n = 0, tries = 0; n < count && tries < count * 8; tries++) {
       const x = x0 + 30 + h() * (CHUNK.width - 60),
         y = y0 + 30 + h() * (CHUNK.height - 60),
@@ -543,9 +568,8 @@ function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, 
       if (y < SCREEN.height + clear && x > -clear && x < SCREEN.width + clear) continue;
       if (nearRoad(seed, x, y, DECOR.roadClear + clear * 0.5)) continue;
       if (inLandmark(seed, x, y, clear)) continue;
-      const flat = FLAT_DECOR.has(kind);
       if (!flat && tall.some((t) => Math.hypot(t.x - x, t.y - y) < t.r + clear)) continue;
-      decor.push({ kind, x: Math.round(x), y: Math.round(y), s: Math.round(s * 100) / 100, seed: seedN });
+      placed.push({ kind, x: Math.round(x), y: Math.round(y), s: Math.round(s * 100) / 100, seed: seedN });
       if (!flat) tall.push({ x, y, r: clear });
       n++;
     }
@@ -564,18 +588,32 @@ function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, 
   place("flowers", range(DECOR.flowers), 30, 0.9, 1.1, ground);
   place("tuft", range(DECOR.tufts), 14, 0.7, 1.1, ground);
   place("leaves", range(DECOR.leaves), 30, 0.9, 1.1, ground);
+  // Scattered props come after every decor roll, so the decor hash sequence is unchanged.
+  for (const def of PROP_DEFS.all()) {
+    const sp = def.spawn;
+    if (!sp.count || h() >= (sp.chance ?? 1)) continue;
+    const [s0, s1] = sp.scale ?? [1, 1];
+    place(def.id, range(sp.count), sp.clear ?? 30, s0, s1, ground, !!sp.flat);
+  }
+  // Decor kinds a prop takes over (fences, bushes) become that prop in place.
+  const from = new Map(PROP_DEFS.all().filter((d) => d.spawn.from).map((d) => [d.spawn.from!, d.id]));
+  const decor: Decor[] = [],
+    props: PropSpot[] = [];
+  for (const d of placed) {
+    const kind = from.get(d.kind) ?? (PROP_DEFS.has(d.kind) ? d.kind : null);
+    if (kind) props.push({ id: `${cx},${cy}#${props.length}`, kind, x: d.x, y: d.y, s: d.s, seed: d.seed });
+    else decor.push(d as Decor);
+  }
   for (const d of decor) {
     const s = d.s;
     if (d.kind === "cottage")
       colliders.push({ x1: d.x - 96 * s, y1: d.y - 14 * s, x2: d.x + 86 * s, y2: d.y - 14 * s, radius: 16 * s });
     else if (d.kind === "tree") colliders.push({ x1: d.x - 5 * s, y1: d.y - 2, x2: d.x + 5 * s, y2: d.y - 2, radius: 7 * s });
-    else if (d.kind === "fence")
-      colliders.push({ x1: d.x - 39 * s, y1: d.y - 3, x2: d.x + 40 * s, y2: d.y - 3, radius: 3 });
     else if (d.kind === "stone" && s > 0.9)
       colliders.push({ x1: d.x - 6 * s, y1: d.y - 3, x2: d.x + 6 * s, y2: d.y - 3, radius: 8 * s });
     else if (d.kind === "lamp") colliders.push({ x1: d.x, y1: d.y - 1, x2: d.x, y2: d.y - 1, radius: 4 });
   }
-  return { decor, colliders };
+  return { decor, colliders, props };
 }
 /** Everything in chunk (cx, cy) for `seed`. Chunks outside the bounds are empty. */
 export function chunkContent(seed: number, cx: number, cy: number): ChunkContent {
@@ -589,8 +627,8 @@ export function chunkContent(seed: number, cx: number, cy: number): ChunkContent
       w: CHUNK.width,
       h: CHUNK.height,
     };
-    if (!inChunkRange(cx, cy)) return { ...base, start: false, landmark: null, ...EMPTY };
-    if (isStartChunk(cx, cy)) return { ...base, start: true, landmark: null, ...startParts(cx) };
+    if (!inChunkRange(cx, cy)) return { ...base, start: false, landmark: null, ...EMPTY, props: [] };
+    if (isStartChunk(cx, cy)) return { ...base, start: true, landmark: null, ...startParts(cx), props: [] };
     const landmark =
       landmarks(seed).find((l) => {
         const c = chunkOf(l.x, l.y);
@@ -605,16 +643,36 @@ export function chunkContent(seed: number, cx: number, cy: number): ChunkContent
       decor: [...generic.decor, ...parts.decor],
       colliders: [...generic.colliders, ...parts.colliders],
       spots: [...parts.spots],
+      props: generic.props,
     };
   });
 }
-/** Colliders of the 3 x 3 chunks around (x, y); the culling for scenery collision. */
-export function nearColliders(seed: number, x: number, y: number): readonly Capsule[] {
+/** Static colliders of the 3 x 3 chunks around (x, y); props are added by the sim while standing. */
+export function nearStaticColliders(seed: number, x: number, y: number): readonly Capsule[] {
   const { cx, cy } = chunkOf(x, y);
-  return remember(colliderMemo, `${seed}:${cx},${cy}`, () => {
+  return remember(staticMemo, `${seed}:${cx},${cy}`, () => {
     const out: Capsule[] = [];
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) out.push(...chunkContent(seed, cx + dx, cy + dy).colliders);
+    return out;
+  });
+}
+/** Props of the 3 x 3 chunks around (x, y), row-major. */
+export function nearProps(seed: number, x: number, y: number): readonly PropSpot[] {
+  const { cx, cy } = chunkOf(x, y);
+  return remember(propMemo, `${seed}:${cx},${cy}`, () => {
+    const out: PropSpot[] = [];
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) out.push(...chunkContent(seed, cx + dx, cy + dy).props);
+    return out;
+  });
+}
+/** Colliders of the 3 x 3 chunks around (x, y) with every prop standing (a fresh world). */
+export function nearColliders(seed: number, x: number, y: number): readonly Capsule[] {
+  const { cx, cy } = chunkOf(x, y);
+  return remember(colliderMemo, `${seed}:${cx},${cy}`, () => {
+    const out: Capsule[] = [...nearStaticColliders(seed, x, y)];
+    for (const p of nearProps(seed, x, y)) out.push(...(PROP_DEFS.get(p.kind).colliders?.(seed, p.x, p.y, p.s) ?? []));
     return out;
   });
 }

@@ -11,7 +11,7 @@
 import { createRegistry } from "../engine/registry.js";
 import type { MessageKey } from "../content/keys.js";
 import { CATS } from "../defs/registries.js";
-import type { CatId, EnemyKind, UpgradeId, WeaponId } from "../defs/types.js";
+import type { CatId, EnemyKind, PropPhase, UpgradeId, WeaponId } from "../defs/types.js";
 import type { EnemyState, Impact, ShotState, SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
@@ -124,11 +124,37 @@ export interface PassiveArt {
   icon(ctx: Ctx, ink: string): void;
 }
 
+/** Sprite box around a base point at s = 1 (left, right, top, bottom). */
+export interface ArtBounds {
+  readonly l: number;
+  readonly r: number;
+  readonly t: number;
+  readonly b: number;
+}
+export interface PropArt {
+  readonly id: string;
+  readonly bounds: ArtBounds;
+  /** Seeded variants per phase (keeps the sprite cache small). */
+  readonly variants: number;
+  /**
+   * One phase of the prop with its base at (x, y): cut edges, thickness and a
+   * contact shadow. `burnt` scraps are ash. Results are cached per
+   * (phase, burnt, scale, variant), so painters must be pure.
+   */
+  paint(ctx: Ctx, x: number, y: number, s: number, variant: number, phase: PropPhase, burnt: boolean): void;
+  /** Where flames sit while it burns, relative to the base at s = 1. */
+  readonly flames: readonly (readonly [number, number])[];
+  /** Paper colours of the flecks and scraps that flutter off it. */
+  readonly scraps: readonly string[];
+}
+
 export const CAT_ART = createRegistry<CatArt>("cat art");
 export const ENEMY_ART = createRegistry<EnemyArt>("enemy art");
 /** Weapons and evolved weapons, same ids as WEAPON_DEFS. */
 export const WEAPON_ART = createRegistry<WeaponArt>("weapon art");
 export const PASSIVE_ART = createRegistry<PassiveArt>("passive art");
+/** World props, same ids as PROP_DEFS art ids. */
+export const PROP_ART = createRegistry<PropArt>("prop art");
 
 /** Art of the cat in this run, or the first registered cat. */
 export function catArt(id: CatId | undefined): CatArt {

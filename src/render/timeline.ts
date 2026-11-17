@@ -192,3 +192,22 @@ export function presentationSteps(clock: Clock, realDt: number, speed: number): 
 export function dealDelayMs(index: number): number {
   return Math.max(0, index) * DEAL.staggerMs;
 }
+
+/**
+ * Pop-up book: tall buildings and trees stand up as the cat comes near and
+ * lie down as it leaves. Render-only; colliders never change.
+ * `near` / `far` are distances from the cat (world units) where a piece is
+ * fully up / fully down; `min` is how far up a lying piece still shows.
+ */
+export const POPUP = { near: 430, far: 700, min: 0.14, rate: 3.2 } as const;
+/** Target fold (POPUP.min..1) for a piece `dist` away from the cat. */
+export function popupTarget(dist: number): number {
+  const k = clamp01((POPUP.far - dist) / (POPUP.far - POPUP.near));
+  return lerp(POPUP.min, 1, easeInOut(k));
+}
+/** Moves `fold` toward `target` at POPUP.rate per second; reduced motion snaps. */
+export function popupStep(fold: number, target: number, dt: number, reduced: boolean): number {
+  if (reduced) return target;
+  const step = POPUP.rate * Math.max(0, dt);
+  return Math.abs(target - fold) <= step ? target : fold + Math.sign(target - fold) * step;
+}

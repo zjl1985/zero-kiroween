@@ -33,6 +33,7 @@ import {
   YARD_PROPS,
 } from "./craft-scene.js";
 import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
+import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
 import {
@@ -111,6 +112,7 @@ export function drawWorld(
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
     drawInteractGround(ctx, sim, view.time);
+    drawFireGround(ctx, sim, cam);
   }
   const fadeFor = (x: number, y: number, s: number) =>
     !!sim &&
@@ -121,8 +123,12 @@ export function drawWorld(
     d.kind === "tree" || d.kind === "cottage" || d.kind === "clock-tower" || d.kind === "chapel" || d.kind === "stall"
       ? fadeFor(d.x, d.y, d.s * 2.4)
       : fadeFor(d.x, d.y, d.s),
+    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced },
   );
   const sprites: Sprite[] = [...town.sprites];
+  const addSprite = (y: number, draw: () => void) => sprites.push({ y, draw });
+  propSprites(ctx, sim, seed, cam, view.time, addSprite);
+  if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
   const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
     if (!inView(near, l.x, l.y)) continue;
@@ -297,6 +303,7 @@ export function drawWorld(
     for (const effect of sim.impacts) {
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
       if (effect.kind !== "moon-stun" && !inView(near, effect.x, effect.y, 60)) continue;
+      if (drawPropEffect(ctx, effect)) continue;
       if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });

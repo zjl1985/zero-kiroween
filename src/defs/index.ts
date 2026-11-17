@@ -48,8 +48,11 @@ import { NIGHT_CLAW } from "./weapons/night-claw.js";
 import { PAPER_CRANE } from "./weapons/paper-crane.js";
 import { PUMPKIN_SEED } from "./weapons/pumpkin-seed.js";
 import { STAR_FALL } from "./weapons/star-fall.js";
+// Materials, reactions and props (also imported by world-gen).
+import "./world-index.js";
 
 export * from "./registries.js";
+export { reactionFor } from "./world-index.js";
 
 for (const cat of [ZERO, NICOLE]) CATS.register(cat);
 for (const w of [

@@ -10,6 +10,7 @@
  */
 import type { Rng } from "../game/rng.js";
 import type { EffectKind, EnemyState, Impact, Notice, ShotState, SimState } from "../game/types.js";
+import type { Capsule } from "../game/scenery.js";
 
 export type CatId = string;
 export type UpgradeId = string;
@@ -107,6 +108,17 @@ export interface SimContext {
   maybeReink(state: SimState, x: number, y: number, radius: number): void;
   dropShard(state: SimState, x: number, y: number, value: number): void;
   dropChest(state: SimState, x: number, y: number, big: boolean): void;
+  /** Places a fish treat at (x, y) (prop drops), if the treat cap allows. */
+  dropTreat(state: SimState, x: number, y: number): void;
+  /**
+   * Applies `element` with `power` to every prop whose footprint overlaps the
+   * circle (x, y, radius); the reaction table decides what happens.
+   */
+  elementHit(state: SimState, x: number, y: number, radius: number, element: Element, power: number): void;
+  /** Takes durability off a prop; at 0 it turns to scraps (burnt: to ash). */
+  damageProp(state: SimState, prop: PropSpot, amount: number, burnt?: boolean): void;
+  /** Sets flammable fire cells inside the circle alight (up to the fire cap). */
+  ignite(state: SimState, x: number, y: number, radius: number): void;
 }
 
 /** Events the sim emits; payloads are plain data. */
@@ -191,6 +203,12 @@ export interface WeaponDef {
   /** Per-level card values of an evolution. */
   readonly values?: Readonly<Record<string, number>>;
   readonly timing: WeaponTiming;
+  /**
+   * Elements this weapon applies to props it touches (the first one is used).
+   * Shots carry it through `shotTag` (ShotState.weapon; plain bolts are "bolt").
+   */
+  readonly elements?: readonly Element[];
+  readonly shotTag?: string;
   /** Adds this weapon's fields to the stat view at `level` (0 = not owned). */
   stats?(s: PlayerStats, level: number, q: StatQuery): void;
   /** Acts once per step while owned. */
@@ -307,4 +325,91 @@ export interface EnemyDef {
   catSlow?(state: SimState): number;
   /** Once per step after the enemy pass: this kind's projectiles and hazards. */
   stepWorld?(state: SimState, dt: number, ctx: SimContext): void;
+}
+
+// ---------------------------------------------------------------- paper world
+
+/** What touches paper: weapons, pumpkins and ink apply one of these. */
+export type Element = "fire" | "ink" | "wind" | "cut" | "fold";
+export const ELEMENTS: readonly Element[] = ["fire", "ink", "wind", "cut", "fold"];
+
+export interface MaterialDef {
+  readonly id: string;
+  /** Multiplies a prop's base durability. */
+  readonly durability: number;
+  /** 0 never burns; otherwise scales the fire's chance to spread onto it. */
+  readonly flammability: number;
+  /** Scales how much a cut or gust tears it. */
+  readonly tearability: number;
+}
+
+/** The three looks every prop has. */
+export type PropPhase = "intact" | "damaged" | "scraps";
+export const PROP_PHASES: readonly PropPhase[] = ["intact", "damaged", "scraps"];
+
+/** One generated prop in a chunk (pure world-gen data). */
+export interface PropSpot {
+  /** Stable id from the chunk and index, e.g. "3,4#2". */
+  readonly id: string;
+  readonly kind: string;
+  readonly x: number;
+  readonly y: number;
+  readonly s: number;
+  readonly seed: number;
+}
+
+/** Where world-gen puts a prop. */
+export interface PropSpawn {
+  /** Generic decor of this kind becomes this prop (same spot, same hash). */
+  readonly from?: string;
+  /** Extra props scattered per generic chunk: chance of any, then a count range. */
+  readonly chance?: number;
+  readonly count?: readonly [number, number];
+  /** Ground kept clear around it (other tall pieces, roads, landmarks). */
+  readonly clear?: number;
+  readonly scale?: readonly [number, number];
+  /** Flat props may overlap tall pieces. */
+  readonly flat?: boolean;
+}
+
+export interface PropDef {
+  readonly id: string;
+  readonly material: string;
+  /** Ground footprint at s = 1 (width, depth); element hits and fire cells test it. */
+  readonly size: { readonly w: number; readonly d: number };
+  /** Solid ground contact while not scraps; scraps open the path. */
+  colliders?(seed: number, x: number, y: number, s: number): Capsule[];
+  /** Base durability, times the material's multiplier. */
+  readonly durability: number;
+  /** Below this fraction of durability the prop looks damaged. */
+  readonly damagedBelow: number;
+  /** Elements it reacts to (a reaction row must exist for its material). */
+  readonly accepts: readonly Element[];
+  /** Seeded drop chances when it turns to scraps by tearing (not by fire). */
+  readonly drops: { readonly shard: number; readonly shardValue: number; readonly treat: number };
+  readonly spawn: PropSpawn;
+  /** Art id the renderer looks up. */
+  readonly art: string;
+}
+
+/** A prop being touched by an element. */
+export interface PropHit {
+  readonly prop: PropSpot;
+  readonly def: PropDef;
+  readonly material: MaterialDef;
+  readonly element: Element;
+  readonly power: number;
+}
+
+/** One row of the reaction table: material x element -> effect. */
+export interface ReactionDef {
+  readonly id: string;
+  readonly material: string;
+  readonly element: Element;
+  /** Changes prop durability, lights fire cells ... through the context. */
+  effect(state: SimState, hit: PropHit, ctx: SimContext): void;
+  /** The phase the prop ends in when this reaction uses it up. */
+  readonly result: PropPhase;
+  /** Impact kind left where it happened. */
+  readonly fx: EffectKind;
 }

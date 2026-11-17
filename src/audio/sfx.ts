@@ -20,7 +20,9 @@ export type Cue =
   | "moon"
   | "streak"
   | "skill"
-  | "card";
+  | "card"
+  | "tear"
+  | "crackle";
 
 /** Minimum seconds between repeats of the busiest cues. */
 const THROTTLE: Partial<Record<Cue, number>> = {
@@ -28,6 +30,9 @@ const THROTTLE: Partial<Record<Cue, number>> = {
   hit: 0.045,
   defeat: 0.05,
   pickup: 0.05,
+  tear: 0.08,
+  // Repeats while anything burns; the gap sets the crackle's pace.
+  crackle: 0.28,
 };
 
 export interface Sfx {
@@ -238,6 +243,18 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     streak: (k) => tone(1320 + Math.min(k, 50) * 6, 0.12, { type: "square", gain: 0.025 }),
     skill: () => noise(0.18, { freq: 900, to: 3000, q: 1.4, gain: 0.07 }),
     card: () => noise(0.08, { type: "highpass", freq: 3000, gain: 0.05 }),
+    // A short rip: band-passed noise sweeping down, then a dry flap.
+    tear: () => {
+      noise(0.16, { freq: 4200, to: 1400, q: 2.2, gain: 0.09 });
+      noise(0.05, { type: "lowpass", freq: 700, gain: 0.05, delay: 0.12 });
+    },
+    // Fire: a few tiny pops over a low hiss, scaled by how much is burning.
+    crackle: (k) => {
+      noise(0.3, { type: "lowpass", freq: 520, gain: 0.025 + Math.min(k, 20) * 0.001 });
+      const pops = 2 + Math.min(3, Math.floor(k / 8));
+      for (let i = 0; i < pops; i++)
+        noise(0.018, { type: "highpass", freq: 2600 + Math.random() * 2400, gain: 0.05, delay: Math.random() * 0.24 });
+    },
   };
 
   return {

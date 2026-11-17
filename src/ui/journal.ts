@@ -50,6 +50,8 @@ export function paintJournal(locale: Locale, sim: SimState): void {
       ["result.elites", sim.stats.elitesDefeated],
       ["result.chests", sim.stats.chestsOpened],
       ["result.pumpkins", sim.stats.pumpkinsLit],
+      ["result.props_torn", sim.stats.propsTorn],
+      ["result.cells_burnt", sim.stats.cellsBurnt],
     ];
   must("result-stats").replaceChildren(
     ...rows.map(([label, value]) => {

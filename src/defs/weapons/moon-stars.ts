@@ -42,6 +42,7 @@ export const MOON_STARS: WeaponDef = {
   kind: "weapon",
   steps: STEPS,
   timing: "aura",
+  elements: ["cut"],
   stats(s, level) {
     const b = stepBonus(STEPS, level);
     s.orbit = level > 0;
@@ -52,6 +53,7 @@ export const MOON_STARS: WeaponDef = {
   step(state, ps, _dt, _rng, ctx) {
     for (const star of moonStarPositions(state, ps)) {
       ctx.maybeReink(state, star.x, star.y, STAR_RADIUS);
+      ctx.elementHit(state, star.x, star.y, STAR_RADIUS, "cut", ps.orbitDamage);
       for (const e of state.enemies) {
         if (!e.alive || e.spawnTime > 0 || e.orbitCooldown > 0) continue;
         if (!circlesOverlap(star.x, star.y, STAR_RADIUS, e.x, e.y, ctx.enemyRadius(e))) continue;

@@ -7,6 +7,7 @@ import "../defs/index.js";
 import { BEHAVIOURS, CATS, ENEMY_DEFS, EVOLUTION_DEFS, PASSIVE_DEFS, SIM_EVENTS, WEAPON_DEFS } from "../defs/registries.js";
 import { moonStarPositions } from "../defs/weapons/moon-stars.js";
 import type {
+  Element,
   EnemyDef,
   EnemyKind,
   EnemyMove,
@@ -31,7 +32,7 @@ import {
   clampToWorld,
   insideWorld,
   landmarks,
-  nearColliders,
+  nearStaticColliders,
   viewCentre,
 } from "./world-gen.js";
 import { circlesOverlap, clamp, length, normalize, pointSegDist } from "./collision.js";
@@ -66,6 +67,8 @@ import {
   type EffectKind,
 } from "./types.js";
 import { CHEST, FISH, MOON_LANTERN, PUMPKIN } from "./interactions.js";
+import { FIRE } from "../defs/fire.js";
+import { damageProp, elementHit, ignite, nearPropColliders, propPhase, stepFire } from "./props.js";
 
 export { inSweep, startBossAttack } from "../defs/enemies/eraser-boss/attacks.js";
 
@@ -88,7 +91,17 @@ const ctx: SimContext = {
   maybeReink,
   dropShard,
   dropChest,
+  dropTreat,
+  elementHit: (state, x, y, radius, element, power) => elementHit(state, x, y, radius, element, power, ctx),
+  damageProp: (state, prop, amount, burnt) => damageProp(state, prop, amount, ctx, burnt),
+  ignite: (state, x, y, radius) => ignite(state, x, y, radius, ctx),
 };
+/** Element each shot tag applies to props (plain bolts are "bolt"). */
+const SHOT_ELEMENT = new Map(
+  WEAPON_DEFS.all()
+    .filter((w) => w.shotTag && w.elements?.length)
+    .map((w) => [w.shotTag!, w.elements![0]!] as const),
+);
 function emit<K extends keyof SimEvents>(name: K, state: SimState, payload: SimEvents[K]): void {
   SIM_EVENTS.emit(name, state, payload, ctx);
 }
@@ -174,6 +187,8 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       distance: 0,
       elitesDefeated: 0,
       chestsOpened: 0,
+      propsTorn: 0,
+      cellsBurnt: 0,
     },
     notice: null,
     xp: 0,
@@ -206,6 +221,8 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     elitesDone: 0,
     chests: [],
     nextChestId: 1,
+    props: {},
+    fire: { cells: {}, ash: {}, clock: 0, ticks: 0 },
   };
   for (const w of WEAPON_DEFS.all()) w.init?.(state);
   syncChunks(state);
@@ -468,7 +485,10 @@ function notify(state: SimState, kind: Notice): void {
 function safePosition(state: SimState, x: number, y: number, radius: number) {
   const a = clampToWorld(x, y, radius);
   // Only the colliders of the chunks around the actor are tested.
-  const b = avoidScenery(a.x, a.y, radius, nearColliders(state.seed, a.x, a.y));
+  let b = avoidScenery(a.x, a.y, radius, nearStaticColliders(state.seed, a.x, a.y));
+  // Props add their colliders until they are torn to scraps (the path opens).
+  for (const c of nearPropColliders(state.seed, a.x, a.y))
+    if (propPhase(state, c.id) < 2) b = avoidScenery(b.x, b.y, radius, c.caps);
   return clampToWorld(b.x, b.y, radius);
 }
 /**
@@ -601,6 +621,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   stepPickups(state, dt, rng);
   stepInteractables(state, dt);
   stepTreats(state, dt);
+  stepFire(state, dt, ctx);
   if (state.ended === "playing") {
     stepSchedule(state, rng);
     announcePhase(state);
@@ -828,6 +849,8 @@ function stepInteractables(state: SimState, dt: number): void {
 }
 function pumpkinPulse(state: SimState, x: number, y: number): void {
   effect(state, x, y, "pumpkin-pulse", EFFECT_LIFE["pumpkin-pulse"]);
+  // A lit pumpkin sets paper grass and bushes nearby alight.
+  ignite(state, x, y, FIRE.pumpkinRadius, ctx);
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
     const d = Math.hypot(e.x - x, e.y - y);
@@ -863,6 +886,12 @@ function spawnTreat(state: SimState, dt: number, rng: Rng): void {
     pos = safePosition(state, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.7, FISH.radius);
   state.treats.push({ id: state.nextTreatId++, x: pos.x, y: pos.y, life: FISH.life, alive: true });
   notify(state, "fish-treat");
+}
+/** A treat dropped by a torn prop, if the treat cap allows. */
+function dropTreat(state: SimState, x: number, y: number): void {
+  if (state.treats.filter((t) => t.alive).length >= FISH.max) return;
+  const pos = safePosition(state, x, y, FISH.radius);
+  state.treats.push({ id: state.nextTreatId++, x: pos.x, y: pos.y, life: FISH.life, alive: true });
 }
 function stepTreats(state: SimState, dt: number): void {
   if (state.ended !== "playing") return;
@@ -1036,6 +1065,9 @@ function stepShots(state: SimState, dt: number): void {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     maybeReink(state, s.x, s.y, STATS.shotRadius + 6);
+    // Shots in flight cut (bolts) or ruffle (cranes) paper props; seeds only burn when they burst.
+    const element = s.burst ? undefined : SHOT_ELEMENT.get(s.weapon ?? "bolt");
+    if (element) elementHit(state, s.x, s.y, STATS.shotRadius + 2, element, s.damage ?? ps.shotDamage, ctx);
     const hits = s.hits ?? (s.hits = []);
     // Swept collision prevents fast shots skipping small enemies between fixed steps.
     const targets = state.enemies
@@ -1092,6 +1124,8 @@ function seedBurst(state: SimState, s: ShotState): void {
   s.alive = false;
   const r = s.burst!;
   effect(state, s.x, s.y, "seed-burst", EFFECT_LIFE["seed-burst"], { radius: r });
+  const element = SHOT_ELEMENT.get(s.weapon ?? "bolt");
+  if (element) elementHit(state, s.x, s.y, r, element, s.damage ?? 1, ctx);
   for (const e of state.enemies)
     if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + enemyRadius(e))
       hurtEnemy(state, e, s.damage ?? 1);
@@ -1233,6 +1267,21 @@ function maybeReink(
     return;
   s.ink = clamp(s.ink + STATS.strokeReink, 0, 1);
   if (s.ink > 0) s.blankTime = 0;
+}
+/** Applies an element to the props around (x, y) with the sim's own context (tools and tests). */
+export function applyElement(
+  state: SimState,
+  x: number,
+  y: number,
+  radius: number,
+  element: Element,
+  power: number,
+): void {
+  elementHit(state, x, y, radius, element, power, ctx);
+}
+/** Sets flammable cells around (x, y) alight with the sim's own context (tools and tests). */
+export function igniteAt(state: SimState, x: number, y: number, radius: number): void {
+  ignite(state, x, y, radius, ctx);
 }
 export function livingEnemies(state: SimState): number {
   let n = 0;

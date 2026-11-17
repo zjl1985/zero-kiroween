@@ -42,6 +42,8 @@ export const PUMPKIN_SEED: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "auto",
+  elements: ["fire"],
+  shotTag: "seed",
   stats(s, level) {
     const b = stepBonus(STEPS, level);
     s.seed = level > 0 && {

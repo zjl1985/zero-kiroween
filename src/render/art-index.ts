@@ -32,7 +32,10 @@ import { NIGHT_CLAW_ART } from "../defs/weapons/night-claw.art.js";
 import { PAPER_CRANE_ART } from "../defs/weapons/paper-crane.art.js";
 import { PUMPKIN_SEED_ART } from "../defs/weapons/pumpkin-seed.art.js";
 import { STAR_FALL_ART } from "../defs/weapons/star-fall.art.js";
-import { CAT_ART, ENEMY_ART, PASSIVE_ART, WEAPON_ART } from "./art-registry.js";
+import { PAPER_BUSH_ART } from "../defs/props/paper-bush/art.js";
+import { PAPER_FENCE_ART } from "../defs/props/paper-fence/art.js";
+import { PAPER_GRASS_ART } from "../defs/props/paper-grass/art.js";
+import { CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
 
 export * from "./art-registry.js";
 
@@ -63,3 +66,4 @@ for (const a of [
   SNACK_ART,
 ])
   PASSIVE_ART.register(a);
+for (const a of [PAPER_FENCE_ART, PAPER_BUSH_ART, PAPER_GRASS_ART]) PROP_ART.register(a);

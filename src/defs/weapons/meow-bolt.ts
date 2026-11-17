@@ -62,6 +62,8 @@ export const MEOW_BOLT: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "move",
+  elements: ["cut"],
+  shotTag: "bolt",
   stats(s, level) {
     const b = stepBonus(STEPS, level),
       quick = 1 - b.rate;

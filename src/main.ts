@@ -96,6 +96,8 @@ function cueState(s: SimState) {
     dawn: moonArc(s.elapsed, s.sessionSeconds).dawn,
     evolved: s.upgrades[evolutionFor(s.player.id)] ?? 0,
     chain: Math.floor(s.streak.count / STATS.streakMilestone),
+    torn: s.stats.propsTorn,
+    burning: Object.keys(s.fire.cells).length,
     ended: s.ended,
   };
 }
@@ -210,6 +212,8 @@ function boot(): void {
     if (now.moon > p.moon) sfx.play("moon");
     if (now.boss && !p.boss) sfx.play("boss");
     if (now.chain > p.chain) sfx.play("streak", s.streak.count);
+    if (now.torn > p.torn) sfx.play("tear");
+    if (now.burning > 0) sfx.play("crackle", now.burning);
   };
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;

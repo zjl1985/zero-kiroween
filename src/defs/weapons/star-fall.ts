@@ -25,6 +25,7 @@ export const STAR_FALL: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "auto",
+  elements: ["cut"],
   stats(s, level) {
     const b = stepBonus(STEPS, level);
     s.starFall = level > 0 && {
@@ -52,6 +53,7 @@ export const STAR_FALL: WeaponDef = {
       for (const e of state.enemies)
         if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - x, e.y - y) <= f.radius + ctx.enemyRadius(e))
           ctx.hurtEnemy(state, e, f.damage);
+      ctx.elementHit(state, x, y, f.radius, "cut", f.damage);
     }
   },
 };

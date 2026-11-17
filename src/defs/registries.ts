@@ -12,7 +12,10 @@ import type {
   EnemyBehaviour,
   EnemyDef,
   EvolutionDef,
+  MaterialDef,
   PassiveDef,
+  PropDef,
+  ReactionDef,
   SimContext,
   SimEvents,
   WeaponDef,
@@ -26,4 +29,8 @@ export const EVOLUTION_DEFS = createRegistry<EvolutionDef>("evolution");
 export const ENEMY_DEFS = createRegistry<EnemyDef>("enemy");
 // Each behaviour checks its own params shape; the registry stores them untyped.
 export const BEHAVIOURS = createRegistry<EnemyBehaviour<any>>("enemy behaviour");
+/** Paper materials, the material x element reaction rows and the world props. */
+export const MATERIALS = createRegistry<MaterialDef>("material");
+export const REACTIONS = createRegistry<ReactionDef>("reaction");
+export const PROP_DEFS = createRegistry<PropDef>("prop");
 export const SIM_EVENTS = createEventBus<SimState, SimEvents, SimContext>();

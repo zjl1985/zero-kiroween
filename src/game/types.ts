@@ -217,7 +217,10 @@ export type EffectKind =
   | "chest-open"
   | "claw"
   | "star-fall"
-  | "seed-burst";
+  | "seed-burst"
+  | "prop-tear"
+  | "prop-scraps"
+  | "ember";
 export interface Impact {
   x: number;
   y: number;
@@ -260,6 +263,12 @@ export const EFFECT_LIFE = {
   claw: 0.26,
   "star-fall": 0.45,
   "seed-burst": 0.4,
+  /** A few paper flecks off a prop that was hit. */
+  "prop-tear": 0.45,
+  /** A prop gives way: its scraps flutter down. */
+  "prop-scraps": 0.9,
+  /** Sparks where fire caught. */
+  "ember": 0.6,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -280,6 +289,10 @@ export interface RunStats {
   distance: number;
   elitesDefeated: number;
   chestsOpened: number;
+  /** Props torn down to scraps (not burnt). */
+  propsTorn: number;
+  /** Fire cells that burnt out to ash. */
+  cellsBurnt: number;
 }
 export type Notice =
   | "zero-dash"
@@ -321,6 +334,29 @@ export interface BuildSlots {
   /** Weapon slot order; an evolution replaces its base weapon in place. */
   weapons: string[];
   passives: string[];
+}
+/** A prop that has been touched; untouched props are not stored. */
+export interface PropState {
+  hp: number;
+  /** 0 intact, 1 damaged, 2 scraps. */
+  phase: 0 | 1 | 2;
+  /** Turned to ash by fire. */
+  burnt?: boolean;
+  /** state.elapsed of the last element hit (hit interval). */
+  hitAt: number;
+  /** state.elapsed of the last fire tick that burnt it (render glow). */
+  burnAt?: number;
+}
+/** The sparse fire grid: keys are "ix,iy" cell coords (FIRE.cell). */
+export interface FireState {
+  /** Burning cells and their seconds left. */
+  cells: Record<string, number>;
+  /** Burnt-out cells (value: ash order); they never burn again. */
+  ash: Record<string, number>;
+  /** Time banked toward the next fire tick. */
+  clock: number;
+  /** Fire ticks run so far (seeds the spread hash). */
+  ticks: number;
 }
 export interface SimState {
   seed: number;
@@ -380,6 +416,13 @@ export interface SimState {
   elitesDone: number;
   chests: ChestState[];
   nextChestId: number;
+  /**
+   * Touched props by id ("cx,cy#i"), kept for the whole run so a torn fence
+   * is still torn after its chunk unloads and loads again. Bounded by the
+   * number of props in the world.
+   */
+  props: Record<string, PropState>;
+  fire: FireState;
 }
 export interface SimConfig {
   cat: CatId;
