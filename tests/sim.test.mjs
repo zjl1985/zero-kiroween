@@ -89,3 +89,26 @@ test("hit and defeat feedback comes from collisions and expires", () => {
     step(state, { ax: 0, ay: 0, dash: false }, FIXED_DT);
   assert.equal(state.impacts.filter((e) => seen.has(e.seed)).length, 0);
 });
+
+import { makeRoom } from "../dist/game/sim.js";
+
+test("making room rubs out the farthest off-screen commons first and keeps the fight in view", () => {
+  const s = createSim({ cat: "zero", seed: 9 });
+  const p = s.player,
+    base = { hp: 5, alive: true, orbitCooldown: 0, slowTime: 0, spawnTime: 0 };
+  // Two commons in view come first in the list (the old code erased them first); three are off screen.
+  s.enemies = [
+    { ...base, id: 1, kind: "ink-blob", x: p.x + 40, y: p.y },
+    { ...base, id: 2, kind: "ink-blob", x: p.x - 60, y: p.y + 20 },
+    { ...base, id: 3, kind: "ink-blob", x: p.x + 700, y: p.y },
+    { ...base, id: 4, kind: "ink-blob", x: p.x, y: p.y + 1200 },
+    { ...base, id: 5, kind: "ink-blob", x: p.x - 900, y: p.y, elite: true, radius: 20 },
+    { ...base, id: 6, kind: "ink-blob", x: p.x + 520, y: p.y + 300 },
+  ];
+  makeRoom(s, 4);
+  const gone = s.enemies.filter((e) => !e.alive).map((e) => e.id);
+  // Six alive, limit 4: three go (below the limit), farthest off-screen first, never the elite.
+  assert.deepEqual(gone, [3, 4, 6]);
+  assert.ok(s.enemies.find((e) => e.id === 1).alive && s.enemies.find((e) => e.id === 2).alive);
+  assert.ok(s.enemies.find((e) => e.id === 5).alive, "elites are never rubbed out");
+});
