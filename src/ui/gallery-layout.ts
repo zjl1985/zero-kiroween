@@ -6,8 +6,7 @@
  * in Node (tested in tests/gallery.test.mjs).
  */
 import type { MessageKey } from "../content/keys.js";
-import { CATS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
-import { LANDMARK_KINDS } from "../game/world-gen.js";
+import { CATS, ENEMY_DEFS, LANDMARK_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
 export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "weapon" | "passive";
 export type GalleryState =
@@ -70,7 +69,7 @@ export function gallerySections(): GallerySection[] {
       ),
     ),
     section("prop", "props", items("prop", PROP_DEFS.ids(), (id) => `prop.${id}.name`, () => PROP_STATES)),
-    section("landmark", "landmarks", items("landmark", LANDMARK_KINDS, (id) => `landmark.${id}`, () => ["building"])),
+    section("landmark", "landmarks", items("landmark", LANDMARK_DEFS.ids(), (id) => `landmark.${id}`, () => ["building"])),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
     section("passive", "passives", items("passive", PASSIVE_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
   ];

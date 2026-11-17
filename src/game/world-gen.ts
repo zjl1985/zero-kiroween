@@ -12,8 +12,9 @@
 import { SOLID_SCENERY, type Capsule } from "./scenery.js";
 import { MOON_LANTERN, PUMPKIN_SPOTS } from "./interactions.js";
 import "../defs/world-index.js";
-import { PROP_DEFS } from "../defs/registries.js";
-import type { PropSpot } from "../defs/types.js";
+import { LANDMARK_DEFS, PROP_DEFS } from "../defs/registries.js";
+import type { LandmarkBuilder, LandmarkPlace, PropSpot } from "../defs/types.js";
+import { RIVER } from "../defs/landmarks/stone-bridge/def.js";
 
 /** One screen in world units; matches the 960 x 540 view without importing render code. */
 export const SCREEN = { width: 960, height: 540 } as const;
@@ -57,15 +58,9 @@ export const ACTIVE = { load: 1100, drop: 1500 } as const;
  */
 export const SPAWN_RING = { marginX: 90, marginY: 80, tries: 6, leash: 1500 } as const;
 
-export const LANDMARK_KINDS = [
-  "clock-tower",
-  "pumpkin-field",
-  "stone-bridge",
-  "graveyard",
-  "lantern-market",
-  "moon-hill",
-] as const;
-export type LandmarkKind = (typeof LANDMARK_KINDS)[number];
+/** Registered landmark kinds (src/defs/landmarks), in hand-out order. */
+export const LANDMARK_KINDS: readonly string[] = LANDMARK_DEFS.ids();
+export type LandmarkKind = string;
 export const LANDMARK = {
   /** One landmark per super-cell (5 x 3 cells of 1920 x 1800), except the start cell. */
   cols: 5,
@@ -76,46 +71,22 @@ export const LANDMARK = {
   discoverRadius: 300,
   /** Kept between a landmark's edge and the road spine (which wobbles by up to 110). */
   spineClear: 300,
-  radius: {
-    "clock-tower": 150,
-    "pumpkin-field": 200,
-    "stone-bridge": 160,
-    graveyard: 200,
-    "lantern-market": 210,
-    "moon-hill": 190,
-  } satisfies Record<LandmarkKind, number>,
-  /** halfLength stays under one chunk width so the 3 x 3 collider window always covers it. */
-  river: { halfLength: 420, halfWidth: 30, bridgeHalf: 100, deckHalf: 70 },
+  /** Footprint radius per kind, from the landmark defs. */
+  radius: Object.fromEntries(LANDMARK_DEFS.all().map((d) => [d.id, d.radius])) as Readonly<Record<string, number>>,
+  /** The stone bridge's river band (src/defs/landmarks/stone-bridge/def.ts). */
+  river: RIVER,
 } as const;
 
-export interface Landmark {
-  /** Stable id, e.g. "lm-3-1". */
-  id: string;
-  kind: LandmarkKind;
-  x: number;
-  y: number;
-  radius: number;
-  seed: number;
-  /** stone-bridge: half length of the river band, clipped to the map. */
+export interface Landmark extends LandmarkPlace {
+  /** Half length of a band through it (stone-bridge river), clipped to the map. */
   span?: number;
 }
-export type DecorKind =
-  | "tree"
-  | "cottage"
-  | "bush"
-  | "fence"
-  | "stone"
-  | "lamp"
-  | "candles"
-  | "pumpkin"
-  | "flowers"
-  | "tuft"
-  | "leaves"
-  | "clock-tower"
-  | "chapel"
-  | "tomb"
-  | "stall"
-  | "lights";
+/**
+ * Generic decor kinds (tree, cottage, bush, fence, stone, lamp, candles,
+ * pumpkin, flowers, tuft, leaves) plus the pieces landmark art registers
+ * (clock-tower, chapel, tomb, stall, lights, ...).
+ */
+export type DecorKind = string;
 /** Flat decor is baked into the chunk ground cache; tall decor is y-sorted. */
 export const FLAT_DECOR: ReadonlySet<DecorKind> = new Set<DecorKind>([
   "flowers",
@@ -314,7 +285,8 @@ export function landmarks(seed: number): readonly Landmark[] {
         m = LANDMARK.margin,
         x0 = WORLD.minX + col * cellW,
         y0 = WORLD.minY + row * cellH,
-        radius = LANDMARK.radius[kind],
+        def = LANDMARK_DEFS.get(kind),
+        radius = def.radius,
         y = Math.max(
           WORLD.playTop + radius + 80,
           Math.round(y0 + m + hash2(seed, col, row, 14) * (cellH - 2 * m)),
@@ -332,13 +304,13 @@ export function landmarks(seed: number): readonly Landmark[] {
         radius,
         seed: Math.floor(hash2(seed, col, row, 15) * 1e6),
       };
-      if (kind === "stone-bridge")
-        l.span = Math.min(
-          LANDMARK.river.halfLength,
-          x - (WORLD.minX + WORLD.edge + 20),
-          WORLD.maxX - WORLD.edge - 20 - x,
-          Math.abs(x - START_ROAD_EXIT.x) - LANDMARK.spineClear / 2,
-        );
+      if (def.span)
+        l.span = def.span(l, {
+          west: WORLD.minX + WORLD.edge + 20,
+          east: WORLD.maxX - WORLD.edge - 20,
+          spineX: START_ROAD_EXIT.x,
+          spineClear: LANDMARK.spineClear,
+        });
       return l;
     });
   });
@@ -392,123 +364,23 @@ function nearRoad(seed: number, x: number, y: number, clear: number): boolean {
 function inLandmark(seed: number, x: number, y: number, pad: number): boolean {
   for (const l of landmarks(seed)) {
     if (Math.hypot(x - l.x, y - l.y) < l.radius + pad) return true;
-    if (
-      l.kind === "stone-bridge" &&
-      Math.abs(y - l.y) < LANDMARK.river.halfWidth + pad + 10 &&
-      Math.abs(x - l.x) < (l.span ?? 0) + pad
-    )
-      return true;
+    if (LANDMARK_DEFS.get(l.kind).keepOut?.(l, x, y, pad)) return true;
   }
   return false;
 }
-/** Decor, colliders and interaction spots of one landmark, placed around its centre. */
+/** Decor, colliders and interaction spots of one landmark, from its def's layout. */
 export function landmarkParts(l: Landmark): Pick<ChunkContent, "decor" | "colliders" | "spots"> {
   const { x, y, seed } = l,
     decor: Decor[] = [],
     colliders: Capsule[] = [],
     spots: InteractSpot[] = [];
-  const add = (kind: DecorKind, dx: number, dy: number, s: number, salt = 0) =>
-    decor.push({ kind, x: x + dx, y: y + dy, s, seed: seed + salt });
-  const wall = (dx1: number, dy1: number, dx2: number, dy2: number, radius: number) =>
-    colliders.push({ x1: x + dx1, y1: y + dy1, x2: x + dx2, y2: y + dy2, radius });
-  switch (l.kind) {
-    case "clock-tower":
-      add("clock-tower", 0, 0, 1);
-      wall(-34, -8, 34, -8, 18);
-      add("lamp", -96, 44, 0.95, 1);
-      add("lamp", 96, 44, 0.95, 2);
-      add("bush", -62, 10, 0.9, 3);
-      add("bush", 64, 12, 0.85, 4);
-      add("flowers", -40, 70, 1, 5);
-      add("flowers", 48, 76, 1, 6);
-      break;
-    case "pumpkin-field":
-      for (const [dx, dy, s] of [
-        [-74, -34, 1.1],
-        [82, 8, 1.2],
-        [-8, 72, 1],
-      ] as const) {
-        add("pumpkin", dx, dy, s, 1);
-        spots.push({ kind: "pumpkin", x: x + dx, y: y + dy, s });
-      }
-      for (let i = 0; i < 7; i++) {
-        const a = (i / 7) * Math.PI * 2 + 0.4;
-        add("pumpkin", Math.cos(a) * 140, Math.sin(a) * 78, 0.45 + (i % 3) * 0.1, 10 + i * 4);
-      }
-      add("fence", -118, -112, 1, 2);
-      add("fence", 118, -112, 1, 3);
-      wall(-157, -115, -78, -118, 3);
-      wall(79, -115, 158, -118, 3);
-      add("leaves", -30, 20, 1, 4);
-      add("tuft", 40, -50, 1, 5);
-      break;
-    case "stone-bridge": {
-      const r = LANDMARK.river,
-        span = l.span ?? r.halfLength,
-        bank = r.halfWidth + 4;
-      wall(-span, 0, -r.bridgeHalf, 0, bank);
-      wall(r.bridgeHalf, 0, span, 0, bank);
-      wall(-r.deckHalf, -bank, -r.deckHalf, bank, 4);
-      wall(r.deckHalf, -bank, r.deckHalf, bank, 4);
-      add("lamp", -r.deckHalf - 22, -64, 0.95, 1);
-      add("lamp", r.deckHalf + 22, 70, 0.95, 2);
-      add("stone", -150, 52, 0.9, 3);
-      add("stone", 170, -50, 0.7, 4);
-      add("bush", -210, -60, 0.9, 5);
-      add("tuft", 120, 54, 1, 6);
-      add("tuft", -110, -50, 1, 7);
-      break;
-    }
-    case "graveyard":
-      add("chapel", 0, -60, 1);
-      wall(-52, -70, 52, -70, 18);
-      for (let i = 0; i < 7; i++) {
-        const dx = -120 + i * 40,
-          dy = 34 + (i % 2) * 34 + hash2(seed, i, 0, 31) * 10;
-        add("tomb", dx, dy, 0.8 + (i % 3) * 0.12, i);
-        wall(dx - 6, dy - 2, dx + 6, dy - 2, 6);
-      }
-      add("candles", -150, -20, 0.75, 1);
-      add("candles", 150, -14, 0.7, 2);
-      add("lamp", 120, 112, 0.9, 3);
-      add("tree", -170, -90, 0.95, 4);
-      add("leaves", 30, 120, 1, 5);
-      break;
-    case "lantern-market":
-      for (const [dx, dy] of [
-        [-118, -24],
-        [0, -56],
-        [118, -24],
-      ] as const) {
-        add("stall", dx, dy, 1, dx);
-        wall(dx - 40, dy - 6, dx + 40, dy - 6, 10);
-      }
-      add("lights", 0, -96, 1, 1);
-      add("lamp", 0, 62, 0.95, 2);
-      spots.push({ kind: "lantern", x, y: y + 62, s: 0.95 });
-      add("pumpkin", -70, 70, 0.55, 3);
-      add("pumpkin", 82, 64, 0.5, 5);
-      add("candles", -160, 40, 0.7, 4);
-      add("flowers", 150, 60, 1, 6);
-      break;
-    case "moon-hill":
-      add("lamp", 0, -8, 1.05, 1);
-      spots.push({ kind: "lantern", x, y: y - 8, s: 1.05 });
-      for (const [dx, dy, s] of [
-        [-110, 40, 1.1],
-        [96, -46, 0.9],
-        [130, 58, 0.75],
-        [-70, -70, 0.6],
-      ] as const) {
-        add("stone", dx, dy, s, dx);
-        if (s > 0.8) wall(dx - 8 * s, dy - 3, dx + 8 * s, dy - 3, 9 * s);
-      }
-      add("bush", -150, -20, 1, 2);
-      add("bush", 160, 20, 0.9, 3);
-      add("flowers", 30, 60, 1, 4);
-      add("tuft", -40, 50, 1, 5);
-      break;
-  }
+  const b: LandmarkBuilder = {
+    add: (kind, dx, dy, s, salt = 0) => decor.push({ kind, x: x + dx, y: y + dy, s, seed: seed + salt }),
+    wall: (dx1, dy1, dx2, dy2, radius) => colliders.push({ x1: x + dx1, y1: y + dy1, x2: x + dx2, y2: y + dy2, radius }),
+    spot: (kind, dx, dy, s) => spots.push({ kind, x: x + dx, y: y + dy, s }),
+    hash: (a, c, salt) => hash2(seed, a, c, salt),
+  };
+  LANDMARK_DEFS.get(l.kind).layout(l, b);
   return { decor, colliders, spots };
 }
 

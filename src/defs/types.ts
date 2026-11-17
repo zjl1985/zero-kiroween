@@ -413,3 +413,48 @@ export interface ReactionDef {
   /** Impact kind left where it happened. */
   readonly fx: EffectKind;
 }
+
+// ---------------------------------------------------------------- landmarks
+
+/** A landmark as placed by world-gen (pure data). */
+export interface LandmarkPlace {
+  /** Stable id, e.g. "lm-3-1". */
+  readonly id: string;
+  readonly kind: string;
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  readonly seed: number;
+  /** Half length of a band the landmark stretches across (the stone bridge's river). */
+  readonly span?: number;
+}
+/** What a landmark layout may place, relative to the landmark centre. */
+export interface LandmarkBuilder {
+  /** Decor piece (generic decor kind or a landmark art piece); seed = landmark seed + salt. */
+  add(kind: string, dx: number, dy: number, s: number, salt?: number): void;
+  /** A static capsule collider. */
+  wall(dx1: number, dy1: number, dx2: number, dy2: number, radius: number): void;
+  /** An interaction spot (src/game/interactions.ts numbers apply). */
+  spot(kind: "pumpkin" | "lantern", dx: number, dy: number, s: number): void;
+  /** Pure hash of (landmark seed, a, b, salt) to [0, 1). */
+  hash(a: number, b: number, salt: number): number;
+}
+/** The play area a landmark's span must respect (world units). */
+export interface LandmarkArea {
+  readonly west: number;
+  readonly east: number;
+  /** x of the road spine south of the start yard, and the clearance kept from it. */
+  readonly spineX: number;
+  readonly spineClear: number;
+}
+export interface LandmarkDef {
+  readonly id: string;
+  /** Footprint radius: generic decor keeps out, roads stop at its rim. */
+  readonly radius: number;
+  /** Half length of a band through the landmark (rivers), clipped to the area. */
+  span?(l: LandmarkPlace, area: LandmarkArea): number;
+  /** Extra ground outside the radius that generic decor keeps clear of. */
+  keepOut?(l: LandmarkPlace, x: number, y: number, pad: number): boolean;
+  /** Seeded, pure layout: decor, colliders and interaction spots in call order. */
+  layout(l: LandmarkPlace, b: LandmarkBuilder): void;
+}

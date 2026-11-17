@@ -35,7 +35,13 @@ import { STAR_FALL_ART } from "../defs/weapons/star-fall.art.js";
 import { PAPER_BUSH_ART } from "../defs/props/paper-bush/art.js";
 import { PAPER_FENCE_ART } from "../defs/props/paper-fence/art.js";
 import { PAPER_GRASS_ART } from "../defs/props/paper-grass/art.js";
-import { CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
+import { CLOCK_TOWER_ART } from "../defs/landmarks/clock-tower/art.js";
+import { GRAVEYARD_ART } from "../defs/landmarks/graveyard/art.js";
+import { LANTERN_MARKET_ART } from "../defs/landmarks/lantern-market/art.js";
+import { MOON_HILL_ART } from "../defs/landmarks/moon-hill/art.js";
+import { PUMPKIN_FIELD_ART } from "../defs/landmarks/pumpkin-field/art.js";
+import { STONE_BRIDGE_ART } from "../defs/landmarks/stone-bridge/art.js";
+import { CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
 
 export * from "./art-registry.js";
 
@@ -67,3 +73,5 @@ for (const a of [
 ])
   PASSIVE_ART.register(a);
 for (const a of [PAPER_FENCE_ART, PAPER_BUSH_ART, PAPER_GRASS_ART]) PROP_ART.register(a);
+for (const a of [CLOCK_TOWER_ART, PUMPKIN_FIELD_ART, STONE_BRIDGE_ART, GRAVEYARD_ART, LANTERN_MARKET_ART, MOON_HILL_ART])
+  LANDMARK_ART.register(a);

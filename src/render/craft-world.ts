@@ -23,6 +23,8 @@ import {
   type Road,
 } from "../game/world-gen.js";
 import type { SimState } from "../game/types.js";
+import { LANDMARK_DEFS } from "../defs/registries.js";
+import { LANDMARK_ART, decorPiece, landmarkReach } from "./art-registry.js";
 import { bossEnemy } from "../game/sim.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
@@ -64,222 +66,6 @@ import {
   type Point,
 } from "./paper-material.js";
 
-// ---------------------------------------------------------------- landmark sprites
-function clockTower(ctx: Ctx, x: number, y: number, s: number, _seed: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  shadow(ctx, 2, 2, 46, 11);
-  // Stone plinth, then a tall shaft with a folded side face.
-  piece(ctx, path([[-38, 4], [-36, -46], [36, -48], [38, 4]]), "#8d8190", {
-    shadow: 3,
-    edge: "#bba7ad",
-    texture: 0.95,
-    thickness: 1.2,
-  });
-  for (let r = 0; r < 4; r++)
-    line(ctx, -35, -8 - r * 10, 35, -9 - r * 10, "#6e6273", 0.6, 0.7);
-  piece(ctx, path([[-27, -46], [-25, -176], [25, -178], [27, -46]]), "#cdbb9c", {
-    shadow: 3,
-    edge: "#ecd6b0",
-    texture: 0.9,
-    thickness: 1.2,
-  });
-  piece(ctx, path([[27, -46], [25, -178], [34, -172], [35, -52]]), "#9d8a72", {
-    shadow: 1,
-    edge: "#bba487",
-    texture: 0.85,
-    thickness: 0.8,
-  });
-  for (let i = 0; i < 18; i++)
-    piece(ctx, box(-22 + hash(i * 7) * 38, -170 + hash(i * 13) * 118, 4 + hash(i) * 4, 2.2, i), "#b8a586", {
-      shadow: 0,
-      texture: 0.7,
-      thickness: 0.18,
-    });
-  // Pointed roof of overlapping paper shingles.
-  const roof = path([[-36, -172], [0, -236], [38, -172]]);
-  piece(ctx, roof, "#4a3449", { shadow: 3.5, edge: "#b48b59", texture: 0.8, thickness: 1.6 });
-  ctx.save();
-  ctx.clip(roof);
-  for (let row = 0; row < 9; row++)
-    for (let xx = -40 - (row % 2) * 4; xx < 40; xx += 9)
-      piece(ctx, box(xx, -178 - row * 7, 10, 6, row * 9 + xx), ["#57404e", "#644553", "#4c3749"][(row + Math.abs(xx)) % 3]!, {
-        shadow: 0.9,
-        texture: 0.8,
-        edge: "#98765e",
-        thickness: 0.45,
-      });
-  ctx.restore();
-  stroke(ctx, new Path2D("M -38 -171 L 0 -237 L 40 -171"), "#c29a61", 0.9);
-  line(ctx, 0, -236, 0, -250, "#78543b", 1.6);
-  piece(ctx, oval(0, -252, 3, 3, 4), "#e3b866", { shadow: 0.6, texture: 0.4, thickness: 0.4 });
-  // Clock face stopped just before midnight.
-  glow(ctx, 0, -134, 34, "#f6d38e", 0.25);
-  piece(ctx, oval(0, -134, 19, 19, 7, 0.02), "#f2e1b8", { shadow: 2, edge: "#fff4d4", texture: 0.5, thickness: 1.2 });
-  stitch(ctx, oval(0, -134, 15.5, 15.5, 8, 0.02), "#a88a60", 0.8);
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    line(ctx, Math.cos(a) * 13, -134 + Math.sin(a) * 13, Math.cos(a) * 15, -134 + Math.sin(a) * 15, "#5b4535", 1);
-  }
-  line(ctx, 0, -134, -1.5, -147, "#3a2b2e", 1.8);
-  line(ctx, 0, -134, -4, -142, "#3a2b2e", 2.2);
-  // A warm arched window and door.
-  const win = new Path2D("M -7 -86 L -7 -100 Q 0 -110 7 -100 L 7 -86 Z");
-  glow(ctx, 0, -94, 22, "#ffc065", 0.35);
-  piece(ctx, win, "#efb35a", { shadow: 1, edge: "#634431", thickness: 1.6, texture: 0.4 });
-  line(ctx, 0, -104, 0, -86, "#805337", 1.2);
-  const door = new Path2D("M -11 4 L -11 -24 Q 0 -36 11 -24 L 11 4 Z");
-  piece(ctx, door, "#624731", { shadow: 2, edge: "#b68e56", texture: 0.9, thickness: 1.3 });
-  for (let i = 0; i < 4; i++) line(ctx, -8 + i * 5, -22, -8 + i * 5, 3, "#a07a47", 0.6);
-  ctx.restore();
-}
-function chapel(ctx: Ctx, x: number, y: number, s: number, _seed: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  shadow(ctx, 0, 4, 70, 13);
-  // Nave: a cream gable with a turned side wall.
-  piece(ctx, path([[-58, -54], [-14, -58], [-14, 4], [-58, 1]]), "#b6a58a", {
-    shadow: 3,
-    edge: "#e0c6a0",
-    texture: 0.9,
-    thickness: 1.1,
-  });
-  piece(ctx, path([[-15, -58], [22, -104], [60, -58], [60, 4], [-15, 4]]), "#d8c5a4", {
-    shadow: 2.7,
-    edge: "#f0d7af",
-    texture: 0.9,
-    thickness: 1.1,
-  });
-  const roof = path([[-66, -54], [-26, -106], [24, -108], [-15, -56]]);
-  piece(ctx, roof, "#3f3047", { shadow: 3.5, edge: "#a7865c", texture: 0.8, thickness: 1.5 });
-  stroke(ctx, new Path2D("M -66 -54 L -15 -56 L 22 -108 L 64 -57"), "#c29a61", 0.9);
-  // Belfry with a needle spire.
-  piece(ctx, box(-50, -150, 22, 52), "#c4b293", { shadow: 2, edge: "#e5cda6", texture: 0.9 });
-  piece(ctx, path([[-54, -148], [-39, -186], [-24, -148]]), "#4a3449", {
-    shadow: 2,
-    edge: "#b48b59",
-    texture: 0.8,
-    thickness: 1.2,
-  });
-  glow(ctx, -39, -128, 16, "#ffc065", 0.3);
-  piece(ctx, new Path2D("M -44 -118 L -44 -130 Q -39 -137 -34 -130 L -34 -118 Z"), "#e8ac58", {
-    shadow: 0.8,
-    edge: "#634431",
-    thickness: 1.3,
-    texture: 0.4,
-  });
-  line(ctx, -39, -186, -39, -198, "#78543b", 1.3);
-  line(ctx, -43, -194, -35, -194, "#78543b", 1.3);
-  // Rose window and arched door glow warm against the cold yard.
-  glow(ctx, 22, -72, 26, "#ffc065", 0.32);
-  piece(ctx, oval(22, -72, 10, 10, 3, 0.02), "#efb35a", { shadow: 1, edge: "#634431", thickness: 1.6, texture: 0.4 });
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI;
-    line(ctx, 22 - Math.cos(a) * 9, -72 - Math.sin(a) * 9, 22 + Math.cos(a) * 9, -72 + Math.sin(a) * 9, "#805337", 0.9);
-  }
-  const door = new Path2D("M 11 4 L 11 -28 Q 22 -42 33 -28 L 33 4 Z");
-  piece(ctx, door, "#5a3f2e", { shadow: 2, edge: "#b68e56", texture: 0.9, thickness: 1.3 });
-  for (const wx of [-48, -30]) {
-    glow(ctx, wx + 5, -30, 14, "#ffc065", 0.25);
-    piece(ctx, new Path2D(`M ${wx} -20 L ${wx} -36 Q ${wx + 5} -43 ${wx + 10} -36 L ${wx + 10} -20 Z`), "#e2a655", {
-      shadow: 0.8,
-      edge: "#634431",
-      thickness: 1.2,
-      texture: 0.4,
-    });
-  }
-  for (let i = 0; i < 12; i++)
-    leaf(ctx, -60 + i * 10, 6, 7 + hash(i) * 4, 3, (hash(i * 3) - 0.5) * 1.6, ["#766645", "#916a45", "#8a6846"][i % 3]!, i);
-  ctx.restore();
-}
-function tomb(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  shadow(ctx, 0, 1, 13, 4);
-  const cross = seed % 3 === 0;
-  const p = cross
-    ? path([[-3, 2], [-3, -20], [-10, -20], [-10, -26], [-3, -26], [-3, -34], [3, -34], [3, -26], [10, -26], [10, -20], [3, -20], [3, 2]])
-    : new Path2D("M -11 2 L -11 -18 Q -11 -32 0 -33 Q 11 -32 11 -18 L 12 2 Z");
-  piece(ctx, p, seed % 2 ? "#817486" : "#8b8079", { shadow: 2.4, edge: "#b39a9a", texture: 0.95, thickness: 1 });
-  if (!cross) {
-    stroke(ctx, new Path2D("M -7 -2 L -7 -18 Q -7 -27 0 -28 Q 7 -27 7 -18 L 7 -2"), "#b199a1", 0.6);
-    line(ctx, -5, -15, 5, -15, "#5e4c60", 0.6);
-    line(ctx, -4, -11, 4, -11, "#5e4c60", 0.5);
-  }
-  for (let i = 0; i < 4; i++) leaf(ctx, -9 + i * 6, 3, 7, 2.6, (i - 1.5) * 0.5, ["#68714f", "#7c6a45"][i % 2]!, i);
-  ctx.restore();
-}
-function stall(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  shadow(ctx, 0, 3, 44, 9);
-  for (const px of [-36, 36]) {
-    piece(ctx, box(px - 2.5, -80, 5, 82), "#6b4d34", { shadow: 1.6, edge: "#b2884f", texture: 0.8, thickness: 0.7 });
-  }
-  piece(ctx, path([[-40, -30], [40, -30], [42, 2], [-42, 2]]), "#8a6448", {
-    shadow: 2.4,
-    edge: "#c49a62",
-    texture: 0.9,
-    thickness: 1,
-  });
-  for (let i = 0; i < 5; i++) line(ctx, -38 + i * 19, -27, -38 + i * 19, 0, "#6c4c37", 0.6);
-  piece(ctx, box(-44, -34, 88, 6), "#b28a5c", { shadow: 1.2, edge: "#e2bd84", texture: 0.85, thickness: 0.7 });
-  // Striped awning, each stripe its own paper strip.
-  const colors = seed % 2 ? ["#a8574a", "#e2c79a"] : ["#4f6a7a", "#e2c79a"];
-  for (let i = 0; i < 8; i++) {
-    const x0 = -46 + i * 11.5;
-    piece(ctx, path([[x0, -88], [x0 + 11.5, -88], [x0 + 12.5, -70], [x0 + 6, -66], [x0 - 0.5, -70]]), colors[i % 2]!, {
-      shadow: 1.3,
-      edge: mix(colors[i % 2]!, "#fff0d0", 0.35),
-      texture: 0.8,
-      thickness: 0.6,
-    });
-  }
-  // Goods: a little pumpkin, a jar lantern, folded paper bats.
-  pumpkin(ctx, -22, -34, 0.5, seed * 4 + 1);
-  glow(ctx, 6, -42, 16, "#ffc15b", 0.3);
-  piece(ctx, box(1, -48, 10, 13), "#e9b561", { shadow: 0.8, edge: "#664a35", texture: 0.4, thickness: 0.9 });
-  piece(ctx, path([[18, -40], [24, -45], [27, -40], [30, -45], [36, -40], [27, -37]]), "#2a2034", {
-    shadow: 0.6,
-    texture: 0.5,
-    thickness: 0.4,
-  });
-  ctx.restore();
-}
-function stringLights(ctx: Ctx, x: number, y: number, s: number, _seed: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  const pts: Point[] = [[-154, -8], [-95, 8], [-36, -40], [0, -24], [36, -40], [95, 8], [154, -8]];
-  const cord = new Path2D();
-  cord.moveTo(...pts[0]!);
-  for (let i = 1; i < pts.length - 1; i++) {
-    const a = pts[i]!,
-      b = pts[i + 1]!;
-    cord.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-  }
-  cord.lineTo(...pts[pts.length - 1]!);
-  stroke(ctx, cord, "#3c2c2a", 1.4);
-  stroke(ctx, cord, "#ba965f", 0.6);
-  for (let i = 0; i < 16; i++) {
-    const t = (i + 0.5) / 16,
-      seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))),
-      k = t * (pts.length - 1) - seg,
-      a = pts[seg]!,
-      b = pts[seg + 1]!,
-      lx = a[0] + (b[0] - a[0]) * k,
-      ly = a[1] + (b[1] - a[1]) * k + 4;
-    const c = ["#f2b35a", "#e98a4f", "#f5d27a", "#d9725a"][i % 4]!;
-    glow(ctx, lx, ly + 4, 14, "#ffc15b", 0.28);
-    piece(ctx, oval(lx, ly + 4, 3.6, 4.6, i, 0.06), c, { shadow: 1, edge: "#fff0c4", texture: 0.45, thickness: 0.5 });
-  }
-  ctx.restore();
-}
-
 // ---------------------------------------------------------------- decor sprite cache
 export interface Bounds {
   l: number;
@@ -287,7 +73,8 @@ export interface Bounds {
   t: number;
   b: number;
 }
-const BOUNDS: Record<Exclude<DecorKind, "flowers" | "tuft" | "leaves" | "lamp">, Bounds> = {
+/** Generic decor sprites; landmark pieces come from LANDMARK_ART (decorPiece). */
+const BOUNDS: Record<string, Bounds> = {
   tree: { l: -82, r: 82, t: -158, b: 16 },
   cottage: { l: -120, r: 100, t: -144, b: 16 },
   bush: { l: -52, r: 52, t: -34, b: 10 },
@@ -295,11 +82,6 @@ const BOUNDS: Record<Exclude<DecorKind, "flowers" | "tuft" | "leaves" | "lamp">,
   stone: { l: -16, r: 16, t: -16, b: 8 },
   candles: { l: -22, r: 22, t: -36, b: 8 },
   pumpkin: { l: -22, r: 26, t: -32, b: 8 },
-  "clock-tower": { l: -52, r: 52, t: -258, b: 14 },
-  chapel: { l: -82, r: 72, t: -202, b: 14 },
-  tomb: { l: -16, r: 16, t: -38, b: 8 },
-  stall: { l: -50, r: 50, t: -96, b: 10 },
-  lights: { l: -168, r: 168, t: -56, b: 24 },
 };
 type Painter = (ctx: Ctx, x: number, y: number, s: number, seed: number) => void;
 const PAINT: Record<keyof typeof BOUNDS, Painter> = {
@@ -310,19 +92,14 @@ const PAINT: Record<keyof typeof BOUNDS, Painter> = {
   stone,
   candles: (c, x, y, s) => candles(c, x, y, s),
   pumpkin,
-  "clock-tower": clockTower,
-  chapel,
-  tomb,
-  stall,
-  lights: stringLights,
 };
 /** Variants per kind keep the cache small; pumpkins keep their carved bit (seed % 4). */
-const VARIANTS: Partial<Record<DecorKind, number>> = { pumpkin: 8, tree: 6, cottage: 4, bush: 6, tomb: 6, stall: 2, stone: 4 };
+const VARIANTS: Partial<Record<DecorKind, number>> = { pumpkin: 8, tree: 6, cottage: 4, bush: 6, stone: 4 };
 const spriteCache = new Map<string, HTMLCanvasElement>();
 const PAD = 8;
 function decorBounds(d: Decor): Bounds | null {
   if (d.kind === "lamp") return { l: -18, r: 18, t: -75 * d.s, b: 8 };
-  const b = (BOUNDS as Record<string, Bounds | undefined>)[d.kind];
+  const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
 function drawDecor(ctx: Ctx, d: Decor, time: number): void {
@@ -330,10 +107,13 @@ function drawDecor(ctx: Ctx, d: Decor, time: number): void {
     drawLamp(ctx, { x: d.x, y: d.y, s: Math.round(d.s * 20) / 20 }, time);
     return;
   }
-  const b = (BOUNDS as Record<string, Bounds | undefined>)[d.kind];
-  if (!b) return;
+  const own = BOUNDS[d.kind],
+    extra = own ? undefined : decorPiece(d.kind),
+    b = own ?? extra?.bounds,
+    paint = own ? PAINT[d.kind as keyof typeof PAINT] : extra?.paint;
+  if (!b || !paint) return;
   const s = Math.round(d.s * 20) / 20,
-    v = Math.abs(d.seed) % (VARIANTS[d.kind] ?? 1),
+    v = Math.abs(d.seed) % ((own ? VARIANTS[d.kind] : extra?.variants) ?? 1),
     key = `${d.kind}-${s}-${v}`;
   let c = spriteCache.get(key);
   const w = (b.r - b.l) * s + PAD * 2,
@@ -343,7 +123,7 @@ function drawDecor(ctx: Ctx, d: Decor, time: number): void {
     c = surface(Math.ceil(w * 2), Math.ceil(h * 2));
     const g = c.getContext("2d")!;
     g.scale(2, 2);
-    PAINT[d.kind as keyof typeof BOUNDS](g, -b.l * s + PAD, -b.t * s + PAD, s, v);
+    paint(g, -b.l * s + PAD, -b.t * s + PAD, s, v);
     spriteCache.set(key, c);
   }
   ctx.drawImage(c, d.x + b.l * s - PAD, d.y + b.t * s - PAD, Math.ceil(w * 2) / 2, Math.ceil(h * 2) / 2);
@@ -459,141 +239,8 @@ function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): vo
 }
 /** Ground-level landmark art baked into the chunk caches. */
 function landmarkGround(ctx: Ctx, l: Landmark): void {
-  const { x, y, seed } = l;
-  if (l.kind === "clock-tower" || l.kind === "lantern-market") {
-    const rx = l.kind === "clock-tower" ? 130 : 190,
-      ry = l.kind === "clock-tower" ? 78 : 98,
-      cy = l.kind === "clock-tower" ? y + 12 : y - 4,
-      plaza = oval(x, cy, rx, ry, seed, 0.06);
-    piece(ctx, plaza, "#8b8174", { shadow: 1.6, edge: "#b9ab92", texture: 0.85, thickness: 1.4 });
-    ctx.save();
-    ctx.clip(plaza);
-    // Cobbles are batched per tone: one fill and one cut-edge stroke each.
-    const tones = [new Path2D(), new Path2D(), new Path2D()],
-      cols = Math.ceil((rx * 2) / 15) + 1,
-      rows = Math.ceil((ry * 2) / 10) + 1;
-    for (let row = 0; row < rows; row++)
-      for (let k = 0; k < cols; k++)
-        tones[(row + k) % 3]!.addPath(box(x - rx + k * 15 + (row % 2) * 7, cy - ry + row * 10, 13, 8, row * 31 + k));
-    tones.forEach((p, i) => {
-      ctx.fillStyle = ["#958a7b", "#80776b", "#9d917f"][i]!;
-      ctx.fill(p);
-      stroke(ctx, p, "#5d554c", 0.7, 0.8);
-    });
-    ctx.translate(-0.3, -0.5);
-    stroke(ctx, tones[2]!, "#c4b59c", 0.5, 0.6);
-    ctx.restore();
-    grain(ctx, plaza, 0.4);
-    stitch(ctx, oval(x, cy, rx - 5, ry - 4, seed, 0.06), "#cdbb98", 0.7);
-    if (l.kind === "lantern-market")
-      for (const [dx, dy, c] of [
-        [-70, 40, "#7c3f43"],
-        [64, 34, "#3f5466"],
-      ] as const) {
-        const rug = box(x + dx - 26, y + dy - 12, 52, 24, dx);
-        piece(ctx, rug, c, { shadow: 1, edge: mix(c, "#f2d6a6", 0.4), texture: 0.8, thickness: 0.6 });
-        stitch(ctx, box(x + dx - 22, y + dy - 9, 44, 18, dx + 1), "#e2c79a", 0.8);
-      }
-  } else if (l.kind === "pumpkin-field") {
-    const soil = oval(x, y + 6, 175, 104, seed, 0.1);
-    piece(ctx, soil, "#5a4434", { shadow: 1.8, edge: "#8c6a4c", texture: 0.9, thickness: 1.2 });
-    ctx.save();
-    ctx.clip(soil);
-    for (let i = -6; i <= 6; i++) {
-      const fy = y + 6 + i * 15,
-        furrow = new Path2D();
-      furrow.moveTo(x - 190, fy);
-      furrow.quadraticCurveTo(x, fy + 8 + Math.sin(i) * 4, x + 190, fy - 2);
-      stroke(ctx, furrow, "#3e2e25", 2.2, 0.55);
-      ctx.save();
-      ctx.translate(0, -1.4);
-      stroke(ctx, furrow, "#86664a", 0.8, 0.5);
-      ctx.restore();
-    }
-    ctx.restore();
-    // Curling vines link the pumpkins.
-    for (let i = 0; i < 9; i++) {
-      const vx = x + (hash(seed + i) - 0.5) * 280,
-        vy = y + (hash(seed + i * 5) - 0.5) * 150,
-        v = new Path2D();
-      v.moveTo(vx, vy);
-      v.bezierCurveTo(vx + 14, vy - 10, vx + 24, vy + 8, vx + 36, vy - 2);
-      stroke(ctx, v, "#6f7a46", 1.1, 0.85);
-      leaf(ctx, vx + 18, vy, 9, 4, 1.2, "#7a8a4c", i);
-    }
-    stitch(ctx, oval(x, y + 6, 168, 98, seed, 0.1), "#b08a5c", 0.6);
-  } else if (l.kind === "stone-bridge") {
-    const r = LANDMARK.river,
-      span = l.span ?? r.halfLength,
-      top: Point[] = [],
-      bottom: Point[] = [];
-    for (let dx = -span; dx <= span; dx += 16) {
-      const taper = Math.min(1, (span - Math.abs(dx)) / 60 + 0.25);
-      top.push([x + dx, y - r.halfWidth * taper + Math.sin((x + dx) * 0.03) * 3]);
-      bottom.push([x + dx, y + r.halfWidth * taper + Math.sin((x + dx) * 0.027 + 1) * 3]);
-    }
-    const water = path([...top, ...bottom.reverse()], true);
-    piece(ctx, water, "#2c4560", { shadow: 2.2, edge: "#7d9bb0", texture: 0.75, thickness: 1.8 });
-    ctx.save();
-    ctx.clip(water);
-    for (let i = 0; i < 26; i++) {
-      const rx = x - span + hash(seed + i) * span * 2,
-        ry = y + (hash(seed + i * 3) - 0.5) * r.halfWidth * 1.3,
-        ripple = new Path2D();
-      ripple.moveTo(rx, ry);
-      ripple.quadraticCurveTo(rx + 8, ry - 2, rx + 18, ry);
-      stroke(ctx, ripple, "#8fb0c4", 0.8, 0.6);
-    }
-    ctx.restore();
-    for (const side of [-1, 1])
-      for (let i = 0; i < 4; i++) grassTuft(ctx, x + side * (span - 10 - i * 14), y + (i % 2 ? -1 : 1) * 18, 1, seed + i);
-    // Stone deck with plank seams, low parapets and posts.
-    const halfH = r.halfWidth + 16,
-      deck = box(x - r.deckHalf, y - halfH, r.deckHalf * 2, halfH * 2, seed);
-    shadow(ctx, x, y + halfH - 2, r.deckHalf + 6, 8);
-    piece(ctx, deck, "#9a8b7e", { shadow: 2.6, edge: "#c2ae91", texture: 0.9, thickness: 1.6 });
-    for (let i = 1; i < 7; i++) line(ctx, x - r.deckHalf + 3, y - halfH + i * (halfH / 3.5), x + r.deckHalf - 3, y - halfH + i * (halfH / 3.5), "#7c6f66", 0.7, 0.8);
-    for (const side of [-1, 1]) {
-      const rail = box(x + side * r.deckHalf - 4, y - halfH - 4, 8, halfH * 2 + 6, seed + side);
-      piece(ctx, rail, "#8a7c76", { shadow: 1.8, edge: "#c2ae91", texture: 0.9, thickness: 1 });
-      for (const py of [-halfH - 2, 0, halfH - 2])
-        piece(ctx, box(x + side * r.deckHalf - 6, y + py - 4, 12, 9, py + side), "#776a66", {
-          shadow: 1.4,
-          edge: "#ad9a8a",
-          texture: 0.85,
-          thickness: 0.8,
-        });
-    }
-  } else if (l.kind === "graveyard") {
-    const yard = oval(x, y, 200, 124, seed, 0.08);
-    piece(ctx, yard, "#454a40", { shadow: 1.2, edge: "#5f6653", texture: 0.85, thickness: 1 });
-    // A low wrought fence rings the yard, open toward the south.
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2;
-      if (Math.sin(a) > 0.92) continue;
-      const fx = x + Math.cos(a) * 196,
-        fy = y + Math.sin(a) * 120;
-      line(ctx, fx, fy, fx, fy - 11, "#2a2230", 1.4);
-      piece(ctx, path([[fx - 1.8, fy - 11], [fx, fy - 15], [fx + 1.8, fy - 11]]), "#3a2f3f", { shadow: 0.3, texture: 0.4, thickness: 0.3 });
-    }
-    stroke(ctx, oval(x, y - 6, 196, 120, seed, 0.0), "#2a2230", 1, 0.7);
-  } else if (l.kind === "moon-hill") {
-    for (const [rx, ry, dy, c] of [
-      [180, 98, 10, "#4f5747"],
-      [128, 70, -2, "#5d6553"],
-      [76, 42, -10, "#6a7360"],
-    ] as const) {
-      const p = oval(x, y + dy, rx, ry, seed + rx, 0.1);
-      piece(ctx, p, c, { shadow: 3, edge: "#8c9672", texture: 0.85, thickness: 1.4 });
-      stitch(ctx, oval(x, y + dy, rx - 5, ry - 4, seed + rx, 0.1), "#a3ab7c", 0.5);
-    }
-    glow(ctx, x, y - 10, 90, "#bcd8f2", 0.12, 0.55);
-  }
+  LANDMARK_ART.find(l.kind)?.ground(ctx, l);
 }
-function landmarkReach(l: Landmark): number {
-  return l.kind === "stone-bridge" ? Math.max(l.radius, (l.span ?? 0) + 30) : l.radius + 40;
-}
-
 /** Span of the river band in a stand-alone landmark preview. */
 const PREVIEW_SPAN = 260;
 /**
@@ -607,9 +254,9 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
       kind,
       x: 0,
       y: 0,
-      radius: LANDMARK.radius[kind],
+      radius: LANDMARK_DEFS.get(kind).radius,
       seed,
-      ...(kind === "stone-bridge" ? { span: PREVIEW_SPAN } : {}),
+      ...(LANDMARK_DEFS.get(kind).span ? { span: PREVIEW_SPAN } : {}),
     },
     { decor } = landmarkParts(l),
     reach = landmarkReach(l),
@@ -756,7 +403,8 @@ export interface VisibleLamp {
   s: number;
 }
 /** Pieces that fold up like a pop-up book page as the cat approaches. */
-const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree", "cottage", "clock-tower", "chapel", "stall"]);
+const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree", "cottage"]);
+const pops = (kind: DecorKind) => POP_KINDS.has(kind) || !!decorPiece(kind)?.popup;
 /** Render-only fold per piece (never SimState); pieces out of view are forgotten. */
 const folds = new Map<string, number>();
 let foldTime: number | null = null;
@@ -823,7 +471,7 @@ export function worldSprites(
         // Cull by the sprite's own bounds.
         if (d.x + bd.r < view.x0 || d.x + bd.l > view.x1 || d.y + bd.b < view.y0 || d.y + bd.t > view.y1) continue;
         if (d.kind === "lamp") lamps.push(d);
-        const f = pop && POP_KINDS.has(d.kind) ? foldOf(d, pop, dt) : 1;
+        const f = pop && pops(d.kind) ? foldOf(d, pop, dt) : 1;
         sprites.push({
           y: d.y,
           draw: () =>

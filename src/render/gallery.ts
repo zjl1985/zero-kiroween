@@ -8,7 +8,6 @@
 import { t } from "../content/i18n.js";
 import type { Locale } from "../content/keys.js";
 import { ENEMY_DEFS, PROP_DEFS } from "../defs/index.js";
-import type { LandmarkKind } from "../game/world-gen.js";
 import type { EnemyState } from "../game/types.js";
 import { ELITE } from "../game/enemies.js";
 import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryKind } from "../ui/gallery-layout.js";
@@ -39,12 +38,8 @@ function fit(b: Bounds, stage: { x: number; y: number; w: number; h: number }, m
     y: stage.y + stage.h / 2 - ((b.t + b.b) / 2) * k,
   };
 }
-/**
- * Landmark art lookup. Landmarks are not registered defs yet, so this goes
- * through craft-world's landmarkPreview; a landmark registry can replace it
- * here without touching the rest of the gallery.
- */
-const landmarkArt = (id: string) => landmarkPreview(id as LandmarkKind);
+/** A registered landmark kind (LANDMARK_DEFS + LANDMARK_ART) drawn on its own. */
+const landmarkArt = (id: string) => landmarkPreview(id);
 
 const PAINTERS: Record<GalleryKind, Painter> = {
   cat(ctx, cell, st) {

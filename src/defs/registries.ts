@@ -12,6 +12,7 @@ import type {
   EnemyBehaviour,
   EnemyDef,
   EvolutionDef,
+  LandmarkDef,
   MaterialDef,
   PassiveDef,
   PropDef,
@@ -33,4 +34,6 @@ export const BEHAVIOURS = createRegistry<EnemyBehaviour<any>>("enemy behaviour")
 export const MATERIALS = createRegistry<MaterialDef>("material");
 export const REACTIONS = createRegistry<ReactionDef>("reaction");
 export const PROP_DEFS = createRegistry<PropDef>("prop");
+/** Landmark kinds, in the order world-gen hands them out. */
+export const LANDMARK_DEFS = createRegistry<LandmarkDef>("landmark");
 export const SIM_EVENTS = createEventBus<SimState, SimEvents, SimContext>();

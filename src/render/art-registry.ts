@@ -11,7 +11,7 @@
 import { createRegistry } from "../engine/registry.js";
 import type { MessageKey } from "../content/keys.js";
 import { CATS } from "../defs/registries.js";
-import type { CatId, EnemyKind, PropPhase, UpgradeId, WeaponId } from "../defs/types.js";
+import type { CatId, EnemyKind, LandmarkPlace, PropPhase, UpgradeId, WeaponId } from "../defs/types.js";
 import type { EnemyState, Impact, ShotState, SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
@@ -157,6 +157,32 @@ export interface PropArt {
 /** Default per-placement look of props: a little size, tilt and mirroring. */
 export const PROP_LOOK: Omit<VariantBase, "palette"> = { scale: [0.94, 1.06], angle: [-0.025, 0.025], flip: true };
 
+/**
+ * A tall decor piece a landmark brings (clock tower, chapel, tomb, ...): a
+ * y-sorted cached sprite with its base at (x, y). Painters must be pure.
+ */
+export interface DecorPiece {
+  readonly kind: string;
+  readonly bounds: ArtBounds;
+  paint(ctx: Ctx, x: number, y: number, s: number, variant: number): void;
+  /** Cached variants (variant = seed % variants; default 1). */
+  readonly variants?: number;
+  /** Folds up like a pop-up book page near the cat. */
+  readonly popup?: boolean;
+}
+/** Art of one landmark kind, same id as its LandmarkDef. */
+export interface LandmarkArt {
+  readonly id: string;
+  /** Ground-level art baked into the chunk caches (plazas, soil, water ...). */
+  ground(ctx: Ctx, l: LandmarkPlace): void;
+  /** How far the ground art reaches from the centre (default radius + 40). */
+  reach?(l: LandmarkPlace): number;
+  /** Ink of its dot on the folded minimap. */
+  readonly ink: string;
+  /** Decor pieces only this landmark places. */
+  readonly pieces?: readonly DecorPiece[];
+}
+
 export const CAT_ART = createRegistry<CatArt>("cat art");
 export const ENEMY_ART = createRegistry<EnemyArt>("enemy art");
 /** Weapons and evolved weapons, same ids as WEAPON_DEFS. */
@@ -164,6 +190,23 @@ export const WEAPON_ART = createRegistry<WeaponArt>("weapon art");
 export const PASSIVE_ART = createRegistry<PassiveArt>("passive art");
 /** World props, same ids as PROP_DEFS art ids. */
 export const PROP_ART = createRegistry<PropArt>("prop art");
+
+export const LANDMARK_ART = createRegistry<LandmarkArt>("landmark art");
+
+const pieceMemo = { size: -1, map: new Map<string, DecorPiece>() };
+/** The landmark decor piece of a decor kind, if a landmark art registers one. */
+export function decorPiece(kind: string): DecorPiece | undefined {
+  if (pieceMemo.size !== LANDMARK_ART.all().length) {
+    pieceMemo.map.clear();
+    for (const a of LANDMARK_ART.all()) for (const p of a.pieces ?? []) pieceMemo.map.set(p.kind, p);
+    pieceMemo.size = LANDMARK_ART.all().length;
+  }
+  return pieceMemo.map.get(kind);
+}
+/** Ground reach of a placed landmark (for chunk caches and previews). */
+export function landmarkReach(l: LandmarkPlace): number {
+  return LANDMARK_ART.find(l.kind)?.reach?.(l) ?? l.radius + 40;
+}
 
 /** Art of the cat in this run, or the first registered cat. */
 export function catArt(id: CatId | undefined): CatArt {

@@ -7,7 +7,8 @@
 import { glow, hash, line, mix, oval, path, piece, stitch, stroke, type Ctx } from "./paper-material.js";
 import { crescent } from "./craft-combat.js";
 import { arcHeight, chunkCoords, mapPoint, type ArcPoint } from "../ui/journal-geometry.js";
-import { CHUNK, SCREEN, WORLD, type Landmark, type LandmarkKind } from "../game/world-gen.js";
+import { CHUNK, SCREEN, WORLD, type Landmark } from "../game/world-gen.js";
+import { LANDMARK_ART } from "./art-registry.js";
 
 /** Every journal canvas is drawn at 2x its CSS size. */
 function begin(canvas: HTMLCanvasElement): { ctx: Ctx; w: number; h: number } {
@@ -222,14 +223,8 @@ export function paintWick(canvas: HTMLCanvasElement, charge: number, ready: bool
 }
 
 // ---------------------------------------------------------------- minimap
-const LANDMARK_INK: Record<LandmarkKind, string> = {
-  "clock-tower": "#c9a35f",
-  "pumpkin-field": "#e0863f",
-  "stone-bridge": "#8fb6c6",
-  graveyard: "#b2abc2",
-  "lantern-market": "#f0b85a",
-  "moon-hill": "#cdb8f2",
-};
+/** Minimap dot ink of a landmark kind (LandmarkArt.ink). */
+const landmarkInk = (kind: string) => LANDMARK_ART.find(kind)?.ink ?? "#c9a35f";
 export interface MinimapView {
   player: { x: number; y: number };
   accent: string;
@@ -280,7 +275,7 @@ export function paintMinimap(canvas: HTMLCanvasElement, v: MinimapView): void {
   for (const l of v.landmarks) {
     const [x, y] = at(l.x, l.y);
     if (v.found.includes(l.id)) {
-      piece(ctx, path([[x, y - 3.2], [x + 3, y], [x, y + 3.2], [x - 3, y]]), LANDMARK_INK[l.kind], {
+      piece(ctx, path([[x, y - 3.2], [x + 3, y], [x, y + 3.2], [x - 3, y]]), landmarkInk(l.kind), {
         shadow: 0.4,
         thickness: 0.5,
         texture: 0,
