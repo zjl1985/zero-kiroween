@@ -1,18 +1,20 @@
 {
   "enabled": true,
   "name": "Test on game logic change",
-  "description": "When simulation, character or content files change, run the test suite so the two cat kits, determinism and i18n keys stay intact.",
+  "description": "When simulation, def, engine, cat or content files change, run the test suite so the two cat kits, determinism, registries and i18n keys stay intact.",
   "version": "1",
   "when": {
     "type": "fileEdited",
     "patterns": [
       "src/game/**/*.ts",
+      "src/defs/**/*.ts",
+      "src/engine/**/*.ts",
       "src/cats/**/*.ts",
       "src/content/**/*.ts"
     ]
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A game logic, cat or content file changed. Run `npm test` and fix any failure caused by the change. Keep Zero and Nicole as distinct kits with numbers in src/game/characters.ts, keep a single chosen cat with no companion, and add any new message key to every language pack. Do not start animation or recording checks."
+    "prompt": "A game logic, def, engine, cat or content file changed. Run `npm test` and fix any failure caused by the change. Keep Zero and Nicole as distinct kits with numbers in their def files (src/defs/cats/<id>/stats.ts), keep a single chosen cat with no companion, keep the sim deterministic (randomness only from the Rng passed to hooks, world content from hash2), register new defs and art with one line each (see .kiro/skills/midnight-meow-dev), and add any new message key to every language pack. Do not start animation or recording checks."
   }
 }

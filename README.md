@@ -1,8 +1,8 @@
 # 猫猫守夜 / Midnight Meow
 
-后续 agent 请先读 [HANDOFF.md](HANDOFF.md) 和 [PLAN.md](PLAN.md)。**当前只做一种纸片画风，不是双画风。**
+后续 agent 请先读 [HANDOFF.md](HANDOFF.md) 和 [PLAN.md](PLAN.md)；增加或修改内容时按项目技能 [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)（英文）操作。**当前只做一种纸片画风，不是双画风。**
 
-一座由代码绘制的纸片夜镇：有纸张纤维、切边厚度、层叠投影、缝线、暖窗、秋树和弯曲小路。玩法是类 Vampire Survivors 的 roguelike：选一只猫，在有界的种子地图（最多 10 × 10 屏）里跟着镜头走街串巷，守满 10 分钟到天亮。途中收集墨晶升级武器与被动，从精英掉的宝箱里进化，发现钟楼、南瓜田、石桥等地标，击退墨团群（同时最多 100 只）与追猎的 Eraser Boss。
+一座由代码绘制的纸片夜镇：有纸张纤维、切边厚度、层叠投影、缝线、暖窗、秋树和弯曲小路。玩法是类 Vampire Survivors 的 roguelike：选一只猫，在有界的种子地图（最多 10 × 10 屏）里跟着镜头走街串巷，守满 10 分钟到天亮。途中收集墨晶升级武器与被动，从精英掉的宝箱里进化，穿过五个分区，发现钟楼、南瓜田、石桥、纸风车磨坊等地标，击退墨团群（同时最多 100 只）与追猎的 Eraser Boss。纸做的篱笆、草丛、稻草人、草垛会被撕碎或烧掉，火会在纸草间蔓延。
 
 场景没有使用背景图片、贴图素材或生成图片。纹理、纸片造型、角色与光照均由 TypeScript / Canvas 生成；离屏 Canvas 只缓存这些绘制结果。音效由 Web Audio 振荡器与生成噪声合成，没有音频文件。
 
@@ -16,18 +16,23 @@ npm run build
 npm start
 ```
 
-打开 <http://localhost:4173/>。直接看游戏场景：<http://localhost:4173/?start=1>。
+打开 <http://localhost:4173/>。
 
-## 当前代码
+- <http://localhost:4173/?start=1>：跳过标题，直接用保存的角色开始一局。
+- `?seed=N`（例如 `/?start=1&seed=7`）：固定本局种子，便于复现；不带时每局使用新种子。
+- <http://localhost:4173/?gallery=1>：纸片工坊图鉴页，列出所有已注册的猫、敌人、物件（各种状态）、地标、分区、武器与被动，不启动游戏与音频。
 
-- `src/game/world-gen.ts`：有界种子世界（`WORLD` 10 × 10 屏）、区块、地标、道路、刷怪环；`sim.ts` 与渲染共用这份纯哈希数据。
-- `src/game/upgrades.ts`、`enemies.ts`、`interactions.ts`：武器 / 被动与宝箱进化、敌人群（`HORDE.hardCap` 100）、精英与 Boss、南瓜灯 / 月亮灯笼 / 鱼干 / 宝箱的数据。
-- `src/render/camera.ts`、`craft-world.ts`：跟随镜头、区块地面缓存、地标建筑、导航箭头。
-- `src/render/paper-material.ts`、`craft-scene.ts`、`craft-cat.ts`、`craft-combat.ts`、`craft-enemies.ts`、`craft-juice.ts`：纸张材质、天空与山丘、纸片猫、墨团与弹道、敌人与预警、受击反馈与物件状态。
-- `src/render/timeline.ts`、`cue-fx.ts`：进化、Boss、黎明等重点事件的蓄势 / 展开 / 爆发 / 收束节奏与表现。
-- `src/render/world.ts`：层叠绘制、遮挡与黎明天色；以 2 倍内部画布呈现细纹理与轮廓。
-- `src/ui/hud.ts`、`journal.ts`、`journal-geometry.ts`、`src/render/journal-ui.ts`：守夜手账风格的 HUD 与结算页。
-- `src/audio/sfx.ts`：程序生成的音效与环境声。
+## 项目结构
+
+内容按“定义 + 钩子 + 注册表”组织：每项内容是一个定义文件加一个放在旁边的美术文件，在索引里注册一行。
+
+- `src/engine/`：与内容无关的注册表、事件总线、精灵缓存。
+- `src/defs/`：内容定义。`index.ts` 注册猫、武器、被动、进化、敌人行为与敌人；`world-index.ts` 注册材质、反应、物件、地标与分区；`cats/`、`weapons/`、`passives/`、`evolutions/`、`enemies/`、`reactions/`、`props/`、`landmarks/`、`biomes/` 各放一项一个文件或目录；`horde.ts`、`progression.ts`、`fire.ts` 等放数值。
+- `src/game/`：通用模拟（无 DOM）。`sim.ts`、`props.ts`（材质反应与火）、`stats.ts`、`world-gen.ts`（有界种子世界、分区、地标、道路，纯哈希）、`interactions.ts`；`characters.ts`、`upgrades.ts`、`enemies.ts` 是保留旧导出名的外观层。
+- `src/render/`：`art-registry.ts` / `art-index.ts`（美术注册）、`paper-kit.ts` / `prop-kit.ts` / `variants.ts`（纸片工具与种子变体）、`craft-world.ts`（区块地面缓存、地标、立体书折叠、导航箭头）、`craft-props.ts`（物件与火）、`gallery.ts`、`timeline.ts`、`world.ts` 等。
+- `src/ui/`：守夜手账 HUD、升级卡、角色选择、结算页、图鉴布局。
+- `src/content/`：i18n（`keys.ts`、`en.ts`、`zh.ts`）。`src/audio/sfx.ts`：程序生成的音效与环境声。
+- `.kiro/`：steering、spec、hooks 与开发流程技能 `skills/midnight-meow-dev/`（加猫、加武器 / 被动 / 进化、加敌人、加物件与反应、加地标与分区、i18n、纸片工具与图鉴、测试与提交的配方）。
 
 原有像素场景代码保留在仓库内作为造型 / 布局参考，当前游戏入口只展示纸片场景，没有画风切换按钮。
 
@@ -38,10 +43,10 @@ npm start
 - **Zero**：起始武器喵线（远程直射）；留影冲刺吸引敌人；冲刺后短暂穿透速射。进化 Echo Legion：喵线满级 + 长影，然后开宝箱。
 - **Nicole**：起始武器月星环（三枚月星环绕）；折月留下减速领域并获得护盾；首次濒危时触发一次额外护盾。进化 Full Moon：月星环满级 + 深折，然后开宝箱。
 - WASD / 方向键移动，空格施放专属技能；Esc / P 暂停；升级时按 1 / 2 / 3 或点击选卡。标题与 HUD 上有静音按钮。手机使用摇杆与技能按钮。
-- 击败敌人掉落墨晶，升级时三选一（3 个武器槽、4 个被动槽）；精英与 Boss 掉宝箱；连杀、南瓜灯、月亮灯笼和鱼干提供额外互动。
-- 数值在 `src/game/characters.ts`、`upgrades.ts`、`enemies.ts`、`interactions.ts`、`world-gen.ts`，角色选择与 HUD 从同一份数据读取。
+- 击败敌人掉落墨晶，升级时三选一（3 个武器槽、4 个被动槽）；精英与 Boss 掉宝箱；连杀、南瓜灯、月亮灯笼、鱼干、可撕可烧的纸物件提供额外互动。
+- 数值在 `src/defs/` 的各个定义文件里（猫在 `src/defs/cats/<id>/stats.ts`），角色选择与 HUD 从同一份注册数据读取。
 
-当前验证只有 `npm run build` 与 `npm test`。大地图、新 UI 与特效都没有人在真实浏览器中看过，音频没有试听，平衡只用临时机器人粗测过，约 100 只敌人时的性能未测，美术未经用户认可。随机援护猫、英文默认、部署仍待制作。
+当前验证只有 `npm run build` 与 `npm test`（130 项）。大地图、手账 UI、特效，以及本轮的注册美术层、纸物件、火、立体书折叠、分区、新地标与图鉴页，都没有人在真实浏览器中看过，也没有截图；音频没有试听，平衡只用临时机器人粗测过，约 100 只敌人时的性能未测，美术未经用户认可，参赛作品没有完成。随机援护猫、英文默认、部署仍待制作。
 
 ```bash
 npm test

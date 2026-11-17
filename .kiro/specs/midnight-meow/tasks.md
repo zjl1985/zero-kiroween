@@ -1,6 +1,6 @@
 # Tasks: Midnight Meow
 
-Checked items exist in the code today. Unchecked items are open work. A checked art, UI, effect or gameplay item means the code exists, builds and passes the tests, not that the user approved it or that anyone has watched it in a browser. Nobody has viewed the bounded world, journal UI or event timelines in a browser (the sandbox blocked headless Chromium), nobody has heard the audio, and balance was only probed with throwaway idle bots.
+Checked items exist in the code today. Unchecked items are open work. A checked art, UI, effect or gameplay item means the code exists, builds and passes the tests, not that the user approved it or that anyone has watched it in a browser. Nobody has viewed the game in a browser, including the bounded world, journal UI, event timelines and this round's art-registry rendering, props, fire, pop-up folding, districts, landmarks and gallery (the sandbox blocked Playwright and headless Chromium, so no screenshot exists). Nobody has heard the audio, balance was only probed with throwaway idle bots, and frame rate at about 100 enemies is unprofiled.
 
 ## Foundation
 
@@ -47,7 +47,7 @@ Checked items exist in the code today. Unchecked items are open work. A checked 
 
 - [x] 33. Bounded seeded world of 10 x 10 screens (`WORLD`, tunable), chunked, pure hash of seed + chunk coords (`world-gen.ts`; Req 8.1, 8.3)
 - [x] 34. Follow camera with deadzone and world clamp (`camera.ts`; Req 8.2)
-- [x] 35. Landmarks (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill), roads, hedge edges, landmark discovery notices and nav arrows (Req 8.4)
+- [x] 35. Landmarks (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill; later paper windmill, puppet theatre, wishing well), roads, hedge edges, landmark discovery notices and nav arrows (Req 8.4)
 - [x] 36. Per-chunk ground caches, sprite culling and view culling of actors (`craft-world.ts`)
 
 ## Gameplay depth
@@ -69,6 +69,37 @@ Checked items exist in the code today. Unchecked items are open work. A checked 
 - [ ] 31. Real-browser playtest and balance pass (difficulty curve under the 100 cap, weapon / passive strength, chest pacing, Boss HP; the idle Nicole bot leaves the Eraser at about 300 hp; audio levels)
 - [ ] 43. Real-browser performance check at about 100 enemies and on fast moves into unbuilt chunks (chunk builds are synchronous; enemies redraw paper material every frame)
 - [ ] 44. User review of the new UI identity and the narrow face edge
+
+## Extensible skeleton
+
+- [x] 45. Content-agnostic engine: registry, typed event bus, cached sprites (`src/engine/`; Req 13.5)
+- [x] 46. Cats, weapons, passives, evolutions, enemies and behaviours as registered defs with gated hooks; facades keep old exports; behaviour unchanged against recorded snapshot probes (`src/defs/`; Req 13.1 to 13.3, 13.6, 13.7)
+- [x] 47. Registered art layer for cats, enemies, weapons, passives; title tickets built from `CATS`; no cat literals outside defs and legacy files (`src/render/art-registry.ts`, `art-index.ts`; Req 13.4)
+- [x] 48. Fresh run seed per run unless `?seed=N`; moon-lantern "full" notice only near the view
+- [x] 49. Development workflow skill in English with recipes (`.kiro/skills/midnight-meow-dev/`; Req 13.8)
+
+## Paper interactions
+
+- [x] 50. Materials, elements and the reaction table; tearable props with intact / damaged / scraps phases, seeded drops, colliders that open (`src/game/props.ts`, `src/defs/reactions/`; Req 14.1 to 14.3, 14.5)
+- [x] 51. Spreading fire on a capped cell grid, enemy damage, ash, never hurting the cat (`src/defs/fire.ts`; Req 14.4)
+- [x] 52. Pop-up folding of landmark pieces near the cat, render only (`POPUP`; Req 14.6)
+- [x] 53. `tear` and `crackle` sound cues; props torn and cells burnt on the result page
+- [ ] 54. A source for the `ink` and `fold` elements (no weapon or enemy applies them yet)
+- [ ] 55. Prop regrowth (torn and burnt props stay gone for the run)
+- [ ] 56. Wind interaction for the windmill sails (static per variant today)
+- [ ] 57. Water colliders for the wishing-well pond and canal patches (walkable today)
+
+## Paper kit, gallery and content
+
+- [x] 58. Paper kit primitives, `phasedPaint`, seeded variants with render-only hashes (`paper-kit.ts`, `prop-kit.ts`, `variants.ts`; Req 15.1)
+- [x] 59. `?gallery=1` page with every registered entry, i18n labels and a pure tested layout (`gallery-layout.ts`, `gallery.ts`; Req 15.2, 15.3)
+- [x] 60. Landmarks as defs with their own layout and art; three new landmarks (paper windmill, puppet theatre, wishing well)
+- [x] 61. Five districts with decor mixes, prop mixes, ground patches and roadside props; 12 new props (15 total) (Req 16)
+- [x] 62. `makeRoom` erases the farthest off-screen commons first
+- [ ] 63. User review of districts, new landmarks, props, fire and the gallery in a real browser (patch density, district edges, readability of cats and ink on graveyard-woods ground)
+- [ ] 64. Check the 14-row result page layout
+- [ ] 65. Decide with the user whether the Boss should stop the cat from outrunning it to dawn
+- [ ] 66. Hint or guard when an evolution's paired passive can no longer fit a passive slot
 
 ## Release
 

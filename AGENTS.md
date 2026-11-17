@@ -1,6 +1,6 @@
 # Agent 工作入口
 
-开始工作前先读 [HANDOFF.md](HANDOFF.md)，再读 [PLAN.md](PLAN.md)。这两个文件记录当前有效要求；README.md 记录运行方式。
+开始工作前先读 [HANDOFF.md](HANDOFF.md)，再读 [PLAN.md](PLAN.md)。这两个文件记录当前有效要求；README.md 记录运行方式。增加或修改猫、武器、被动、进化、敌人、物件、反应、地标、分区、文字或美术时，按项目技能 [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)（英文）及其 `references/` 配方操作。
 
 ## 当前不可误读的约束
 

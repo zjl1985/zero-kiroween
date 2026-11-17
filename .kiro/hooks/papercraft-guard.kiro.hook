@@ -1,18 +1,19 @@
 {
   "enabled": true,
   "name": "Papercraft art guard",
-  "description": "When rendering or UI styling changes, check the papercraft-only and code-drawn constraints.",
+  "description": "When rendering, art def or UI styling files change, check the papercraft-only and code-drawn constraints.",
   "version": "1",
   "when": {
     "type": "fileEdited",
     "patterns": [
       "src/render/**/*.ts",
+      "src/defs/**/*art.ts",
       "styles.css",
       "index.html"
     ]
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A rendering or UI file changed. Check the edit against .kiro/steering/papercraft-art.md: no image assets, CSS url() textures or data-URI pictures; no pixel mode or art-style toggle; paper pieces keep cut edges, thickness and contact shadows. Run `npm run build`. Do not claim the art is approved."
+    "prompt": "A rendering, art or UI file changed. Check the edit against .kiro/steering/papercraft-art.md: no image assets, CSS url() textures or data-URI pictures; no pixel mode or art-style toggle; paper pieces keep cut edges, thickness and contact shadows (prefer paperCut from src/render/paper-kit.ts); painters read SimState only and never use the sim RNG or Math.random. Run `npm run build`. Do not claim the art is approved."
   }
 }

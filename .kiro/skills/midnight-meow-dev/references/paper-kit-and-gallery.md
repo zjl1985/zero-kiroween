@@ -1,0 +1,82 @@
+# Draw art with the paper kit and check it in the gallery
+
+All art is Canvas code in the single papercraft style. No images, sprites, textures, CSS `url()` or data URIs. Every paper piece needs a cut edge, visible thickness and a contact shadow. Read `.kiro/steering/papercraft-art.md` before changing art. Only the user can approve art.
+
+## Building blocks
+
+Low level, `src/render/paper-material.ts` (`Ctx`, `Point` types):
+
+- `path(points, smooth?)`, `oval(x, y, rx, ry, seed?, rough?)`, `box(x, y, w, h, seed?)`: rough-cut shapes as `Path2D`.
+- `piece(ctx, p, color, { shadow, edge, texture, thickness })`: one paper piece with drop shadow, cut edge and fibre.
+- `shadow(ctx, x, y, rx, ry)`: contact shadow on the ground. `glow(ctx, x, y, r, color, strength?, flat?)`. `stitch(ctx, p, color?, alpha?)`, `stroke(...)`, `line(...)`, `mix(a, b, k)`, `hash(n)`.
+
+Composable, `src/render/paper-kit.ts`:
+
+- `paperCut(ctx, shape, options)`: the main primitive. `shape` is a `Path2D`, a `Point[]` or a `(p: Path2D) => void` builder. Options (`PaperCutOptions`): `color` (required), `thickness`, `layers` (stacked sheets under it), `stitch` (true or a colour), `stitchInset`, `fold` (one or more `PaperFold { from, to, depth?, side? }` creases), `wear` (0..1 scuffed edge), `shadow`, `ground` (`{ x, y, rx, ry }` contact shadow), `edge`, `texture`, `seed`. Returns the `Path2D`.
+- `paperStack(ctx, layers)`: `PaperLayer[]` glued back to front.
+- `foldLine(ctx, x0, y0, x1, y1, strength?)`: a crease with a pale lip.
+- `stitchAlong(ctx, shape, color?, alpha?, inset?)`: dashed thread inside an outline.
+- `charEdge(ctx, shape, amount?, seed?)`: burnt rim. `tornEdge(ax, ay, bx, by, teeth, depth, seed)`: jagged torn points. `warmGlow(ctx, x, y, r, strength?, color?)`: lamp or window light.
+- `toPath(shape)`, `insetPoints(points, inset)`.
+
+Props, `src/render/prop-kit.ts`: `phasedPaint(look)` builds a `PropArt.paint` for all three phases from one intact painter (damaged = intact clipped below a seeded torn line plus scraps; scraps = torn stubs or ash). `post(ctx, x, y0, y1, w, color, seed?)` draws a paper post. Scrap helpers in `src/render/paper-scraps.ts` (`scrapPieces`, `ashPatch`, `tornStub`).
+
+Seeded looks, `src/render/variants.ts`: `variant(seed, { palette, shift?, scale?, angle?, wear?, flip? })` returns `{ index, color, scale, angle, wear, flip }`, deterministic per seed. It uses the render-only `visHash` (`src/render/hash.ts`), never `Math.random` (tested). Props also get a per-placement size / tilt / mirror from their world seed (`PropArt.look`, default `PROP_LOOK`).
+
+Caching, `src/engine/sprite.ts`: `cachedSprite(key, w, h, scale, paint, anchor?)` caches a painter on an offscreen canvas (LRU, `SPRITE_CACHE_LIMIT` 256). In Node (no DOM) it calls the painter directly. Painters behind a cache must be pure functions of their key.
+
+## Rules for painters
+
+- Read `SimState` only; never mutate it and never call the sim RNG. Use `hash`, `visHash` or `variant` with world-gen seeds.
+- Cold night tones against warm lamp and window light; keep cats, ink and danger readable.
+- Ground details come in clusters; houses have wall and roof volume; tree crowns are grouped leaf clusters.
+- Fix shape design before adding decoration. Noise over flat shapes does not count as paper.
+- Keep Zero's and Nicole's Meow Wall face identifiers (`src/cats/`).
+
+## Minimal example
+
+```ts
+import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import { mix, shadow, type Ctx, type Point } from "../../../render/paper-material.js";
+import { variant } from "../../../render/variants.js";
+
+function signBoard(ctx: Ctx, v: number): void {
+  const look = variant(v, { palette: ["#a8825a", "#9a7650"], wear: [0.1, 0.5] });
+  shadow(ctx, 0, 2, 16, 4);
+  const board: Point[] = [[-14, -30], [14, -30], [14, -14], [-14, -14]];
+  paperCut(ctx, board, {
+    color: look.color,
+    layers: 1,
+    wear: look.wear,
+    seed: v,
+    fold: { from: [0, -30], to: [0, -14], depth: 0.25 },
+  });
+  stitchAlong(ctx, board, mix(look.color, "#f2d9a4", 0.5));
+  foldLine(ctx, -14, -22, 14, -22, 0.4);
+  warmGlow(ctx, 10, -34, 12, 0.2);
+}
+```
+
+## The gallery page (`?gallery=1`)
+
+`http://localhost:4173/?gallery=1` shows every registered entry on night-paper cards, without a sim, audio or game loop. It repaints on resize and on the language button.
+
+- `src/ui/gallery-layout.ts` (pure, Node-safe, tested): `gallerySections()` builds sections from the registries in this order: cats (`idle`, `skill`), enemies (`normal`, plus `elite` when `eliteable`), props (`PROP_STATES`: `intact`, `damaged`, `scraps`, `burning`, `burnt`), landmarks (`building`), biomes (`ground`), weapons and passives (`icon`). `galleryLayout(sections, width)` returns headers and cells; `GALLERY_CELL` sets cell sizes per kind; `GALLERY_GRID` the spacing.
+- `src/render/gallery.ts`: `paintGallery(canvas, locale, width, dpr)` dispatches by section kind only; it never names an id. Landmarks come from `landmarkPreview(id)` in `src/render/craft-world.ts`.
+- `src/main.ts` `bootGallery()` runs instead of `boot()` when `?gallery=1`.
+
+A newly registered cat, enemy, prop, landmark, biome, weapon or passive shows up automatically. A new content kind needs: a `GalleryKind` and states in `gallery-layout.ts`, a cell size, a painter in `gallery.ts`, `gallery.section.<name>` and `gallery.state.<state>` keys, and an update to the section count in `tests/gallery.test.mjs`.
+
+Limits: the gallery is static (time 0, fixed seeds). Pumpkins and lanterns at interaction spots are drawn from sim state by `craft-juice.ts`, so landmark previews leave them out. Nicole's `skill` cell uses the same dash pose as Zero's.
+
+## Tests
+
+`tests/gallery.test.mjs`: every registered entry gets a cell; states per kind; labels are i18n keys; cells stay inside the page and never overlap; variants are stable, spread within ranges and never call `Math.random`; `tornEdge` stays exported. `tests/registry.test.mjs`: art registries match defs and `cachedSprite` is keyed, capped and DOM-free.
+
+## Checklist
+
+- [ ] every piece has cut edge, thickness and contact shadow (`paperCut` / `piece` + `shadow`)
+- [ ] variation through `variant` / render hashes only
+- [ ] painter is pure if cached
+- [ ] art registered in `src/render/art-index.ts`; visible in `?gallery=1`
+- [ ] at most one static screenshot, if the environment allows; never call the art approved

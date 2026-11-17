@@ -4,7 +4,7 @@
 
 Midnight Meow is a browser night-watch game in the Vampire Survivors genre (a survivor-like roguelike), with a moderate crowd rather than hundreds of enemies. The player picks Zero or Nicole and walks a bounded, seeded papercraft night town with a follow camera for one 10-minute night, building weapons and passives, opening chests to evolve, and holding off ink creatures, crowned elites and a hunting Eraser boss until dawn. All visuals are drawn by TypeScript on Canvas and all sound is synthesized with Web Audio.
 
-The user said the map need not be endless ("max 100") and that hundreds of enemies are not needed. We read this as a world of at most 10 x 10 screens and at most 100 living enemies. Both numbers are tunable data constants (`WORLD` in `src/game/world-gen.ts`, `HORDE.hardCap` in `src/game/enemies.ts`).
+The user said the map need not be endless ("max 100") and that hundreds of enemies are not needed. We read this as a world of at most 10 x 10 screens and at most 100 living enemies. Both numbers are tunable data constants (`WORLD` in `src/game/world-gen.ts`, `HORDE.hardCap` in `src/defs/horde.ts`, re-exported by `src/game/enemies.ts`).
 
 ## Requirement 1: Single papercraft art style
 
@@ -103,7 +103,7 @@ The user said the map need not be endless ("max 100") and that hundreds of enemi
 1. THE world SHALL be bounded, at most 10 x 10 screens (`WORLD`, 9600 x 5400 world units), not endless, with a hill horizon on the north and a paper hedge on the other edges.
 2. THE camera SHALL follow the cat and stay inside the world.
 3. THE world SHALL be generated from the run seed in chunks, as a pure function of (seed, chunk coords), so the sim and renderer agree without using the sim RNG.
-4. THE world SHALL contain roads and landmarks (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill); each kind SHALL appear at least once, and the HUD SHALL show arrows toward nearby landmarks, chests and the Boss.
+4. THE world SHALL contain roads and landmarks (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill, paper windmill, puppet theatre, wishing well); each registered kind SHALL appear at least once, and the HUD SHALL show arrows toward nearby landmarks, chests and the Boss.
 5. WHEN the cat touches a charged pumpkin, THE pumpkin SHALL light for 6 seconds, damaging and pushing nearby ink, then recharge for 14 seconds.
 6. A moon-lantern SHALL charge over 40 seconds; WHEN the cat touches it while full, THE game SHALL stun all enemies for 2.4 seconds (the boss for 0.9 seconds).
 7. Fish treats SHALL appear from 45 seconds on near the cat at seeded random positions and heal 1 heart when collected.
@@ -154,6 +154,55 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 2. THE UI SHALL NOT reuse Tibo Dog's layout or components; Tibo Dog is a reference for spatial exploration only.
 3. HUD canvases SHALL be drawn by code and repaint only when their inputs change.
 
+## Requirement 13: Extensible content skeleton
+
+**User story:** As a developer of this entry, I want each piece of content to be one definition plus one art file, so that new cats, weapons, enemies, props and places can be added without editing the simulation or renderer.
+
+### Acceptance criteria
+
+1. Cats, weapons, passives, evolutions, enemies, enemy behaviours, materials, reaction rows, props, landmarks and district biomes SHALL be definitions registered by id in registries (`src/defs/registries.ts`), filled by `src/defs/index.ts` and `src/defs/world-index.ts`.
+2. THE generic simulation (`src/game/`) SHALL look content up through the registries and call def hooks through a `SimContext`; it SHALL NOT name cat ids.
+3. Def hooks SHALL run only while their content is active (the chosen cat; an owned weapon or passive, or the start weapon).
+4. Art SHALL be registered in an art layer (`src/render/art-registry.ts`, filled only by `src/render/art-index.ts`) under the same ids; the simulation SHALL NOT import art. Non-legacy render and UI code SHALL NOT name cat ids.
+5. `src/engine/` SHALL stay content-agnostic and import no other layer.
+6. Registration order SHALL be stable, because spawn tables, weapon steps and stat folds depend on it for determinism.
+7. THE refactor into definitions SHALL NOT change gameplay: snapshots for fixed seeds and inputs SHALL match the pre-refactor behaviour.
+8. THE development workflow SHALL be documented as a Kiro skill in English (`.kiro/skills/midnight-meow-dev/`).
+
+## Requirement 14: Paper materials and element reactions
+
+**User story:** As a player, I want the paper town to react to my weapons, so that fighting changes the place around me.
+
+### Acceptance criteria
+
+1. Weapons SHALL carry elements (fire, ink, wind, cut, fold); props SHALL have a material (thin paper, card, ink, cloth, wax, straw).
+2. WHEN an element touches a prop, THE game SHALL look up the material x element reaction row and apply its effect; props without a row SHALL be unaffected.
+3. Cut and wind SHALL tear props through intact, damaged and scraps phases; scraps SHALL no longer block movement; seeded drops (shards, fish treats, a scarecrow's shard ring) SHALL come from the prop's id hash.
+4. Fire SHALL light flammable props and spread on a cell grid capped at `FIRE.maxCells`, damage enemies standing in it, and burn props to ash. Fire SHALL NOT hurt the cat. Spread rolls SHALL use a world hash, never the step RNG.
+5. Prop damage SHALL persist for the whole run, including after its chunk unloads and loads again.
+6. Landmark pieces marked as pop-up SHALL fold up like a pop-up book page as the cat approaches; this SHALL be render-only and SHALL snap under reduced motion.
+
+## Requirement 15: Paper kit and gallery
+
+**User story:** As a developer, I want shared cut-paper tools and a page that shows every piece of art, so that new art stays in one material language and can be reviewed in one place.
+
+### Acceptance criteria
+
+1. THE renderer SHALL offer paper-kit primitives (cut piece with thickness, stacked layers, folds, stitching, wear, contact shadow, charred and torn edges, warm glow) and seeded variants (palette, size, tilt, wear, mirror) that use render-only hashes, never `Math.random`.
+2. WHEN the page is opened with `?gallery=1`, THE game SHALL show every registered cat, enemy (and elite), prop in every state, landmark, biome, weapon and passive on labelled paper cards, without starting a run or audio.
+3. Gallery labels SHALL come from i18n keys and SHALL follow the language toggle.
+
+## Requirement 16: Districts and scene content
+
+**User story:** As a player, I want different parts of town to look and play differently, so that exploring is worth it.
+
+### Acceptance criteria
+
+1. THE town SHALL be split into districts from the seed (old town, pumpkin farmland, graveyard woods, lantern canal, moon meadow); every district SHALL appear in every world, and the start yard SHALL be old town.
+2. Each district SHALL have its own decor mix, prop mix and ground patches; roadside props SHALL stand beside roads.
+3. A chunk SHALL hold at most `DISTRICTS.propCap` props.
+4. District and prop placement SHALL be a pure function of the seed and chunk coords.
+
 ## Out of scope for now
 
-Random helper cats (not built; confirm with the user before starting), deployment and Devpost submission (deadline 2026-12-05 06:00 Beijing time), and animation or video-recording verification (not unless the user asks).
+Random helper cats (not built; confirm with the user before starting), ink and fold element sources, prop regrowth, wind on the windmill, water colliders for ponds and the canal, deployment and Devpost submission (deadline 2026-12-05 06:00 Beijing time), and animation or video-recording verification (not unless the user asks).
