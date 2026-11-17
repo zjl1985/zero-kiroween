@@ -6,7 +6,7 @@ import { inkReveal } from "./ink.js";
 import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { characterCopy, paintPortrait } from "./character-panel.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
-import { playerStats, UPGRADES } from "../game/upgrades.js";
+import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
 export interface HudRefs {
@@ -29,6 +29,7 @@ export interface HudRefs {
   level: HTMLElement;
   xp: HTMLElement;
   upgrades: HTMLElement;
+  chest: HTMLElement;
   boss: HTMLElement;
   bossName: HTMLElement;
   streak: HTMLElement;
@@ -100,26 +101,79 @@ function renderBoss(refs: HudRefs, locale: Locale, sim: SimState): void {
     t(locale, "hud.boss", { name, hp: Math.ceil(boss.hp), max }),
   );
 }
-/** Owned cards as small code-drawn emblems with their level. */
+/** One owned item (or an empty slot) as a small code-drawn emblem with its level. */
+function slotItem(locale: Locale, sim: SimState, id: UpgradeId | undefined): HTMLElement {
+  const item = document.createElement("span");
+  if (!id) {
+    item.className = "owned empty";
+    return item;
+  }
+  const def = upgradeDef(id),
+    icon = document.createElement("canvas"),
+    lv = document.createElement("small"),
+    level = sim.upgrades[id] ?? 0,
+    evo = def?.slot === "evolution";
+  item.className = evo ? "owned evolution" : "owned";
+  item.title = upgradeName(locale, id);
+  icon.width = 32;
+  icon.height = 32;
+  icon.setAttribute("aria-hidden", "true");
+  paintUpgradeIcon(icon, id, true);
+  lv.textContent = evo ? "★" : def && level >= def.maxLevel ? t(locale, "upgrade.max") : String(level);
+  item.append(icon, lv);
+  return item;
+}
+/** Weapon slots and passive slots as two rows, empty slots included. Temporary until the HUD redesign. */
 function renderOwned(el: HTMLElement, locale: Locale, sim: SimState): void {
-  const owned = UPGRADES.filter((u) => (sim.upgrades[u.id] ?? 0) > 0 && !u.filler),
-    sig = `${locale}|${owned.map((u) => `${u.id}:${sim.upgrades[u.id]}`).join(",")}`;
+  const { weapons, passives } = sim.build,
+    sig = `${locale}|${[...weapons, "|", ...passives].map((id) => `${id}:${sim.upgrades[id] ?? 0}`).join(",")}`;
   if (el.dataset.sig === sig) return;
   el.dataset.sig = sig;
+  const row = (label: MessageKey, ids: string[], slots: number) => {
+    const r = document.createElement("div"),
+      name = document.createElement("span");
+    r.className = "slot-row";
+    name.className = "slot-label";
+    name.textContent = t(locale, label);
+    r.append(
+      name,
+      ...Array.from({ length: slots }, (_, i) => slotItem(locale, sim, ids[i] as UpgradeId | undefined)),
+    );
+    return r;
+  };
   el.replaceChildren(
-    ...owned.map((u) => {
-      const item = document.createElement("span"),
-        icon = document.createElement("canvas"),
-        lv = document.createElement("small");
-      item.className = u.evolution ? "owned evolution" : "owned";
-      item.title = upgradeName(locale, u.id);
-      icon.width = 32;
-      icon.height = 32;
-      icon.setAttribute("aria-hidden", "true");
-      paintUpgradeIcon(icon, u.id, true);
-      lv.textContent = u.evolution ? "★" : String(sim.upgrades[u.id]);
-      item.append(icon, lv);
-      return item;
+    row("hud.weapons", weapons, BUILD.weaponSlots),
+    row("hud.passives", passives, BUILD.passiveSlots),
+  );
+}
+/** What the last chest gave, while state.chestReveal lasts. */
+function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
+  const r = sim.chestReveal;
+  el.classList.toggle("hidden", !r);
+  if (!r) {
+    el.dataset.sig = "";
+    return;
+  }
+  const lines = [
+    ...(r.evolved
+      ? [t(locale, "chest.evolved", { name: upgradeName(locale, r.evolved as UpgradeId) })]
+      : []),
+    ...r.items.map((i) =>
+      t(locale, "chest.level", { name: upgradeName(locale, i.id as UpgradeId), level: i.level }),
+    ),
+  ];
+  const sig = `${locale}|${r.big}|${lines.join("|")}`;
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  const title = document.createElement("strong");
+  title.textContent = t(locale, r.big ? "chest.big_title" : "chest.title");
+  el.classList.toggle("evolved", !!r.evolved);
+  el.replaceChildren(
+    title,
+    ...lines.map((line) => {
+      const s = document.createElement("span");
+      s.textContent = line;
+      return s;
     }),
   );
 }
@@ -166,6 +220,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }),
   );
   renderOwned(refs.upgrades, locale, sim);
+  renderChest(refs.chest, locale, sim);
   renderBoss(refs, locale, sim);
   text(refs.phase, t(locale, `hud.phase${nightPhase(sim)}` as MessageKey));
   refs.progress.style.setProperty(

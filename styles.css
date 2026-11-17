@@ -315,6 +315,15 @@ h2 {
   line-height: 1.6;
   margin-bottom: 10px;
 }
+.selection-footer > p:first-child {
+  margin-bottom: 4px;
+}
+.selection-footer .profile-build {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #d8c9a6;
+  margin-bottom: 10px;
+}
 .btn {
   background: #172536;
   color: var(--ink);
@@ -1475,6 +1484,56 @@ body[data-style="papercraft"] .dash-btn {
 .owned.evolution {
   border-color: #f0d69a;
   background: #f0d69a26;
+}
+/* Weapon and passive slot rows (temporary layout until the HUD redesign). */
+.hud-upgrades {
+  flex-direction: column;
+}
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.slot-label {
+  min-width: 34px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: #d8c9a6aa;
+}
+.owned.empty {
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  background: #0b101c55;
+}
+/* What the last chest gave: a small paper slip under the night card. */
+.chest-reveal {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px 7px;
+  background: #e9dfc8;
+  color: #3a2f22;
+  border: 1px solid #b9a77f;
+  box-shadow:
+    0 2px 0 #9c8a66,
+    0 6px 14px #0008;
+  font-size: 11px;
+  pointer-events: none;
+}
+.chest-reveal strong {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #8a5a22;
+}
+.chest-reveal.evolved {
+  background: #f3e6c4;
+  border-color: #f0d69a;
 }
 
 /* Upgrade hand: three layered paper cards dealt onto the paused night. */

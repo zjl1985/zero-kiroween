@@ -14,6 +14,7 @@ import {
   drawOrbitStar,
   drawHeroAura,
   drawEchoDecoy,
+  drawWeaponShot,
   orbitPositions,
 } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
@@ -287,7 +288,10 @@ export function drawWorld(
   for (const sprite of sprites) sprite.draw();
   if (sim) {
     for (const s of sim.shots)
-      if (s.alive && inView(near, s.x, s.y)) drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
+      if (s.alive && inView(near, s.x, s.y)) {
+        if (s.weapon) drawWeaponShot(ctx, s, view.time);
+        else drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
+      }
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
       // Off-screen effects are culled; the moon pulse spreads over the whole view.

@@ -120,6 +120,7 @@ function boot(): void {
     level: must<HTMLElement>("hud-level"),
     xp: must<HTMLElement>("hud-xp"),
     upgrades: must<HTMLElement>("hud-upgrades"),
+    chest: must<HTMLElement>("hud-chest"),
     boss: must<HTMLElement>("hud-boss"),
     bossName: must<HTMLElement>("hud-boss-name"),
     streak: must<HTMLElement>("hud-streak"),

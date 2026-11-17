@@ -4,6 +4,7 @@ import { t } from "../content/i18n.js";
 import { CHARACTERS, character } from "../game/characters.js";
 import { drawOfficialHead } from "../render/layout.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
+import { evolutionDef, START_WEAPON, type UpgradeId } from "../game/upgrades.js";
 export function characterValues(id: CatId): Record<string, string | number> {
   const d = character(id),
     z = CHARACTERS.zero,
@@ -43,6 +44,18 @@ export function characterCopy(
 ): string {
   return t(locale, `${id}.${part}` as MessageKey, characterValues(id));
 }
+/** Starting weapon and evolution path, read from START_WEAPON and EVOLUTIONS. */
+export function buildPath(locale: Locale, id: CatId): string {
+  const evo = evolutionDef(id),
+    name = (u: UpgradeId) => t(locale, `upgrade.${u}.name` as MessageKey);
+  return `${t(locale, "selector.weapon")} · ${name(START_WEAPON[id])}  ${t(
+    locale,
+    "selector.evolution",
+  )} · ${name(evo.id)}: ${t(locale, "evolution.rule", {
+    weapon: name(evo.weapon),
+    passive: name(evo.passive),
+  })}`;
+}
 export function paintPortrait(canvas: HTMLCanvasElement, id: CatId): void {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, 64, 52);
@@ -81,6 +94,7 @@ export function paintCharacterPanel(locale: Locale, id: CatId): void {
     `${t(locale, "selector.speed")}  ${character(id).speed}`,
   );
   set("profile-tactic", characterCopy(locale, id, "tactic"));
+  set("profile-build", buildPath(locale, id));
   set("hero-name", id === "zero" ? "ZERO" : "NICOLE");
   set("hero-role", characterCopy(locale, id, "role"));
   set("hero-kicker", t(locale, "selector.preview"));

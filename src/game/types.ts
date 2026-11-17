@@ -165,6 +165,14 @@ export interface ShotState {
   /** Fired by Zero's evolved decoy. */
   echo?: boolean;
   hits?: number[];
+  /** Weapon shots (paper crane, pumpkin seed) carry their own numbers. */
+  weapon?: "crane" | "seed";
+  damage?: number;
+  pierce?: number;
+  /** Paper crane: turn rate toward the nearest ink, radians per second. */
+  homing?: number;
+  /** Pumpkin seed: bursts over this radius on its first hit or when it lands. */
+  burst?: number;
 }
 export interface StrokePoint {
   x: number;
@@ -205,7 +213,10 @@ export type EffectKind =
   | "treat"
   | "moon-stun"
   | "streak"
-  | "chest-open";
+  | "chest-open"
+  | "claw"
+  | "star-fall"
+  | "seed-burst";
 export interface Impact {
   x: number;
   y: number;
@@ -217,6 +228,10 @@ export interface Impact {
   src?: EnemyKind;
   /** Stable per-impact number for render-only scatter. */
   seed?: number;
+  /** Facing of directional effects (night claw), radians. */
+  angle?: number;
+  /** Radius of area effects (star fall, seed burst, night claw reach). */
+  radius?: number;
 }
 export interface MoonField {
   x: number;
@@ -241,6 +256,9 @@ export const EFFECT_LIFE = {
   "moon-stun": 1.1,
   streak: 0.9,
   "chest-open": 1,
+  claw: 0.26,
+  "star-fall": 0.45,
+  "seed-burst": 0.4,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -289,10 +307,19 @@ export type Notice =
   | "chest";
 export interface UpgradeChoice {
   options: string[];
-  /** "chest": a free card from a chest, no XP spent. Defaults to a level-up. */
-  source?: "level" | "chest";
-  /** Further free picks still owed by the same chest. */
-  extra?: number;
+}
+/** What the last opened chest gave, shown by the HUD while `life` lasts. */
+export interface ChestReveal {
+  items: { id: string; level: number }[];
+  /** Evolution granted by this chest, if any. */
+  evolved: string | null;
+  big: boolean;
+  life: number;
+}
+export interface BuildSlots {
+  /** Weapon slot order; an evolution replaces its base weapon in place. */
+  weapons: string[];
+  passives: string[];
 }
 export interface SimState {
   seed: number;
@@ -318,6 +345,10 @@ export interface SimState {
   level: number;
   xpToNext: number;
   upgrades: Record<string, number>;
+  build: BuildSlots;
+  /** Seconds until each auto weapon fires next. */
+  weaponTimers: Record<string, number>;
+  chestReveal: ChestReveal | null;
   /** While set, the night is frozen until a card is chosen. */
   pendingChoice: UpgradeChoice | null;
   pickups: PickupState[];

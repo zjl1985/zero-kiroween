@@ -4,19 +4,28 @@ import {
   createSim,
   step,
   chooseUpgrade,
+  openChest,
   orbitPositions,
   snapshot,
 } from "../dist/game/sim.js";
 import {
+  BUILD,
+  EVOLUTIONS,
+  START_WEAPON,
   UPGRADES,
   UPGRADE_VALUES,
+  WEAPON_STEPS,
   XP,
+  evolutionFor,
   isEligible,
+  isEvolved,
   playerStats,
+  readyEvolution,
   rollChoices,
   upgradeDef,
   xpForLevel,
 } from "../dist/game/upgrades.js";
+import { CHEST } from "../dist/game/interactions.js";
 import { createRng } from "../dist/game/rng.js";
 import { CHARACTERS as C } from "../dist/game/characters.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
@@ -113,40 +122,159 @@ test("while a choice is pending the night does not advance", () => {
 test("chosen upgrades change real combat numbers", () => {
   const n = quiet("nicole");
   assert.equal(orbitPositions(n).length, C.nicole.orbitCount);
-  n.pendingChoice = { options: ["extra-star"] };
+  n.pendingChoice = { options: ["moon-stars"] };
   assert.equal(chooseUpgrade(n, 0), true);
-  assert.equal(orbitPositions(n).length, C.nicole.orbitCount + 1);
+  assert.equal(n.upgrades["moon-stars"], 2);
+  assert.equal(orbitPositions(n).length, C.nicole.orbitCount + WEAPON_STEPS["moon-stars"][0].count);
 
   const z = quiet("zero");
-  z.pendingChoice = { options: ["quick-draw"] };
+  z.upgrades["meow-bolt"] = 2;
+  z.pendingChoice = { options: ["meow-bolt"] };
   chooseUpgrade(z, 0);
   enemy(z, 560, 360);
   z.player.attackCooldown = 0;
   step(z, idle, DT);
   assert.ok(z.shots.length >= 1);
-  const expected = C.zero.attackInterval * (1 - UPGRADE_VALUES["quick-draw"].interval);
-  assert.ok(Math.abs(z.player.attackCooldown - (expected - 0)) < 1e-9);
+  const expected = C.zero.attackInterval * (1 - WEAPON_STEPS["meow-bolt"][1].rate);
+  assert.ok(Math.abs(z.player.attackCooldown - expected) < 1e-9);
 
   const v = quiet("zero");
   v.pendingChoice = { options: ["vitality"] };
   chooseUpgrade(v, 0);
   assert.equal(v.player.maxHp, C.zero.maxHp + 1);
+  assert.deepEqual(v.build.passives, ["vitality"]);
 });
 
-test("evolutions are offered only after their prerequisites and always lead the hand", () => {
-  for (const [cat, evo] of [["zero", "echo-legion"], ["nicole", "full-moon"]]) {
+test("each cat starts with its own weapon in the first weapon slot", () => {
+  for (const cat of ["zero", "nicole"]) {
+    const s = createSim({ cat, seed: 3 });
+    assert.deepEqual(s.build, { weapons: [START_WEAPON[cat]], passives: [] });
+    assert.equal(s.upgrades[START_WEAPON[cat]], 1);
+    assert.equal(upgradeDef(START_WEAPON[cat]).cat, cat);
+    assert.equal(upgradeDef(START_WEAPON[cat]).slot, "weapon");
+  }
+  assert.notEqual(START_WEAPON.zero, START_WEAPON.nicole);
+});
+
+test("weapon max levels come from their step tables and evolutions are data", () => {
+  for (const u of UPGRADES) {
+    assert.ok(["weapon", "passive", "evolution", "filler"].includes(u.slot));
+    if (u.slot === "weapon") assert.equal(u.maxLevel, WEAPON_STEPS[u.id].length + 1);
+  }
+  assert.ok(BUILD.weaponSlots >= 2 && BUILD.passiveSlots >= 2);
+  for (const e of EVOLUTIONS) {
+    assert.equal(upgradeDef(e.id).slot, "evolution");
+    assert.equal(upgradeDef(e.id).cat, e.cat);
+    assert.equal(e.weapon, START_WEAPON[e.cat]);
+    assert.equal(upgradeDef(e.passive).slot, "passive");
+    assert.ok(["any", e.cat].includes(upgradeDef(e.passive).cat));
+  }
+  assert.equal(evolutionFor("zero"), "echo-legion");
+  assert.equal(evolutionFor("nicole"), "full-moon");
+});
+
+/** Grows a build through real level-up cards, choosing by `pick`. */
+function grow(cat, seed, rolls, pick = (opts, i) => i % opts.length) {
+  const s = quiet(cat, seed),
+    rng = createRng(seed),
+    seen = [];
+  for (let i = 0; i < rolls; i++) {
+    const opts = rollChoices(s, rng);
+    if (!opts.length) break;
+    seen.push(opts);
+    s.pendingChoice = { options: opts };
+    chooseUpgrade(s, pick(opts, i));
+  }
+  return { s, seen };
+}
+
+test("level-up cards never offer evolutions and respect slot limits", () => {
+  for (const cat of ["zero", "nicole"])
+    for (let seed = 1; seed <= 12; seed++) {
+      const { s, seen } = grow(cat, seed, 80);
+      for (const opts of seen) {
+        assert.equal(new Set(opts).size, opts.length);
+        for (const id of opts) assert.notEqual(upgradeDef(id).slot, "evolution");
+      }
+      assert.ok(s.build.weapons.length <= BUILD.weaponSlots);
+      assert.ok(s.build.passives.length <= BUILD.passiveSlots);
+      // Items outside the build are never offered once its slots are full.
+      for (const u of UPGRADES)
+        if ((s.upgrades[u.id] ?? 0) > 0 && (u.slot === "weapon" || u.slot === "passive"))
+          assert.ok(
+            [...s.build.weapons, ...s.build.passives].includes(u.id) ||
+              EVOLUTIONS.some((e) => e.weapon === u.id && s.build.weapons.includes(e.id)),
+            `${u.id} owned but not slotted`,
+          );
+      if (s.build.weapons.length === BUILD.weaponSlots)
+        for (const id of rollChoices(s, createRng(seed + 99)))
+          if (upgradeDef(id).slot === "weapon") assert.ok(s.build.weapons.includes(id));
+    }
+});
+
+test("evolution only comes from a chest, once the weapon is max and the passive owned", () => {
+  for (const cat of ["zero", "nicole"]) {
+    const evo = EVOLUTIONS.find((e) => e.cat === cat),
+      s = quiet(cat),
+      max = upgradeDef(evo.weapon).maxLevel;
+    // Max weapon alone: the chest only levels other things.
+    s.upgrades[evo.weapon] = max;
+    assert.equal(readyEvolution(s), undefined);
+    openChest(s, createRng(2), false);
+    assert.equal(isEvolved(s), false);
+    assert.equal(s.chestReveal.evolved, null);
+    // Passive without the max weapon: not ready either.
+    const t = quiet(cat);
+    t.pendingChoice = { options: [evo.passive] };
+    chooseUpgrade(t, 0);
+    assert.equal(readyEvolution(t), undefined);
+    // Both: level-ups still never offer it, a chest grants it.
+    t.upgrades[evo.weapon] = max;
+    assert.equal(readyEvolution(t)?.id, evo.id);
+    for (let i = 0; i < 30; i++) assert.ok(!rollChoices(t, createRng(i + 1)).includes(evo.id));
+    openChest(t, createRng(3), false);
+    assert.equal(isEvolved(t), true);
+    assert.equal(t.chestReveal.evolved, evo.id);
+    assert.equal(t.chestReveal.items.length, CHEST.levels - 1);
+    assert.equal(t.notice.kind, cat === "zero" ? "evolve-zero" : "evolve-nicole");
+    // The evolution takes the base weapon's slot.
+    assert.equal(t.build.weapons[0], evo.id);
+    assert.ok(!t.build.weapons.includes(evo.weapon));
+    assert.equal(readyEvolution(t), undefined);
+  }
+});
+
+test("a chest with nothing left to grow hands out a snack", () => {
+  const s = quiet("zero");
+  s.upgrades["meow-bolt"] = upgradeDef("meow-bolt").maxLevel;
+  s.player.hp = 1;
+  openChest(s, createRng(4), false);
+  assert.deepEqual(s.chestReveal.items, [{ id: "snack", level: 1 }]);
+  assert.equal(s.player.hp, 1 + UPGRADE_VALUES.snack.heal);
+});
+
+test("the extra weapons hit ink: night claw, star fall, paper crane, pumpkin seed", () => {
+  for (const [cat, id] of [
+    ["zero", "night-claw"],
+    ["nicole", "star-fall"],
+    ["zero", "paper-crane"],
+    ["nicole", "pumpkin-seed"],
+  ]) {
     const s = quiet(cat);
-    const def = upgradeDef(evo);
-    assert.equal(isEligible(s, def), false);
-    for (let i = 0; i < 20; i++)
-      assert.ok(!rollChoices(s, createRng(i + 1)).includes(evo));
-    for (const r of def.requires) s.upgrades[r.id] = r.level;
-    assert.equal(isEligible(s, def), true);
-    assert.equal(rollChoices(s, createRng(7))[0], evo);
-    s.pendingChoice = { options: [evo] };
+    s.player.attackCooldown = 1e6;
+    s.pendingChoice = { options: [id] };
     chooseUpgrade(s, 0);
-    assert.equal(s.notice.kind, cat === "zero" ? "evolve-zero" : "evolve-nicole");
-    assert.equal(isEligible(s, def), false);
+    assert.ok(s.build.weapons.includes(id));
+    // Far enough that Nicole's stars and Zero's bolts would not reach; frozen in place.
+    const e = enemy(s, s.player.x + (id === "night-claw" ? 40 : 150), s.player.y, 1000);
+    e.stun = 1e6;
+    const before = e.hp;
+    for (let i = 0; i < 240 && e.hp === before; i++) {
+      s.player.attackCooldown = 1e6;
+      step(s, idle, DT);
+    }
+    assert.ok(e.hp < before, `${id} dealt damage`);
+    if (cat === "zero") assert.ok(s.shots.every((sh) => sh.weapon), "no meow bolts were fired");
   }
 });
 
@@ -175,8 +303,10 @@ test("the Boss banner survives routine notices such as a skill use", () => {
   z.notice = { kind: "zero-dash", life: 2.2 };
   z.player.dashCooldown = 0;
   z.player.dashTime = 0;
-  z.pendingChoice = { options: ["echo-legion"] };
-  chooseUpgrade(z, 0);
+  z.upgrades["meow-bolt"] = upgradeDef("meow-bolt").maxLevel;
+  z.upgrades["long-shadow"] = 1;
+  z.build.passives.push("long-shadow");
+  openChest(z, createRng(5), false);
   assert.equal(z.notice.kind, "evolve-zero", "major notices still replace routine ones");
 });
 
@@ -226,14 +356,9 @@ test("choices are deterministic for the same seed and inputs", () => {
 test("each cat is only ever offered its own pool", () => {
   for (const cat of ["zero", "nicole"]) {
     const other = cat === "zero" ? "nicole" : "zero";
-    const s = quiet(cat);
-    for (let seed = 1; seed < 200; seed++) {
-      const opts = rollChoices(s, createRng(seed));
-      if (!opts.length) break;
-      for (const id of opts) assert.notEqual(upgradeDef(id).cat, other);
-      // Grow the build so later rolls see deeper pools and evolutions.
-      const pick = upgradeDef(opts[seed % opts.length]);
-      s.upgrades[pick.id] = (s.upgrades[pick.id] ?? 0) + 1;
+    for (let seed = 1; seed < 20; seed++) {
+      const { seen } = grow(cat, seed, 60, (opts, i) => (i * seed) % opts.length);
+      for (const opts of seen) for (const id of opts) assert.notEqual(upgradeDef(id).cat, other);
     }
   }
 });
@@ -243,6 +368,10 @@ test("every upgrade has a name and description in both language packs", () => {
     assert.ok(MESSAGE_KEYS.includes(`upgrade.${u.id}.name`));
     assert.ok(MESSAGE_KEYS.includes(`upgrade.${u.id}.desc`));
   }
+  for (const k of ["damage", "rate", "count", "pierce", "area"])
+    assert.ok(MESSAGE_KEYS.includes(`stat.${k}`));
+  for (const k of ["evolution.rule", "upgrade.weapon", "upgrade.passive", "hud.weapons", "hud.passives", "chest.level", "chest.evolved"])
+    assert.ok(MESSAGE_KEYS.includes(k));
   assert.deepEqual(missingKeys("zh"), []);
   assert.deepEqual(missingKeys("en"), []);
 });

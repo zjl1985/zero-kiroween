@@ -24,12 +24,17 @@ import {
 } from "./collision.js";
 import { CHARACTERS, character } from "./characters.js";
 import {
+  chestCandidates,
   playerStats,
+  readyEvolution,
   rollChoices,
+  START_WEAPON,
   upgradeDef,
   xpForLevel,
   XP,
   UPGRADE_VALUES,
+  type EvolutionDef,
+  type UpgradeId,
 } from "./upgrades.js";
 import {
   BAT,
@@ -62,6 +67,7 @@ import {
   type SimConfig,
   type SimState,
   type EnemyState,
+  type ShotState,
   type StrokePoint,
   type Notice,
   type EffectKind,
@@ -148,7 +154,10 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     xp: 0,
     level: 1,
     xpToNext: xpForLevel(1),
-    upgrades: {},
+    upgrades: { [START_WEAPON[id]]: 1 },
+    build: { weapons: [START_WEAPON[id]], passives: [] },
+    weaponTimers: {},
+    chestReveal: null,
     pendingChoice: null,
     pickups: [],
     nextPickupId: 1,
@@ -425,7 +434,7 @@ function effect(
   y: number,
   kind: EffectKind,
   life: number,
-  extra?: Pick<Impact, "amount" | "src">,
+  extra?: Pick<Impact, "amount" | "src" | "angle" | "radius">,
 ): void {
   if (kind === "damage" || kind === "dissolve") {
     // Crowds would bury the page in tags; extra ones are simply not made.
@@ -548,6 +557,10 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     state.notice.life -= dt;
     if (state.notice.life <= 0) state.notice = null;
   }
+  if (state.chestReveal) {
+    state.chestReveal.life -= dt;
+    if (state.chestReveal.life <= 0) state.chestReveal = null;
+  }
   if (state.decoy.live) {
     state.decoy.time = Math.max(0, state.decoy.time - dt);
     state.decoy.live = state.decoy.time > 0;
@@ -577,6 +590,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
     stepOrbit(state);
     stepMoonPulse(state, dt);
   }
+  stepWeapons(state, dt, rng);
   stepShots(state, dt);
   stepEnemies(state, dt, rng);
   if (state.ended === "playing") leashEnemies(state, rng);
@@ -741,11 +755,13 @@ function nearestEnemy(
   x: number,
   y: number,
   range: number,
+  skip?: readonly number[],
 ): EnemyState | undefined {
   let target: EnemyState | undefined,
     best = Infinity;
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
+    if (skip && skip.includes(e.id)) continue;
     const d = Math.hypot(e.x - x, e.y - y);
     if (d < best && d <= range) {
       best = d;
@@ -797,13 +813,14 @@ function stepDecoy(state: SimState, dt: number): void {
 }
 function echoBurst(state: SimState): void {
   const d = state.decoy,
-    echo = UPGRADE_VALUES["echo-legion"];
-  effect(state, d.x, d.y, "echo-burst", EFFECT_LIFE["echo-burst"]);
+    echo = UPGRADE_VALUES["echo-legion"],
+    reach = playerStats(state).echoBurstRadius;
+  effect(state, d.x, d.y, "echo-burst", EFFECT_LIFE["echo-burst"], { radius: reach });
   for (const e of state.enemies)
     if (
       e.alive &&
       e.spawnTime <= 0 &&
-      Math.hypot(e.x - d.x, e.y - d.y) <= echo.burstRadius
+      Math.hypot(e.x - d.x, e.y - d.y) <= reach
     )
       hurtEnemy(state, e, echo.burstDamage);
 }
@@ -816,8 +833,8 @@ function stepMoonPulse(state: SimState, dt: number): void {
   state.pulseTimer -= dt;
   if (state.pulseTimer > 0) return;
   state.pulseTimer = moon.pulseInterval;
-  const reach = ps.orbitRadius + moon.pulseReach;
-  effect(state, p.x, p.y, "moon-pulse", EFFECT_LIFE["moon-pulse"]);
+  const reach = ps.orbitRadius + ps.pulseReach;
+  effect(state, p.x, p.y, "moon-pulse", EFFECT_LIFE["moon-pulse"], { radius: reach });
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0) continue;
     if (Math.hypot(e.x - p.x, e.y - p.y) > reach) continue;
@@ -1049,26 +1066,75 @@ function dropChest(state: SimState, x: number, y: number, big: boolean): void {
   const pos = safePosition(state, x, y, CHEST.radius + 4);
   state.chests.push({ id: state.nextChestId++, x: pos.x, y: pos.y, big, alive: true, age: 0 });
 }
-/** Touching a settled chest opens a free card choice. One chest per step. */
+/**
+ * Touching a settled chest opens it at once (no card): the cat's evolution
+ * when it is ready, then one level each for random owned weapons and
+ * passives up to the chest's level count. One chest per step.
+ */
 function stepChests(state: SimState, dt: number, rng: Rng): void {
   if (state.ended !== "playing") return;
   const p = state.player;
   for (const c of state.chests) {
     if (!c.alive) continue;
     c.age += dt;
-    if (state.pendingChoice || c.age < CHEST.settle) continue;
+    if (c.age < CHEST.settle) continue;
     if (Math.hypot(p.x - c.x, p.y - c.y) > CHEST.touchRadius + STATS.playerRadius) continue;
     c.alive = false;
     state.stats.chestsOpened++;
     effect(state, c.x, c.y, "chest-open", EFFECT_LIFE["chest-open"]);
-    notify(state, "chest");
-    offerChestCard(state, rng, (c.big ? CHEST.bigPicks : CHEST.picks) - 1);
+    openChest(state, rng, c.big);
+    return;
   }
 }
-/** A chest card is rolled exactly like a level-up card, but costs no XP. */
-function offerChestCard(state: SimState, rng: Rng, extra: number): void {
-  const options = rollChoices(state, rng);
-  if (options.length) state.pendingChoice = { options, source: "chest", extra };
+/** Grants a chest's contents and records them in state.chestReveal for the HUD. */
+export function openChest(state: SimState, rng: Rng, big: boolean): void {
+  let levels = big ? CHEST.bigLevels : CHEST.levels;
+  const reveal: NonNullable<SimState["chestReveal"]> = {
+    items: [],
+    evolved: null,
+    big,
+    life: CHEST.revealTime,
+  };
+  const evo = readyEvolution(state);
+  if (evo) {
+    evolve(state, evo);
+    reveal.evolved = evo.id;
+    levels--;
+  } else notify(state, "chest");
+  for (let i = 0; i < levels; i++) {
+    const pool = chestCandidates(state);
+    // A fully grown build gets a warm snack instead.
+    const id: UpgradeId = pool.length ? pool[rng.int(0, pool.length)]! : "snack";
+    applyLevel(state, id);
+    reveal.items.push({ id, level: state.upgrades[id]! });
+  }
+  state.chestReveal = reveal;
+}
+/** The evolution takes its base weapon's slot; the base weapon's levels keep feeding its stats. */
+function evolve(state: SimState, evo: EvolutionDef): void {
+  const p = state.player,
+    slot = state.build.weapons.indexOf(evo.weapon);
+  state.upgrades[evo.id] = 1;
+  if (slot >= 0) state.build.weapons[slot] = evo.id;
+  else state.build.weapons.push(evo.id);
+  if (evo.id === "full-moon")
+    state.pulseTimer = UPGRADE_VALUES["full-moon"].pulseInterval * 0.5;
+  effect(state, p.x, p.y, "evolve", EFFECT_LIFE.evolve);
+  notify(state, p.id === "zero" ? "evolve-zero" : "evolve-nicole");
+}
+/** One level of a weapon, passive or the filler; new items take a slot. */
+function applyLevel(state: SimState, id: UpgradeId): void {
+  const def = upgradeDef(id)!,
+    p = state.player,
+    was = state.upgrades[id] ?? 0;
+  state.upgrades[id] = was + 1;
+  state.stats.upgradesTaken++;
+  if (was === 0 && def.slot === "weapon") state.build.weapons.push(id);
+  else if (was === 0 && def.slot === "passive") state.build.passives.push(id);
+  if (id === "vitality") {
+    p.maxHp += UPGRADE_VALUES.vitality.maxHp;
+    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.vitality.heal);
+  } else if (id === "snack") p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.snack.heal);
 }
 function dropShard(state: SimState, x: number, y: number, value: number): void {
   // Shards collected this step stay in the array (alive = false) until the
@@ -1121,7 +1187,7 @@ function levelUp(state: SimState, rng: Rng): void {
   state.xpToNext = xpForLevel(state.level);
   const options = rollChoices(state, rng);
   effect(state, state.player.x, state.player.y, "levelup", EFFECT_LIFE.levelup);
-  if (options.length) state.pendingChoice = { options, source: "level" };
+  if (options.length) state.pendingChoice = { options };
 }
 /** Applies card `index` of the pending choice. Returns false if nothing was applied. */
 export function chooseUpgrade(state: SimState, index: number): boolean {
@@ -1129,28 +1195,8 @@ export function chooseUpgrade(state: SimState, index: number): boolean {
     id = choice?.options[index],
     def = id ? upgradeDef(id) : undefined;
   if (!choice || !def) return false;
-  const p = state.player;
-  state.upgrades[def.id] = (state.upgrades[def.id] ?? 0) + 1;
-  state.stats.upgradesTaken++;
   state.pendingChoice = null;
-  if (def.id === "vitality") {
-    p.maxHp += UPGRADE_VALUES.vitality.maxHp;
-    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.vitality.heal);
-  } else if (def.id === "snack")
-    p.hp = Math.min(p.maxHp, p.hp + UPGRADE_VALUES.snack.heal);
-  if (def.evolution) {
-    if (def.id === "full-moon")
-      state.pulseTimer = UPGRADE_VALUES["full-moon"].pulseInterval * 0.5;
-    effect(state, p.x, p.y, "evolve", EFFECT_LIFE.evolve);
-    notify(state, p.id === "zero" ? "evolve-zero" : "evolve-nicole");
-  }
-  // A Boss chest may still owe a free card; banked shards wait behind it.
-  if ((choice.extra ?? 0) > 0) {
-    const rng = createRng(state.rngState);
-    offerChestCard(state, rng, choice.extra! - 1);
-    state.rngState = rng.state();
-    if (state.pendingChoice) return true;
-  }
+  applyLevel(state, def.id);
   // Banked shards may already cover the next level.
   if (state.xp >= state.xpToNext) {
     const rng = createRng(state.rngState);
@@ -1166,6 +1212,7 @@ function stepShots(state: SimState, dt: number): void {
     const ox = s.x,
       oy = s.y;
     s.life -= dt;
+    if (s.homing) steerShot(state, s, dt);
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     maybeReink(state, s.x, s.y, STATS.shotRadius + 6);
@@ -1184,15 +1231,148 @@ function stepShots(state: SimState, dt: number): void {
         (a, b) =>
           Math.hypot(a.x - ox, a.y - oy) - Math.hypot(b.x - ox, b.y - oy),
       );
+    if (s.burst && targets.length) {
+      seedBurst(state, s);
+      continue;
+    }
+    const pierce = s.pierce ?? (s.empowered ? ps.empoweredPierce : ps.pierce);
     for (const e of targets) {
-      hurtEnemy(state, e, ps.shotDamage);
+      hurtEnemy(state, e, s.damage ?? ps.shotDamage);
       hits.push(e.id);
-      if (hits.length >= (s.empowered ? ps.empoweredPierce : ps.pierce)) {
+      if (hits.length >= pierce) {
         s.alive = false;
         break;
       }
     }
-    if (s.life <= 0) s.alive = false;
+    if (s.life <= 0 && s.alive) {
+      if (s.burst) seedBurst(state, s);
+      s.alive = false;
+    }
+  }
+}
+/** Paper cranes turn toward the nearest ink at a capped rate. */
+function steerShot(state: SimState, s: ShotState, dt: number): void {
+  const speed = Math.hypot(s.vx, s.vy);
+  if (!speed) return;
+  const target = nearestEnemy(state, s.x, s.y, Infinity, s.hits);
+  if (!target) return;
+  const want = Math.atan2(target.y - s.y, target.x - s.x),
+    now = Math.atan2(s.vy, s.vx);
+  let turn = want - now;
+  while (turn > Math.PI) turn -= Math.PI * 2;
+  while (turn < -Math.PI) turn += Math.PI * 2;
+  const max = s.homing! * dt,
+    a = now + clamp(turn, -max, max);
+  s.vx = Math.cos(a) * speed;
+  s.vy = Math.sin(a) * speed;
+}
+/** A pumpkin seed bursts over its radius, hurting every ink blot inside. */
+function seedBurst(state: SimState, s: ShotState): void {
+  s.alive = false;
+  const r = s.burst!;
+  effect(state, s.x, s.y, "seed-burst", EFFECT_LIFE["seed-burst"], { radius: r });
+  for (const e of state.enemies)
+    if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + enemyRadius(e))
+      hurtEnemy(state, e, s.damage ?? 1);
+}
+/** Count down a weapon timer; true when it fires this step. */
+function weaponReady(state: SimState, id: string, dt: number): boolean {
+  const t = (state.weaponTimers[id] ?? 0) - dt;
+  state.weaponTimers[id] = Math.max(0, t);
+  return t <= 0;
+}
+/** Night claw, star fall, paper crane and pumpkin seed: the auto weapons beyond the kit. */
+function stepWeapons(state: SimState, dt: number, rng: Rng): void {
+  const ps = playerStats(state),
+    p = state.player;
+  if (ps.claw && weaponReady(state, "night-claw", dt)) {
+    const c = ps.claw,
+      target = nearestEnemy(state, p.x, p.y, c.reach);
+    if (target) {
+      state.weaponTimers["night-claw"] = c.interval;
+      const angle = Math.atan2(target.y - p.y, target.x - p.x),
+        cos = Math.cos(c.arc);
+      effect(state, p.x, p.y, "claw", EFFECT_LIFE.claw, { angle, radius: c.reach });
+      for (const e of state.enemies) {
+        if (!e.alive || e.spawnTime > 0) continue;
+        const dx = e.x - p.x,
+          dy = e.y - p.y,
+          d = Math.hypot(dx, dy);
+        if (d > c.reach + enemyRadius(e)) continue;
+        if (d > 0 && (dx * Math.cos(angle) + dy * Math.sin(angle)) / d < cos) continue;
+        hurtEnemy(state, e, c.damage);
+      }
+    }
+  }
+  if (ps.starFall && weaponReady(state, "star-fall", dt)) {
+    const f = ps.starFall,
+      pool = state.enemies.filter(
+        (e) => e.alive && e.spawnTime <= 0 && Math.hypot(e.x - p.x, e.y - p.y) <= f.range,
+      );
+    if (pool.length) {
+      state.weaponTimers["star-fall"] = f.interval;
+      for (let i = 0; i < f.count && pool.length; i++) {
+        const t = pool.splice(rng.int(0, pool.length), 1)[0]!,
+          x = t.x,
+          y = t.y;
+        effect(state, x, y, "star-fall", EFFECT_LIFE["star-fall"], { radius: f.radius });
+        for (const e of state.enemies)
+          if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - x, e.y - y) <= f.radius + enemyRadius(e))
+            hurtEnemy(state, e, f.damage);
+      }
+    }
+  }
+  if (ps.crane && weaponReady(state, "paper-crane", dt)) {
+    const c = ps.crane,
+      target = nearestEnemy(state, p.x, p.y, c.range);
+    if (target) {
+      state.weaponTimers["paper-crane"] = c.interval;
+      const base = Math.atan2(target.y - p.y, target.x - p.x);
+      for (let i = 0; i < c.count; i++) {
+        // Cranes leave in a wide fan and curl back onto the ink.
+        const a = base + (i - (c.count - 1) / 2) * 0.9;
+        state.shots.push({
+          id: state.nextShotId++,
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * c.speed,
+          vy: Math.sin(a) * c.speed,
+          life: c.life,
+          alive: true,
+          weapon: "crane",
+          damage: c.damage,
+          pierce: c.pierce,
+          homing: c.turn,
+          hits: [],
+        });
+      }
+    }
+  }
+  if (ps.seed && weaponReady(state, "pumpkin-seed", dt)) {
+    const s = ps.seed,
+      target = nearestEnemy(state, p.x, p.y, s.range);
+    if (target) {
+      state.weaponTimers["pumpkin-seed"] = s.interval;
+      const base = Math.atan2(target.y - p.y, target.x - p.x),
+        d = Math.hypot(target.x - p.x, target.y - p.y);
+      for (let i = 0; i < s.count; i++) {
+        const a = base + (i - (s.count - 1) / 2) * s.spread;
+        state.shots.push({
+          id: state.nextShotId++,
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * s.speed,
+          vy: Math.sin(a) * s.speed,
+          // Lands on the target's spot if nothing is hit on the way.
+          life: Math.max(s.minFlight, d / s.speed),
+          alive: true,
+          weapon: "seed",
+          damage: s.damage,
+          burst: s.radius,
+          hits: [],
+        });
+      }
+    }
   }
 }
 /**
@@ -1203,7 +1383,7 @@ function hurtPlayer(state: SimState, damage: number): boolean {
   const p = state.player,
     n = CHARACTERS.nicole;
   if (p.invuln > 0 || state.ended !== "playing") return false;
-  p.invuln = STATS.hurtIframes;
+  p.invuln = STATS.hurtIframes + playerStats(state).hurtIframes;
   if (p.shield > 0 && p.shieldTime > 0) {
     p.shield--;
     state.stats.shieldBlocks++;

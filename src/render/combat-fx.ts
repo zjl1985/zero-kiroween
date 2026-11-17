@@ -5,7 +5,7 @@ import {
   glow as light,
 } from "./paper-material.js";
 import { ellipse } from "./pixel-art.js";
-import type { SimState, Impact } from "../game/types.js";
+import type { SimState, Impact, ShotState } from "../game/types.js";
 import { EFFECT_LIFE } from "../game/types.js";
 import { playerStats, UPGRADE_VALUES } from "../game/upgrades.js";
 import type { CatId } from "../cats/types.js";
@@ -291,7 +291,7 @@ function drawCelebration(ctx: Ctx, e: Impact, state?: SimState): void {
       star(ctx, x, y, (evolve ? 4 : 3) * (0.6 + fade * 0.6), color, a + t * 4);
     }
   } else if (e.kind === "echo-burst") {
-    const r = 10 + ease * UPGRADE_VALUES["echo-legion"].burstRadius;
+    const r = 10 + ease * (e.radius ?? UPGRADE_VALUES["echo-legion"].burstRadius);
     ctx.globalAlpha = fade;
     light(ctx, e.x, e.y - 12, r + 20, "#a9d4e4", 0.3 * fade, 0.7);
     ring(ctx, e.x, e.y, r, "#cfe8ee", 0.55);
@@ -310,8 +310,9 @@ function drawCelebration(ctx: Ctx, e: Impact, state?: SimState): void {
     }
   } else if (e.kind === "moon-pulse") {
     const reach =
+        e.radius ??
         (state ? playerStats(state).orbitRadius : CHARACTERS.nicole.orbitRadius) +
-        UPGRADE_VALUES["full-moon"].pulseReach,
+          UPGRADE_VALUES["full-moon"].pulseReach,
       r = 14 + ease * reach;
     ctx.globalAlpha = fade;
     light(ctx, e.x, e.y, r + 18, "#efe0b4", 0.22 * fade, 0.6);
@@ -320,6 +321,91 @@ function drawCelebration(ctx: Ctx, e: Impact, state?: SimState): void {
     ctx.globalAlpha = fade;
     ring(ctx, e.x, e.y, r, "#f3e6c4", 0.6);
     ring(ctx, e.x, e.y, r * 0.82, "#bda5ef", 0.6, fade);
+  } else if (e.kind === "claw") {
+    // Three cut-paper slashes sweeping across the arc toward the target.
+    const reach = e.radius ?? 58,
+      a = e.angle ?? 0;
+    ctx.globalAlpha = fade;
+    for (let i = -1; i <= 1; i++) {
+      const sweep = a + i * 0.32 + (ease - 0.5) * 0.7,
+        r0 = reach * 0.35,
+        r1 = reach * (0.75 + ease * 0.25),
+        ox = -Math.sin(sweep) * i * 5,
+        oy = Math.cos(sweep) * i * 5 * 0.6;
+      paperPiece(
+        ctx,
+        paperPath([
+          [e.x + ox + Math.cos(sweep) * r0, e.y - 10 + oy + Math.sin(sweep) * r0 * 0.6],
+          [e.x + ox + Math.cos(sweep + 0.05) * r1, e.y - 10 + oy + Math.sin(sweep + 0.05) * r1 * 0.6 - 2],
+          [e.x + ox + Math.cos(sweep - 0.04) * r1, e.y - 10 + oy + Math.sin(sweep - 0.04) * r1 * 0.6 + 2],
+        ]),
+        i === 0 ? "#f3dca2" : "#d9b878",
+        { shadow: 0.6, texture: 0.3, thickness: 0.5 },
+      );
+    }
+  } else if (e.kind === "star-fall") {
+    // A paper star drops from above, then lands in a soft ring.
+    const r = e.radius ?? 34,
+      drop = 1 - Math.min(1, t * 2.4),
+      land = Math.max(0, t * 2.4 - 1) / 1.4;
+    ctx.globalAlpha = fade;
+    if (drop > 0) {
+      line(ctx, e.x + 18 * drop, e.y - 90 * drop - 30, e.x + 6 * drop, e.y - 50 * drop - 10, "#cdb8f2");
+      star(ctx, e.x + 10 * drop, e.y - 70 * drop - 8, 7, "#fff1ce", t * 6);
+    } else {
+      light(ctx, e.x, e.y - 6, r + 14, "#efe0b4", 0.3 * fade, 0.7);
+      ring(ctx, e.x, e.y, 6 + land * r, "#e6dafc", 0.6);
+      star(ctx, e.x, e.y - 6, 6 * fade + 2, "#fff1ce", t * 3);
+    }
+  } else if (e.kind === "seed-burst") {
+    const r = 6 + ease * (e.radius ?? 40);
+    ctx.globalAlpha = fade;
+    light(ctx, e.x, e.y - 8, r + 16, "#ffb45c", 0.32 * fade, 0.7);
+    ring(ctx, e.x, e.y, r, "#f5c27a", 0.6);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + (e.seed ?? 0),
+        x = e.x + Math.cos(a) * r * 0.8,
+        y = e.y - 6 + Math.sin(a) * r * 0.5;
+      paperPiece(ctx, paperOval(x, y, 2.6, 1.6, i, 0.1), i % 2 ? "#e7a35a" : "#f0dfb4", {
+        shadow: 0.4,
+        texture: 0.2,
+        thickness: 0.3,
+      });
+    }
+  }
+  ctx.restore();
+}
+/** Paper crane (folded, nose first) and pumpkin seed (glowing, spinning) weapon shots. */
+export function drawWeaponShot(ctx: Ctx, s: ShotState, time: number): void {
+  const a = Math.atan2(s.vy, s.vx),
+    x = s.x,
+    y = s.y - 14;
+  ctx.save();
+  if (s.weapon === "crane") {
+    const flap = Math.sin(time * 14 + s.id) * 3,
+      c = Math.cos(a),
+      n = Math.sin(a),
+      p = (fx: number, fy: number): [number, number] => [x + fx * c - fy * n, y + fx * n + fy * c];
+    ellipse(ctx, s.x, s.y, 6, 2, "#0b101c55");
+    paperPiece(ctx, paperPath([p(9, 0), p(-2, -6 - flap), p(-7, 0), p(-2, 6 + flap)]), "#efe6d2", {
+      shadow: 0.8,
+      texture: 0.3,
+      thickness: 0.5,
+    });
+    paperPiece(ctx, paperPath([p(9, 0), p(-2, -6 - flap), p(-1, 0)]), "#d8cdb5", {
+      shadow: 0,
+      texture: 0.2,
+      thickness: 0.3,
+    });
+  } else {
+    ellipse(ctx, s.x, s.y, 5, 2, "#0b101c55");
+    light(ctx, x, y, 12, "#ffb45c", 0.35, 0.8);
+    paperPiece(ctx, paperOval(x, y, 3, 4.5, s.id, 0.06), "#f0dfb4", {
+      shadow: 0.6,
+      texture: 0.3,
+      thickness: 0.5,
+      edge: "#e7a35a",
+    });
   }
   ctx.restore();
 }

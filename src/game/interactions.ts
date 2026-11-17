@@ -47,15 +47,18 @@ export const FISH = {
   far: 380,
 } as const;
 /**
- * Paper chests dropped by elites and the Eraser. Touching one opens a free
- * card choice (rolled by rollChoices, no XP spent); the Boss chest owes more
- * picks. FEAT-004 adds chest-triggered evolution on top.
+ * Paper chests dropped by elites and the Eraser. Touching one grants the
+ * cat's evolution when it is ready (weapon at max + paired passive owned);
+ * otherwise, or for the remaining levels, it raises random owned weapons and
+ * passives by one level each. The Boss chest grants more levels.
  */
 export const CHEST = {
   radius: 14,
   touchRadius: 18,
   /** Seconds after dropping before it can be opened (lets the drop land). */
   settle: 0.4,
-  picks: 1,
-  bigPicks: 2,
+  levels: 1,
+  bigLevels: 3,
+  /** Seconds the HUD shows what the chest gave. */
+  revealTime: 3.2,
 } as const;

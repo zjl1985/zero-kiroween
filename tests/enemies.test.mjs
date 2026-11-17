@@ -125,40 +125,39 @@ test("elites spawn on their timer, crowned and tougher, and drop a chest", () =>
   assert.equal(s.enemies.filter((e) => e.elite).length, 1);
 });
 
-test("touching a chest opens a free card that grants one upgrade level", () => {
+test("touching a chest without a ready evolution levels up an owned item at once", () => {
   const s = createSim({ cat: "nicole", seed: 8, sessionSeconds: NIGHT });
   s.enemies = [];
   s.spawnTimer = 1e6;
   s.chests.push({ id: s.nextChestId++, x: s.player.x + 4, y: s.player.y, big: false, alive: true, age: CHEST.settle });
   const level = s.level,
     xp = s.xp,
-    taken = s.stats.upgradesTaken;
+    taken = s.stats.upgradesTaken,
+    before = s.upgrades["moon-stars"];
   step(s, idle, DT);
   assert.equal(s.chests.length, 0);
   assert.equal(s.stats.chestsOpened, 1);
-  assert.equal(s.pendingChoice?.source, "chest");
-  const id = s.pendingChoice.options[0],
-    before = s.upgrades[id] ?? 0;
-  step(s, { ...idle, choose: 0 }, DT);
-  assert.equal(s.upgrades[id], before + 1);
-  assert.equal(s.stats.upgradesTaken, taken + 1);
+  // No card: the only owned item, the starting weapon, gained a level.
+  assert.equal(s.pendingChoice, null);
+  assert.equal(s.upgrades["moon-stars"], before + 1);
+  assert.equal(s.stats.upgradesTaken, taken + CHEST.levels);
+  assert.deepEqual(s.chestReveal.items, [{ id: "moon-stars", level: before + 1 }]);
+  assert.equal(s.chestReveal.evolved, null);
   // No XP was spent and no level was gained.
   assert.equal(s.level, level);
   assert.equal(s.xp, xp);
-  assert.equal(s.pendingChoice, null);
 });
 
-test("a Boss chest owes two picks", () => {
+test("a Boss chest grants several levels", () => {
   const s = createSim({ cat: "zero", seed: 8, sessionSeconds: NIGHT });
   s.enemies = [];
   s.spawnTimer = 1e6;
   s.chests.push({ id: s.nextChestId++, x: s.player.x, y: s.player.y, big: true, alive: true, age: 1 });
   step(s, idle, DT);
-  step(s, { ...idle, choose: 0 }, DT);
-  assert.equal(s.pendingChoice?.source, "chest");
-  step(s, { ...idle, choose: 0 }, DT);
   assert.equal(s.pendingChoice, null);
-  assert.equal(s.stats.upgradesTaken, 2);
+  assert.equal(s.stats.upgradesTaken, CHEST.bigLevels);
+  assert.equal(s.chestReveal.items.length, CHEST.bigLevels);
+  assert.equal(s.chestReveal.big, true);
 });
 
 test("the Eraser enters outside the view, inside the map, wherever the cat is, and hunts it", () => {
