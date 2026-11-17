@@ -2,7 +2,7 @@
 
 **Latest user restriction: local commits are allowed; PUSH AND DEPLOYMENT ARE FORBIDDEN.** The user corrected the previous premature deployment. Do not interpret finishing a polish pass as permission to publish. Continue character, detail and effects work locally. This overrides older publication authorizations below.
 
-Latest checkpoint (2026-11-18). The user preferred the original pixel heads to the first reference-based paper redraw. The revised paper heads use a broad face cut, a single dark frame around each lens, short ear folds, and fewer bright edges. World and portrait art share the same cached drawings. `npm run build` and all 246 tests passed. One Chrome still shows the original references, the previous and current paper heads, and each cat in the starting yard at 1× (`output/playwright/paper-head-comparison-2026-11-18.png`). The user has yet to review this revision.
+Latest checkpoint (2026-11-18). The user approved the revised paper cat heads in `2d8b25e` and asked to set playtesting aside for now. The heads use a broad face cut, a single dark frame around each lens, short ear folds, and fewer bright edges. World and portrait art share the same cached drawings. `npm run build` and all 246 tests passed. One Chrome still shows the original references, the previous and current paper heads, and each cat in the starting yard at 1× (`output/playwright/paper-head-comparison-2026-11-18.png`).
 
 Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. The current local commits are `7a3102b` (paper ecology / cohesive art) and `d5d6025` (character / scenery refinement); both are committed but not pushed to `origin/main` or deployed. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
 
@@ -190,9 +190,8 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Pending user decisions (ask before changing)
 
-1. Whether the narrow cat head edge is the area the user meant.
-2. Removing the Chinese pack or the language toggle when English becomes the default.
-3. Random helper cats: not built, confirm first.
+1. Confirm before removing the Chinese pack or language toggle. Both are available with English as the default.
+2. Random helper cats have not been built. Confirm before starting.
 
 ## Remaining review notes
 
@@ -203,8 +202,8 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Still open
 
-1. Review the revised cat heads with the user. In combat, check how enemies and warnings read against the graveyard ground, whether buildings hide the player, and whether skill effects compete with danger cues.
-2. Play full ten-minute runs for both cats. Assess enemy pacing, upgrades and chest timing, Boss pressure, access to shallow water, and the value of the four landmark activities. The sim tests exercise these systems and the win conditions.
+1. The user deferred playtesting. When it resumes, play full runs for both cats and assess enemy pacing, upgrades and chest timing, Boss pressure, access to shallow water, and the four landmark activities.
+2. Check combat readability when playtesting resumes, especially on the graveyard ground, behind buildings, and when skills overlap danger cues.
 3. Check touch controls end to end, including skill use, pause, card selection, and retry. The bilingual pause, upgrade, and 13-stat result layouts have static checks at three phone sizes. Audio mixing and cue clarity still need a listening pass.
 4. Check browser memory and frame rate near the 100-enemy cap, including fire and chunk loading, when the user asks to resume profiling. The run cache and audio cleanup paths are implemented and tested.
 5. Neutral town NPCs and random helper cats have not been implemented. Ask before starting helper cats.
