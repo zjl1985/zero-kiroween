@@ -441,12 +441,24 @@ export function drawChunks(ctx: Ctx, seed: number, cam: Camera): void {
   }
   for (const key of chunkCache.keys()) {
     if (chunkCache.size <= MAX_CHUNK_CANVASES) break;
-    if (!visible.has(key)) chunkCache.delete(key);
+    if (!visible.has(key)) {
+      const old = chunkCache.get(key)!;
+      old.canvas.width = old.canvas.height = 0;
+      chunkCache.delete(key);
+    }
   }
 }
 /** How many chunk canvases are cached (for the budget test and debugging). */
 export function cachedChunkCount(): number {
   return chunkCache.size;
+}
+
+/** Drop run-specific pixels and popup history when leaving or replacing a run. */
+export function clearWorldRenderCache(): void {
+  for (const entry of chunkCache.values()) entry.canvas.width = entry.canvas.height = 0;
+  chunkCache.clear();
+  folds.clear();
+  foldTime = null;
 }
 
 // ---------------------------------------------------------------- sprites
@@ -538,7 +550,7 @@ export function worldSprites(
             drawFolded(ctx, d, bd, f, (shade) => {
               if (fade?.(d)) {
                 ctx.save();
-                ctx.globalAlpha = 0.5;
+                ctx.globalAlpha = 0.32;
                 drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);
                 ctx.restore();
               } else drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);

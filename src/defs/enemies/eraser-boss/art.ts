@@ -178,7 +178,22 @@ export const ERASER_BOSS_ART: EnemyArt = {
         lane = new Path2D();
       lane.moveTo(a.x, a.y);
       lane.lineTo(ex, ey);
+      // Width matches the moving Boss body; round caps cover both endpoints.
+      ctx.save();
+      ctx.lineCap = "round";
+      stroke(ctx, lane, "#201923", enemyRadius(e) * 2 + 3, 0.48);
+      stroke(ctx, lane, "#e7a1aa", enemyRadius(e) * 2, 0.2 + k * 0.12);
+      ctx.restore();
       dashed(ctx, lane, "#ffd3da", 0.5 + k * 0.5, 3 + k * 4);
+      const nx = -a.dy, ny = a.dx;
+      ctx.save();
+      ctx.fillStyle = "#ffe2bb";
+      ctx.fill(path([
+        [ex, ey],
+        [ex - a.dx * 14 + nx * 7, ey - a.dy * 14 + ny * 7],
+        [ex - a.dx * 14 - nx * 7, ey - a.dy * 14 - ny * 7],
+      ]));
+      ctx.restore();
       dashed(ctx, oval(ex, ey, 18, 9), "#ffd3da", 0.5 + k * 0.5, 1.4);
     } else {
       dashed(ctx, oval(e.x, e.y, BOSS.summon.distance + 10, (BOSS.summon.distance + 10) * 0.6), "#c99ad8", 0.5 + k * 0.4, 1.4);

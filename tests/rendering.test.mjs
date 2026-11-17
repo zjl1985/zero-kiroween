@@ -265,7 +265,7 @@ test("folded scenery uses bounded masked shade sprites, retaining the smooth hin
     sprites.find((s) => s.y === decor.y).draw();
     assert.ok(!ctx.calls.some((c) => c.op === "filter"));
     assert.equal(tints(ctx).length, 0);
-    assert.equal(images(ctx)[0].globalAlpha, 0.5, "foreground fade applies once to the complete sprite");
+    assert.equal(images(ctx)[0].globalAlpha, 0.32, "foreground fade applies once to the complete sprite");
     return { image: images(ctx)[0].args[0], ctx };
   };
   const upright = draw(0), folded = draw(POPUP.far);

@@ -145,9 +145,9 @@ Current scope follows the user's explicit request to implement the remaining art
 ### Acceptance criteria
 
 1. All user-facing strings SHALL go through the i18n message keys, with a complete English pack.
-2. WHEN the default is switched (later), THE game SHALL display English on first load and throughout a run (title, selection, HUD, notices, upgrade cards, pause, results).
+2. For new visitors without a saved language preference, THE game SHALL display English on first load and throughout a run (title, selection, HUD, notices, upgrade cards, pause, results).
 
-Status: deferred by the user. `zh` stays the default for now. Open question: whether the Chinese pack and language toggle are removed or kept as an option. Confirm with the user.
+Status: implemented at the user’s request on 2026-11-17. English is the default; Chinese and the language toggle remain available. Existing saved language preferences are honored.
 
 ## Requirement 12: Own UI identity
 
@@ -241,6 +241,6 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 
 ## Deferred work and evidence limits
 
-Random helper cats still require confirmation. English default remains deferred (Requirement 11); Boss/dawn policy and evolution-passive slot guidance still need decisions. Full gameplay-screen/mobile review, user art acceptance, balance and performance remain open. Publishing this latest work and Devpost submission materials are pending (deadline 2026-12-05 06:00 Beijing time), not a reason to mark implemented ecology out of scope. Animation/video verification is prohibited unless the user asks again.
+Random helper cats still require confirmation. English default is implemented (Requirement 11); dawn survival wins without a Boss kill, and full passive slots may lock out evolution by design. Full gameplay-screen/mobile review, user art acceptance, balance and performance remain open. Publishing this latest work and Devpost submission materials are pending (deadline 2026-12-05 06:00 Beijing time), not a reason to mark implemented ecology out of scope. Animation/video verification is prohibited unless the user asks again.
 
 Latest verification: `npm run build && npm test` passed **237 tests**; one static screenshot was captured and viewed at `output/playwright/paper-ecology-review.png` using **system Chrome**, not missing bundled Chromium. It shows selected art only. No animation, recording, audio or FPS checks were performed, and the user has not approved the art.

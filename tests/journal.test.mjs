@@ -14,7 +14,7 @@ import {
 import { STATS } from "../dist/game/types.js";
 import { CHUNK, WORLD, chunkIndex, chunkOf } from "../dist/game/world-gen.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
-import { missingKeys } from "../dist/content/i18n.js";
+import { DEFAULT_LOCALE, missingKeys } from "../dist/content/i18n.js";
 
 test("the moon walks the arc across the night and turns into the sun for the dawn window", () => {
   const s = STATS.sessionSeconds;
@@ -89,5 +89,11 @@ test("distance is logged in cat paces and the journal strings exist in both pack
   ])
     assert.ok(MESSAGE_KEYS.includes(k), k);
   assert.deepEqual(missingKeys("en"), []);
+  assert.deepEqual(missingKeys("zh"), []);
+});
+
+test("new sessions default to English while both complete language packs remain", () => {
+  assert.equal(DEFAULT_LOCALE, "en");
+  assert.deepEqual(missingKeys(DEFAULT_LOCALE), []);
   assert.deepEqual(missingKeys("zh"), []);
 });

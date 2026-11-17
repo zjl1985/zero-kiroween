@@ -103,7 +103,7 @@ function cutPath(loops: FaceContours["silhouette"]): Path2D {
       const a = pts[(i + pts.length - 1) % pts.length]!, b = pts[i]!, c = pts[(i + 1) % pts.length]!,
         ab = Math.hypot(a[0] - b[0], a[1] - b[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]),
         // A small scissor turn, not smoothing away a marking, eyelash or accessory.
-        r = Math.min(0.55, ab * 0.22, bc * 0.22),
+        r = Math.min(1.25, ab * 0.4, bc * 0.4),
         before: Point = [b[0] + (a[0] - b[0]) * r / ab, b[1] + (a[1] - b[1]) * r / ab],
         after: Point = [b[0] + (c[0] - b[0]) * r / bc, b[1] + (c[1] - b[1]) * r / bc];
       if (i === 0) p.moveTo(...before); else p.lineTo(...before);
@@ -134,19 +134,19 @@ export function paperFace(id: CatId) {
     for (const { layer, path } of face.layers) {
       ctx.fillStyle = layer.color;
       ctx.fill(path);
-      if (layer.area < 240) continue; // tiny eye/nose/highlight details retain the exact ink
+      if (layer.area < 600) continue; // tiny eye/nose/highlight details retain the exact ink
       ctx.save();
       ctx.clip(path);
-      ctx.lineWidth = 0.65;
-      ctx.strokeStyle = mix(layer.color, "#211a28", 0.38);
+      ctx.lineWidth = 0.35;
+      ctx.strokeStyle = mix(layer.color, "#211a28", 0.2);
       ctx.translate(0.28, 0.42);
       ctx.stroke(path);
       ctx.translate(-0.55, -0.72);
-      ctx.strokeStyle = mix(layer.color, "#fff0d4", 0.32);
+      ctx.strokeStyle = mix(layer.color, "#fff0d4", 0.22);
       ctx.stroke(path);
       ctx.restore();
     }
-    grain(ctx, face.outline, 0.18);
+    grain(ctx, face.outline, 0.1);
     ctx.restore();
   });
 }

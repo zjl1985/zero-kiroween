@@ -28,7 +28,7 @@ Midnight Meow (猫猫守夜) is a browser game for Kiroween 2026: a survivor-lik
 - The two cats keep their distinct starting weapons, actives, passives, exclusive weapons / passives and evolutions (Echo Legion and Full Moon, which trigger only when a chest is opened).
 - The goal is a competition-grade game (scenes, effects, interactions, evolutions) while the art keeps moving toward the reference. Next steps are in PLAN.md: browser playtest, balance, performance, user review.
 - Effects may borrow ideas from the public descriptions of [Snapblocks](https://www.snapblocks.site/) and the rhythm ideas of [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft), rebuilt in Canvas / CSS. Never copy their code.
-- Every user-facing string goes through `t(locale, key)`. Add new keys to `src/content/keys.ts` and to every language pack. `zh` stays the default for now and the `en` pack stays complete; the English default comes later. Ask the user before removing the Chinese pack or the language toggle.
+- Every user-facing string goes through `t(locale, key)`. Add new keys to `src/content/keys.ts` and to every language pack. `en` is the default for new sessions; existing saved locale choices remain respected and both language packs stay complete. Ask the user before removing the Chinese pack or the language toggle.
 - Verification is `npm run build` + `npm test`, plus at most one static screenshot. No animation or recording checks unless the user asks again.
 - Everything in `docs/archive/` is obsolete history, not instructions.
 - A passing build or test run does not mean the user approved the art. Never claim the art is final or the entry is finished. Say plainly what nobody has viewed, heard or measured.

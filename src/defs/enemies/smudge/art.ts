@@ -1,5 +1,5 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
-import { dashed, enemyPart, enemyShadow, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
+import { dangerRing, enemyPart, enemyShadow, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
 import { glow, hash, line, oval, path, piece, type Ctx, type Point } from "../../../render/paper-material.js";
 import { foldLine } from "../../../render/paper-kit.js";
 import type { EnemyState } from "../../../game/types.js";
@@ -55,7 +55,7 @@ export const SMUDGE_ART: EnemyArt = {
   id: "smudge", draw: drawSmudge,
   ground(ctx, e) {
     if ((e.windup ?? 0) > 0 && e.tx !== undefined && e.ty !== undefined)
-      dashed(ctx, oval(e.tx, e.ty, SMUDGE.splashRadius, SMUDGE.splashRadius * 0.6), "#c99ad8", 0.6, 1);
+      dangerRing(ctx, e.tx, e.ty, SMUDGE.splashRadius, 1 - e.windup! / SMUDGE.windup);
   },
   dissolve: { flakes: ["#3a2c4b", "#54406a", "#e3d3b5", "#6d5684"], count: 10 },
   effects: {

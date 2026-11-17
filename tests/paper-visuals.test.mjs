@@ -10,8 +10,10 @@ import { ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js
 import { drawActorPaperStatus, drawPaperFlame, drawPaperStatusEffect } from "../dist/render/paper-status-art.js";
 import { drawFireGround, drawProp, fireSprites } from "../dist/render/craft-props.js";
 import { drawLandmarkActivity } from "../dist/render/craft-juice.js";
+import { dangerRing } from "../dist/render/craft-enemies.js";
 import { drawCraftShot } from "../dist/render/craft-combat.js";
 import { ring, star } from "../dist/render/combat-fx.js";
+import { drawChunks, clearWorldRenderCache, cachedChunkCount } from "../dist/render/craft-world.js";
 import { paperOccludesActor } from "../dist/render/world.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
@@ -35,6 +37,7 @@ function canvas() {
     getTransform() { return new Matrix(); },
     createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
     createPattern() { return { kind: "paper", setTransform() {} }; },
+    createLinearGradient() { return { addColorStop() {} }; },
     createRadialGradient() { return { addColorStop() {} }; },
   };
   const ctx = new Proxy({}, {
@@ -222,4 +225,30 @@ test("world status hooks follow actual actor art and exclude decoys; props follo
   assert.match(props, /activeFire\.some/);
   for (const file of ["paper-face.ts", "paper-status-art.ts", "craft-combat.ts", "craft-enemies.ts", "combat-fx.ts"])
     assert.doesNotMatch(readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8"), /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b/);
+});
+
+test("leaving a run clears chunk pixels and permits rebuilding the same view", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  const ctx = canvas().getContext("2d");
+  drawChunks(ctx, 7, { x: 480, y: 270 });
+  assert.ok(cachedChunkCount() > 0);
+  const chunks = images(ctx).map(c => c.args[0]);
+  assert.ok(chunks.every(c => c.width > 0));
+  clearWorldRenderCache();
+  assert.equal(cachedChunkCount(), 0);
+  assert.ok(chunks.every(c => c.width === 0 && c.height === 0));
+  drawChunks(ctx, 7, { x: 480, y: 270 });
+  assert.ok(cachedChunkCount() > 0);
+  clearWorldRenderCache();
+});
+
+test("splash warnings preserve circular damage geometry and draw a legible cross", (t) => {
+  environment(t);
+  const ctx = canvas().getContext("2d");
+  dangerRing(ctx, 30, 40, 20, 0.5);
+  const shape = ctx.calls.find(c => c.op === "fill").args[0];
+  assert.deepEqual(shape.ops[0], ["arc", 30, 40, 20, 0, Math.PI * 2]);
+  assert.ok(ctx.calls.some(c => c.op === "stroke" && c.strokeStyle === "#ffe2bb"));
+  restored(ctx);
 });

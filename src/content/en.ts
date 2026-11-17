@@ -2,7 +2,7 @@ import type { Messages } from "./keys.js";
 
 export const EN: Messages = {
   "title.name": "Midnight Meow",
-  "title.subtitle": "猫猫守夜",
+  "title.subtitle": "A PAPERCRAFT NIGHT WATCH",
   "title.tagline": "A little town, a long night. The cats are keeping watch.",
   "title.start": "Begin as {name}",
   "title.choose_cat": "Choose your night watch cat",

@@ -7,6 +7,8 @@ import {
 } from "./keys.js";
 import { ZH } from "./zh.js";
 
+export const DEFAULT_LOCALE: Locale = "en";
+
 const PACKS: Record<Locale, Messages> = { zh: ZH, en: EN };
 
 export function isLocale(value: string): value is Locale {

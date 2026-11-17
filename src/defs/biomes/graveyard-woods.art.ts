@@ -8,8 +8,8 @@ import { variant } from "../../render/variants.js";
 /** Raised moss shelves and branching roots frame a quieter, readable central opening. */
 export const GRAVEYARD_WOODS_ART: BiomeArt = {
   id: "graveyard-woods",
-  swatch: ["#3a4238", "#2d3530", "#9fb4cc"],
-  patchChance: 0.75,
+  swatch: ["#465046", "#39433c", "#9fb4cc"],
+  patchChance: 0.55,
   patch(ctx, x, y, r, seed) {
     const look = variant(seed, { palette: ["#4b5847", "#53604d", "#48584c"], flip: true });
     ctx.save();

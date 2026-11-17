@@ -140,6 +140,21 @@ export function dashed(ctx: Ctx, p: Path2D, color: string, alpha: number, width 
   stroke(ctx, p, color, width, alpha);
   ctx.restore();
 }
+
+/** World-space circular splash footprint; never flatten a radial damage test. */
+export function dangerRing(ctx: Ctx, x: number, y: number, radius: number, progress: number): void {
+  const ring = new Path2D();
+  ring.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.save();
+  ctx.globalAlpha *= 0.12 + Math.max(0, Math.min(1, progress)) * 0.2;
+  ctx.fillStyle = "#eab2cb";
+  ctx.fill(ring);
+  ctx.restore();
+  dashed(ctx, ring, "#ffe2bb", 0.9, 1.6);
+  const r = radius * 0.3;
+  line(ctx, x - r, y - r, x + r, y + r, "#ffe2bb", 1.2, 0.85);
+  line(ctx, x - r, y + r, x + r, y - r, "#ffe2bb", 1.2, 0.85);
+}
 /** Puddles, landing marks and Boss telegraphs, drawn flat on the yard. */
 export function drawEnemyGround(ctx: Ctx, state: SimState): void {
   for (const h of state.hazards) {
@@ -156,12 +171,7 @@ export function drawEnemyGround(ctx: Ctx, state: SimState): void {
   for (const s of state.enemyShots) {
     if (!s.alive) continue;
     const k = Math.min(1, s.t / s.flight);
-    dashed(ctx, oval(s.tx, s.ty, SMUDGE.splashRadius, SMUDGE.splashRadius * 0.6), "#c99ad8", 0.5 + k * 0.4, 1.1);
-    ctx.save();
-    ctx.globalAlpha = 0.25 + k * 0.3;
-    ctx.fillStyle = "#3a2c4b";
-    ctx.fill(oval(s.tx, s.ty, SMUDGE.splashRadius * k, SMUDGE.splashRadius * 0.6 * k));
-    ctx.restore();
+    dangerRing(ctx, s.tx, s.ty, SMUDGE.splashRadius, k);
   }
   for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e);
 }

@@ -53,6 +53,17 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     ambienceOn = false,
     cricketTimer: number | undefined;
   const last = new Map<Cue, number>();
+  const ambienceSources: AudioScheduledSourceNode[] = [];
+  const ambienceNodes: AudioNode[] = [];
+
+  function stopAmbience(): void {
+    window.clearTimeout(cricketTimer);
+    cricketTimer = undefined;
+    for (const source of ambienceSources) source.stop();
+    for (const node of ambienceNodes) node.disconnect();
+    ambienceSources.length = ambienceNodes.length = 0;
+    ambienceBus = null;
+  }
 
   const ensure = (): AudioContext | null => {
     if (ac) return ac;
@@ -72,6 +83,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     buildAmbience();
+    scheduleCrickets();
     return ac;
   };
 
@@ -93,6 +105,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     g.gain.exponentialRampToValueAtTime(peak, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(g).connect(master);
+    osc.onended = () => { osc.disconnect(); g.disconnect(); osc.onended = null; };
     osc.start(t0);
     osc.stop(t0 + dur + 0.05);
   }
@@ -116,14 +129,16 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     g.gain.exponentialRampToValueAtTime(opts.gain ?? 0.1, t0 + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     src.connect(f).connect(g).connect(master);
+    src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); src.buffer = null; src.onended = null; };
     src.start(t0, Math.random() * 1.5);
     src.stop(t0 + dur + 0.05);
   }
 
   function buildAmbience(): void {
-    if (!ac || !master || !noiseBuffer) return;
+    if (!ac || !master || !noiseBuffer || !ambienceOn || muted || ambienceBus) return;
     ambienceBus = ac.createGain();
-    ambienceBus.gain.value = ambienceOn ? 0.1 : 0;
+    ambienceBus.gain.value = 0;
+    ambienceBus.gain.setTargetAtTime(0.1, ac.currentTime, 0.6);
     ambienceBus.connect(master);
     // Soft wind: looped noise through a low, slowly wandering filter.
     const wind = ac.createBufferSource(),
@@ -140,6 +155,8 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     lfoGain.gain.value = 160;
     lfo.connect(lfoGain).connect(lp.frequency);
     wind.connect(lp).connect(windGain).connect(ambienceBus);
+    ambienceSources.push(wind, lfo);
+    ambienceNodes.push(wind, lp, windGain, lfo, lfoGain, ambienceBus);
     wind.start();
     lfo.start();
     // A low two-note drone under the wind.
@@ -152,6 +169,8 @@ export function createSfx(initiallyMuted: boolean): Sfx {
       o.frequency.value = f;
       g.gain.value = v;
       o.connect(g).connect(ambienceBus);
+      ambienceSources.push(o);
+      ambienceNodes.push(o, g);
       o.start();
     }
   }
@@ -169,6 +188,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
       g.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
       o.connect(g).connect(ambienceBus);
+      o.onended = () => { o.disconnect(); g.disconnect(); o.onended = null; };
       o.start(t);
       o.stop(t + 0.06);
     }
@@ -176,7 +196,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
 
   function scheduleCrickets(): void {
     window.clearTimeout(cricketTimer);
-    if (!ambienceOn) return;
+    if (!ambienceOn || muted || !ac) return;
     cricketTimer = window.setTimeout(() => {
       cricket();
       scheduleCrickets();
@@ -264,13 +284,16 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     },
     setMuted(value) {
       muted = value;
+      if (muted) stopAmbience();
+      else buildAmbience();
+      scheduleCrickets();
       if (ac && master) master.gain.setTargetAtTime(muted ? 0 : 0.55, ac.currentTime, 0.03);
     },
     setAmbience(on) {
       if (ambienceOn === on) return;
       ambienceOn = on;
-      if (ac && ambienceBus)
-        ambienceBus.gain.setTargetAtTime(on ? 0.1 : 0, ac.currentTime, 0.6);
+      if (on) buildAmbience();
+      else stopAmbience();
       scheduleCrickets();
     },
     play(cue, intensity = 0) {

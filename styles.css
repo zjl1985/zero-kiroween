@@ -1863,7 +1863,7 @@ body[data-cat="nicole"] .profile-title span {
     width: min(330px, 88vw);
     min-height: 0;
     display: grid;
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: 64px minmax(0, 1fr);
     grid-template-areas: "icon name" "icon level" "desc desc";
     text-align: left;
     column-gap: 12px;

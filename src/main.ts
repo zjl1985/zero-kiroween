@@ -8,7 +8,7 @@ import {
 import { CATS } from "./defs/index.js";
 import "./render/art-index.js";
 import type { CatId } from "./cats/types.js";
-import { t, isLocale } from "./content/i18n.js";
+import { t, isLocale, DEFAULT_LOCALE } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
 import { createClock, FIXED_DT } from "./game/clock.js";
 import { createInput } from "./game/input.js";
@@ -20,6 +20,8 @@ import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
+import { clearWorldCache } from "./game/world-gen.js";
+import { clearWorldRenderCache } from "./render/craft-world.js";
 import { createCamera, followCamera, type Camera } from "./render/camera.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
@@ -57,12 +59,12 @@ function initialPrefs(): Prefs {
   try {
     const value = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
     return {
-      locale: isLocale(value.locale) ? value.locale : "zh",
+      locale: isLocale(value.locale) ? value.locale : DEFAULT_LOCALE,
       cat: typeof value.cat === "string" && CATS.has(value.cat) ? value.cat : firstCat(),
       muted: value.muted === true,
     };
   } catch {
-    return { locale: "zh", cat: firstCat(), muted: false };
+    return { locale: DEFAULT_LOCALE, cat: firstCat(), muted: false };
   }
 }
 function savePrefs(prefs: Prefs): void {
@@ -274,6 +276,7 @@ function boot(): void {
   resize();
   window.addEventListener("resize", resize);
   const paint = () => {
+    document.title = t(locale, "title.name");
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
     const labels: Record<string, Parameters<typeof t>[1]> = {
       "title-name": "title.name",
@@ -372,7 +375,15 @@ function boot(): void {
     sfx.setAmbience(next === "play" || next === "upgrade");
     paint();
   };
+  const releaseRun = () => {
+    sim = null;
+    lastBoss = null;
+    motionCues = [];
+    clearWorldRenderCache();
+    clearWorldCache();
+  };
   const start = () => {
+    releaseRun();
     sim = createSim({
       cat: selectedCat,
       seed: runSeed(),
@@ -416,7 +427,7 @@ function boot(): void {
   for (let i = 0; i < 3; i++)
     must(`upgrade-card-${i}`).addEventListener("click", () => pick(i));
   const title = () => {
-    sim = null;
+    releaseRun();
     camera = createCamera();
     motionCues = [];
     finale = false;

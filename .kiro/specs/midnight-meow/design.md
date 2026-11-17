@@ -106,7 +106,7 @@ main.ts cueState (diff of sim counters) ─► audio/sfx.ts and timeline.ts cues
 
 - `keys.ts` lists every message key; `en.ts` and `zh.ts` implement them; `t(locale, key, values)` formats them; `missingKeys` must be empty for both packs.
 - Each def family has its keys (`upgrade.<id>.*`, `enemy.<id>.name`, `prop.<id>.name`, `landmark.<id>`, `notice.found-<id>`, `biome.<id>.name`, cat copy under its `i18n` prefix).
-- Current default locale is `zh` and the `en` pack is complete. Requirement 11 later switches the default to English.
+- Current default locale is `en`; both packs are complete and saved locale choices override the default.
 
 ## Testing
 

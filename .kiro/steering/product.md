@@ -15,7 +15,7 @@ Read `HANDOFF.md` and `PLAN.md` before starting work. They hold the current requ
 - **Pick one cat at the start.** Zero (male cat) or Nicole (female cat). Only the chosen cat appears in a run. The other cat never enters as a companion or follower. Zero's dash afterimage is a short skill effect, not a second character.
 - **The two cats play differently.** Keep their distinct starting weapons, actives and passives. This includes their exclusive weapons / passives and evolutions (Zero: Echo Legion = max Meowline + Long Shadow; Nicole: Full Moon = max Moonstars + Deep Fold; both unlock only when a chest is opened). Numbers live in the def files (`src/defs/cats/<id>/stats.ts`, `src/defs/weapons/`, `src/defs/passives/`, `src/defs/evolutions/`), and the selection page and HUD read from the same registries.
 - **No image or audio assets.** Sound is synthesized in `src/audio/sfx.ts` with oscillators and generated noise.
-- **i18n stays in place.** Every user-facing string goes through `t()`. `zh` is the default for now and the `en` pack is complete. Switching the default to English comes later through i18n; ask the user before removing the Chinese pack or the toggle.
+- **i18n stays in place.** Every user-facing string goes through `t()`. `en` is the default for new sessions and both packs are complete. Saved language choices are respected; ask the user before removing the Chinese pack or the toggle.
 - **The paper ecology is gameplay.** The user explicitly requested the remaining art/interaction gaps and paper actors igniting on fire, with water extinguishing them. This supersedes the old fire-never-hurts-cat rule and deferred ink/fold, regrowth, windmill and water-collision work. Both cats and enemies carry fire; normal shields/invulnerability still apply to the cat. Never restore blanket cat fire immunity.
 
 ## Current priority
@@ -25,7 +25,7 @@ Read `HANDOFF.md` and `PLAN.md` before starting work. They hold the current requ
 3. Effects may borrow ideas from [Snapblocks](https://www.snapblocks.site/), a paid React library. Rebuild ideas from its public descriptions in Canvas / CSS only; never copy its code. Event rhythm (anticipation, reveal, burst, settle) follows ideas from [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft), rebuilt in Canvas / CSS.
 4. Keep polishing the papercraft art toward the reference (paper fiber, cut-edge thickness, contact shadows, folds, stitching, warm windows, autumn trees, a curved road, a large moon). The UI must keep its own journal identity and not copy Tibo Dog, which is a spatial reference only.
 5. Verify with `npm run build` and `npm test`, plus at most one static screenshot. **Do not run animation or video-recording verification** unless the user asks again. The user finds heavy checking excessive.
-6. Later: publish the latest refinements, English default and Devpost submission before 2026-12-05 06:00 Beijing time. The previous version is already deployed according to the user. Random helper cats are not built; confirm with the user before starting them.
+6. Later: publish the latest refinements and complete Devpost submission (English default is implemented) before 2026-12-05 06:00 Beijing time. The previous version is already deployed according to the user. Random helper cats are not built; confirm with the user before starting them.
 
 ## Implemented ecology at a glance
 

@@ -240,7 +240,7 @@ function remember<K, V>(map: Map<K, V>, key: K, make: () => V, cap = 900): V {
   }
   return v;
 }
-/** Drops the memo tables; results are pure, so this only costs time. For tests. */
+/** Drops the memo tables; results are pure, so this only costs time. Used at run boundaries and by tests. */
 export function clearWorldCache(): void {
   landmarkMemo.clear();
   roadMemo.clear();
