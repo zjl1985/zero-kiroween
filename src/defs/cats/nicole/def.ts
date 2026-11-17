@@ -2,6 +2,8 @@ import { normalize } from "../../../game/collision.js";
 import type { CharacterDef } from "../../types.js";
 import { NICOLE_STATS as N } from "./stats.js";
 
+export const NICOLE_FOLD_POWER = 2;
+
 declare module "../../types.js" {
   interface PlayerStats {
     fieldRadius: number;
@@ -64,7 +66,8 @@ export const NICOLE: CharacterDef<typeof N> = {
         e.x = pos.x;
         e.y = pos.y;
       }
-    ctx.effect(state, p.x, p.y, "fold", 0.6);
+    ctx.elementHit(state, p.x, p.y, ps.fieldRadius, "fold", NICOLE_FOLD_POWER);
+        ctx.effect(state, p.x, p.y, "fold", 0.6);
     ctx.notify(state, "nicole-fold");
   },
   hooks: {

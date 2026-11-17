@@ -1,9 +1,11 @@
+import { GREENHOUSE_ACTIVITY } from "../../landmark-activities.js";
 import type { LandmarkDef } from "../../types.js";
 
 /** Paper-glass growing house; the potting yard stays open down its middle. */
 export const FOLD_GREENHOUSE: LandmarkDef = {
   id: "fold-greenhouse",
   radius: 205,
+    activity: GREENHOUSE_ACTIVITY,
   layout(_l, b) {
     b.add("fold-greenhouse-trellis", -141, -52, 0.9, 1);
     b.add("fold-greenhouse-building", -4, -36, 1);

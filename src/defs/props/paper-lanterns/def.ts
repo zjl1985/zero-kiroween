@@ -11,7 +11,7 @@ export const PAPER_LANTERNS: PropDef = {
   ],
   durability: 2,
   damagedBelow: 0.6,
-  accepts: ["cut", "wind", "fire"],
+  accepts: ["cut", "wind", "fire", "ink", "fold"],
   drops: { shard: 0.3, shardValue: 1, treat: 0.06 },
   spawn: { clear: 46, scale: [0.9, 1.1] },
   art: "paper-lanterns",

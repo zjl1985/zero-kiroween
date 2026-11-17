@@ -12,7 +12,7 @@ import { createRegistry } from "../engine/registry.js";
 import type { MessageKey } from "../content/keys.js";
 import { CATS } from "../defs/registries.js";
 import type { CatId, EnemyKind, LandmarkPlace, PropPhase, UpgradeId, WeaponId } from "../defs/types.js";
-import type { EnemyState, Impact, ShotState, SimState } from "../game/types.js";
+import type { EnemyState, Impact, LandmarkEventState, ShotState, SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
 import type { VariantBase } from "./variants.js";
@@ -172,6 +172,8 @@ export interface DecorPiece {
   readonly kind: string;
   readonly bounds: ArtBounds;
   paint(ctx: Ctx, x: number, y: number, s: number, variant: number): void;
+  /** Live parts share the cached body's depth / popup transform; never cache by time. */
+  live?(ctx: Ctx, x: number, y: number, s: number, variant: number, time: number, activity?: Readonly<LandmarkEventState>): void;
   /** Cached variants (variant = seed % variants; default 1). */
   readonly variants?: number;
   /** Folds up like a pop-up book page near the cat. */

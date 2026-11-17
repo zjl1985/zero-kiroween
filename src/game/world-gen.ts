@@ -13,7 +13,8 @@ import { SOLID_SCENERY, type Capsule } from "./scenery.js";
 import { MOON_LANTERN, PUMPKIN_SPOTS } from "./interactions.js";
 import "../defs/world-index.js";
 import { BIOME_DEFS, LANDMARK_DEFS, PROP_DEFS } from "../defs/registries.js";
-import type { BiomeDef, DecorMix, LandmarkBuilder, LandmarkPlace, PropSpot } from "../defs/types.js";
+import type { BiomeDef, DecorMix, LandmarkBuilder, LandmarkPlace, PropSpot, WaterCrossing, WaterRegion, WaterShape } from "../defs/types.js";
+import { WATER, prepareWater, touchesWaterShore, waterBounds, waterOval } from "../defs/water.js";
 import { BASE_DECOR, DISTRICTS } from "../defs/biomes/districts.js";
 import { RIVER } from "../defs/landmarks/stone-bridge/def.js";
 
@@ -229,6 +230,7 @@ const colliderMemo = new Map<string, Capsule[]>();
 const staticMemo = new Map<string, Capsule[]>();
 const propMemo = new Map<string, PropSpot[]>();
 const siteMemo = new Map<number, DistrictSite[]>();
+const waterMemo = new Map<number, Map<string, readonly WaterRegion[]>>();
 function remember<K, V>(map: Map<K, V>, key: K, make: () => V, cap = 900): V {
   let v = map.get(key);
   if (v === undefined) {
@@ -247,6 +249,7 @@ export function clearWorldCache(): void {
   staticMemo.clear();
   propMemo.clear();
   siteMemo.clear();
+  waterMemo.clear();
 }
 
 // ---------------------------------------------------------------- districts
@@ -427,6 +430,93 @@ function inLandmark(seed: number, x: number, y: number, pad: number): boolean {
   }
   return false;
 }
+// Water generation never calls chunkContent: decor may consult it without a cycle.
+function roadCrossings(shape: WaterShape, rs: readonly Road[]): WaterCrossing[] {
+  const bounds = waterBounds(shape.shore), out: WaterCrossing[] = [...shape.crossings];
+  for (let ri = 0; ri < rs.length; ri++) {
+    const road = rs[ri]!, w = road.width;
+    for (let i = 0; i < road.points.length - 1; i++) {
+      const a = road.points[i]!, b = road.points[i + 1]!, dx = b.x - a.x, dy = b.y - a.y,
+        len = Math.hypot(dx, dy);
+      if (len < 1e-8) continue;
+      // Clip a strip to the shore's padded bounds, not to an invisible road exception.
+      let lo = -w / len, hi = 1 + w / len;
+      for (const [p, d, min, max] of [[a.x, dx, bounds.minX - w - 8, bounds.maxX + w + 8],
+        [a.y, dy, bounds.minY - w - 8, bounds.maxY + w + 8]]) {
+        if (Math.abs(d) < 1e-8) { if (p < min || p > max) hi = -Infinity; }
+        else {
+          const t0 = (min - p) / d, t1 = (max - p) / d;
+          lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+        }
+      }
+      if (lo >= hi) continue;
+      const ax = a.x + dx * lo, ay = a.y + dy * lo, bx = a.x + dx * hi, by = a.y + dy * hi,
+        nx = -dy / len * w, ny = dx / len * w;
+      out.push({ id: `${shape.id}:road-${ri}-${i}`, polygon: [
+        { x: ax - nx, y: ay - ny }, { x: bx - nx, y: by - ny },
+        { x: bx + nx, y: by + ny }, { x: ax + nx, y: ay + ny },
+      ] });
+    }
+  }
+  return out;
+}
+function waterIndex(seed: number): Map<string, readonly WaterRegion[]> {
+  return remember(waterMemo, seed, () => {
+    const basin = WATER.startBasin,
+      shapes: WaterShape[] = [{ id: "start-basin", seed: 0,
+        shore: waterOval(basin.x, basin.y, basin.rx, basin.ry), core: [], crossings: [],
+      }];
+    for (const l of landmarks(seed)) shapes.push(...(LANDMARK_DEFS.get(l.kind).water?.(l) ?? []));
+    for (let cy = CHUNK.minCy; cy <= CHUNK.maxCy; cy++)
+      for (let cx = CHUNK.minCx; cx <= CHUNK.maxCx; cx++) {
+        const candidates = biomeAt(seed, cx, cy).water?.({ x: cx * CHUNK.width, y: cy * CHUNK.height,
+          width: CHUNK.width, height: CHUNK.height, hash: (salt) => hash2(seed, cx, cy, salt) }) ?? [];
+        for (const shape of candidates) {
+          const b = waterBounds(shape.shore), x = (b.minX + b.maxX) / 2, y = (b.minY + b.maxY) / 2,
+            pad = Math.max(b.maxX - x, b.maxY - y) + 30;
+          if (b.minX < WORLD.minX + WORLD.edge || b.maxX > WORLD.maxX - WORLD.edge ||
+            b.minY < WORLD.playTop + 20 || b.maxY > WORLD.maxY - WORLD.edge) continue;
+          if (b.minY < SCREEN.height + 40 && b.maxX > -40 && b.minX < SCREEN.width + 40) continue;
+          if (inLandmark(seed, x, y, pad)) continue;
+          if (shapes.some((s) => {
+            const q = waterBounds(s.shore);
+            return b.minX < q.maxX + 30 && b.maxX > q.minX - 30 && b.minY < q.maxY + 30 && b.maxY > q.minY - 30;
+          })) continue;
+          shapes.push(shape);
+        }
+      }
+    const index = new Map<string, WaterRegion[]>(), rs = roads(seed);
+    for (const shape of shapes) {
+      const prepared = prepareWater({ ...shape, crossings: roadCrossings(shape, rs) });
+      // Include crossing ends and bank art in the spatial buckets, including negative chunks.
+      const extent = waterBounds([...prepared.shore, ...prepared.crossings.flatMap((c) => c.polygon)]),
+        r: WaterRegion = { ...prepared, bounds: extent };
+      for (let cy = Math.floor((extent.minY - 24) / CHUNK.height); cy <= Math.floor((extent.maxY + 24) / CHUNK.height); cy++)
+        for (let cx = Math.floor((extent.minX - 24) / CHUNK.width); cx <= Math.floor((extent.maxX + 24) / CHUNK.width); cx++) {
+          const key = chunkKey(cx, cy), bucket = index.get(key) ?? [];
+          bucket.push(r); index.set(key, bucket);
+        }
+
+    }
+    return index;
+  }, WATER.cachedSeeds);
+}
+/** Local cached convex polygons, shared by water simulation and chunk-ground rendering. */
+export function waterRegionsNear(seed: number, x: number, y: number, reach: number): readonly WaterRegion[] {
+  const index = waterIndex(seed), found = new Map<string, WaterRegion>(), r = Math.max(0, reach);
+  const x0 = Math.max(CHUNK.minCx, Math.floor((x - r) / CHUNK.width)),
+    x1 = Math.min(CHUNK.maxCx, Math.floor((x + r) / CHUNK.width)),
+    y0 = Math.max(CHUNK.minCy, Math.floor((y - r) / CHUNK.height)),
+    y1 = Math.min(CHUNK.maxCy, Math.floor((y + r) / CHUNK.height));
+  for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++)
+    for (const region of index.get(chunkKey(cx, cy)) ?? []) {
+      const b = region.bounds;
+      if (x + r >= b.minX - 24 && x - r <= b.maxX + 24 && y + r >= b.minY - 24 && y - r <= b.maxY + 24)
+        found.set(region.id, region);
+    }
+  return [...found.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
 /** Decor, colliders and interaction spots of one landmark, from its def's layout. */
 export function landmarkParts(l: Landmark): Pick<ChunkContent, "decor" | "colliders" | "spots"> {
   const { x, y, seed } = l,
@@ -512,6 +602,7 @@ function genericDecor(seed: number, cx: number, cy: number, biome: BiomeDef): Pi
       if (y < SCREEN.height + clear && x > -clear && x < SCREEN.width + clear) continue;
       if (nearRoad(seed, x, y, ROAD_CLEAR + clear * 0.5)) continue;
       if (inLandmark(seed, x, y, clear)) continue;
+      if (waterRegionsNear(seed, x, y, clear + 2).some((r) => touchesWaterShore(r, x, y, clear + 2))) continue;
       if (!flat && tall.some((t) => Math.hypot(t.x - x, t.y - y) < t.r + clear)) continue;
       placed.push({ kind, x: Math.round(x), y: Math.round(y), s: Math.round(s * 100) / 100, seed: seedN });
       if (!flat) tall.push({ x, y, r: clear });

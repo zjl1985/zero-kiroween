@@ -1,10 +1,12 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
-import { dashed, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
-import { glow, hash, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
+import { dashed, enemyPart, enemyShadow, googly, type Look } from "../../../render/craft-enemies.js";
+import { glow, hash, line, oval, path, piece, stitch, stroke, type Ctx } from "../../../render/paper-material.js";
 import type { BossAct, EnemyState } from "../../../game/types.js";
 import { BOSS, ENEMIES } from "../../../game/enemies.js";
 import { enemyRadius } from "../../../game/sim.js";
-import { box } from "../../../render/craft-enemies.js";
+
+import { foldLine } from "../../../render/paper-kit.js";
+import { paperFleck } from "../../../render/craft-combat.js";
 
 /**
  * The Eraser: a big pink paper eraser in a stitched paper sleeve, worn at
@@ -29,7 +31,7 @@ function drawEraser(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     ctx.restore();
     return;
   }
-  shadow(ctx, e.x, e.y, R * 1.55, R * 0.42);
+  enemyShadow(ctx, e.x, e.y, R * 1.55, R * 0.42);
   if (windup > 0) glow(ctx, e.x, e.y - R, R * 2.4, "#ff9fb0", 0.18 + windup * 0.2, 0.7);
   drawEraserBody(ctx, e, R, windup, charging, time, look);
 }
@@ -50,12 +52,16 @@ function drawEraserBody(
     x0 = e.x - w / 2,
     y1 = e.y - 4 + bob,
     y0 = y1 - h,
-    lean = charging ? face * 6 : 0,
-    side = R * 0.38;
+    lean = charging ? face * 6 : 0;
   ctx.save();
   ctx.translate(e.x, y1);
   ctx.transform(1, 0, -lean / h, 1, 0, 0);
   ctx.translate(-e.x, -y1);
+  ctx.save();
+  ctx.translate(e.x, y1);
+  ctx.scale(1, squash);
+  enemyPart(`eraser-cut:${face}`, 96, 96, (ctx) => {
+  const R = 24, w = R * 2.5, h = R * 1.35, x0 = -w / 2, y1 = 0, y0 = -h, side = R * 0.38;
   // Visible paper thickness: the darker side face under the top face.
   piece(
     ctx,
@@ -111,6 +117,14 @@ function drawEraserBody(
   // Two short ink bars on the label, in place of printed text.
   line(ctx, sx + sw * 0.25, y0 + h * 0.47, sx + sw * 0.6, y0 + h * 0.47, "#4f6f9c", 1.2);
   line(ctx, sx + sw * 0.66, y0 + h * 0.47, sx + sw * 0.78, y0 + h * 0.47, "#b2404f", 1.2);
+  ctx.fillStyle = "#385375";
+  ctx.fill(path([[sx, y1 - 5], [sx + sw, y1 - 5], [sx + sw + 0.5, y1 + 2], [sx, y1 + 2]]));
+  foldLine(ctx, sx + 1, y1 - 5, sx + sw - 1, y1 - 5, 0.75);
+  foldLine(ctx, sx + 3, y0 - 1, sx + sw - 2, y0 - 1, 0.55);
+  // Small delaminated corners show the sleeve is folded card, not a coloured box.
+  piece(ctx, path([[sx + sw - 8, y0 - 2], [sx + sw, y0 - 2], [sx + sw + 1, y0 + 6]]), "#b9c5d3", { shadow: 0.6, edge: "#edf0e6", texture: 0.4, thickness: 0.6 });
+  }).draw(ctx, { x: 0, y: 0, scale: R / 24 });
+  ctx.restore();
   // Eyes on the exposed rubber.
   const ex = face > 0 ? x0 + w * 0.73 : x0 + w * 0.27,
     ey = y0 + h * 0.42,
@@ -186,11 +200,7 @@ export const ERASER_BOSS_ART: EnemyArt = {
       for (let i = 0; i < 10; i++) {
         const a = i * 2.1,
           r = 8 + ease * (20 + hash(i) * 30);
-        piece(ctx, oval(e.x + Math.cos(a) * r, e.y - 4 + Math.sin(a) * r * 0.5 - ease * 8, 2, 1.4, i), "#e58e9f", {
-          shadow: 0.5,
-          texture: 0.2,
-          thickness: 0.3,
-        });
+        paperFleck(ctx, e.x + Math.cos(a) * r, e.y - 4 + Math.sin(a) * r * 0.5 - ease * 8, 2.5, "#e58e9f", a);
       }
     },
     summon(ctx, e, { fade, ease }) {
@@ -203,11 +213,7 @@ export const ERASER_BOSS_ART: EnemyArt = {
           r = 10 + ease * 80,
           x = e.x + Math.cos(a) * r,
           y = e.y - 20 + Math.sin(a) * r * 0.55 - ease * 20;
-        piece(ctx, box(x, y, 4, 3, i), i % 3 ? "#f0a3b1" : "#4f6f9c", {
-          shadow: 0.6,
-          texture: 0.3,
-          thickness: 0.4,
-        });
+        paperFleck(ctx, x, y, 4, i % 3 ? "#f0a3b1" : "#4f6f9c", a + ease);
       }
     },
   },

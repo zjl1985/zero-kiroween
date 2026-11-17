@@ -2,9 +2,9 @@
 
 Both are registered in `src/defs/world-index.ts` and placed by the pure world generator `src/game/world-gen.ts` (`landmarks(seed)`, `landmarkParts(l)`, `districtSites(seed)`, `biomeAt(seed, cx, cy)`, `chunkContent(seed, cx, cy)`). Art is registered in `src/render/art-index.ts`. Everything here is a pure function of the seed: use the builder's `hash` or `hash2`, never the sim RNG or `Math.random`.
 
-Interfaces: `LandmarkDef`, `LandmarkPlace`, `LandmarkBuilder`, `LandmarkArea`, `BiomeDef`, `BiomeProp`, `DecorMix` in `src/defs/types.ts`; `LandmarkArt`, `DecorPiece`, `BiomeArt`, `decorPiece`, `landmarkReach` in `src/render/art-registry.ts`.
+Interfaces: `LandmarkDef`, `LandmarkActivity`, `LandmarkPlace`, `LandmarkBuilder`, `LandmarkArea`, `BiomeDef`, `BiomeProp`, `DecorMix`, `WaterShape`, `WaterRegion`, `WaterCrossing` in `src/defs/types.ts`; `LandmarkArt`, `DecorPiece` (including `live`), `BiomeArt`, `decorPiece`, `landmarkReach` in `src/render/art-registry.ts`.
 
-Any change here changes the generated world for every seed, so the behaviour probes must be re-recorded (see testing-and-verification.md).
+Placement changes can alter fixed-seed worlds. Disclose intentional changes; use current deterministic tests and refresh local probes only when available and in scope (see testing-and-verification.md). Do not claim old references were regenerated.
 
 ## Landmark
 
@@ -18,6 +18,7 @@ The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the s
    /** Pond numbers of the wishing well (ground art reads them too). */
    export const POND = { rx: 120, ry: 58, dy: 42 } as const;
 
+   // Layout excerpt only: the real wishing-well def also supplies water(l).
    /** A roofed stone well by a paper-boat pond; a moon-lantern hangs by the rope. */
    export const WISHING_WELL: LandmarkDef = {
      id: "wishing-well",
@@ -32,6 +33,8 @@ The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the s
      },
      // span?(l, area) { return half length of a band through it },
      // keepOut?(l, x, y, pad) { return true where decor must stay clear },
+     // water?(l) { return pure WaterShape[] shared by physics and art },
+     // activity: a LandmarkActivity with radius, charge, cooldown and activate hook,
    };
    ```
 
@@ -56,7 +59,7 @@ The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the s
    export const WISHING_WELL_ART: LandmarkArt = {
      id: "wishing-well",
      ink: "#8fb0c4",                                  // minimap dot
-     ground(ctx, l) { /* flat art baked into chunk caches: plaza, pond, soil */ },
+     ground(ctx, l) { /* flat art baked into chunk caches: plaza, soil; shared water draws separately */ },
      // reach(l) { return l.radius + 60; }            ground reach, default radius + 40
      pieces: [{ kind: "well", bounds: { l: -36, r: 36, t: -110, b: 10 }, paint: well /*, variants: 2, popup: true */ }],
    };
@@ -64,11 +67,22 @@ The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the s
 
    - `pieces` are tall y-sorted cached sprites; every non-generic `b.add` kind must be a registered piece (tested). `popup: true` makes it fold up like a pop-up book page near the cat (`POPUP` in `src/render/timeline.ts`, render-only).
    - Shared plaza ground: `src/defs/landmarks/plaza.art.ts`.
+   - `DecorPiece.live` draws live parts after the cached body under the same depth/pop-up transform. Windmill uses a tower without baked sails plus one three-variant cached rotor rotated from sim-owned `turn`; never cache by time/angle or draw duplicate sails. Preserve registered bounds and reduced-motion behavior.
    - Append to the `LANDMARK_ART` list in art-index.ts; `LANDMARK_ART.ids()` must equal `LANDMARK_DEFS.ids()`.
 
 4. **Discovery notice**: add `"found-<id>"` to the `Notice` union in `src/game/types.ts` (the sim calls `notify(state, \`found-${kind}\`)`).
 
 5. **i18n**: `landmark.<id>` (journal, nav arrows, gallery) and `notice.found-<id>`.
+
+## Activities and water
+
+Read [paper-ecology.md](paper-ecology.md) before changing these contracts:
+
+- Four `LandmarkDef.activity` entries are live: teahouse proximity heal, fold-hit greenhouse renewal + treat, observatory proximity freeze + shards (not map reveal), wind-hit windmill pulse + shards and rotor boost. Tuning and walkable court anchors are shared in `src/defs/landmark-activities.ts`; state is per placed id in `SimState.landmarkEvents`.
+- `game/landmark-actions.ts` preserves partial charge away from a court and advances cooldowns offscreen; element hits are capped at 2 charge per hit. `ctx.elementHit` reaches the activity runner. Set cooldown before reward hooks; do not create an every-frame reward or mutate state from art.
+- Greenhouse advances only existing future deadlines of nearby renewable scraps, at most 10 within 320. Normal lifecycle still waits for occupancy/fire clearance and retains lifetime loot claims.
+- `LandmarkDef.water` and `BiomeDef.water` produce pure shore/core/crossing polygons. World-gen adds explicit visible dry road crossings, clips deep solids and caches local regions without calling `chunkContent` recursively. Use `defs/water.ts` and `render/water-art.ts`; do not draw independent decorative pond/canal geometry or invisible road exemptions.
+- Shallow water slows actors by 0.68 and extinguishes carried fire, deep cores block radius-swept movement, and dry decks stay dry unless the actor overlaps exposed water beside them. Keep the shallow teaching basin at (1040, 420), road passage, dry building contacts and visible reachable court/lantern approaches.
 
 ## District biome
 
@@ -123,6 +137,9 @@ The town splits into a jittered 4 x 3 grid of district sites (`DISTRICTS` in `sr
 - `tests/world.test.mjs`: every biome owns chunks for several seeds; biome props stay in their biome and differ between biomes; new landmark kinds are placed for several seeds and kinds fit the super-cells; chunk content stays pure across `clearWorldCache()` and under `DISTRICTS.propCap`.
 - `tests/interactions.test.mjs` lists interaction spot kinds per landmark; update it if your layout adds `b.spot` calls.
 - `tests/gallery.test.mjs` counts gallery sections (7 today); new entries in an existing registry need no change.
+- `tests/water.test.mjs`: shared vertices, explicit crossings, shallow shelves, swept dashes, spawn projection, negative coordinates, teaching basin and placement clearance.
+- `tests/landmark-actions.test.mjs` / `environment-integration.test.mjs`: reachable anchors, charge/cooldown persistence, finite rewards, safe greenhouse tending, real element dispatch and deterministic rotor integration.
+- `tests/paper-visuals.test.mjs` / `rendering.test.mjs`: read-only progress marks, bounds-based building occlusion and finite live-part caches (not animation/FPS checks).
 
 ## Checklist
 
@@ -130,4 +147,5 @@ The town splits into a jittered 4 x 3 grid of district sites (`DISTRICTS` in `sr
 - [ ] every non-generic decor kind is a registered `DecorPiece`
 - [ ] `found-<id>` in the `Notice` union; `landmark.<id>`, `notice.found-<id>` or `biome.<id>.name` in all packs
 - [ ] pure: only `b.hash`, `hash2`, render `hash`
-- [ ] `npm run build && npm test` pass; probes re-recorded (world changed)
+- [ ] water polygons and visible crossings agree; activity court shares the sim anchor and has localized guidance
+- [ ] for implementation work, `npm run build && npm test` pass; disclose fixed-seed layout changes and actual probe evidence

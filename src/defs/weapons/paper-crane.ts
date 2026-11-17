@@ -12,6 +12,8 @@ const BASE = {
   count: 1,
   pierce: 1,
 } as const;
+/** One environmental fold per volley; the shots remain wind and keep their original fan. */
+export const CRANE_FOLD = { radius: 84, power: 1, life: 0.45 } as const;
 const STEPS = [{ count: 1 }, { damage: 1 }, { rate: 0.15 }, { count: 1, pierce: 1 }] as const;
 
 declare module "../types.js" {
@@ -42,7 +44,7 @@ export const PAPER_CRANE: WeaponDef = {
   steps: STEPS,
   base: BASE,
   timing: "auto",
-  elements: ["wind"],
+  elements: ["wind", "fold"],
   shotTag: "crane",
   stats(s, level) {
     const b = stepBonus(STEPS, level);
@@ -64,6 +66,8 @@ export const PAPER_CRANE: WeaponDef = {
       target = ctx.nearestEnemy(state, p.x, p.y, c.range);
     if (!target) return;
     state.weaponTimers["paper-crane"] = c.interval;
+    ctx.elementHit(state, p.x, p.y, CRANE_FOLD.radius, "fold", CRANE_FOLD.power);
+        ctx.effect(state, p.x, p.y, "fold", CRANE_FOLD.life, { radius: CRANE_FOLD.radius });
     const base = Math.atan2(target.y - p.y, target.x - p.x);
     for (let i = 0; i < c.count; i++) {
       const a = base + (i - (c.count - 1) / 2) * 0.9;

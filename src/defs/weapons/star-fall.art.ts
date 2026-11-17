@@ -1,8 +1,9 @@
 /** Card art for star-fall. */
 import type { WeaponArt } from "../../render/art-registry.js";
 import { oval, line, glow, stitch } from "../../render/paper-material.js";
-import { ring, star } from "../../render/combat-fx.js";
-import { line as pixelLine } from "../../render/pixel-art.js";
+import { ring, star, paperTrail } from "../../render/combat-fx.js";
+import { paperFleck } from "../../render/craft-combat.js";
+
 
 export const STAR_FALL_ART: WeaponArt = {
   id: "star-fall",
@@ -20,12 +21,16 @@ export const STAR_FALL_ART: WeaponArt = {
         land = Math.max(0, t * 2.4 - 1) / 1.4;
       ctx.globalAlpha = fade;
       if (drop > 0) {
-        pixelLine(ctx, e.x + 18 * drop, e.y - 90 * drop - 30, e.x + 6 * drop, e.y - 50 * drop - 10, "#cdb8f2");
+        paperTrail(ctx, e.x + 10 * drop, e.y - 70 * drop - 8, Math.PI * 0.56, 32 + 20 * drop, "#cdb8f2", 1.2);
         star(ctx, e.x + 10 * drop, e.y - 70 * drop - 8, 7, "#fff1ce", t * 6);
       } else {
         glow(ctx, e.x, e.y - 6, r + 14, "#efe0b4", 0.3 * fade, 0.7);
         ring(ctx, e.x, e.y, 6 + land * r, "#e6dafc", 0.6);
         star(ctx, e.x, e.y - 6, 6 * fade + 2, "#fff1ce", t * 3);
+        for (let i = 0; i < 5; i++) {
+          const a = i * Math.PI * 2 / 5;
+          paperFleck(ctx, e.x + Math.cos(a) * land * r * 0.7, e.y - 7 + Math.sin(a) * land * r * 0.4, 2.5 * fade + 1, "#cdb8f2", a + land);
+        }
       }
     },
   },

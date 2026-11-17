@@ -5,9 +5,30 @@ import {
   stroke,
   line,
   glow,
-  shadow,
+
   type Ctx,
 } from "./paper-material.js";
+import { cachedSprite } from "../engine/sprite.js";
+import { foldLine } from "./paper-kit.js";
+import { enemyPart, enemyShadow } from "./craft-enemies.js";
+
+/** Static weapon cuts: placement, rotation and flight never participate in the key. */
+export function combatPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void) {
+  return cachedSprite(`combat-part:${key}`, w, h, 2, (ctx) => {
+    ctx.translate(w / 2, h / 2);
+    paint(ctx);
+  }, { x: 0.5, y: 0.5 });
+}
+export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: string, angle = 0): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  combatPart(`fleck:${color}`, 16, 16, (c) => {
+    piece(c, path([[-4, -1.6], [0.8, -3.2], [4, 0.4], [-0.8, 2.8]]), color, { shadow: 0.4, texture: 0.3, thickness: 0.45 });
+    foldLine(c, -3, -1, 2.7, 0.7, 0.4);
+  }).draw(ctx, { x: 0, y: 0, scale: size / 4 });
+  ctx.restore();
+}
 export function drawCraftBlob(
   ctx: Ctx,
   x: number,
@@ -25,41 +46,34 @@ export function drawCraftBlob(
     ctx.restore();
     return;
   }
-  shadow(ctx, x, y, 14, 4);
-  const cy = y - 9 + Math.sin(time * 3 + id) * 1;
-  for (let i = 0; i < 2; i++) {
-    const dx = i ? 6 : -6,
-      p = new Path2D(
-        `M ${x + dx} ${cy - 4} Q ${x + dx - 7} ${cy - 15} ${x + dx + 1} ${cy - 21} Q ${x + dx + 7} ${cy - 29} ${x + dx + 3} ${cy - 33} Q ${x + dx + 14} ${cy - 22} ${x + dx + 6} ${cy - 13} Q ${x + dx + 1} ${cy - 8} ${x + dx + 7} ${cy - 3} Z`,
-      );
+  enemyShadow(ctx, x, y, 14, 4);
+  const cy = y - 9 + Math.sin(time * 3 + id), v = Math.abs(id) % 3;
+  for (const side of [-1, 1]) {
     ctx.save();
-    ctx.globalAlpha = 0.45;
-    piece(ctx, p, "#9271a7", {
-      shadow: 0,
-      texture: 0.8,
-      edge: "#b798c4",
-      thickness: 0.5,
-    });
+    ctx.globalAlpha *= 0.42;
+    ctx.translate(x + side * 6, cy - 13);
+    ctx.rotate(side * 0.12 + Math.sin(time * 2 + id) * 0.08);
+    enemyPart("ink-ribbon", 24, 42, (c) => {
+      piece(c, new Path2D("M -3 12 Q -10 1 -2 -6 Q 4 -12 0 -18 Q 12 -10 5 -1 Q -1 4 4 12 Z"), "#806b96", { shadow: 0, edge: "#b29bc5", texture: 0.45, thickness: 0.6 });
+      foldLine(c, 0, 7, 2, -6, 0.4);
+    }).draw(ctx, { x: 0, y: 0 });
     ctx.restore();
   }
-  const p = new Path2D(
-    `M ${x - 16} ${cy + 9} Q ${x - 11} ${cy + 4} ${x - 12} ${cy - 1} Q ${x - 9} ${cy - 15} ${x + 1} ${cy - 13} Q ${x + 13} ${cy - 14} ${x + 13} ${cy + 3} L ${x + 18} ${cy + 10} Q ${x + 11} ${cy + 7} ${x + 6} ${cy + 9} Q ${x - 4} ${cy + 6} ${x - 16} ${cy + 9} Z`,
-  );
-  piece(ctx, p, "#3b2d49", {
-    shadow: 2,
-    edge: "#795879",
-    texture: 0.8,
-    thickness: 1,
-  });
-  for (const dx of [-5, 5]) {
-    glow(ctx, x + dx, cy - 1, 5, "#e6ab63", 0.2);
-    piece(ctx, oval(x + dx, cy - 1, 1.6, 2), "#f0c16d", {
-      shadow: 0,
-      texture: 0.3,
-      edge: "#d3944e",
-      thickness: 0.3,
-    });
-  }
+  enemyPart(`ink-body:${v}`, 52, 44, (c) => {
+    const cut = new Path2D("M -16 9 L -12 2 Q -13 -8 -6 -12 L 1 -14 Q 12 -15 13 2 L 18 10 L 8 7 L 2 10 L -5 7 Z");
+    piece(c, cut, "#3b2d49", { shadow: 1.5, edge: "#a38ab1", texture: 0.55, thickness: 1.1 });
+    c.save(); c.clip(cut);
+    c.fillStyle = "#574362";
+    c.fill(path([[-12, 3], [-6, -12], [1, -14], [-2 + v, 2], [-5, 7]]));
+    c.fillStyle = "#281e36";
+    c.fill(path([[1, -14], [9, -8], [13, 2], [18, 10], [3, 5]]));
+    foldLine(c, -6, -10, -2 + v, 3, 0.55);
+    c.restore();
+    for (const dx of [-5, 5]) {
+      piece(c, oval(dx, -1, 1.6, 2), "#f0c16d", { shadow: 0, texture: 0.15, edge: "#ffe1a0", thickness: 0.4 });
+    }
+    line(c, -2, 4, 2, 4.5, "#b595ad", 0.65);
+  }).draw(ctx, { x, y: cy });
   if (slowed)
     stroke(
       ctx,
@@ -81,26 +95,37 @@ export function drawCraftShot(
   empowered = false,
   echo = false,
 ): void {
-  const d = Math.hypot(vx, vy) || 1,
-    nx = vx / d,
-    ny = vy / d,
-    warm = echo ? "#a9d4e4" : "#ffce7d",
-    tail = echo ? "#6f9fb8" : "#d49452",
-    core = echo ? "#e4f4f6" : "#ffe3a2";
-  glow(ctx, x, y, empowered ? 13 : 9, warm, empowered ? 0.3 : 0.22);
-  line(
-    ctx,
-    x - nx * 19,
-    y - ny * 19,
-    x,
-    y,
-    tail,
-    empowered ? 1.5 : 1,
-    0.7,
-  );
-  line(ctx, x - nx * 10, y - ny * 10, x, y, core, empowered ? 1.5 : 1.1);
-  ctx.fillStyle = echo ? "#f2fbfb" : "#fff1c6";
-  ctx.fill(oval(x, y, 1.8, 1.8));
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.atan2(vy, vx));
+  combatPart(`meowline:${echo ? 1 : 0}:${empowered ? 1 : 0}`, 64, 28, (c) => {
+    const color = echo ? "#a9d4e4" : "#efc37a", core = echo ? "#edf8f3" : "#fff0bd";
+    glow(c, 0, 0, empowered ? 13 : 9, color, 0.2);
+    c.save(); c.globalAlpha = 0.4;
+    piece(c, path([[-26, -1.8], [-9, -3], [3, 0], [-11, 2]]), color, { shadow: 0, texture: 0.2, thickness: 0.4 });
+    c.restore();
+    piece(c, path([[-15, 0], [-5, -2.4], [4, 0], [-5, 2.4]]), color, { shadow: 0.5, edge: core, texture: 0.3, thickness: 0.65 });
+    line(c, -10, -0.5, 2, 0, core, 0.8);
+    if (empowered) {
+      line(c, -19, -5, -6, -4, color, 0.8, 0.65);
+      line(c, -23, 4, -10, 3, core, 0.65, 0.55);
+    }
+  }).draw(ctx, { x: 0, y: 0 });
+  ctx.restore();
+}
+/** A brief clipped-paper impact, keeping the centre open enough to read the target. */
+export function drawPaperImpact(ctx: Ctx, impact: { x: number; y: number; life: number; kind: "hit" | "defeat" }): void {
+  const defeat = impact.kind === "defeat", t = Math.max(0, Math.min(1, 1 - impact.life / (defeat ? 0.32 : 0.16))),
+    count = defeat ? 8 : 5, reach = defeat ? 26 : 16;
+  ctx.save();
+  ctx.globalAlpha *= 1 - t;
+  glow(ctx, impact.x, impact.y, defeat ? 24 : 15, "#f0c47d", 0.2 * (1 - t));
+  for (let i = 0; i < count; i++) {
+    const a = i / count * Math.PI * 2 + 0.2, r = 4 + t * reach;
+    paperFleck(ctx, impact.x + Math.cos(a) * r, impact.y + Math.sin(a) * r * 0.65,
+      (defeat ? 2.9 : 2) * (1 - t * 0.5), i % 2 ? "#e1b477" : "#f6e3b6", a + t);
+  }
+  ctx.restore();
 }
 /** A paper-moon crescent with cut edge, thickness and contact shadow. */
 export function crescent(cx: number, cy: number, r: number, rot: number): Path2D {
@@ -125,15 +150,15 @@ export function drawInkShard(
   const r = 4.6 + Math.min(3, value - 1) * 0.9,
     lift = 8 + Math.sin(time * 4 + id * 1.7) * 1.6,
     rot = -0.5 + Math.sin(time * 1.6 + id) * 0.35;
-  shadow(ctx, x, y, r * 0.9, r * 0.32);
-  glow(ctx, x, y - lift, r * 3.2, "#f3cf82", 0.28);
-  piece(ctx, crescent(x, y - lift, r, rot), "#ecc879", {
-    shadow: 1.2,
-    edge: "#fff0c2",
-    texture: 0.5,
-    thickness: 0.6,
-  });
-  // An ink speck caught in the paper moon.
-  ctx.fillStyle = "#3b2d49";
-  ctx.fill(oval(x + Math.cos(rot) * r * 0.55, y - lift + Math.sin(rot) * r * 0.55, 0.9, 0.9));
+  enemyShadow(ctx, x, y, r * 0.9, r * 0.32);
+  ctx.save();
+  ctx.translate(x, y - lift);
+  ctx.rotate(rot);
+  combatPart("pickup-moon", 40, 40, (c) => {
+    glow(c, 0, 0, 16, "#f3cf82", 0.22);
+    piece(c, crescent(0, 0, 5, 0), "#ecc879", { shadow: 1, edge: "#fff0c2", texture: 0.4, thickness: 0.6 });
+    c.fillStyle = "#3b2d49";
+    c.fill(oval(2.75, 0, 0.9, 0.9));
+  }).draw(ctx, { x: 0, y: 0, scale: r / 5 });
+  ctx.restore();
 }

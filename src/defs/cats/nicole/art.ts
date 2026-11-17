@@ -2,7 +2,7 @@
 import type { CatArt } from "../../../render/art-registry.js";
 import { drawOrbitStar, drawSkillEffect, ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
-import { drawOfficialHead } from "../../../render/layout.js";
+import { drawPaperPortrait } from "../../../render/paper-face.js";
 import { glow as light } from "../../../render/paper-material.js";
 import { ellipse, line, polygon, rect } from "../../../render/pixel-art.js";
 import { NICOLE_STATS } from "./stats.js";
@@ -46,7 +46,7 @@ export const NICOLE_ART: CatArt = {
     NICOLE_ART.draw(ctx, { ...pose, dashing: false });
   },
   portrait(ctx, pose, scale) {
-    drawOfficialHead(ctx, pose, { scale });
+    drawPaperPortrait(ctx, pose, scale, NICOLE_ART.body.rim);
   },
   heroAura(ctx, x, y, time) {
     const color = "#b39ad9";

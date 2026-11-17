@@ -58,7 +58,7 @@ export const ZH: Messages = {
   "nicole.active.short": "折月",
   "nicole.active.name": "折月",
   "nicole.active.desc":
-    "短距位移，留下 {field}s 减速 {slowPercent}% 领域；{shieldTime}s 内抵挡 {shield} 次伤害。冷却 {cooldown}s。",
+    "短距位移，留下 {field}s 减速 {slowPercent}% 领域；{shieldTime}s 内抵挡 {shield} 次伤害，并暂时折平附近纸物。冷却 {cooldown}s。",
   "nicole.passive.name": "留一点余地",
   "nicole.passive.desc":
     "生命首次降至 {threshold} 时，获得 {rescue} 次护盾，持续 {rescueTime}s。每局一次。",
@@ -115,7 +115,7 @@ export const ZH: Messages = {
   "upgrade.star-fall.desc":
     "每 {interval}s 向附近 {count} 个墨影落下星星，{radius} 范围造成 {damage} 伤害。",
   "upgrade.paper-crane.name": "纸鹤",
-  "upgrade.paper-crane.desc": "每 {interval}s 放出一只追踪墨影的纸鹤，造成 {damage} 伤害。",
+  "upgrade.paper-crane.desc": "每 {interval}s 放出追踪墨影的纸鹤，造成 {damage} 伤害；起飞折平附近纸物，沿途的风可驱动风车。",
   "upgrade.pumpkin-seed.name": "南瓜籽",
   "upgrade.pumpkin-seed.desc":
     "每 {interval}s 抛出发光南瓜籽，在 {radius} 范围爆开，造成 {damage} 伤害。",
@@ -273,4 +273,23 @@ export const ZH: Messages = {
   "biome.moon-meadow.name": "月光草甸",
   "gallery.section.biomes": "街区",
   "gallery.state.ground": "地面",
+  "prop.ink-vat.name": "墨汁桶",
+  "prop.wax-candle.name": "蜡烛",
+  "notice.burning": "纸片着火了！快到浅水中灭火",
+  "notice.extinguished": "火已熄灭 · 潮湿的纸片暂时不易着火",
+  "notice.landmark-tea": "夜茶暖身 · 回复少许生命",
+  "notice.landmark-greenhouse": "纸园已照料 · 附近植物加快恢复，并留下一份鱼干",
+  "notice.landmark-observatory": "星图对齐 · 附近墨影冻结，星台落下墨晶",
+  "notice.landmark-windmill": "风车借风 · 阵风震住附近墨影，落下墨晶",
+  "hud.burning": "燃烧 · {seconds}s",
+  "hud.wet": "潮湿 · {seconds}s",
+  "hint.burning": "离开火焰，踏入浅水灭火；站在桥上不会弄湿！",
+  "hint.wet": "潮湿暂时防火。深水不可通行，过河请走桥。",
+  "hint.paper-world": "纸片踩火会燃烧，浅水能灭火；深水要走桥。",
+  "help.paper-world": "火也会烧伤你，包括自己点起的火。浅水灭火并减速，桥面保持干燥；起点院子东侧有浅水池。墨汁能暂时保护纸物免受燃烧。折月与纸鹤起飞会折平障碍，纸鹤的风能驱动风车；在茶席与星图庭院停留可完成互动。",
+  "activity.landmark-tea": "在茶席旁停留，喝夜茶回复生命",
+  "activity.landmark-greenhouse": "在此施放折月或放飞纸鹤，照料纸片植物",
+  "activity.landmark-observatory": "站在星图上对齐星象，冻结墨影并获得墨晶",
+  "activity.landmark-windmill": "引导纸鹤的风经过庭院，驱动风车释放阵风",
+  "activity.cooldown": "{name} · {seconds}s 后再次就绪",
 };

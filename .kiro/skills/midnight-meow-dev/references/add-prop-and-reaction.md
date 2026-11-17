@@ -10,11 +10,12 @@ Registration for this whole area is `src/defs/world-index.ts` (not `src/defs/ind
 
 - `SimState.props` is one compact map of touched props for the whole run, so damage survives chunk unload and reload.
 - Fire spread rolls use `hash2(seed, cell, 900 + ticks)`, never the step RNG. Drops use `hash2` of the prop id. Keep it that way.
-- `drops` (including `burst`) apply only when a prop is torn. Burnt props become ash and drop nothing.
-- The cat is never hurt by fire; `FIRE.enemyDamage` applies to enemies only.
-- Scraps open the path: a prop's colliders apply only while it is not scraps. Damaged props keep their full collider.
-- Today `ink` and `fold` have no source (no weapon or enemy applies them) and no rows. Props do not regrow.
-- Card has no wind row; card props accept only `cut` (paper-fence lists `wind` with no row, which is harmless).
+- `drops` (including `burst`) roll only on the first eligible torn destruction. Burning pays nothing but still claims the lifetime roll. Never reset `dropsClaimed` during regrowth or greenhouse renewal.
+- **Cats and enemies ignite and carry fire.** Cat burn damage is 1 HP/s through normal shields/invulnerability; enemies take 0.4 per 0.2 s. Water extinguishes first and grants 1.25 s wet protection. The former fire-safe-cat rule is superseded.
+- Scraps and temporarily folded props open the path; damaged standing props keep their full collider. Use `propBlocks`, not a phase-only test. An expired fold stays open until safe to unfold.
+- Ink (9 s fireproof prop coating) and fold (5 s reversible passage) have registered rows and real sources: smudge/vat for ink, Nicole and one Paper Crane launch pulse per volley for fold. Five flora props regrow after 18–32 s torn / 30–46 s burnt, with occupancy/fire deferral and lifetime loot protection.
+- There are 17 props and 23 unique reaction rows. Card and cloth burn (flammability 0.45 / 0.65); card still has no wind row. `ink-vat` and `wax-candle` use the ink/wax materials.
+- Read [paper-ecology.md](paper-ecology.md) for the complete row matrix, source dispatch, lifecycle, water/fire ordering and test contracts. Numbers live in defs, never in art/UI.
 
 ## Material
 
@@ -58,7 +59,9 @@ export const BURN_STRAW: ReactionDef = {
 };
 ```
 
-A new element source: give a weapon `elements: ["<element>"]` (shots carry it through `shotTag`), or call `ctx.elementHit(state, x, y, radius, "<element>", power)` from a def hook.
+A new element source: give a weapon `elements: ["<element>"]` (shots carry **only the first element** through `shotTag`), or call `ctx.elementHit(state, x, y, radius, "<element>", power)` from a def hook. This context path also dispatches landmark activities. Paper Crane's second `fold` element is an explicit launch pulse, not another per-shot hit.
+
+For reversible treatments reuse `inkRow` / `foldRow` in `reactions/paper-status.ts`; do not import `game/props.ts` into world-registration-time row helpers. `result: "intact"` is metadata, not permission to reset damaged HP. First touch must use material-scaled max HP, and repeated hits refresh deadlines rather than stacking. `melt-wax` uses burnt damage (no loot), not an automatic ignition call.
 
 ## Prop
 
@@ -75,7 +78,7 @@ A new element source: give a weapon `elements: ["<element>"]` (shots carry it th
      colliders: (_seed, x, y, s) => [{ x1: x - 9 * s, y1: y - 6, x2: x + 9 * s, y2: y - 6, radius: 9 * s }],
      durability: 3,                              // times material.durability
      damagedBelow: 0.6,
-     accepts: ["cut"],                           // each needs a row for the material
+     accepts: ["cut", "ink", "fold", "fire"],    // each needs a row for the material
      drops: { shard: 0.8, shardValue: 1, treat: 0.15 },   // burst?: n spills a ring of n shards
      spawn: { clear: 34, scale: [0.85, 1.15] },  // from?: "<decor kind>", chance?, count?, flat?
      art: "paper-crate",
@@ -134,7 +137,9 @@ A new element source: give a weapon `elements: ["<element>"]` (shots carry it th
 - `tests/reactions.test.mjs` checks every row's material and element, one row per pair, every prop's material, accepted elements with a row, art, scraps and names. Add a behaviour test using the file's helpers `quiet()`, `run()`, `findProp(kind, seed)`, `parkAway()` with `applyElement(state, x, y, r, element, power)` / `igniteAt(state, x, y, r)` from `dist/game/sim.js` (patterns: "a torn scarecrow spills a ring of ink shards", "straw burns: fire lights a hay bale and spreads to it").
 - `tests/registry.test.mjs` "biome prop mixes name registered props with art and reaction rows for what they accept".
 - `tests/world.test.mjs` checks props per chunk stay under the cap and biome props stay in their biomes.
-- `tests/gallery.test.mjs` adds the five prop states automatically.
+- `tests/gallery.test.mjs` adds the five base prop previews automatically (intact/damaged/scraps/burning/burnt); it does not automatically preview every runtime ink/fold/regrow overlay.
+- `tests/paper-elements.test.mjs`, `fire-water.test.mjs`: source dispatch, real max HP, deadline refresh, flat-fold no-op, safe unfold/regrow, ink fuel suppression, wax consumption and one lifetime loot roll.
+- `tests/water.test.mjs`, `environment-integration.test.mjs`, `paper-visuals.test.mjs`: wet placement clearance, integrated damage/extinguish ordering, read-only overlays and finite caches.
 
 ## Checklist
 
@@ -142,5 +147,7 @@ A new element source: give a weapon `elements: ["<element>"]` (shots carry it th
 - [ ] prop def registered in world-index.ts, art registered in art-index.ts
 - [ ] listed in at least one biome (or `spawn.from`)
 - [ ] no step RNG in reactions or fire; seeded by `hash2` only
+- [ ] optional `regrow` is flora-only; material-scaled HP, safe collider restoration and lifetime loot claim preserved
+- [ ] water/fire/status behavior and treatment overlays follow paper-ecology.md
 - [ ] `prop.<id>.name` in keys.ts, en.ts, zh.ts
-- [ ] `npm run build && npm test` pass; re-record probes since the world changed
+- [ ] for implementation work, `npm run build && npm test` pass; disclose intentional world changes and do not claim stale local probe references were refreshed

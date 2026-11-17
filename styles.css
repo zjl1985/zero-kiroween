@@ -740,6 +740,13 @@ body[data-cat="nicole"] .profile-title span {
 .buff-active {
   color: var(--seal);
 }
+.buff-burning {
+  color: #a33329;
+  font-weight: 700;
+}
+.buff-wet {
+  color: #355f71;
+}
 /* Top centre: the moon on its dotted arc, the time inside the arc and the lantern string below. */
 .night-sky {
   position: absolute;
@@ -1659,6 +1666,17 @@ body[data-cat="nicole"] .profile-title span {
 }
 .has-touch .seam-tags {
   padding-left: 38px;
+}
+.has-touch .game-hint.context-hint {
+  display: block;
+  line-height: 1.35;
+  padding: 3px 5px;
+  background: rgba(25, 31, 42, 0.88);
+  border-radius: 3px;
+}
+.game-hint.danger-hint {
+  color: #ffd49a;
+  font-weight: 700;
 }
 
 /* ===================================================== responsive */

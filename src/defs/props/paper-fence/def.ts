@@ -8,7 +8,7 @@ export const PAPER_FENCE: PropDef = {
   colliders: (_seed, x, y, s) => [{ x1: x - 39 * s, y1: y - 3, x2: x + 40 * s, y2: y - 3, radius: 3 }],
   durability: 5,
   damagedBelow: 0.6,
-  accepts: ["cut", "wind"],
+  accepts: ["cut", "wind", "ink", "fold", "fire"],
   drops: { shard: 0.5, shardValue: 1, treat: 0 },
   spawn: { from: "fence" },
   art: "paper-fence",

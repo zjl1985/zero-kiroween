@@ -8,7 +8,7 @@ export const MAILBOX: PropDef = {
   colliders: (_seed, x, y) => [{ x1: x, y1: y - 1, x2: x, y2: y - 1, radius: 4 }],
   durability: 3,
   damagedBelow: 0.6,
-  accepts: ["cut"],
+  accepts: ["cut", "ink", "fold", "fire"],
   drops: { shard: 0.5, shardValue: 1, treat: 0.05 },
   spawn: { clear: 30, scale: [0.9, 1.1] },
   art: "mailbox",

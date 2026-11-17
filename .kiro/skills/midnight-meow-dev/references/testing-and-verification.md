@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. The suite has 163 tests at the time of writing. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works. The latest character / scenery refinement has not been deployed or viewed by the agent.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 237 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -19,14 +19,20 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | --- | --- |
 | `registry.test.mjs` | def registries: pools, exclusives, evolution pairs, spawn tables, i18n keys, duplicate / unknown ids, event bus order, engine import isolation, no cat literals in `src/game` / render / UI / main, art registries match defs, icons, `cachedSprite`, landmark / biome art and layouts, biome prop mixes |
 | `reactions.test.mjs` | tearing, scraps opening colliders, fire spread and cap, non-flammable materials, determinism with props and fire, prop state across chunk reloads, migrated fence / bush props, reaction table integrity, pop-up fold, scarecrow burst, straw fire |
-| `gallery.test.mjs` | gallery sections, states, labels, layout bounds, seeded variants without `Math.random` |
+| `environment-integration.test.mjs` | main-step shallow slowing / water-first extinguishing for both cats, real landmark element dispatch and rotor state, localized danger/activity copy, no pickup/upgrade after lethal contact |
+| `fire-water.test.mjs` | radius ignition, carried burn, shields/invulnerability/rescue/defeat, enemy arrival/death handling, wet priority and bridge edges, bounded spread, once-per-prop burn, safe offscreen regrowth/unfolding, lifetime no-farm loot |
+| `landmark-actions.test.mjs` | reachable courts, proximity vs element charging, progress/cooldowns across unloads, finite rewards, safe greenhouse scheduling, deterministic RNG-free activity state |
+| `paper-elements.test.mjs` | unique ink/fold/ink-vat/wax rows, material-scaled HP, refreshed deadlines, flat-fold no-op, vat splash, wax melting, smudge landing, Nicole and once-per-volley crane fold sources |
+| `paper-visuals.test.mjs` | read-only status/effect overlays, real fire-cell marks, deferred prop visuals, finite enemy/combat caches, court progress anchors, registered-bounds occlusion; static command recording, not animation/FPS |
+| `water.test.mjs` | pure local polygons, negative coordinates, shared render vertices, shallow/deep/deck classification, swept movement/corners, spawn recovery, explicit road crossings, placement clearance and teaching basin |
+| `gallery.test.mjs` | gallery sections, base preview states, labels, layout bounds, seeded variants without `Math.random` |
 | `rendering.test.mjs` | Canvas command recording: registered skill previews, landmark markers / depth order, cached alpha-mask tinting (not pixel or performance checks) |
 | `seed.test.mjs` | uint32 bounds, zero, decimal syntax, invalid / overflowing seed rejection |
 | `deployment.test.mjs` | Vercel settings, isolated output allowlist, entry assets and module imports, stale-output cleanup |
 | `world.test.mjs` | 10 x 10 world and chunk tiling, pure chunk content, landmarks, start yard, exploring, edges, spawn ring, leash, discovery, camera, districts and biome props, prop cap |
 | `sim.test.mjs` | determinism, decoy without RNG, single player, hit feedback, `makeRoom` |
 | `characters.test.mjs` | Zero and Nicole kits |
-| `cat-art.test.mjs` | registered appearance metadata, preserved face print / edge, finite caches, deterministic pose geometry / bounds |
+| `cat-art.test.mjs` | registered appearance metadata, official-source visible color contours / silhouette, preserved face details / rim / anchors, finite caches, deterministic pose geometry / bounds |
 | `scenery-art.test.mjs` | district motifs, seed determinism, patch / cottage / tree bounds, cached scenery reuse |
 | `upgrades.test.mjs` | build slots, steps, chest-only evolution, snack, extra weapons, per-cat pools, names |
 | `enemies.test.mjs` | horde ramp and hard cap, phases, crumple split, elites, chests, Boss arrival, sweep, reward, dawn win |
@@ -54,7 +60,9 @@ When adding content, the generic registry, reactions and gallery tests usually c
 2. `npm run build && npm start`.
 3. Open `http://localhost:4173/?start=1` (straight into a run with the saved cat), add `&seed=N` to pin the world, or `/?gallery=1` for the art gallery.
 
-Earlier attempts encountered sandbox permissions. The latest one-static-shot attempt failed because the installed Playwright package's Chromium headless-shell executable is missing; no image was produced. If a screenshot fails, skip it and report the actual error. Do not retry or install browsers just to extend this light verification. Never describe art you have not seen.
+Current evidence: **one static screenshot was captured and viewed** at `output/playwright/paper-ecology-review.png` using **system Chrome**, not the missing Playwright-bundled Chromium. Earlier sandbox/missing-executable failures are historical, not the current result. The image shows selected art only; full gameplay-screen and mobile layout remain unreviewed. No animation, recording, audio or FPS checks were performed; no user art approval is recorded.
+
+For a future authorized attempt, report the actual browser/executable and scope. If it fails, skip it and report the error; do not install browsers or expand verification merely to obtain more evidence. Never describe unviewed art or infer motion/performance from one still.
 
 ## Query parameters
 
@@ -68,11 +76,13 @@ Earlier attempts encountered sandbox permissions. The latest one-static-shot att
 
 ## Commit
 
-1. `git status` and `git diff`; stage files by name (never `git add -A`). Never commit `.agents/` or `output/`.
+Only commit when the user explicitly authorizes it; a documentation update is not implicit authorization.
+
+1. `git --no-pager --no-optional-locks status` and `git --no-pager diff`; stage files by name (never `git add -A`). Never commit `.agents/` or `output/`.
 2. Message: gitmoji + type prefix, for example `✨ feat: add the paper kite prop`, `🐛 fix: ...`, `♻ refactor: ...`, `📝 docs: ...`, `✅ test: ...`.
 3. Commit locally on the current branch. Never push, never change git config, never skip hooks. After a hook failure, fix it and make a new commit.
 4. Delete files with `trash` (git-tracked files may use `git rm`); never silently fall back to permanent deletion for untracked files.
 
 ## Reporting
 
-State what you ran and its result. State what was not checked: whether anyone viewed it in a browser, whether a screenshot was taken, that audio was not heard, that balance and performance at about 100 enemies were not profiled. Passing tests does not mean the user approved the art, and the entry is not finished.
+Report verification accurately. Latest verification: build and 237 passing tests, plus one captured/viewed selected-art screenshot. State what is still unreviewed: full gameplay screen/mobile, motion, audio, balance and FPS at about 100 enemies with fire. Passing tests and a static image do not mean the user approved the art or that the entry is finished.

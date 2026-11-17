@@ -1,9 +1,11 @@
+import { WINDMILL_ACTIVITY } from "../../landmark-activities.js";
 import type { LandmarkDef } from "../../types.js";
 
 /** A paper windmill on a mound over the farmland, two lightable pumpkins at its door. */
 export const PAPER_WINDMILL: LandmarkDef = {
   id: "paper-windmill",
   radius: 180,
+    activity: WINDMILL_ACTIVITY,
   layout(_l, b) {
     b.add("windmill", 0, -10, 1);
     b.wall(-30, -16, 30, -16, 18);

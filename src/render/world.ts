@@ -1,5 +1,5 @@
 import { activeWeaponArt, catArt, ENEMY_ART } from "./art-index.js";
-import { drawCraftShot, drawInkShard } from "./craft-combat.js";
+import { drawCraftShot, drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import {
   drawCraftEnemy,
   drawEnemyEffect,
@@ -7,6 +7,10 @@ import {
   drawEnemyShot,
 } from "./craft-enemies.js";
 import { playerStats } from "../game/upgrades.js";
+import { enemyRadius } from "../game/sim.js";
+import { landmarks } from "../game/world-gen.js";
+import { decorPiece, type ArtBounds } from "./art-registry.js";
+import { drawActorPaperStatus, drawPaperStatusEffect } from "./paper-status-art.js";
 import {
   drawCombatGround,
   drawCombatFront,
@@ -16,7 +20,7 @@ import {
 } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
-import { drawPixelStroke, drawImpact, drawFootDust } from "./pixel.js";
+import { drawPixelStroke, drawFootDust } from "./pixel.js";
 import {
   drawSky,
   drawNightShift,
@@ -46,6 +50,7 @@ import {
   drawStun,
   drawTreat,
   drawChest,
+  drawLandmarkActivity,
 } from "./craft-juice.js";
 import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
@@ -66,6 +71,15 @@ interface Sprite {
   y: number;
   draw: () => void;
 }
+/** Sprite bounds overlap the cat's visible body, while their base sorts in front. */
+export function paperOccludesActor(x: number, y: number, s: number, bounds: ArtBounds, actor: { x: number; y: number }): boolean {
+  return actor.y <= y + 5 && actor.x + 20 > x + bounds.l * s && actor.x - 20 < x + bounds.r * s &&
+    actor.y > y + bounds.t * s && actor.y - 65 < y + bounds.b * s;
+}
+const COMMON_BOUNDS: Readonly<Record<string, ArtBounds>> = {
+  tree: { l: -82, r: 82, t: -158, b: 16 },
+  cottage: { l: -120, r: 100, t: -144, b: 16 },
+};
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -113,17 +127,13 @@ export function drawWorld(
     drawEnemyGround(ctx, sim);
     drawInteractGround(ctx, sim, view.time);
     drawFireGround(ctx, sim, cam);
+    for (const landmark of landmarks(seed)) if (inView(near, landmark.x, landmark.y, landmark.radius))
+      drawLandmarkActivity(ctx, sim, landmark);
   }
-  const fadeFor = (x: number, y: number, s: number) =>
-    !!sim &&
-    Math.abs(sim.player.x - x) < 36 * s &&
-    sim.player.y < y + 5 &&
-    sim.player.y > y - 28 * s;
   const town = worldSprites(ctx, seed, cam, view.time, (d) =>
-    d.kind === "tree" || d.kind === "cottage" || d.kind === "clock-tower" || d.kind === "chapel" || d.kind === "stall"
-      ? fadeFor(d.x, d.y, d.s * 2.4)
-      : fadeFor(d.x, d.y, d.s),
-    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced },
+    !!sim && paperOccludesActor(d.x, d.y, d.s,
+      decorPiece(d.kind)?.bounds ?? COMMON_BOUNDS[d.kind] ?? { l: -36, r: 36, t: -28, b: 5 }, sim.player),
+    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced, activities: sim?.landmarkEvents },
   );
   const sprites: Sprite[] = [...town.sprites];
   const addSprite = (y: number, draw: () => void) => sprites.push({ y, draw });
@@ -188,6 +198,7 @@ export function drawWorld(
       draw: () => {
         drawFootDust(ctx, pose);
         catArt(pose.id).draw(ctx, pose);
+        if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },
     });
   };
@@ -268,6 +279,7 @@ export function drawWorld(
           draw: () => {
             drawCraftEnemy(ctx, e, view.time, look);
             drawHitFlash(ctx, e);
+            if (e.spawnTime <= 0) drawActorPaperStatus(ctx, e, view.time, enemyRadius(e));
             drawStun(ctx, e, view.time);
           },
         });
@@ -303,10 +315,11 @@ export function drawWorld(
     for (const effect of sim.impacts) {
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
       if (effect.kind !== "moon-stun" && !inView(near, effect.x, effect.y, 60)) continue;
+      if (drawPaperStatusEffect(ctx, effect)) continue;
       if (drawPropEffect(ctx, effect)) continue;
       if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")
-        drawImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
+        drawPaperImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
       else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
     }
     if (cues.length) drawCueWorld(ctx, cues, sim, view.time, reduced);

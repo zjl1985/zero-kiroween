@@ -7,7 +7,7 @@ description: Development workflow for Midnight Meow (猫猫守夜), the papercra
 
 Midnight Meow is a TypeScript + Canvas 2D static site (no framework, no bundler, no runtime dependencies). One chosen cat survives a 10-minute night in a bounded, seeded papercraft town. Content is built as **definitions + hooks + registries**: every cat, weapon, passive, evolution, enemy, prop, reaction, landmark and biome is a def file plus an art file, registered with one line in an index. The generic simulation and renderer look content up by id.
 
-Before you start, read `HANDOFF.md` and `PLAN.md` (Chinese; the current requirements) and `.kiro/steering/*.md`. `docs/archive/` is obsolete history.
+Before you start, read `HANDOFF.md`, `PLAN.md` and `.kiro/steering/*.md`. `docs/archive/` is obsolete history. The latest user requirement explicitly includes the art/interaction gaps and paper actors igniting with water extinguishing them; it supersedes old fire-safe-cat rules and deferred ecology gaps. See [references/paper-ecology.md](references/paper-ecology.md) for the implemented contracts.
 
 ## Layers and import rules
 
@@ -17,21 +17,24 @@ src/engine/    content-agnostic: registry.ts (createRegistry), events.ts (create
 src/defs/      content. types.ts (all def interfaces), registries.ts (empty registries + SIM_EVENTS),
                index.ts (registers sim defs, gates hooks), world-index.ts (materials, reactions,
                props, landmarks, biomes; also imported by world-gen), plus data modules
-               progression.ts, horde.ts, materials.ts, fire.ts and one folder or file per def.
+               progression.ts, horde.ts, materials.ts, fire.ts, water.ts, ecology.ts,
+               landmark-activities.ts and one folder or file per def.
                Sim def files import defs/types, other defs and low-level game helpers (game/types,
                rng, collision, scenery, world-gen); never game/sim.ts, the facades or render.
                Art files (art.ts / <id>.art.ts) sit beside their defs, import render helpers and may
                read pure helpers from game/sim.ts or the facades (enemyRadius, playerStats).
 src/game/      generic DOM-free simulation: sim.ts (createSim, step, snapshot), props.ts (reactions,
-               fire), stats.ts (playerStats fold), world-gen.ts (pure seeded world), interactions.ts,
+               fire/lifecycle), paper-status.ts, water.ts, landmark-actions.ts,
+               stats.ts (playerStats fold), world-gen.ts (pure seeded world), interactions.ts,
                types.ts (SimState, STATS, EFFECT_LIFE, FX_CAP, EffectKind, Notice). Facades
                characters.ts, upgrades.ts, enemies.ts keep the old export names. No per-cat literals.
 src/render/    Canvas drawing. art-registry.ts (art interfaces and registries), art-index.ts
                (registers every art entry; the sim never imports it), paper-kit.ts, prop-kit.ts,
-               variants.ts, craft-*.ts, world.ts, gallery.ts, timeline.ts. Reads SimState, never
+               paper-face.ts, paper-status-art.ts, water-art.ts, variants.ts, craft-*.ts,
+               world.ts, gallery.ts, timeline.ts. Reads SimState, never
                mutates it, never uses the sim RNG.
 src/ui/        DOM UI: hud.ts, upgrade-cards.ts, character-panel.ts, journal.ts, gallery-layout.ts
-               (pure, tested), touch.ts, ink.ts.
+               (pure, tested), environment-copy.ts (localized ecology guidance), touch.ts, ink.ts.
 src/content/   i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys).
 src/audio/     sfx.ts, synthesized Web Audio cues; main.ts plays them from diffs of sim counters.
 src/cats/      Meow Wall official head data (meow-wall-art.ts CAT_VARIANTS, keyed by cat id).
@@ -49,15 +52,18 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 - **i18n.** Every user-facing string goes through `t(locale, key)`. Add each key to `src/content/keys.ts`, `en.ts` and `zh.ts`. `zh` stays the default; ask before removing the Chinese pack.
 - **Deterministic sim.** Randomness only from the `Rng` the sim passes to `WeaponDef.step` and `EnemyBehaviour.steer`. World content is a pure hash (`hash2` in world-gen). Fire spread uses `hash2`, never the step RNG. Registration order is behaviour: append new defs at the end of a list unless you mean to change order.
 - **Gameplay numbers live in def files** (`src/defs/...`), not in render or UI code. Presentation timing lives in `src/render/timeline.ts`.
-- **Files and git.** Delete with `trash` (git-tracked files may use `git rm`). Commit locally with gitmoji + type prefix (`✨ feat: ...`, `🐛 fix: ...`, `♻ refactor: ...`, `📝 docs: ...`). Never push, never change git config, never commit `.agents/` or `output/`.
+- **Paper ecology.** Cats and enemies carry fire; water extinguishes before burn damage and grants temporary wet protection. Shared water polygons govern art/collision, and fold/regrowth must not restore occupied colliders or reset lifetime loot claims. Ink/fold sources, 17 props, 23 reaction rows and four landmark activities are implemented, not deferred.
+- **Files and git.** Delete with `trash` (git-tracked files may use `git rm`). Only commit when explicitly authorized, locally with gitmoji + type prefix (`✨ feat: ...`, `🐛 fix: ...`, `♻ refactor: ...`, `📝 docs: ...`). Never push, never change git config, never commit `.agents/` or `output/`.
 - **Honesty.** Build and tests passing do not mean the art is approved. Never claim the art is final or the entry finished. Say plainly what was not viewed in a browser, not heard, or not profiled.
 
 ## Verification routine
 
 1. `npm run build` (tsc to `dist/`, then isolated static output to `site/`; Node.js 22+).
 2. `npm test` (`npm run build && node --test tests/*.test.mjs`; tests import from `dist/` and inspect `site/`).
-3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first). The sandbox has blocked Playwright and headless Chromium; if it fails, skip it and say so.
+3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first). The latest screenshot used system Chrome successfully; missing bundled Chromium is an earlier failure, not evidence that no screenshot exists. If a new authorized attempt fails, report the actual error without expanding verification.
 4. No animation or video-recording checks unless the user asks.
+
+Latest verification: build + **237 passing tests**, and one captured/viewed static screenshot at `output/playwright/paper-ecology-review.png` showing selected art only. No animation, recording, audio or FPS checks; full gameplay-screen/mobile review and user approval remain open.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).
 
@@ -69,6 +75,7 @@ Details: [references/testing-and-verification.md](references/testing-and-verific
 | Add a weapon, passive or evolution | [references/add-weapon-passive-evolution.md](references/add-weapon-passive-evolution.md) |
 | Add an enemy or behaviour | [references/add-enemy.md](references/add-enemy.md) |
 | Add a prop, material or reaction row | [references/add-prop-and-reaction.md](references/add-prop-and-reaction.md) |
+| Change water, fire/status, treatments, regrowth or landmark activities | [references/paper-ecology.md](references/paper-ecology.md) |
 | Add a landmark or district biome | [references/add-landmark-biome.md](references/add-landmark-biome.md) |
 | Add or change strings | [references/i18n.md](references/i18n.md) |
 | Draw art with the paper kit, check it in the gallery | [references/paper-kit-and-gallery.md](references/paper-kit-and-gallery.md) |

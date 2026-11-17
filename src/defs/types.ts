@@ -393,6 +393,8 @@ export interface PropDef {
     /** Shards spilled in a ring when the shard roll hits (default 1, dropped at the prop). */
     readonly burst?: number;
   };
+  /** Only renewable paper flora regrows; handmade structures stay destroyed. */
+  readonly regrow?: { readonly seconds: number; readonly burntSeconds?: number };
   readonly spawn: PropSpawn;
   /** Art id the renderer looks up. */
   readonly art: string;
@@ -418,6 +420,35 @@ export interface ReactionDef {
   readonly result: PropPhase;
   /** Impact kind left where it happened. */
   readonly fx: EffectKind;
+}
+
+// ---------------------------------------------------------------- water
+
+/** Convex, counter-clockwise vertices in world coordinates; never renderer-only curves. */
+export type WaterPolygon = readonly Readonly<Point>[];
+export interface WaterCrossing {
+  readonly id: string;
+  readonly polygon: WaterPolygon;
+}
+export interface WaterShape {
+  readonly id: string;
+  readonly seed: number;
+  readonly shore: WaterPolygon;
+  /** Empty for an entirely shallow teaching basin. */
+  readonly core: WaterPolygon;
+  readonly crossings: readonly WaterCrossing[];
+}
+export interface WaterRegion extends WaterShape {
+  /** Core minus the explicit dry crossings, decomposed into convex collision pieces. */
+  readonly solids: readonly WaterPolygon[];
+  readonly bounds: { readonly minX: number; readonly minY: number; readonly maxX: number; readonly maxY: number };
+}
+export interface WaterArea {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  hash(salt: number): number;
 }
 
 // ---------------------------------------------------------------- landmarks
@@ -453,6 +484,15 @@ export interface LandmarkArea {
   readonly spineX: number;
   readonly spineClear: number;
 }
+export interface LandmarkActivity {
+  readonly radius: number;
+  readonly seconds: number;
+  readonly cooldown: number;
+  readonly notice: Notice;
+  /** When set, an element hit charges the activity instead of proximity alone. */
+  readonly element?: Element;
+  activate(state: SimState, landmark: LandmarkPlace, ctx: SimContext): void;
+}
 export interface LandmarkDef {
   readonly id: string;
   /** Footprint radius: generic decor keeps out, roads stop at its rim. */
@@ -463,6 +503,9 @@ export interface LandmarkDef {
   keepOut?(l: LandmarkPlace, x: number, y: number, pad: number): boolean;
   /** Seeded, pure layout: decor, colliders and interaction spots in call order. */
   layout(l: LandmarkPlace, b: LandmarkBuilder): void;
+  readonly activity?: LandmarkActivity;
+  /** Pure world-space water footprint; roads add explicit dry crossing polygons. */
+  water?(l: LandmarkPlace): readonly WaterShape[];
 }
 
 // ---------------------------------------------------------------- districts
@@ -496,4 +539,6 @@ export interface BiomeDef {
   readonly decor: Partial<DecorMix>;
   /** Props in roll order (part of the world-gen hash sequence). */
   readonly props: readonly BiomeProp[];
+  /** Candidate water pockets; world-gen keeps them clear of landmarks and map edges. */
+  water?(area: WaterArea): readonly WaterShape[];
 }

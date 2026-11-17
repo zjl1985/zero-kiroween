@@ -31,7 +31,15 @@ Caching, `src/engine/sprite.ts`: `cachedSprite(key, w, h, scale, paint, anchor?)
 - Cold night tones against warm lamp and window light; keep cats, ink and danger readable.
 - Ground details come in clusters; houses have wall and roof volume; tree crowns are grouped leaf clusters.
 - Fix shape design before adding decoration. Noise over flat shapes does not count as paper.
-- Keep Zero's and Nicole's Meow Wall face identifiers (`src/cats/`).
+- Keep Zero's and Nicole's official Meow Wall data untouched (`src/cats/`). `paper-face.ts` traces visible color contours and silhouette from it, preserving last-rectangle-wins layering, holes, small details and original anchors. World heads and portraits share cached paper cuts and the narrow rim, not a replacement face.
+
+## Ecology art contracts
+
+- See [paper-ecology.md](paper-ecology.md) for shared status and geometry. `water-art.ts` draws the same straight polygon vertices as collision: shallow shelf, dark blocked core and explicit dry deck; never substitute rough/smoothed water outlines. Decks draw after roads.
+- `paper-status-art.ts` adds carried flame/char or damp drops/ripples **after actual actor art**, excluding decoys. Keep eyes/markings readable. Steam, ink-wash, regrow and landmark-reward have distinct cached paper cues.
+- `craft-props.ts` masks ink to the sprite alpha, folds the existing cut and shows regrowth anticipation without restoring intact art early. A fold remains drawn while `foldedUntil` exists, including occupancy deferral. Ground fire marks real 24-unit squares and draws flames only for positive live cells, not ash or stale `burnAt` alone.
+- Enemy facets, wing parts and sleeves, and combat cranes/stars/flecks/open rings use finite cached pieces with live transforms. Do not key textured sprites by actor id, time or continuous angle; tests sample static times but do not establish motion quality or FPS.
+- Activity marks use shared court anchors and sim progress/cooldown. Windmill's cached tower contains no sails; `DecorPiece.live` draws one rotating three-variant cached rotor with the body's depth/pop-up transform. Tall-building occlusion follows registered bounds rather than a historical id list.
 
 ## Minimal example
 
@@ -67,11 +75,13 @@ function signBoard(ctx: Ctx, v: number): void {
 
 A newly registered cat, enemy, prop, landmark, biome, weapon or passive shows up automatically. A new content kind needs: a `GalleryKind` and states in `gallery-layout.ts`, a cell size, a painter in `gallery.ts`, `gallery.section.<name>` and `gallery.state.<state>` keys, and an update to the section count in `tests/gallery.test.mjs`.
 
-The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview` draws its own skill pose and effect. Landmark previews build initial interaction-marker state from registered spots (including the moon lantern's starting charge), and use `craft-juice.ts` in world depth order without starting a sim or duplicating the decor bodies. None of this has been visually approved in a browser.
+The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview` draws its own skill pose and effect. Landmark previews build initial interaction-marker state from registered spots (including the moon lantern's starting charge), and use `craft-juice.ts` in world depth order without starting a sim or duplicating the decor bodies. A single system-Chrome screenshot at `output/playwright/paper-ecology-review.png` was captured and viewed for selected art only. It is not coverage of every gallery entry, every runtime status, the full gameplay screen or mobile layout, and the user has not approved the art. The gallery's five base prop states do not automatically include runtime ink/fold/regrowth treatments.
 
 ## Tests
 
 `tests/gallery.test.mjs`: every registered entry gets a cell; states per kind; labels are i18n keys; cells stay inside the page and never overlap; variants are stable, spread within ranges and never call `Math.random`; `tornEdge` stays exported. `tests/registry.test.mjs`: art registries match defs and `cachedSprite` is keyed, capped and DOM-free. `tests/rendering.test.mjs` records Canvas commands to check skill dispatch, landmark markers / depth order and cached alpha-mask tinting; it does not check browser pixels or frame rate.
+
+`tests/paper-visuals.test.mjs`, `water.test.mjs`, `cat-art.test.mjs` and `scenery-art.test.mjs` additionally check shared water vertices, official-face contours, finite caches, actor/prop status cues, court anchors and bounds. These are geometry/command checks, not browser-pixel, animation, audio or FPS validation. Latest verification: build and 237 passing tests.
 
 ## Checklist
 

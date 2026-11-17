@@ -6,6 +6,7 @@ import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
 import { CAT_ART } from "../dist/render/art-index.js";
 import { CAT_DETAIL_BOUNDS, catDetailPose } from "../dist/render/cat-detail.js";
 import { drawCraftCat } from "../dist/render/craft-cat.js";
+import { officialFaceContours, traceFaceRects, PAPER_FACE_RIM } from "../dist/render/paper-face.js";
 
 // Static Canvas-command contracts, not pixel comparisons or an animation/capture loop.
 class RecordingPath {
@@ -130,27 +131,63 @@ test("registered tailoring changes silhouettes, layered hems, collars and access
   assert.notDeepEqual(shapes[0], shapes[1], "not merely recolours of one body");
 });
 
-test("official face print, narrow silhouette rim, head position and portraits remain intact", (t) => {
+function inside(contours, x, y) {
+  let hit = false;
+  for (const loop of contours) for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const a = loop[i], b = loop[j];
+    if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) hit = !hit;
+  }
+  return hit;
+}
+function assertCoverage(rects, face) {
+  const xs = [...new Set(rects.flatMap((r) => [r.x, r.x + r.w]))].sort((a, b) => a - b);
+  const ys = [...new Set(rects.flatMap((r) => [r.y, r.y + r.h]))].sort((a, b) => a - b);
+  const areas = new Map();
+  for (let j = 0; j < ys.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) {
+    const x = (xs[i] + xs[i + 1]) / 2, y = (ys[j] + ys[j + 1]) / 2;
+    const source = rects.findLast((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const layers = face.layers.filter((layer) => inside(layer.contours, x, y));
+    assert.deepEqual(layers.map((l) => l.color), source ? [source.fill] : [], `visible official colour at ${x},${y}`);
+    assert.equal(inside(face.silhouette, x, y), !!source);
+    if (source) areas.set(source.fill, (areas.get(source.fill) ?? 0) + (xs[i + 1] - xs[i]) * (ys[j + 1] - ys[j]));
+  }
+  for (const layer of face.layers) assert.equal(layer.area, areas.get(layer.color));
+}
+
+test("paper colour contours preserve official source coverage, palette, markings and overlap order", () => {
+  for (const art of CAT_ART.all()) {
+    const source = officialRects(art.id), snapshot = structuredClone(source);
+    const face = officialFaceContours(art.id);
+    assertCoverage(source, face);
+    assert.deepEqual(source, snapshot, "official rectangles remain unchanged");
+    assert.equal(officialFaceContours(art.id), face, "one finite contour set per official identity");
+    assert.ok(face.layers.length < source.length / 3, "regions are grouped by colour, not rectangular print commands");
+  }
+  const synthetic = [
+    { x: 0, y: 0, w: 8, h: 8, fill: "#111111" },
+    { x: 2, y: 2, w: 4, h: 4, fill: "#eeeeee" },
+    { x: 8, y: 8, w: 2, h: 2, fill: "#111111" },
+  ];
+  assertCoverage(synthetic, traceFaceRects(synthetic));
+});
+
+test("layered face cuts retain a narrow rim, old head placement and shared paper portraits", (t) => {
   environment(t);
   for (const art of CAT_ART.all()) {
-    const ctx = draw(art), [edge, head] = images(ctx).slice(-2);
+    const ctx = draw(art), [edge, head] = images(ctx).slice(-2), face = officialFaceContours(art.id);
     assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55]);
     assert.deepEqual(edge.args.slice(1), [-37, -73, 74, 59]);
-    const printed = paint(head).filter((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-over");
-    const expected = officialRects(art.id).map((r) => {
-      const n = parseInt(r.fill.slice(1), 16), color = n >> 16 < 44 && ((n >> 8) & 255) < 44 && (n & 255) < 44 ? "#30252f" : r.fill;
-      const x = Math.round((4 + r.x * 0.16) * 2) / 2, y = Math.round((4 + r.y * 0.16) * 2) / 2;
-      return { color, rect: [x, y, Math.max(0.5, Math.round((4 + (r.x + r.w) * 0.16) * 2) / 2 - x), Math.max(0.5, Math.round((4 + (r.y + r.h) * 0.16) * 2) / 2 - y)] };
-    });
-    assert.deepEqual(printed.map((c) => ({ color: c.fillStyle, rect: c.args })), expected);
-    const rim = paint(edge).filter((c) => c.op === "drawImage")[1];
-    const stamps = paint(rim).filter((c) => c.op === "drawImage");
-    assert.equal(stamps.length, 12);
-    for (const stamp of stamps) assert.ok(Math.abs(Math.hypot(stamp.args[1] - 4, stamp.args[2] - 4) - 1.25) < 1e-10, "rim stays .625 drawing units wide");
-    assert.equal(ctx.calls.at(-1), head, "nothing paints over the official face");
+    for (const layer of face.layers) assert.ok(fills(paint(head), layer.color).length, "every visible official colour is used unchanged");
+    assert.ok(!paint(head).some((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-over"), "no raw rectangle print");
+    assert.ok(paint(head).some((c) => c.op === "stroke"), "clipped sheet lips and thickness");
+    assert.ok(paint(head).some((c) => c.op === "fill" && c.args[0]?.ops.some((op) => op[0] === "quadraticCurveTo")), "subpixel scissor turns, not generic replacement geometry");
+    const rim = paint(edge).find((c) => c.op === "stroke" && c.strokeStyle === art.body.rim);
+    assert.equal(rim.lineWidth / 2, PAPER_FACE_RIM);
+    assert.equal(PAPER_FACE_RIM, 0.625);
+    assert.equal(ctx.calls.at(-1), head);
     const portrait = canvas().getContext("2d");
     art.portrait(portrait, pose(art.id), 0.1);
-    assert.deepEqual(portrait.calls.filter((c) => c.op === "fillRect").map((c) => c.fillStyle), officialRects(art.id).map((r) => r.fill));
+    assert.equal(images(portrait).at(-1).args[0], head.args[0], "world and portrait share the exact face cut");
   }
 });
 
@@ -232,7 +269,7 @@ test("cached body subparts and lamp halo fit the fixed local envelope in represe
 });
 
 test("generic tailoring has no cat literals, wall-clock/RNG dependencies or time-keyed sprites", () => {
-  for (const file of ["cat-detail.ts", "craft-cat.ts"]) {
+  for (const file of ["cat-detail.ts", "craft-cat.ts", "paper-face.ts"]) {
     const text = readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8");
     for (const art of CAT_ART.all()) assert.ok(!text.includes(`"${art.id}"`), `${file} does not dispatch by cat id`);
     assert.doesNotMatch(text, /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b/);

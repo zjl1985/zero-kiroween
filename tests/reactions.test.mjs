@@ -11,6 +11,7 @@ import { PROP_ART } from "../dist/render/art-index.js";
 import { POPUP, popupStep, popupTarget } from "../dist/render/timeline.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
 import { missingKeys } from "../dist/content/i18n.js";
+import { waterAt, waterRegionsNear } from "../dist/game/water.js";
 
 const SEED = 5;
 /** No spawns, no waves, no Boss, no treats: just the cat, the town and its props. */
@@ -119,7 +120,8 @@ test("fire next to paper grass spreads, stays under the cap, scorches ink standi
   assert.equal(s.stats.propsTorn, 0);
   const e = s.enemies.find((x) => x.id === 999);
   assert.ok(!e || e.hp < 500, "ink in the fire took damage");
-  // Ash never burns again.
+  // Spent fuel stays ash until its natural regrowth deadline (not permanent fireproofing).
+  assert.ok(s.props[grass.id].regrowAt > s.elapsed);
   const cell = `${Math.floor(grass.x / FIRE.cell)},${Math.floor((grass.y - 4) / FIRE.cell)}`;
   assert.ok(cell in s.fire.ash);
   igniteAt(s, grass.x, grass.y - 4, 2);
@@ -140,18 +142,91 @@ test("a big fire is capped at FIRE.maxCells", () => {
   }
 });
 
-test("card and cloth do not burn; fire on a fence does nothing", () => {
-  for (const id of ["card", "cloth"]) {
-    assert.equal(MATERIALS.get(id).flammability, 0);
-    assert.equal(reactionFor(id, "fire"), undefined, `no ${id} x fire row`);
+/** Isolate one real prop definition at a chosen cell centre, without changing world generation. */
+function withPropFixture(kind, x, y, check) {
+  const s = quiet(), def = PROP_DEFS.get(kind);
+  s.build.weapons = [];
+  clearWorldCache();
+  const { cx, cy } = chunkOf(x, y), chunk = chunkContent(s.seed, cx, cy),
+    p = { id: `${cx},${cy}#0`, kind, x, y: y + def.size.d * 0.25, s: 1, seed: 0 };
+  chunk.props.splice(0, chunk.props.length, p);
+  try { check(s, p, def); }
+  finally { clearWorldCache(); }
+}
+
+test("ink is nonflammable; fire does not consume an isolated ink vat", () => {
+  assert.equal(MATERIALS.get("ink").flammability, 0);
+  assert.equal(reactionFor("ink", "fire"), undefined);
+  withPropFixture("ink-vat", 492, 372, (s, p) => {
+    igniteAt(s, p.x, p.y, 30);
+    applyElement(s, p.x, p.y, 30, "fire", 10);
+    run(s, 30);
+    assert.equal(burningCount(s), 0);
+    assert.equal(propPhase(s, p.id), 0);
+    assert.equal(s.props[p.id], undefined);
+  });
+});
+
+test("all card and cloth props accept fire, with lower flammability and higher durability than thin paper", () => {
+  const thin = MATERIALS.get("thin-paper");
+  for (const [id, expected] of [["card", 0.45], ["cloth", 0.65]]) {
+    const material = MATERIALS.get(id);
+    assert.equal(material.flammability, expected);
+    assert.ok(material.flammability < thin.flammability);
+    assert.ok(material.durability > thin.durability);
+    assert.equal(reactionFor(id, "fire")?.id, `burn-${id}`, "parent registers the new burn row");
+    for (const def of PROP_DEFS.all().filter((p) => p.material === id))
+      assert.ok(def.accepts.includes("fire"), `${def.id} accepts fire`);
   }
-  const s = quiet(),
-    fence = findProp("paper-fence");
-  parkAway(s, fence);
-  igniteAt(s, fence.x, fence.y - 2, 30);
-  applyElement(s, fence.x, fence.y - 2, 30, "fire", 10);
-  assert.equal(burningCount(s), 0);
-  assert.equal(propPhase(s, fence.id), 0);
+});
+
+for (const kind of ["paper-crate", "laundry-line"]) {
+  test(`${kind} catches from its fire reaction and burns down over paced ticks without loot`, () => {
+    withPropFixture(kind, 492, 372, (s, p, def) => {
+      applyElement(s, 492, 372, 0, "fire", 1);
+      assert.ok(burningCount(s) > 0);
+      const ticks = Math.ceil(propMaxHp(def) / FIRE.propBurn);
+      assert.ok(ticks > Math.ceil(propMaxHp(PROP_DEFS.get("paper-grass")) / FIRE.propBurn));
+      run(s, Math.round((ticks - 1) * FIRE.tick / DT));
+      assert.ok(propPhase(s, p.id) < 2, "thicker paper does not disappear in one tick");
+      run(s, Math.round(FIRE.tick / DT) + 1);
+      assert.equal(propPhase(s, p.id), 2);
+      assert.equal(s.props[p.id].burnt, true);
+      assert.equal(s.stats.propsTorn, 0);
+      assert.equal(s.pickups.length + s.treats.length, 0);
+    });
+  });
+}
+
+test("actual thin-paper, card and cloth fuel cannot ignite in water or spread from an extinguished cell", () => {
+  const regions = waterRegionsNear(SEED, 480, 2700, 12000);
+  let wet;
+  for (const r of regions) {
+    for (let iy = Math.floor(r.bounds.minY / FIRE.cell); iy <= Math.floor(r.bounds.maxY / FIRE.cell) && !wet; iy++)
+      for (let ix = Math.floor(r.bounds.minX / FIRE.cell); ix <= Math.floor(r.bounds.maxX / FIRE.cell); ix++) {
+        const x = (ix + 0.5) * FIRE.cell, y = (iy + 0.5) * FIRE.cell;
+        if (["shallow", "deep"].includes(waterAt(SEED, x, y))) { wet = { x, y, key: `${ix},${iy}` }; break; }
+      }
+    if (wet) break;
+  }
+  assert.ok(wet, "a real water cell exists");
+  for (const kind of ["paper-grass", "paper-crate", "laundry-line"]) {
+    withPropFixture(kind, 492, 372, (s) => {
+      igniteAt(s, 492, 372, 0);
+      assert.equal(burningCount(s), 1, `${kind} is genuine fuel on dry ground`);
+    });
+    withPropFixture(kind, wet.x, wet.y, (s, p) => {
+      igniteAt(s, wet.x, wet.y, 0);
+      assert.equal(burningCount(s), 0, `${kind} cannot ignite in water`);
+      s.fire.cells[wet.key] = FIRE.burnTime;
+      s.fire.clock = FIRE.tick - DT;
+      run(s, 1);
+      assert.equal(burningCount(s), 0, "water removes the source before this tick can spread");
+      assert.equal(s.props[p.id], undefined, "extinguished fire does not consume wet fuel");
+      assert.equal(s.stats.cellsBurnt, 0);
+      assert.deepEqual(s.fire.ash, {});
+    });
+  }
 });
 
 test("the same seed and inputs give identical snapshots, props and fire included", () => {

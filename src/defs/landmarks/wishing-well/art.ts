@@ -1,7 +1,7 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
-import { grassTuft, leaf } from "../../../render/craft-scene.js";
-import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
-import { box, glow, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
+import { grassTuft } from "../../../render/craft-scene.js";
+import { paperCut } from "../../../render/paper-kit.js";
+import { box, glow, hash, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 
 import { POND } from "./def.js";
 
@@ -56,26 +56,11 @@ export const WISHING_WELL_ART: LandmarkArt = {
   ground(ctx, l) {
     const { x, y, seed } = l;
     // A cobbled ring around the well.
-    const ring = oval(x, y - 30, 70, 34, seed, 0.06);
+    const ring = oval(x, y - 42, 70, 20, seed, 0.06);
     piece(ctx, ring, "#8b8174", { shadow: 1.4, edge: "#b9ab92", texture: 0.85, thickness: 1.2 });
-    stitch(ctx, oval(x, y - 30, 64, 30, seed, 0.06), "#cdbb98", 0.6);
-    // The paper-boat pond in front.
-    const py = y + POND.dy,
-      pond = oval(x, py, POND.rx, POND.ry, seed + 3, 0.12);
-    paperCut(ctx, pond, { color: "#2c4560", shadow: 2, thickness: 1.8, texture: 0.75, edge: "#7d9bb0" });
-    ctx.save();
-    ctx.clip(pond);
-    for (let i = 0; i < 14; i++) {
-      const rx = x + (hash(seed + i) - 0.5) * POND.rx * 1.7,
-        ry = py + (hash(seed + i * 3) - 0.5) * POND.ry * 1.4,
-        ripple = new Path2D();
-      ripple.moveTo(rx, ry);
-      ripple.quadraticCurveTo(rx + 8, ry - 2, rx + 17, ry);
-      stroke(ctx, ripple, "#8fb0c4", 0.8, 0.6);
-    }
-    glow(ctx, x + 30, py - 6, 40, "#cdb8f2", 0.12, 0.5);
-    ctx.restore();
-    stitchAlong(ctx, oval(x, py, POND.rx - 4, POND.ry - 3, seed + 3, 0.12), "#a8c0cc", 0.5);
+    stitch(ctx, oval(x, y - 42, 64, 17, seed, 0.06), "#cdbb98", 0.6);
+    // The shared water pass paints the exact shore/core before this floating detail.
+    const py = y + POND.dy;
     for (let i = 0; i < 4; i++)
       paperCut(ctx, oval(x + (hash(seed + i * 7) - 0.5) * POND.rx * 1.4, py + (hash(seed + i * 9) - 0.5) * POND.ry, 8, 3.6, seed + i, 0.12), {
         color: "#5d7a4c",

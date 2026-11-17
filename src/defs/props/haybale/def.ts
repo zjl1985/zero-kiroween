@@ -8,7 +8,7 @@ export const HAYBALE: PropDef = {
   colliders: (_seed, x, y, s) => [{ x1: x - 12 * s, y1: y - 6, x2: x + 12 * s, y2: y - 6, radius: 11 * s }],
   durability: 4,
   damagedBelow: 0.6,
-  accepts: ["cut", "wind", "fire"],
+  accepts: ["cut", "wind", "fire", "ink", "fold"],
   drops: { shard: 0.35, shardValue: 1, treat: 0.04 },
   spawn: { clear: 44, scale: [0.85, 1.15] },
   art: "haybale",

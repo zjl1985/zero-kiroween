@@ -5,13 +5,14 @@ import { CATS, LANDMARK_DEFS } from "../dist/defs/index.js";
 import { cachedSprite, clearSpriteCache } from "../dist/engine/sprite.js";
 import { MOON_LANTERN } from "../dist/game/interactions.js";
 import { FLAT_DECOR, landmarkParts, landmarks } from "../dist/game/world-gen.js";
-import { CAT_ART, LANDMARK_ART } from "../dist/render/art-index.js";
+import { CAT_ART, LANDMARK_ART, decorPiece } from "../dist/render/art-index.js";
 import { drawInteractable } from "../dist/render/craft-juice.js";
 import { drawProp } from "../dist/render/craft-props.js";
 import { landmarkPreview, worldSprites } from "../dist/render/craft-world.js";
 import { paintGallery } from "../dist/render/gallery.js";
 import { tintedSprite } from "../dist/render/sprite-tint.js";
 import { POPUP } from "../dist/render/timeline.js";
+import { drawWaterShape } from "../dist/render/water-art.js";
 
 // Command recording only: these tests check dispatch/compositing, not browser pixels.
 class RecordingPath {
@@ -87,22 +88,85 @@ test("cat skill previews keep the dash for Zero and use the existing fold effect
     art.skillPreview(ctx, pose);
     assert.deepEqual(poses, [{ ...pose, dashing }]);
     if (id === "nicole") {
-      assert.ok(ctx.calls.some((c) => c.op === "fillRect" && c.fillStyle === "#c0b5ef"), "fold's violet ring is painted");
-      assert.ok(ctx.calls.some((c) => c.op === "fill" && c.fillStyle === "#c0b5ef"), "fold's paper stars are painted");
+      const color = "#c0b5ef", t = 1 - 0.5 / 0.6, radius = 18 + t * 60,
+        x = pose.x, y = pose.y - 16, starScale = (2 + (1 - t) * 2) / 8;
+      const strokes = ctx.calls.filter((c) => c.op === "stroke");
+      assert.equal(strokes.length, 2, "fold ring has one under-edge and one violet stroke");
+      assert.deepEqual(strokes.map((c) => [c.strokeStyle, c.lineWidth, c.globalAlpha]), [
+        ["#231c30", 2.8, (1 - t) * 0.4], [color, 1.2, 1 - t],
+      ]);
+      assert.equal(strokes[0].args[0], strokes[1].args[0], "both strokes follow the same cut path");
+      assert.deepEqual(strokes[1].args[0].ops, Array.from({ length: 8 }, (_, i) => {
+        const a = i * Math.PI / 4;
+        return [
+          ["moveTo", x + Math.cos(a) * radius, y + Math.sin(a) * radius * 0.65],
+          ["ellipse", x, y, radius, radius * 0.65, 0, a, a + Math.PI / 4 - 0.065],
+        ];
+      }).flat(), "fold uses eight separated arcs at its own centre and radius");
+      const stars = images(ctx);
+      assert.equal(stars.length, 8, "exactly eight orbiting paper stars, with no duplicate face/body");
+      const image = stars[0].args[0], paint = image.getContext("2d").calls,
+        cuts = paint.filter((c) => c.op === "fill" && c.fillStyle === color);
+      assert.equal(cuts.length, 1, "one violet star cut is painted into the shared cached sprite");
+      assert.deepEqual(cuts[0].args[0].ops, [
+        ...Array.from({ length: 8 }, (_, i) => {
+          const a = i * Math.PI / 4, r = i % 2 ? 2.56 : 8;
+          return [i ? "lineTo" : "moveTo", Math.cos(a) * r, Math.sin(a) * r];
+        }), ["closePath"],
+      ]);
+      assert.ok(paint.some((c) => c.op === "stroke"), "cached star retains its paper edge/fold");
+      for (const [i, star] of stars.entries()) {
+        const a = i * Math.PI / 4, at = ctx.calls.indexOf(star);
+        assert.equal(star.args[0], image, "every star reuses the same cached cut");
+        assert.deepEqual(star.args.slice(1), [-13 * starScale, -13 * starScale, 26 * starScale, 26 * starScale]);
+        assert.equal(star.globalAlpha, 1 - t);
+        assert.deepEqual(ctx.calls.slice(at - 2, at).map((c) => [c.op, ...c.args]), [
+          ["translate", x + Math.cos(a) * radius, y + Math.sin(a) * radius * 0.65], ["rotate", a],
+        ], "each cached star keeps its radial position and orientation");
+      }
+      assert.ok(!ctx.calls.some((c) => ["fill", "fillRect"].includes(c.op) && c.fillStyle === color), "violet cuts are not rebuilt as live pixel fills");
     }
   }
 });
 
 test("landmark previews draw every interaction marker once, after its existing body, in world depth order", (t) => {
   drawingEnvironment(t);
-  let pumpkins = 0, lanterns = 0;
+  let pumpkins = 0, lanterns = 0, livePieces = 0, waters = 0;
   for (const seed of [0, 7, 91]) for (const def of LANDMARK_DEFS.all()) {
     const place = { id: `preview-${def.id}`, kind: def.id, x: 0, y: 0, radius: def.radius, seed, ...(def.span ? { span: 260 } : {}) };
     const { decor, spots } = landmarkParts(place), preview = landmarkPreview(def.id, seed), ctx = canvas().getContext("2d");
     const tall = decor.filter((d) => !FLAT_DECOR.has(d.kind)).sort((a, b) => a.y - b.y);
+    let imageCount = 0;
+    const offsets = tall.map((d) => {
+      const live = decorPiece(d.kind)?.live, first = imageCount;
+      imageCount += 1 + (live ? 1 : 0);
+      return { first, last: imageCount - 1, live };
+    });
+    for (const shape of def.water?.(place) ?? []) {
+      const water = canvas().getContext("2d");
+      drawWaterShape(water, shape);
+      assert.equal(images(water).length, 0, `${def.id}: vector water adds no body images`);
+      assert.ok(water.calls.some((c) => c.op === "fill" && c.fillStyle === "#628b87"), "water still draws its shallow paper shelf");
+      waters++;
+    }
     preview.draw(ctx, 0);
     const bodies = images(ctx);
-    assert.equal(bodies.length, tall.length, `${def.id}: no duplicated pumpkin/lamp bodies`);
+    assert.equal(bodies.length, imageCount, `${def.id}: exactly one cached body per piece and one extra image per live piece`);
+    for (const [i, d] of tall.entries()) {
+      const { first, last, live } = offsets[i];
+      if (!live) continue;
+      const piece = decorPiece(d.kind), expected = canvas().getContext("2d"),
+        s = Math.round(d.s * 20) / 20, v = Math.abs(d.seed) % (piece.variants ?? 1);
+      live.call(piece, expected, d.x, d.y, s, v, 0);
+      const overlay = images(expected);
+      assert.equal(overlay.length, 1, `${d.kind}: live renderer contributes exactly one rotor image`);
+      assert.notEqual(bodies[first].args[0], bodies[last].args[0], "tower and rotor are separate cached cuts");
+      const start = ctx.calls.indexOf(bodies[first]) + 1;
+      assert.deepEqual(ctx.calls.slice(start, start + expected.calls.length).map((c) => [c.op, ...c.args]),
+        expected.calls.map((c) => [c.op, ...c.args]), "live overlay follows its own body with the exact placement, scale, variant and time");
+      assert.equal(bodies[last].args[0], overlay[0].args[0], "preview dispatches the registered live piece, not a duplicate body");
+      livePieces++;
+    }
     for (const [i, spot] of spots.entries()) {
       if (spot.kind === "pumpkin") pumpkins++; else lanterns++;
       const expected = canvas().getContext("2d");
@@ -114,13 +178,15 @@ test("landmark previews draw every interaction marker once, after its existing b
       assert.equal(matching.length, 1, `${def.id}: ${spot.kind} marker at ${spot.x},${spot.y}`);
       const body = tall.findIndex((d) => d.x === spot.x && d.y === spot.y && d.kind === (spot.kind === "lantern" ? "lamp" : "pumpkin"));
       assert.ok(body >= 0, "registered spot has an existing scene body");
-      assert.ok(ctx.calls.indexOf(bodies[body]) < matching[0].index, "marker follows its body");
+      assert.ok(ctx.calls.indexOf(bodies[offsets[body].last]) < matching[0].index, "marker follows its complete body, including any live overlay");
       const front = tall.findIndex((d) => d.y > spot.y + 0.1);
-      if (front >= 0) assert.ok(matching[0].index < ctx.calls.indexOf(bodies[front]), "foreground decor covers the marker");
+      if (front >= 0) assert.ok(matching[0].index < ctx.calls.indexOf(bodies[offsets[front].first]), "foreground decor covers the marker");
       assert.ok(preview.bounds.t <= spot.y - (spot.kind === "lantern" ? 78 : 33 * spot.s + 9), "marker fits preview bounds");
     }
   }
   assert.ok(pumpkins > 0 && lanterns > 0);
+  assert.ok(livePieces > 0, "preview coverage includes the live windmill rotor");
+  assert.ok(waters > 0, "preview image counts include landmarks with vector water");
 });
 
 test("tints composite only on a cached offscreen alpha mask, preserving geometry and cache identity", (t) => {

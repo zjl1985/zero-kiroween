@@ -60,7 +60,7 @@ export const EN: Messages = {
   "nicole.active.short": "Fold",
   "nicole.active.name": "Moonfold",
   "nicole.active.desc":
-    "Short dash, a {field}s field slowing enemies by {slowPercent}%, and {shield} shield charge for {shieldTime}s. Cooldown: {cooldown}s.",
+    "Short dash, a {field}s field slowing enemies by {slowPercent}%, and {shield} shield charge for {shieldTime}s. Temporarily folds nearby paper obstacles. Cooldown: {cooldown}s.",
   "nicole.passive.name": "A little room",
   "nicole.passive.desc":
     "The first time health reaches {threshold}, gain {rescue} shield charges for {rescueTime}s. Once per run.",
@@ -121,7 +121,7 @@ export const EN: Messages = {
     "Every {interval}s a star drops on {count} nearby ink, hitting a {radius} area for {damage}.",
   "upgrade.paper-crane.name": "Paper Crane",
   "upgrade.paper-crane.desc":
-    "Every {interval}s a folded crane flies out and homes in on ink for {damage}.",
+    "Every {interval}s a crane homes in on ink for {damage}. Launches fold nearby paper; its wind powers windmills.",
   "upgrade.pumpkin-seed.name": "Pumpkin Seed",
   "upgrade.pumpkin-seed.desc":
     "Every {interval}s a glowing seed is tossed at ink and bursts over {radius} for {damage}.",
@@ -280,4 +280,23 @@ export const EN: Messages = {
   "biome.moon-meadow.name": "Moon Meadow",
   "gallery.section.biomes": "Districts",
   "gallery.state.ground": "Ground",
+  "prop.ink-vat.name": "Ink Vat",
+  "prop.wax-candle.name": "Wax Candle",
+  "notice.burning": "Paper is burning! Step into shallow water to put it out",
+  "notice.extinguished": "Fire out · Damp paper briefly resists ignition",
+  "notice.landmark-tea": "Midnight tea · A little health restored",
+  "notice.landmark-greenhouse": "Paper garden tended · Nearby plants recover sooner; a treat awaits",
+  "notice.landmark-observatory": "Stars aligned · Nearby ink freezes and shards appear",
+  "notice.landmark-windmill": "Wind caught · A gust strikes nearby ink and spills shards",
+  "hud.burning": "BURNING · {seconds}s",
+  "hud.wet": "DAMP · {seconds}s",
+  "hint.burning": "Leave the flames and step into shallow water. Bridges stay dry!",
+  "hint.wet": "Damp paper briefly resists fire. Deep water blocks the way; use a crossing.",
+  "hint.paper-world": "Paper catches fire. Shallow water puts it out; deep water needs a crossing.",
+  "help.paper-world": "Fire burns you too, even your own flames. Shallow water extinguishes and slows; bridges stay dry. A shallow basin waits east of the starting yard. Ink coats paper against fire. Moonfold and crane launches temporarily fold obstacles; crane wind powers windmills. Tea and star-chart courts charge while you stand nearby.",
+  "activity.landmark-tea": "Rest in the tea court to recover health",
+  "activity.landmark-greenhouse": "Use Moonfold or launch cranes here to tend paper plants",
+  "activity.landmark-observatory": "Stand on the star chart to freeze nearby ink and earn shards",
+  "activity.landmark-windmill": "Guide paper-crane wind through this court to power a gust",
+  "activity.cooldown": "{name} · Ready again in {seconds}s",
 };

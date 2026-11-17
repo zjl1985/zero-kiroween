@@ -156,16 +156,12 @@ test("district details stay inside existing patch reach with quiet space above a
   }
 });
 
-test("walkable canal detail is land-led: small muted wash, no glowing lantern or deep-water halo", (t) => {
+test("canal biome motifs are dry towpaths; only shared world geometry paints water", (t) => {
   environment(t);
   for (const seed of [0, 1, 2, 7, 23, 97]) {
     const calls = paint(LANTERN_CANAL_ART.patch, 0, 0, 70, seed);
-    const wash = calls.find((c) => c.op === "fill" && c.color === "#5d7775");
-    assert.ok(wash);
-    const [l, top, r, b] = wash.bounds;
-    // oval's rough cut may expand a radius by up to rough * 0.85 (here 7.65%).
-    assert.ok(r - l <= 91 && b - top <= 20, "rough-cut wash stays smaller than the previous 112 × 44.8 pond at radius 70");
-    assert.ok(calls.some((c) => c.bounds[0] < l - 10 && c.bounds[2] > r + 10), "layered banks dominate the wash");
+    assert.ok(!calls.some((c) => ["#5d7775", "#628b87", "#2c4560"].includes(c.color)), "no fake water on dry land");
+    assert.ok(calls.some((c) => c.color === "#84907a"), "layered reed banks remain");
     assert.ok(!calls.some((c) => c.composite === "screen"), "no decorative glow suggesting an interaction or hazard");
     assert.ok(calls.filter((c) => c.color === "#c0aa76").every((c) => c.alpha <= 0.4));
   }

@@ -1,9 +1,11 @@
+import { TEAHOUSE_ACTIVITY } from "../../landmark-activities.js";
 import type { LandmarkDef } from "../../types.js";
 
 /** Timber tea shop, with a clear central approach between the planter and tea table. */
 export const PAPER_TEAHOUSE: LandmarkDef = {
   id: "paper-teahouse",
   radius: 200,
+    activity: TEAHOUSE_ACTIVITY,
   layout(_l, b) {
     b.add("paper-teahouse-planter", -135, -58, 0.9, 1);
     b.add("paper-teahouse-building", 0, -38, 1);

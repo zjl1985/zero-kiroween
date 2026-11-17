@@ -1,8 +1,9 @@
 /** Card art for echo-legion. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { piece, oval, glow, path } from "../../render/paper-material.js";
+import { piece, oval, glow } from "../../render/paper-material.js";
 import { bolt } from "../../render/upgrade-icons.js";
 import { ring } from "../../render/combat-fx.js";
+import { paperFleck } from "../../render/craft-combat.js";
 import { playerStats, UPGRADE_VALUES } from "../../game/upgrades.js";
 
 export const ECHO_LEGION_ART: WeaponArt = {
@@ -23,16 +24,7 @@ export const ECHO_LEGION_ART: WeaponArt = {
       ring(ctx, e.x, e.y, r, "#cfe8ee", 0.55);
       for (let i = 0; i < 10; i++) {
         const a = (i * Math.PI) / 5;
-        piece(
-          ctx,
-          path([
-            [e.x + Math.cos(a) * r, e.y + Math.sin(a) * r * 0.55 - 6],
-            [e.x + Math.cos(a + 0.12) * (r - 8), e.y + Math.sin(a + 0.12) * (r - 8) * 0.55 - 6],
-            [e.x + Math.cos(a - 0.12) * (r - 8), e.y + Math.sin(a - 0.12) * (r - 8) * 0.55 - 6],
-          ]),
-          i % 2 ? "#e9c27a" : "#a9d0de",
-          { shadow: 0.5, texture: 0.3, thickness: 0.4 },
-        );
+        paperFleck(ctx, e.x + Math.cos(a) * r, e.y + Math.sin(a) * r * 0.55 - 6, 4, i % 2 ? "#e9c27a" : "#a9d0de", a + ease * 0.8);
       }
     },
   },
@@ -52,17 +44,7 @@ export const ECHO_LEGION_ART: WeaponArt = {
         const a = time * 2.6 + (i * Math.PI) / 2,
           x = d.x + Math.cos(a) * 20,
           y = d.y - 20 + Math.sin(a) * 9;
-        piece(
-          ctx,
-          path([
-            [x, y - 4],
-            [x + 2.4, y],
-            [x, y + 4],
-            [x - 2.4, y],
-          ]),
-          i % 2 ? "#e9c27a" : "#a9d0de",
-          { shadow: 0.6, texture: 0.3, thickness: 0.4 },
-        );
+        paperFleck(ctx, x, y, 4, i % 2 ? "#e9c27a" : "#a9d0de", a);
       }
       ctx.restore();
     });

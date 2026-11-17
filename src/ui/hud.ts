@@ -13,6 +13,7 @@ import { landmarks } from "../game/world-gen.js";
 import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./journal-geometry.js";
 import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc, paintWick } from "../render/journal-ui.js";
 import { DEAL } from "../render/timeline.js";
+import { environmentCopy } from "./environment-copy.js";
 
 export interface HudRefs {
   time: HTMLElement;
@@ -282,13 +283,16 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     refs.portrait.dataset.cat = p.id;
   }
   text(refs.kills, `${t(locale, "hud.kills")} ${sim.stats.kills}`);
-  const buff =
+  const environment = environmentCopy(locale, sim);
+  const buff = environment.status ?? (
     p.shield > 0
       ? t(locale, "hud.shield", { count: p.shield })
       : p.empowerTime > 0
         ? t(locale, "hud.empowered", { time: p.empowerTime.toFixed(1) })
-        : statusLine(locale, sim);
+        : statusLine(locale, sim));
   text(refs.buff, buff);
+  refs.buff.classList.toggle("buff-burning", environment.danger);
+  refs.buff.classList.toggle("buff-wet", (p.wetTime ?? 0) > 0);
   refs.buff.classList.toggle("buff-active", p.shield > 0 || p.empowerTime > 0);
   renderSeam(refs, locale, sim);
   renderOwned(refs.upgrades, locale, sim);
@@ -312,12 +316,14 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   renderBanner(refs, locale, sim);
   text(
     refs.hint,
-    t(locale, "hud.skill_hint", {
+    environment.hint ?? t(locale, "hud.skill_hint", {
       skill: characterCopy(locale, p.id, "active.name"),
       tactic: characterCopy(locale, p.id, "tactic"),
     }),
   );
-  refs.hint.classList.toggle("hint-dismissed", sim.elapsed > 14);
+  refs.hint.classList.toggle("context-hint", !!environment.hint);
+  refs.hint.classList.toggle("danger-hint", environment.danger);
+  refs.hint.classList.toggle("hint-dismissed", !environment.hint && sim.elapsed > 14);
   document.body.classList.toggle("low-health", p.hp <= 2);
   document.body.classList.toggle("critical-health", critical);
   document.body.classList.toggle("is-dawn", sim.ended === "won" || arc.dawn);

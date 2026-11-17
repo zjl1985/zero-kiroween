@@ -2,7 +2,7 @@
 import type { CatArt } from "../../../render/art-registry.js";
 import { ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
-import { drawOfficialHead } from "../../../render/layout.js";
+import { drawPaperPortrait } from "../../../render/paper-face.js";
 import { glow as light } from "../../../render/paper-material.js";
 import { line, rect } from "../../../render/pixel-art.js";
 import { ZERO_STATS } from "./stats.js";
@@ -46,7 +46,7 @@ export const ZERO_ART: CatArt = {
     ZERO_ART.draw(ctx, { ...pose, dashing: true });
   },
   portrait(ctx, pose, scale) {
-    drawOfficialHead(ctx, pose, { scale });
+    drawPaperPortrait(ctx, pose, scale, ZERO_ART.body.rim);
   },
   heroAura(ctx, x, y, time) {
     const color = "#d5a65d";

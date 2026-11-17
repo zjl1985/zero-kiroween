@@ -6,6 +6,8 @@ Midnight Meow is a browser night-watch game in the Vampire Survivors genre (a su
 
 The user said the map need not be endless ("max 100") and that hundreds of enemies are not needed. We read this as a world of at most 10 x 10 screens and at most 100 living enemies. Both numbers are tunable data constants (`WORLD` in `src/game/world-gen.ts`, `HORDE.hardCap` in `src/defs/horde.ts`, re-exported by `src/game/enemies.ts`).
 
+Current scope follows the user's explicit request to implement the remaining art/interaction gaps, including paper actors igniting and water extinguishing them. Earlier fire-safe-cat and deferred-ecology clauses are superseded. Implementation details are in [design.md](design.md) and [the ecology recipe](../../skills/midnight-meow-dev/references/paper-ecology.md); implementation is not user acceptance.
+
 ## Requirement 1: Single papercraft art style
 
 **User story:** As a player, I want one consistent papercraft night town, so that the game has a clear handmade identity.
@@ -18,6 +20,8 @@ The user said the map need not be endless ("max 100") and that hundreds of enemi
 4. WHEN a paper piece is drawn, THE renderer SHALL show a cut edge, visible thickness and a contact shadow.
 5. THE scene SHALL include a large moon, warm windows, autumn trees, a curved road and stitched paper details, matching the user's reference image as an art target.
 6. THE cat heads SHALL keep a narrow warm paper edge that follows the face outline, without a wide separate backing.
+7. THE paper-face renderer SHALL derive cached visible color contours and silhouette from untouched official Meow Wall data, preserving overlap order, markings, small facial details and existing anchors; world heads and portraits SHALL share this source.
+8. Enemy/combat refinements and runtime ecology cues SHALL retain readable silhouettes, eyes, telegraphs and negative space. Cached paper pieces SHALL use finite variants, not time/continuous-angle keys; rendering SHALL NOT mutate sim state.
 
 ## Requirement 2: Pick one cat
 
@@ -103,7 +107,7 @@ The user said the map need not be endless ("max 100") and that hundreds of enemi
 1. THE world SHALL be bounded, at most 10 x 10 screens (`WORLD`, 9600 x 5400 world units), not endless, with a hill horizon on the north and a paper hedge on the other edges.
 2. THE camera SHALL follow the cat and stay inside the world.
 3. THE world SHALL be generated from the run seed in chunks, as a pure function of (seed, chunk coords), so the sim and renderer agree without using the sim RNG.
-4. THE world SHALL contain roads and landmarks (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill, paper windmill, puppet theatre, wishing well); each registered kind SHALL appear at least once, and the HUD SHALL show arrows toward nearby landmarks, chests and the Boss.
+4. THE world SHALL contain roads and 12 landmark kinds (clock tower, pumpkin patch, stone bridge, chapel yard, lantern market, moon hill, paper windmill, puppet theatre, wishing well, paper teahouse, fold greenhouse, star observatory) across 24 sites; each registered kind SHALL appear at least once, and the HUD SHALL show arrows toward nearby landmarks, chests and the Boss. Activities and water SHALL follow Requirements 17–18.
 5. WHEN the cat touches a charged pumpkin, THE pumpkin SHALL light for 6 seconds, damaging and pushing nearby ink, then recharge for 14 seconds.
 6. A moon-lantern SHALL charge over 40 seconds; WHEN the cat touches it while full, THE game SHALL stun all enemies for 2.4 seconds (the boss for 0.9 seconds).
 7. Fish treats SHALL appear from 45 seconds on near the cat at seeded random positions and heal 1 heart when collected.
@@ -166,7 +170,7 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 4. Art SHALL be registered in an art layer (`src/render/art-registry.ts`, filled only by `src/render/art-index.ts`) under the same ids; the simulation SHALL NOT import art. Non-legacy render and UI code SHALL NOT name cat ids.
 5. `src/engine/` SHALL stay content-agnostic and import no other layer.
 6. Registration order SHALL be stable, because spawn tables, weapon steps and stat folds depend on it for determinism.
-7. THE refactor into definitions SHALL NOT change gameplay: snapshots for fixed seeds and inputs SHALL match the pre-refactor behaviour.
+7. For the original behavior-preserving refactor, snapshots for fixed seeds and inputs SHALL match the pre-refactor behavior. Subsequent intentional content/ecology changes MAY alter fixed-seed worlds and outcomes; same-seed/same-input determinism SHALL still hold. Old refactor snapshots SHALL NOT be treated as approval or a ban on the requested ecology.
 8. THE development workflow SHALL be documented as a Kiro skill in English (`.kiro/skills/midnight-meow-dev/`).
 
 ## Requirement 14: Paper materials and element reactions
@@ -177,10 +181,14 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 
 1. Weapons SHALL carry elements (fire, ink, wind, cut, fold); props SHALL have a material (thin paper, card, ink, cloth, wax, straw).
 2. WHEN an element touches a prop, THE game SHALL look up the material x element reaction row and apply its effect; props without a row SHALL be unaffected.
-3. Cut and wind SHALL tear props through intact, damaged and scraps phases; scraps SHALL no longer block movement; seeded drops (shards, fish treats, a scarecrow's shard ring) SHALL come from the prop's id hash.
-4. Fire SHALL light flammable props and spread on a cell grid capped at `FIRE.maxCells`, damage enemies standing in it, and burn props to ash. Fire SHALL NOT hurt the cat. Spread rolls SHALL use a world hash, never the step RNG.
-5. Prop damage SHALL persist for the whole run, including after its chunk unloads and loads again.
-6. Landmark pieces marked as pop-up SHALL fold up like a pop-up book page as the cat approaches; this SHALL be render-only and SHALL snap under reduced motion.
+3. Cut and wind SHALL tear accepting props through intact, damaged and scraps phases; scraps SHALL no longer block movement. Drops (shards, fish treats, a scarecrow's shard ring) SHALL use the prop id hash and a single lifetime claim. Burning SHALL pay no loot but SHALL still claim that roll, so restoration cannot create a loot farm.
+4. Fire SHALL light dry standing flammable fuel on 24-unit cells, capped at 40 live cells, with 2.4 s life and 0.2 s ticks. Spread SHALL use world hashes, never step RNG. Water-overlapping cells SHALL NOT ignite and SHALL be removed before damage/spread. A prop SHALL lose at most 0.5 durability per fire tick regardless of its footprint's cell count. Card and cloth SHALL be flammable (0.45 / 0.65), alongside thin paper, straw and wax.
+5. Both selectable cats and living arrived enemies SHALL ignite on radius contact with a burning square and carry fire for 3 s after dry contact. Cat burn SHALL deal 1 HP per 1 s through normal shields, invulnerability, rescue and defeat handling; enemy burn SHALL deal 0.4 per 0.2 s through normal enemy damage. Dead/arriving enemies and skill decoys SHALL NOT receive actor burn ticks. Carried fire SHALL spread into dry fuel only on bounded fire ticks. **The old fire-never-hurts-cat rule is superseded.**
+6. Exposed-water radius contact SHALL extinguish actors before a due burn hit or same-step ignition, reset their burn clock and grant 1.25 s wet protection. Whole dry-deck contact SHALL NOT wet an actor, but reaching exposed water beside a deck SHALL. Burn/wet clocks SHALL continue with an empty fire grid and stop with paused/finished simulation.
+7. Prop state SHALL persist across chunk unload/reload. Ink SHALL give standing thin-paper/card/cloth/straw a 9 s coating that suppresses ignition/fuel consumption without healing or awarding loot; water at the prop position SHALL wash it off. Fold SHALL disable a standing solid prop's collider for 5 s without damage or loot, refreshing rather than stacking. Flat props SHALL NOT gain a fake fold state. Unfolding SHALL wait while actors occupy the collider plus clearance.
+8. Smudge landings and cut/wind-struck ink vats SHALL supply ink. Nicole's skill and one Paper Crane pulse per successful volley launch SHALL supply fold without replacing existing skill defenses/field or crane wind shots, fan, homing or timing. Wax fire reactions SHALL consume material through burnt damage without loot or fabricated ignition.
+9. Only the five renewable flora defs SHALL regrow: grass 18/30 s, reeds 22/34 s, flowers 24/36 s, bush 28/42 s, mushroom 32/46 s (torn/burnt). Regrowth SHALL run offscreen, defer 0.5 s for actor occupancy or nearby fire, restore material-scaled max HP, clear only its own ash footprint and preserve lifetime loot claims. Handcrafted props SHALL stay destroyed.
+10. Landmark pieces marked pop-up SHALL fold as the cat approaches, render-only and snapped under reduced motion. This presentation SHALL remain distinct from gameplay prop folding. Actor fire/wetness, prop treatments and regrowth anticipation SHALL be read-only visuals that follow actual sim state, including deferred restoration.
 
 ## Requirement 15: Paper kit and gallery
 
@@ -189,7 +197,7 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 ### Acceptance criteria
 
 1. THE renderer SHALL offer paper-kit primitives (cut piece with thickness, stacked layers, folds, stitching, wear, contact shadow, charred and torn edges, warm glow) and seeded variants (palette, size, tilt, wear, mirror) that use render-only hashes, never `Math.random`.
-2. WHEN the page is opened with `?gallery=1`, THE game SHALL show every registered cat, enemy (and elite), prop in every state, landmark, biome, weapon and passive on labelled paper cards, without starting a run or audio.
+2. WHEN the page is opened with `?gallery=1`, THE game SHALL show every registered cat, enemy (and elite), prop in its five base preview states (intact, damaged, scraps, burning, burnt), landmark, biome, weapon and passive on labelled paper cards, without starting a run or audio. Gallery coverage SHALL NOT be represented as full runtime ink/fold/regrowth, gameplay-screen or mobile review.
 3. Gallery labels SHALL come from i18n keys and SHALL follow the language toggle.
 
 ## Requirement 16: Districts and scene content
@@ -202,7 +210,36 @@ Status: deferred by the user. `zh` stays the default for now. Open question: whe
 2. Each district SHALL have its own decor mix, prop mix and ground patches; roadside props SHALL stand beside roads.
 3. A chunk SHALL hold at most `DISTRICTS.propCap` props.
 4. District and prop placement SHALL be a pure function of the seed and chunk coords.
+5. The current catalog SHALL include 17 props (including ink-vat and wax-candle), 6 materials and 23 unique material x element rows. Registrations SHALL remain append-ordered; generated props/building contacts SHALL avoid wet footprints while retaining road and landmark access.
 
-## Out of scope for now
+## Requirement 17: Shared physical paper water
 
-Random helper cats (not built; confirm with the user before starting), ink and fold element sources, prop regrowth, wind on the windmill, water colliders for ponds and the canal, deployment and Devpost submission (deadline 2026-12-05 06:00 Beijing time), and animation or video-recording verification (not unless the user asks).
+**User story:** As a player, I want visible safe shallows and dry crossings, so that I can escape fire without walking through a painted obstacle.
+
+### Acceptance criteria
+
+1. Water SHALL come from pure landmark/biome definitions and a bounded spatial index shared by sim and renderer, independent of chunk loading/RNG. Shore, deep core and dry crossing polygons SHALL use the same vertices in Canvas and physics, without hidden smoothing or invisible road exemptions.
+2. Shallow water SHALL multiply player/enemy movement speed by 0.68; deep cores SHALL block actor circles. Movement SHALL sweep against cores and slide along banks, preventing a dash from tunneling to the far dry bank. Spawn/recovery positions SHALL project out of deep water.
+3. The stone deck and every road/water crossing SHALL have matching visible dry polygons, with radius-aware clearance. Dry decks SHALL not confer blanket immunity when an actor overlaps exposed water beside them.
+4. Wishing-well ponds, stone-bridge river and lantern-canal pockets SHALL have reachable shallow access. A fully shallow teaching basin at (1040, 420), radii 76 x 46, SHALL remain clear of the starting road and fixed obstacles.
+5. Water queries SHALL handle negative world coordinates, preserve bounds/start-yard/landmark access and never consume step RNG. Water extinguishing SHALL follow Requirement 14.6.
+
+## Requirement 18: Useful landmark activities
+
+**User story:** As a player, I want visiting and interacting with landmarks to help my run, so that the town is more than scenery.
+
+### Acceptance criteria
+
+1. Activities SHALL be registered in landmark defs, with shared visible/walkable court anchors, def-owned tuning and per-placement sim progress/cooldown. Partial progress SHALL survive leaving and cooldowns SHALL advance offscreen, but neither SHALL advance while the sim is paused/upgrading/finished.
+2. Paper teahouse SHALL heal 1 HP (capped at max) after 2.5 s within radius 44, with 32 s cooldown.
+3. Fold greenhouse SHALL require fold hits to reach charge 2 within court radius 48, with 45 s cooldown; it SHALL drop a treat and advance at most 10 existing future flora regrowth deadlines within 320. It SHALL NOT directly restore HP, bypass fire/occupancy checks or reset loot claims.
+4. Star observatory SHALL charge for 3 s within radius 44, with 48 s cooldown; it SHALL stun living arrived enemies within 240 for 3 s and drop shard value 4, not reveal the map.
+5. Paper windmill SHALL require wind hits to reach charge 3 within court radius 100, with 24 s cooldown; its radius-210 pulse SHALL deal 1.5 damage, stun for 1.6 s and drop shard value 2. Wind SHALL refresh a 6 s rotor boost even during cooldown.
+6. Element charge SHALL add at most 2 per hit and dispatch through the same context path as prop hits. Cooldown SHALL lock before rewards. Rotor turn SHALL integrate in sim time (0.25 rad/s idle, 2.6 boosted); rendering SHALL draw a single live rotor using finite cached textures under the tower's depth/pop-up transform, never mutate state or cache by angle/time.
+7. Burning/wet notices, HUD status, help and nearby-activity instructions SHALL be localized in both packs; urgent hazard guidance SHALL take priority over routine hints. Progress marks SHALL use real court anchors and seconds/cooldown, not invented render timers.
+
+## Deferred work and evidence limits
+
+Random helper cats still require confirmation. English default remains deferred (Requirement 11); Boss/dawn policy and evolution-passive slot guidance still need decisions. Full gameplay-screen/mobile review, user art acceptance, balance and performance remain open. Publishing this latest work and Devpost submission materials are pending (deadline 2026-12-05 06:00 Beijing time), not a reason to mark implemented ecology out of scope. Animation/video verification is prohibited unless the user asks again.
+
+Latest verification: `npm run build && npm test` passed **237 tests**; one static screenshot was captured and viewed at `output/playwright/paper-ecology-review.png` using **system Chrome**, not missing bundled Chromium. It shows selected art only. No animation, recording, audio or FPS checks were performed, and the user has not approved the art.

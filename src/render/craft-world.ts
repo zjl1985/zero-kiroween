@@ -24,6 +24,9 @@ import {
   type Road,
 } from "../game/world-gen.js";
 import type { InteractState, SimState } from "../game/types.js";
+import { waterRegionsNear } from "../game/water.js";
+import { touchesWaterShore } from "../defs/water.js";
+import { drawWaterCrossings, drawWaterGround, drawWaterShape } from "./water-art.js";
 import { MOON_LANTERN } from "../game/interactions.js";
 import { cachedSprite } from "../engine/sprite.js";
 import { LANDMARK_DEFS } from "../defs/registries.js";
@@ -106,7 +109,7 @@ function decorBounds(d: Decor): Bounds | null {
   const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
-function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0): void {
+function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Readonly<SimState["landmarkEvents"][string]>): void {
   if (d.kind === "lamp") {
     drawLamp(ctx, { x: d.x, y: d.y, s: Math.round(d.s * 20) / 20 }, time);
     return;
@@ -131,6 +134,7 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0): void {
       { x: ax / w, y: ay / h },
     );
   tintedSprite(sprite, "#000000", 0.28 * shade).draw(ctx, { x: d.x, y: d.y });
+  extra?.live?.(ctx, d.x, d.y, s, v, time, activity);
 }
 
 // ---------------------------------------------------------------- flat art baked in chunks
@@ -157,7 +161,7 @@ function flatDecor(ctx: Ctx, d: Decor): void {
   }
 }
 function roadPath(points: readonly { x: number; y: number }[], off = 0): Path2D {
-  // Offset polyline (for the stitched edges), then smoothed through midpoints.
+  // Keep the road on its generated polyline: water crossings use this exact footprint.
   const pts = points.map((p, i) => {
     const a = points[Math.max(0, i - 1)]!,
       b = points[Math.min(points.length - 1, i + 1)]!,
@@ -166,12 +170,7 @@ function roadPath(points: readonly { x: number; y: number }[], off = 0): Path2D 
   });
   const p = new Path2D();
   p.moveTo(pts[0]!.x, pts[0]!.y);
-  for (let i = 1; i < pts.length - 1; i++) {
-    const a = pts[i]!,
-      b = pts[i + 1]!;
-    p.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2);
-  }
-  p.lineTo(pts[pts.length - 1]!.x, pts[pts.length - 1]!.y);
+  for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
   return p;
 }
 function roadHits(r: Road, x0: number, y0: number, x1: number, y1: number): boolean {
@@ -246,7 +245,7 @@ const PATCH = { cell: 150, margin: 110, r: [46, 84] } as const;
 /**
  * District ground detail in a chunk's cache: clustered patches placed on a
  * world grid by render hashes, so every chunk that overlaps a patch draws it
- * the same way and district edges follow chunk ownership.
+ * the same way. A seeded blend of neighbouring districts avoids hard chunk seams.
  */
 function biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): void {
   const c = PATCH.cell,
@@ -261,11 +260,17 @@ function biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number,
         y = (j + 0.2 + hash(sd + 1) * 0.6) * c;
       if (y < WORLD.playTop + 10 || (y < 560 && x > -40 && x < 1000)) continue;
       if (x < WORLD.minX + 60 || x > WORLD.maxX - 60 || y > WORLD.maxY - 50) continue;
-      const { cx, cy } = chunkOf(x, y),
-        art = BIOME_ART.find(biomeAt(seed, cx, cy).id);
+      const gx = x / CHUNK.width - 0.5, gy = y / CHUNK.height - 0.5,
+        cx = Math.floor(gx), cy = Math.floor(gy),
+        fx = gx - cx, fy = gy - cy,
+        // Stochastic motif mixing, not translucent rectangular biome overlays.
+        bx = cx + (hash(sd + 11) < fx * fx * (3 - 2 * fx) ? 1 : 0),
+        by = cy + (hash(sd + 12) < fy * fy * (3 - 2 * fy) ? 1 : 0),
+        art = BIOME_ART.find(biomeAt(seed, bx, by).id);
       if (!art || hash(sd + 2) > art.patchChance) continue;
       const r = PATCH.r[0] + hash(sd + 3) * (PATCH.r[1] - PATCH.r[0]);
       if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
+      if (waterRegionsNear(seed, x, y, r + 8).some((water) => touchesWaterShore(water, x, y, r + 8))) continue;
       art.patch(ctx, x, y, r, Math.floor(hash(sd + 4) * 1e5));
     }
 }
@@ -315,6 +320,7 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
   return {
     bounds,
     draw(ctx, time) {
+      for (const water of LANDMARK_DEFS.get(kind).water?.(l) ?? []) drawWaterShape(ctx, water);
       landmarkGround(ctx, l);
       for (const d of decor) if (FLAT_DECOR.has(d.kind)) flatDecor(ctx, d);
       const sprites: WorldSprite[] = decor.filter((d) => !FLAT_DECOR.has(d.kind))
@@ -367,6 +373,8 @@ function buildChunk(seed: number, cx: number, cy: number): HTMLCanvasElement {
   if (cy === 0) horizonHills(ctx, x0, x1);
   groundTile(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
   biomeGround(ctx, seed, x0, y0, x1, y1);
+  const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
+  for (const water of waters) drawWaterGround(ctx, water);
   for (const l of landmarks(seed)) {
     const reach = landmarkReach(l);
     if (l.x + reach >= x0 && l.x - reach <= x1 && l.y + reach >= y0 && l.y - reach <= y1) landmarkGround(ctx, l);
@@ -374,6 +382,7 @@ function buildChunk(seed: number, cx: number, cy: number): HTMLCanvasElement {
   const rs = roads(seed);
   // Branches first; the spine is laid over their joints.
   for (let i = rs.length - 1; i >= 0; i--) if (roadHits(rs[i]!, x0, y0, x1, y1)) drawRoad(ctx, rs[i]!, i);
+  for (const water of waters) drawWaterCrossings(ctx, water);
   for (const n of around)
     for (const d of n.decor)
       if (FLAT_DECOR.has(d.kind) && d.x > x0 - 50 && d.x < x1 + 50 && d.y > y0 - 30 && d.y < y1 + 30) flatDecor(ctx, d);
@@ -460,6 +469,7 @@ export interface PopupView {
   /** The cat's position; without it everything stands. */
   cat: { x: number; y: number } | null;
   reduced: boolean;
+  activities?: Readonly<SimState["landmarkEvents"]>;
 }
 /** Current fold (0..1) of a piece, eased toward its distance target. */
 function foldOf(d: Decor, pop: PopupView, dt: number): number {
@@ -512,7 +522,9 @@ export function worldSprites(
     lamps: VisibleLamp[] = [];
   for (let cy = a.cy; cy <= b.cy; cy++)
     for (let cx = a.cx; cx <= b.cx; cx++) {
-      for (const d of chunkContent(seed, cx, cy).decor) {
+      const chunk = chunkContent(seed, cx, cy);
+      const activity = chunk.landmark ? pop?.activities?.[chunk.landmark.id] : undefined;
+      for (const d of chunk.decor) {
         if (FLAT_DECOR.has(d.kind)) continue;
         const bd = decorBounds(d);
         if (!bd) continue;
@@ -527,9 +539,9 @@ export function worldSprites(
               if (fade?.(d)) {
                 ctx.save();
                 ctx.globalAlpha = 0.5;
-                drawDecor(ctx, d, time, shade);
+                drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);
                 ctx.restore();
-              } else drawDecor(ctx, d, time, shade);
+              } else drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);
             }),
         });
       }

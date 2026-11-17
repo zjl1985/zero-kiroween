@@ -1,8 +1,8 @@
 # Handoff: current requirements
 
-Updated 2026-11-17, after the character / scenery refinement and landmark expansion. `npm run build` and `npm test` pass (163 / 163). The user confirmed the previous version works on Vercel, then requested finer characters and more detailed, varied scenes. The latest refinement has not been pushed or deployed. The earlier skeleton / paper-world review was APPROVED; it does not cover this work.
+Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. This round has not been pushed or deployed; `d5d6025` from the previous round is also local. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
 
-Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.14). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its eight `references/` recipes cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
+Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.15). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its `references/` recipes (including the new paper-ecology contract) cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
 
 ## First: do not restore the dual style
 
@@ -10,7 +10,7 @@ Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md]
 
 ## Status labels
 
-"Implemented in code" only means the code exists, compiles and passes tests. **The user has viewed the deployed previous version and said it is usable, but explicitly requested better art. The latest refinement has not been viewed in a real browser or approved.**
+"Implemented in code" only means the code exists, compiles and passes tests. **The user has viewed the deployed previous version and requested better art. Selected current art was viewed in one static Chrome sheet, not a full playtest; the user has not approved it.**
 
 ## What the user asked for
 
@@ -27,7 +27,21 @@ Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md]
 11. **A Vampire Survivors style roguelike, not hundreds of enemies.** The user said: "the map does not need to be infinite, at most 100" and "I mean similar, not hundreds, just this kind of roguelike". Read as a map of at most 10 x 10 screens (`WORLD`) and a hard cap of 100 living enemies (`HORDE.hardCap`). Both are tunable data.
 12. **Extensible skeleton and paper world** (this round): move to "definitions + hooks + registries" without changing gameplay, add material x element reactions (tear, burn, pop-up), build paper primitives, seeded variants and a gallery page, then add districts, landmarks and props, and finally package the workflow as an English project skill under `.kiro`. The user said: "whatever I don't understand, finish it the best way you can".
 
-## Latest character / scenery refinement
+## Latest paper ecology and cohesive art
+
+**New user requirement: paper burns when it touches fire, and water extinguishes it. Do not restore the previous cat-only immunity.**
+
+- **Actor fire:** radius contact ignites either cat and living enemies; carried fire lasts 3 s after leaving the source. The cat takes 1 HP per 1 s (first beat delayed), enemies 0.4 per 0.2 s. Normal shield, invulnerability, rescue and death hooks apply. Own-created ground fire is also dangerous. Carried flame can ignite nearby dry fuel on the bounded fire tick.
+- **Water:** pure shared polygons describe shallow shelves, blocked deep cores and explicit dry crossings. Wishing-well ponds, stone-bridge rivers and canal pockets use this geometry in sim and art. A fully shallow basin is just east of the starting yard at (1040, 420). Shallow water slows movement to 68%, clears burn before damage and grants 1.25 s damp protection. A footprint wholly on a bridge stays dry; touching exposed water beside it wets the actor. Swept movement prevents walking / dashing / contact knockback through deep cores. Boss charge movement also respects shallow slowdown.
+- **Contact ordering:** environment contact is latched immediately after movement/knockback, before later hits can move the actor away. Entering water and then being pushed onto dry ground in the same tick still extinguishes, even if the contact hit is fatal. Burn timers advance only in `stepFire`; it runs status/lifecycle even with no live cells. A lost run cannot collect a shard and open an upgrade afterwards.
+- **Paper materials:** card and cloth are flammable (0.45 / 0.65 spread multipliers). There are now 17 props and 23 unique material × element reaction rows. New ink-vat spills a 9 s fire-resistant prop coating when cut/gusted; smudge drops also supply ink. Wax candles melt under heat and can fuel grid fire. Fire is still capped at 40 cells; large props take burn damage once per tick, not once per footprint cell.
+- **Folding / regrowth:** Nicole's Moonfold and the shared crane's launch pulse fold nearby colliding paper props for 5 s. They open a route without destroying HP or paying drops, and unfold only when occupancy is clear. Grass, reeds, flowers, bushes and mushrooms regrow after defined delays; burning takes longer. Renewal waits for actors/fire to clear, preserves one lifetime loot claim and removes only the plant's old ash. Handmade structures stay destroyed; fire gives no loot.
+- **Four activities:** teahouse proximity restores health (32 s cooldown); fold-powered greenhouse advances nearby flora regeneration and gives a treat (45 s); observatory alignment freezes nearby enemies and gives shards (48 s); wind-driven windmill releases a stun/damage gust and shards (24 s). Charges and cooldowns persist offscreen and pause with the sim. The windmill rotor is a finite cached live piece driven by integrated state, not a time-keyed sprite.
+- **Art / readability:** official face data is unchanged, but merged color contours are now layered cut-paper faces shared by world and portrait rendering. Enemy folds/facets and weapon trails/effects were refined. Carried fire, damp droplets, steam, ink coating, folded props and regeneration have visible state-based feedback. District edges blend, water art and collisions share vertices, and registered building bounds control occlusion fade.
+- **Guidance:** contextual zh/en HUD hints explain burn/wet state and each activity, including on touch screens; pause help explains the basin, bridges, ink and fold sources. No additional interaction button is needed.
+- **Validation:** 237 passing tests cover sources, material rows, shared water geometry, swept collision, fire/water timing, lifetime drops, regeneration occupancy, landmark actions, frozen timers, cached art and production packaging. One static sheet: `output/playwright/paper-ecology-review.png` (git-ignored, viewed). It is not gameplay, mobile, animation, audio or performance evidence. The editor still reports an unresolved `./water.js` import in `paper-status.ts` even though TypeScript compilation and runtime tests resolve it; likely a stale language-server index, not verified as such.
+
+## Previous character / scenery refinement
 
 - **Characters:** `src/render/cat-detail.ts` renders finite cached articulated parts. Zero has a split-tail coat, lapels, watch chain and shuttered lantern; Nicole has a bell coat, scalloped cape, moon satchel and petal lantern. Both gain segmented limbs, cuffs, soles, pleats and stitched hems. Registered `CatBodyPalette` appearance fields select these details without cat-id branches. The official face print, narrow head edge, head placement and gameplay kits are unchanged.
 - **Scenery:** grouped tree crowns and leaf fans; cottage roof variants, shingles, dormers, recessed windows, shutters, window boxes and stoops within existing sprite bounds. `scenery-details.ts` supplies shared folded flora. The five district ground painters now have stone courses / grates, furrows / vines, moss / roots / ferns, reeds / banks / subdued reflections, and flower / pebble clusters. Canal water remains decorative and walkable, with a smaller, subdued wash.
@@ -105,7 +119,7 @@ New strings go into `keys.ts`, `en.ts` and `zh.ts`. New effect kinds or notices 
 - Elements: `fire`, `ink`, `wind`, `cut`, `fold`. Meowline, Night Claw, Moonstars and Falling Star are cut; the paper crane is wind; bursting pumpkin seeds are fire. Lit pumpkins ignite on each pulse (`FIRE.pumpkinRadius` 64).
 - Materials: thin-paper, card, ink, cloth, wax, straw. The reaction table has one row per material x element (tear-thin-paper, tear-card, tear-cloth, gust-thin-paper, burn-thin-paper, tear-straw, gust-straw, burn-straw, gust-cloth). With no row, nothing happens.
 - Props have three phases: intact, damaged, scraps (ash if burnt). Scraps do not block movement. Torn fences and bushes turn into scraps and open a path, and drop ink shards or fish treats by a hash of the prop id. A torn scarecrow scatters a ring of 4 shards. **Burnt props drop nothing.** Prop state lasts the whole run and survives chunk reloads.
-- Fire: a 24-unit cell grid, at most 40 cells burning at once (`FIRE.maxCells`), 500 ash cells remembered. It spreads every 0.2 s by flammability using `hash2(seed, cell, 900 + ticks)`, never the step RNG. Fire hurts ink enemies (the Boss included), **never the cat**.
+- Fire: a 24-unit cell grid, at most 40 cells burning at once (`FIRE.maxCells`), 500 ash cells remembered. It spreads every 0.2 s by flammability using `hash2(seed, cell, 900 + ticks)`, never the step RNG. At that time fire hurt only enemies; **this immunity is superseded by the latest user requirement above**.
 - Pop-up: landmark pieces marked `popup`, trees and cottages fold up like a pop-up book as the cat approaches (`POPUP` near 430 / far 700). Render only.
 - Sound: `tear` and `crackle` (throttled to 0.28 s), synthesized noise. The result page gained "props torn" and "cells burnt" rows, 14 rows in total.
 
@@ -158,8 +172,8 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Evidence limits
 
-- `npm run build` and `npm test` (163 tests) pass. That checks compilation, tested sim behavior, Canvas command dispatch / geometry and static packaging, not browser visuals or frame rate.
-- The user confirmed the previous deployed version works, but said scenes and characters lack detail. The latest refinement is unviewed: the single screenshot attempt failed due to a missing Chromium executable. No screenshot was produced.
+- `npm run build` and `npm test` (237 tests) pass. That checks compilation, tested sim behavior, Canvas commands / geometry and static packaging, not full gameplay quality or frame rate.
+- The user confirmed the previous deployed version works, but requested more polish and coherent paper interactions. One current static art sheet was captured and viewed using system Chrome. It shows selected characters, enemies, district motifs and landmarks only; the full game screen and mobile UI remain unreviewed.
 - **Audio has not been evaluated by the agent**, including the tear and crackle cues; no user audio-quality report is recorded.
 - **Balance was only probed with throwaway idle bots**; an idle Nicole cannot finish the Eraser.
 - **Frame rate at about 100 enemies with fire is unmeasured.** There is no spatial hash or object pool, and chunk caches build synchronously.
@@ -185,13 +199,13 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 2. Real browser performance: about 100 enemies with fire, hitches when entering unbuilt chunks, sprite caches for props and fire.
 3. User review of art and UI: map, landmarks, district ground (whether the cat and ink stay readable on the darker graveyard woods, patch density, chunk-aligned district edges), prop phases, fire, pop-up folding, journal UI, gallery, cat head edge.
 4. Whether the 14-row result page fits its two-column layout is unchecked.
-5. Paper system gaps: the `ink` and `fold` elements have no source and no reaction rows; ink / wax materials have data but no props; props never regrow; the windmill sails are static with no wind interaction; the wishing-well pond and canal patches are walkable.
+5. Paper-ecology features are now implemented, not deferred: playtest their balance, feedback, safe access to water, folded-route readability and renewal pacing. Only renewable flora regrows, not handcrafted buildings/props; temporary actor wetness is not a new damage immunity to enemies.
 6. Legacy leftovers: the unused `drawMascot` in `src/render/layout.ts` has a `pose.id === "nicole"` branch, and `craft-juice.ts` has two `"eraser-boss"` presentation checks. Kept under "do not delete blindly".
-7. Gallery skill poses and landmark interaction markers are fixed in code and covered by command-recording tests, but have not been viewed in a real browser.
+7. Gallery skill poses / landmark markers and the new art paths have command-recording coverage. The static sheet showed a subset of art, not a review of the full gallery or its mobile layout.
 8. English default: not switched (default `zh`, `en` complete). When switching, also update `<html lang>` and `<title>`.
 9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. The user has deployed the previous version to Vercel and confirmed it works. Publish the latest refinement after commit / push authorization; Devpost materials remain pending. See README for settings. Record a video only with the user's consent.
 
-Smaller items: a side road may cross another landmark's river; foreground leaves and the torn frame are still screen space; zh / en card text length on small screens is unchecked.
+Smaller items: foreground leaves and the torn frame remain screen space; zh / en card text length on small screens is unchecked. Road/water crossings now have matching visible dry decks and tested swept passage.
 
 ## Run and verify
 
@@ -199,7 +213,7 @@ Smaller items: a side road may cross another landmark's river; foreground leaves
 npm ci          # Node.js 22+, TypeScript only
 npm run build   # tsc -> dist/; package production files -> site/
 npm start       # python3 -m http.server 4173 --directory site
-npm test        # production build + node --test tests/*.test.mjs (163 tests)
+npm test        # production build + node --test tests/*.test.mjs (237 tests)
 ```
 
 - Open `http://localhost:4173/`. An old local server may still hold port 4173; check the port first.

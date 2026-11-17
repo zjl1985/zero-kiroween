@@ -8,11 +8,14 @@
 import { reactionFor } from "../defs/world-index.js";
 import { MATERIALS, PROP_DEFS } from "../defs/registries.js";
 import { FIRE, PROP_HITS } from "../defs/fire.js";
+import { ECOLOGY } from "../defs/ecology.js";
 import type { Element, PropDef, PropSpot, SimContext } from "../defs/types.js";
 import type { Capsule } from "./scenery.js";
 import type { PropState, SimState } from "./types.js";
-import { EFFECT_LIFE } from "./types.js";
-import { chunkOf, hash2, nearProps } from "./world-gen.js";
+import { EFFECT_LIFE, STATS } from "./types.js";
+import { chunkContent, chunkOf, hash2, nearProps } from "./world-gen.js";
+import { pointSegDist } from "./collision.js";
+import { paperTouchesWater, spreadCarriedFire, stepPaperStatus } from "./paper-status.js";
 
 const PHASE = { intact: 0, damaged: 1, scraps: 2 } as const;
 
@@ -53,10 +56,15 @@ export function nearPropColliders(seed: number, x: number, y: number): readonly 
   }
   return out;
 }
-/** Colliders of the props around (x, y) that still stand (not scraps). */
+/** A fold is not destruction. Expired folds stay open until the lifecycle safely unfolds them. */
+export function propBlocks(state: SimState, id: string): boolean {
+  const m = state.props[id];
+  return !m || (m.phase < 2 && m.foldedUntil === undefined);
+}
+/** Colliders of props that still stand and have not been temporarily folded. */
 export function standingPropColliders(state: SimState, x: number, y: number): readonly Capsule[][] {
   const out: Capsule[][] = [];
-  for (const c of nearPropColliders(state.seed, x, y)) if (propPhase(state, c.id) < 2) out.push(c.caps);
+  for (const c of nearPropColliders(state.seed, x, y)) if (propBlocks(state, c.id)) out.push(c.caps);
   return out;
 }
 
@@ -65,6 +73,17 @@ function mutable(state: SimState, p: PropSpot, def: PropDef): PropState {
   let m = state.props[p.id];
   if (!m) m = state.props[p.id] = { hp: propMaxHp(def), phase: 0, hitAt: -1e9 };
   return m;
+}
+/** Reaction helpers; neither treatment changes HP, destruction stats or drop history. */
+export function foldProp(state: SimState, p: PropSpot, seconds: number): void {
+  if (state.ended !== "playing" || seconds <= 0 || propPhase(state, p.id) === 2) return;
+  const m = mutable(state, p, propDef(p.kind));
+  m.foldedUntil = Math.max(m.foldedUntil ?? 0, state.elapsed + seconds);
+}
+export function inkProp(state: SimState, p: PropSpot, seconds: number): void {
+  if (state.ended !== "playing" || seconds <= 0 || propPhase(state, p.id) === 2) return;
+  const m = mutable(state, p, propDef(p.kind));
+  m.inkedUntil = Math.max(m.inkedUntil ?? 0, state.elapsed + seconds);
 }
 export function elementHit(
   state: SimState,
@@ -75,7 +94,7 @@ export function elementHit(
   power: number,
   ctx: SimContext,
 ): void {
-  if (power <= 0) return;
+  if (state.ended !== "playing" || power <= 0) return;
   for (const p of nearProps(state.seed, x, y)) {
     const def = propDef(p.kind);
     if (!def.accepts.includes(element)) continue;
@@ -90,6 +109,7 @@ export function elementHit(
   }
 }
 export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: SimContext, burnt = false): void {
+  if (state.ended !== "playing") return;
   const def = propDef(p.kind),
     m = mutable(state, p, def);
   if (m.phase === 2 || amount <= 0) return;
@@ -97,6 +117,13 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
   m.hp = Math.max(0, m.hp - amount);
   m.phase = m.hp <= 0 ? PHASE.scraps : m.hp < max * def.damagedBelow ? PHASE.damaged : PHASE.intact;
   if (m.phase < 2) return;
+  m.destroyedAt = state.elapsed;
+  if (def.regrow) m.regrowAt = state.elapsed + (burnt ? def.regrow.burntSeconds ?? def.regrow.seconds : def.regrow.seconds);
+  const claimed = m.dropsClaimed;
+  // Burning also claims the one lifetime drop roll: ash cannot regrow into a loot farm.
+  m.dropsClaimed = true;
+  delete m.foldedUntil;
+  delete m.inkedUntil;
   ctx.effect(state, p.x, p.y - 6 * p.s, "prop-scraps", EFFECT_LIFE["prop-scraps"], {
     src: def.art,
     amount: burnt ? 1 : 0,
@@ -106,6 +133,7 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
     return;
   }
   state.stats.propsTorn++;
+  if (claimed) return;
   // Seeded drops: the same prop always gives the same thing.
   const [cx, cy] = p.id.split("#")[0]!.split(",").map(Number) as [number, number],
     index = Number(p.id.split("#")[1]);
@@ -123,6 +151,74 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
   if (hash2(state.seed, cx * 64 + index, cy, 72) < def.drops.treat) ctx.dropTreat(state, p.x, p.y + 6);
 }
 
+// ---------------------------------------------------------------- lifecycle
+/** Resolve a touched prop without relying on currently loaded chunks or a frame RNG. */
+function propFromId(seed: number, id: string): PropSpot | undefined {
+  const [chunk, index] = id.split("#"),
+    [cx, cy] = (chunk ?? "").split(",").map(Number),
+    i = Number(index);
+  if (!Number.isInteger(cx) || !Number.isInteger(cy) || !Number.isInteger(i) || i < 0) return;
+  const p = chunkContent(seed, cx!, cy!).props[i];
+  return p?.id === id ? p : undefined;
+}
+function occupied(state: SimState, p: PropSpot, def: PropDef, ctx: SimContext): boolean {
+  const caps = def.colliders?.(state.seed, p.x, p.y, p.s) ?? [];
+  if (!caps.length) return false;
+  const overlaps = (x: number, y: number, radius: number) => caps.some((c) =>
+    pointSegDist(x, y, c.x1, c.y1, c.x2, c.y2) <= radius + c.radius + ECOLOGY.actorClearance);
+  if (state.player.hp > 0 && overlaps(state.player.x, state.player.y, STATS.playerRadius)) return true;
+  return state.enemies.some((e) => e.alive && overlaps(e.x, e.y, ctx.enemyRadius(e)));
+}
+function fireNearProp(state: SimState, p: PropSpot, def: PropDef): boolean {
+  for (const key of Object.keys(state.fire.cells)) {
+    const [ix, iy] = key.split(",").map(Number) as [number, number];
+    if (inFootprint(p, def, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, FIRE.cell * Math.SQRT1_2)) return true;
+  }
+  return false;
+}
+/** Touched state is retained across unloads; deadlines are simulation time, not visibility time. */
+export function stepPropLifecycle(state: SimState, ctx: SimContext): void {
+  if (state.ended !== "playing") return;
+  for (const [id, m] of Object.entries(state.props)) {
+    if (m.inkedUntil !== undefined && m.inkedUntil <= state.elapsed) delete m.inkedUntil;
+    const regrow = m.phase === 2 && m.regrowAt !== undefined && m.regrowAt <= state.elapsed,
+      unfold = m.foldedUntil !== undefined && m.foldedUntil <= state.elapsed;
+    if (!regrow && !unfold && m.inkedUntil === undefined) continue;
+    const p = propFromId(state.seed, id);
+    if (!p) continue;
+    const def = propDef(p.kind);
+    if (m.inkedUntil !== undefined && paperTouchesWater(state.seed, p.x, p.y)) {
+      delete m.inkedUntil;
+      ctx.effect(state, p.x, p.y, "ink-wash", EFFECT_LIFE["ink-wash"], { src: def.art });
+    }
+    if (unfold) {
+      if (occupied(state, p, def, ctx)) m.foldedUntil = state.elapsed + ECOLOGY.retrySeconds;
+      else delete m.foldedUntil;
+    }
+    if (!regrow || !def.regrow) continue;
+    if (occupied(state, p, def, ctx) || fireNearProp(state, p, def)) {
+      m.regrowAt = state.elapsed + ECOLOGY.retrySeconds;
+      continue;
+    }
+    m.hp = propMaxHp(def);
+    m.phase = PHASE.intact;
+    // Keep the lifetime loot claim, but the new paper is not the old scorched sheet.
+    m.dropsClaimed = true;
+    delete m.destroyedAt;
+    delete m.regrowAt;
+    delete m.burnt;
+    delete m.burnAt;
+    delete m.foldedUntil;
+    delete m.inkedUntil;
+    for (const key of Object.keys(state.fire.ash)) {
+      const [ix, iy] = key.split(",").map(Number) as [number, number];
+      if (!(key in state.fire.cells) && inFootprint(p, def, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, 0))
+        delete state.fire.ash[key];
+    }
+    ctx.effect(state, p.x, p.y, "regrow", EFFECT_LIFE.regrow, { src: def.art });
+  }
+}
+
 // ---------------------------------------------------------------- fire grid
 export function cellOf(x: number, y: number): [number, number] {
   return [Math.floor(x / FIRE.cell), Math.floor(y / FIRE.cell)];
@@ -137,15 +233,22 @@ function fuelAt(state: SimState, ix: number, iy: number): PropSpot[] {
     out: PropSpot[] = [];
   for (const p of nearProps(state.seed, x, y)) {
     const def = propDef(p.kind);
-    if (MATERIALS.get(def.material).flammability <= 0 || propPhase(state, p.id) === 2) continue;
+    if (propFlammability(state, p, def) <= 0 || propPhase(state, p.id) === 2) continue;
     if (inFootprint(p, def, x, y, 0)) out.push(p);
   }
   return out;
 }
+function propFlammability(state: SimState, p: PropSpot, def: PropDef): number {
+  const inked = (state.props[p.id]?.inkedUntil ?? 0) > state.elapsed;
+  return MATERIALS.get(def.material).flammability * (inked ? ECOLOGY.inkFlammability : 1);
+}
+function wetCell(state: SimState, ix: number, iy: number): boolean {
+  return paperTouchesWater(state.seed, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, FIRE.cell * Math.SQRT1_2);
+}
 function flammability(state: SimState, ix: number, iy: number): number {
+  if (wetCell(state, ix, iy)) return 0;
   let best = 0;
-  for (const p of fuelAt(state, ix, iy))
-    best = Math.max(best, MATERIALS.get(propDef(p.kind).material).flammability);
+  for (const p of fuelAt(state, ix, iy)) best = Math.max(best, propFlammability(state, p, propDef(p.kind)));
   return best;
 }
 export function burningCount(state: SimState): number {
@@ -161,6 +264,7 @@ function light(state: SimState, ix: number, iy: number): boolean {
   return true;
 }
 export function ignite(state: SimState, x: number, y: number, radius: number, ctx: SimContext): void {
+  if (state.ended !== "playing" || radius < 0 || burningCount(state) >= FIRE.maxCells) return;
   const [ax, ay] = cellOf(x - radius, y - radius),
     [bx, by] = cellOf(x + radius, y + radius);
   let lit = false;
@@ -179,17 +283,24 @@ const NEIGHBOURS = [
   [0, 1],
   [0, -1],
 ] as const;
-/** Spread, burn-out, prop and enemy damage on the FIRE.tick beat. */
+/** Water and actor status precede damage/spread; lifecycle keeps running without live cells. */
 export function stepFire(state: SimState, dt: number, ctx: SimContext): void {
+  if (dt <= 0 || !Number.isFinite(dt) || state.ended !== "playing") return;
   const fire = state.fire;
-  if (burningCount(state) === 0) {
-    fire.clock = 0;
-    return;
+  for (const key of Object.keys(fire.cells)) {
+    const [ix, iy] = key.split(",").map(Number) as [number, number];
+    if (!wetCell(state, ix, iy)) continue;
+    delete fire.cells[key];
+    ctx.effect(state, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, "steam", EFFECT_LIFE.steam);
   }
+  stepPropLifecycle(state, ctx);
+  stepPaperStatus(state, dt, ctx);
+  if (state.ended !== "playing") return;
   fire.clock += dt;
-  while (fire.clock >= FIRE.tick && burningCount(state) > 0) {
-    fire.clock -= FIRE.tick;
+  while (fire.clock + 1e-9 >= FIRE.tick) {
+    fire.clock = Math.max(0, fire.clock - FIRE.tick);
     fire.ticks++;
+    spreadCarriedFire(state, ctx);
     fireTick(state, ctx);
   }
 }
@@ -208,9 +319,12 @@ function fireTick(state: SimState, ctx: SimContext): void {
       if (f > 0 && hash2(state.seed, ix * 4 + n, iy, 900 + fire.ticks) < FIRE.spreadChance * f) light(state, nx, ny);
     });
   }
+  const consumed = new Set<string>();
   for (const key of keys) {
     const [ix, iy] = key.split(",").map(Number) as [number, number];
     for (const p of fuelAt(state, ix, iy)) {
+      if (consumed.has(p.id)) continue;
+      consumed.add(p.id);
       const m = mutable(state, p, propDef(p.kind));
       m.burnAt = state.elapsed;
       damageProp(state, p, FIRE.propBurn, ctx, true);
@@ -225,10 +339,4 @@ function fireTick(state: SimState, ctx: SimContext): void {
   }
   const ash = Object.keys(fire.ash);
   for (let i = 0; i < ash.length - FIRE.maxAsh; i++) delete fire.ash[ash[i]!];
-  // Ink standing in flames scorches; the cat is never hurt by fire.
-  for (const e of state.enemies) {
-    if (!e.alive || e.spawnTime > 0) continue;
-    const [ix, iy] = cellOf(e.x, e.y);
-    if (cellKey(ix, iy) in fire.cells) ctx.hurtEnemy(state, e, FIRE.enemyDamage);
-  }
 }

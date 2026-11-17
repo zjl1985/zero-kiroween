@@ -2,7 +2,7 @@
 
 A cat is a `CharacterDef` (sim) plus a `CatArt` (render) plus official head data and i18n copy. Interfaces: `CharacterDef` and `CatBaseStats` in `src/defs/types.ts`; `CatArt`, `CatBodyPalette`, `CatColors` in `src/render/art-registry.ts`. Use Nicole (`src/defs/cats/nicole/`) as the reference; she uses every optional hook.
 
-Hard rules: only the chosen cat is in a run (no companion), and every cat keeps its own kit: start weapon, skill, passive, exclusives and an evolution. Ask the user before adding helper cats.
+Hard rules: only the chosen cat is in a run (no companion), and every cat keeps its own kit: start weapon, skill, passive, exclusives and an evolution. Ask the user before adding helper cats. Every playable cat uses the shared paper-actor burn/wet system; do not add a fire immunity or bypass shields/invulnerability. See [paper-ecology.md](paper-ecology.md).
 
 ## Steps
 
@@ -66,14 +66,14 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
    `for (const cat of [ZERO, NICOLE]) CATS.register(cat);`
    Append at the end: ticket order and stat fold order follow registration order.
 
-5. **Head data**: add a variant with `id: "<id>"` to `CAT_VARIANTS` in `src/cats/meow-wall-art.ts` (palette, markings, accessories). `officialRects(id)` in `src/cats/official.ts` throws `missing meow-wall variant` without it. `src/cats/catalog.ts` (`getCat`, `allCats`) is legacy pixel data and is not used by the papercraft renderer.
+5. **Head data**: a new cat needs an authorized official variant with `id: "<id>"` in `CAT_VARIANTS` (`src/cats/meow-wall-art.ts`). Keep existing official data untouched. `officialRects(id)` in `src/cats/official.ts` validates identity; `paper-face.ts` derives visible per-color contours and the silhouette with original last-rectangle-wins layering, preserving markings and accessories. It caches paper cuts for both world heads and portraits; do not replace the face geometry to make it look papery. `src/cats/catalog.ts` is legacy pixel data, not the papercraft source.
 
 6. **Art**: `src/defs/cats/<id>/art.ts`, shaped like `NICOLE_ART`.
 
    ```ts
    import type { CatArt } from "../../../render/art-registry.js";
    import { drawCraftCat } from "../../../render/craft-cat.js";
-   import { drawOfficialHead } from "../../../render/layout.js";
+   import { drawPaperPortrait } from "../../../render/paper-face.js";
 
    export const <ID>_ART: CatArt = {
      id: "<id>",
@@ -85,7 +85,7 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
      colors: { hud, tone, cardPaper, cardInk, icon, levelUp, evolve },
      draw(ctx, pose) { drawCraftCat(ctx, pose, <ID>_ART.body); },
      skillPreview(ctx, pose) { /* draw this cat's skill effect and pose without a sim or audio */ },
-     portrait(ctx, pose, scale) { drawOfficialHead(ctx, pose, { scale }); },
+     portrait(ctx, pose, scale) { drawPaperPortrait(ctx, pose, scale, <ID>_ART.body.rim); },
      heroAura(ctx, x, y, time) { /* title aura, paper-kit / paper-material only */ },
      skillIcon(ctx, kind) { /* 32 x 32 glyph for "attack" | "active" | "passive" */ },
      ground(ctx, state) { /* optional flat skill marks */ },
@@ -109,6 +109,8 @@ The ticket on the title screen is built by `buildCatTickets()` in `src/ui/charac
 ## Tests to extend
 
 `tests/registry.test.mjs` already checks every cat generically: registered start weapon from its own pool, exclusives in its own pool and not shared, evolution pairs, i18n keys, matching `CAT_ART`. Add a kit test in `tests/characters.test.mjs` (pattern: `createSim({ cat: "<id>", seed })`, `step(state, { ax, ay, dash: true }, FIXED_DT)`, then assert on `state`). `tests/gallery.test.mjs` picks the cat up automatically (idle + skill cells).
+
+`tests/cat-art.test.mjs` covers source contour visibility/area, narrow rim, anchors and finite cached parts. `tests/fire-water.test.mjs` and `environment-integration.test.mjs` cover both current cats' normal defense hooks, shallow slowing and extinguishing. Read-only burn/wet overlays attach after the real actor's art, never to the dash decoy. Nicole's fold source is additive to her existing field/shields.
 
 ## Checklist
 

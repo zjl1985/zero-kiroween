@@ -1,7 +1,9 @@
+import { cachedSprite } from "../../../engine/sprite.js";
+import { LANDMARK_ACTIONS, WINDMILL } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
-import { grassTuft, leaf } from "../../../render/craft-scene.js";
+import { grassTuft } from "../../../render/craft-scene.js";
 import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
-import { box, glow, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
+import { box, hash, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 
 /** One lattice sail on its arm, pointing along angle `a` from the hub. */
 function sail(ctx: Ctx, a: number, seed: number): void {
@@ -14,8 +16,8 @@ function sail(ctx: Ctx, a: number, seed: number): void {
   line(ctx, 12, -22, 12.5, -84, "#9a845e", 0.6, 0.8);
   ctx.restore();
 }
-/** A paper windmill: tapered tower with a lit side face, a shingled cap and four sails. */
-function windmill(ctx: Ctx, x: number, y: number, s: number, v: number): void {
+/** Cached tower only. The live rotor is deliberately absent to prevent duplicate sails. */
+export function paintWindmillTower(ctx: Ctx, x: number, y: number, s: number, v: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -51,13 +53,34 @@ function windmill(ctx: Ctx, x: number, y: number, s: number, v: number): void {
   }
   paperCut(ctx, new Path2D("M -14 4 L -14 -20 Q -4 -30 6 -20 L 6 4 Z"), { color: "#5f4530", shadow: 2, thickness: 1.2, texture: 0.9, edge: "#b68e56" });
   for (let i = 0; i < 3; i++) line(ctx, -10 + i * 6, -18, -10 + i * 6, 3, "#a07a47", 0.6);
-  // Sails at a fixed angle per variant (sprites are cached, not spun).
-  ctx.save();
-  ctx.translate(-4, -118);
-  const turn = 0.35 + (v % 3) * 0.5;
-  for (let k = 0; k < 4; k++) sail(ctx, turn + (k * Math.PI) / 2, v + k);
-  paperCut(ctx, oval(0, 0, 6, 6, v), { color: "#6b4d34", shadow: 1.6, thickness: 0.8, texture: 0.6, edge: "#c49a62" });
   ctx.restore();
+}
+
+export const WINDMILL_SAILS = {
+  hub: { x: -4, y: -118 },
+  bounds: { l: -104, r: 104, t: -232, b: 14 },
+} as const;
+
+/**
+ * Live overlay API: pass the SAME (x, y, s, variant) as the windmill DecorPiece,
+ * plus a render-only angle in radians (0 gives the gallery pose). Its base is
+ * (landmark.x, landmark.y - 10), not the court anchor. Call after the cached
+ * tower, under the same popup transform/depth order. Never cache by angle/time.
+ * Only three rotor textures are cached; rotation is a Canvas transform.
+ */
+export function paintWindmillSails(ctx: Ctx, x: number, y: number, s: number, v: number, angle = 0): void {
+  const variant = ((Math.trunc(v) % 3) + 3) % 3;
+  const rotor = cachedSprite(`windmill-sails:${variant}`, 192, 192, 2, (c) => {
+    c.translate(96, 96);
+    for (let k = 0; k < 4; k++) sail(c, (k * Math.PI) / 2, variant + k);
+    paperCut(c, oval(0, 0, 6, 6, variant), { color: "#6b4d34", shadow: 1.6, thickness: 0.8, texture: 0.6, edge: "#c49a62" });
+  }, { x: 0.5, y: 0.5 });
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.translate(WINDMILL_SAILS.hub.x, WINDMILL_SAILS.hub.y);
+  ctx.rotate(0.35 + variant * 0.5 + angle);
+  rotor.draw(ctx, { x: 0, y: 0 });
   ctx.restore();
 }
 
@@ -80,7 +103,18 @@ export const PAPER_WINDMILL_ART: LandmarkArt = {
     walk.quadraticCurveTo(x + 20, y + 50, x - 10, y + 96);
     stroke(ctx, walk, "#7a6450", 16, 0.85);
     stroke(ctx, walk, "#a08a6c", 11, 0.9);
+    const px = x + WINDMILL.point.x, py = y + WINDMILL.point.y;
+    paperCut(ctx, oval(px, py, 25, 15, seed), { color: "#b4a27b", shadow: 0.7, thickness: 0.7, stitch: "#e2d1aa", stitchInset: 2 });
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2, dx = Math.cos(a), dy = Math.sin(a) * 0.6;
+      paperCut(ctx, [[px, py], [px + dx * 17 - dy * 5, py + dy * 17 + dx * 3], [px + dx * 16 + dy * 6, py + dy * 16 - dx * 4]], { color: i % 2 ? "#688b82" : "#e3d6b4", shadow: 0.4, thickness: 0.5 });
+    }
     for (let i = 0; i < 6; i++) grassTuft(ctx, x + (hash(seed + i) - 0.5) * 260, y + 40 + hash(seed + i * 3) * 40, 0.9, seed + i);
   },
-  pieces: [{ kind: "windmill", bounds: { l: -96, r: 96, t: -232, b: 14 }, paint: windmill, variants: 3, popup: true }],
+  pieces: [{
+    kind: "windmill", bounds: WINDMILL_SAILS.bounds, paint: paintWindmillTower, variants: 3, popup: true,
+    live(ctx, x, y, s, v, time, activity) {
+      paintWindmillSails(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);
+    },
+  }],
 };

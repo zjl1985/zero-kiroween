@@ -12,6 +12,11 @@ import { PUMPKIN } from "../game/interactions.js";
 import { box, glow, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
 import { visHash } from "./hash.js";
 import { YARD_PROPS } from "./scene.js";
+import { combatPart, paperFleck } from "./craft-combat.js";
+import { ring } from "./combat-fx.js";
+import { LANDMARK_DEFS } from "../defs/registries.js";
+import type { LandmarkPlace } from "../defs/types.js";
+import { landmarkActivityPoint } from "../defs/landmark-activities.js";
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 function progress(e: Impact, life: number): number {
@@ -67,13 +72,18 @@ export function drawStun(ctx: Ctx, e: EnemyState, time: number): void {
 }
 
 function paperStar(ctx: Ctx, x: number, y: number, r: number, color: string, rot = 0): void {
-  const pts: Point[] = [];
-  for (let i = 0; i < 10; i++) {
-    const a = rot + (i / 10) * Math.PI * 2 - Math.PI / 2,
-      k = i % 2 ? r * 0.45 : r;
-    pts.push([x + Math.cos(a) * k, y + Math.sin(a) * k]);
-  }
-  piece(ctx, path(pts), color, { shadow: 0.5, texture: 0.3, thickness: 0.4 });
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  combatPart(`five-star:${color}`, 24, 24, (c) => {
+    const pts: Point[] = [];
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * Math.PI * 2 - Math.PI / 2, k = i % 2 ? 3.15 : 7;
+      pts.push([Math.cos(a) * k, Math.sin(a) * k]);
+    }
+    piece(c, path(pts), color, { shadow: 0.5, texture: 0.3, thickness: 0.6 });
+  }).draw(ctx, { x: 0, y: 0, scale: r / 7 });
+  ctx.restore();
 }
 
 /** A rising cut-paper tag with the damage number. */
@@ -97,17 +107,13 @@ function drawDamageTag(ctx: Ctx, e: Impact): void {
   // Pop in, then settle.
   const pop = t < 0.15 ? 0.6 + (t / 0.15) * 0.55 : 1.15 - Math.min(0.15, (t - 0.15) * 0.6);
   ctx.scale(pop, pop);
-  const tag = path([
-    [-w / 2, -h / 2 + 0.6],
-    [w / 2 - 0.4, -h / 2],
-    [w / 2, h / 2 - 0.5],
-    [-w / 2 + 0.5, h / 2],
-  ]);
-  piece(ctx, tag, e.src === "eraser-boss" ? "#f3c2c9" : big ? "#f4d48e" : "#efe3c8", {
-    shadow: 0.8,
-    texture: 0.35,
-    thickness: 0.5,
-  });
+  const paper = e.src === "eraser-boss" ? "#f3c2c9" : big ? "#f4d48e" : "#efe3c8";
+  ctx.save();
+  ctx.scale(w / 24, h / 12);
+  combatPart(`damage-tag:${paper}`, 34, 24, (c) => {
+    piece(c, path([[-12, -5.4], [11.6, -6], [12, 5.5], [-11.5, 6]]), paper, { shadow: 0.8, texture: 0.35, thickness: 0.6 });
+  }).draw(ctx, { x: 0, y: 0 });
+  ctx.restore();
   ctx.fillStyle = "#3a2733";
   ctx.font = `700 ${big ? 9 : 7.5}px Georgia, serif`;
   ctx.textAlign = "center";
@@ -152,13 +158,7 @@ function drawDissolve(ctx: Ctx, e: Impact): void {
     ctx.translate(x, y);
     ctx.rotate(spin);
     ctx.scale(1, flip);
-    const flake = path([
-      [-size, -size * 0.4],
-      [size * 0.2, -size * 0.8],
-      [size, size * 0.1],
-      [-size * 0.2, size * 0.7],
-    ]);
-    piece(ctx, flake, colors[i % colors.length]!, { shadow: 0.4, texture: 0.25, thickness: 0.35 });
+    paperFleck(ctx, 0, 0, size, colors[i % colors.length]!);
     ctx.restore();
   }
   ctx.restore();
@@ -176,16 +176,17 @@ function drawUncrumple(ctx: Ctx, x: number, y: number, r: number, k: number, see
     ctx.save();
     ctx.translate(x + side * tear * 9, y + tear * 4);
     ctx.rotate(side * tear * 0.35);
-    const pts: Point[] = [];
-    // Each half is a crumpled outline that relaxes into a flat torn sheet.
-    for (let i = 0; i <= 6; i++) {
-      const v = i / 6,
-        jag = (visHash(seed + i * 13) - 0.5) * (1 - open) * r * 0.6;
-      pts.push([side * (w * (0.15 + 0.85 * Math.sin(v * Math.PI))) + jag, -h + v * h * 2]);
-    }
-    for (let i = 6; i >= 0; i--) pts.push([side * ((visHash(seed + i * 17) - 0.5) * 3), -h + (i / 6) * h * 2]);
-    const sheet = path(pts);
-    piece(ctx, sheet, "#ece0c8", { shadow: 1, texture: 0.6, thickness: 0.6 });
+    ctx.save();
+    ctx.scale(side * w / 18, h / 18);
+    const v = Math.abs(seed) % 3;
+    combatPart(`uncrumple-sheet:${v}`, 50, 52, (c) => {
+      const pts: Point[] = [[0, -18], [8, -17], [17, -10], [18, 9], [9, 18], [0, 17]];
+      for (let i = 5; i >= 0; i--) pts.push([(visHash(v + i * 17) - 0.5) * 3, -18 + i * 6]);
+      piece(c, path(pts), "#ece0c8", { shadow: 1, texture: 0.6, thickness: 0.7 });
+      c.fillStyle = "#cbb99e";
+      c.fill(path([[0, -18], [8, -17], [5, 4], [0, 17]]));
+    }).draw(ctx, { x: 0, y: 0 });
+    ctx.restore();
     // Creases fade as the sheet flattens.
     ctx.globalAlpha *= 1 - open * 0.6;
     for (let i = 0; i < 3; i++)
@@ -210,20 +211,16 @@ function drawPaperBurst(ctx: Ctx, e: Impact, life: number, strips: number, reach
       x0 = e.x + Math.cos(a) * r0,
       y0 = cy + Math.sin(a) * r0 * 0.6,
       x1 = e.x + Math.cos(a) * r1,
-      y1 = cy + Math.sin(a) * r1 * 0.6,
-      nx = -Math.sin(a) * 1.6,
-      ny = Math.cos(a) * 1.0;
-    piece(
-      ctx,
-      path([
-        [x0 + nx, y0 + ny],
-        [x1 + nx * 0.4, y1 + ny * 0.4],
-        [x1 - nx * 0.4, y1 - ny * 0.4],
-        [x0 - nx, y0 - ny],
-      ]),
-      colors[i % colors.length]!,
-      { shadow: 0.5, texture: 0.25, thickness: 0.35 },
-    );
+      y1 = cy + Math.sin(a) * r1 * 0.6;
+    const color = colors[i % colors.length]!;
+    ctx.save();
+    ctx.translate(x0, y0);
+    ctx.rotate(Math.atan2(y1 - y0, x1 - x0));
+    ctx.scale(Math.hypot(x1 - x0, y1 - y0) / 24, 1);
+    combatPart(`burst-strip:${color}`, 34, 14, (c) => {
+      piece(c, path([[-12, 1.6], [12, 0.6], [12, -0.6], [-12, -1.6]]), color, { shadow: 0.5, texture: 0.25, thickness: 0.4 });
+    }).draw(ctx, { x: 12, y: 0 });
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -266,6 +263,26 @@ export function drawInteractGround(ctx: Ctx, sim: SimState, time: number): void 
     }
   }
   for (const t of sim.treats) if (t.alive) shadow(ctx, t.x, t.y + 1, 9, 2.5);
+}
+
+/** Registry-driven progress affordance; the HUD owns the localized explanation. */
+export function drawLandmarkActivity(ctx: Ctx, sim: SimState, landmark: LandmarkPlace): void {
+  const activity = LANDMARK_DEFS.find(landmark.kind)?.activity, point = landmarkActivityPoint(landmark);
+  if (!activity || Math.hypot(sim.player.x - point.x, sim.player.y - point.y) > activity.radius + 80) return;
+  const state = sim.landmarkEvents?.[landmark.id],
+    cooling = (state?.cooldown ?? 0) > 0,
+    progress = cooling ? 1 - (state?.cooldown ?? 0) / Math.max(0.01, activity.cooldown)
+      : (state?.progress ?? 0) / Math.max(0.01, activity.seconds),
+    color = cooling ? "#8b91a1" : activity.element ? "#a7c9cb" : "#e0c68f",
+    x = point.x, y = point.y + activity.radius * 0.4;
+  ctx.save();
+  ctx.globalAlpha *= cooling ? 0.35 : 0.65;
+  ring(ctx, point.x, point.y, activity.radius, color, 1, 1);
+  ctx.globalAlpha *= 0.9;
+  ring(ctx, x, y, 9, "#3c3546");
+  ring(ctx, x, y, 9, color, 1, clamp01(progress));
+  paperStar(ctx, x, y, cooling ? 2.5 : 4, color, activity.element ? Math.PI / 4 : 0);
+  ctx.restore();
 }
 
 /** States drawn on top of the cached props: carved glow, recharge arc, moon charge. */

@@ -9,5 +9,6 @@ export const GRAVEYARD_WOODS: BiomeDef = {
     { prop: "paper-tombstone", chance: 0.75, count: [2, 4] },
     { prop: "paper-mushroom", chance: 0.4, count: [1, 2] },
     { prop: "paper-grass", chance: 0.3, count: [1, 1] },
+    { prop: "wax-candle", chance: 0.7, count: [1, 2] },
   ],
 };

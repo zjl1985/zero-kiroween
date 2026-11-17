@@ -1,9 +1,11 @@
+import { OBSERVATORY_ACTIVITY } from "../../landmark-activities.js";
 import type { LandmarkDef } from "../../types.js";
 
 /** Slit-dome observatory above an open compass court and a separate chart deck. */
 export const STAR_OBSERVATORY: LandmarkDef = {
   id: "star-observatory",
   radius: 200,
+    activity: OBSERVATORY_ACTIVITY,
   layout(_l, b) {
     b.add("star-observatory-armillary", 126, -48, 0.95, 1);
     b.add("star-observatory-building", -12, -30, 1);

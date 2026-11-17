@@ -18,6 +18,7 @@ import {
   type Ctx,
   type Point,
 } from "./paper-material.js";
+import { cachedSprite } from "../engine/sprite.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
@@ -26,6 +27,20 @@ import { ENEMY_ART, effectPainter } from "./art-registry.js";
 export interface Look {
   x: number;
   y: number;
+}
+/** Finite static cuts only: callers hinge/scale them without time or actor-id cache keys. */
+export function enemyPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void) {
+  return cachedSprite(`enemy-part:${key}`, w, h, 2, (ctx) => {
+    ctx.translate(w / 2, h / 2);
+    paint(ctx);
+  }, { x: 0.5, y: 0.5 });
+}
+export function enemyShadow(ctx: Ctx, x: number, y: number, rx: number, ry: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(rx / 16, ry / 5);
+  enemyPart("contact", 48, 24, (c) => shadow(c, 0, 0, 16, 5)).draw(ctx, { x: 0, y: 0 });
+  ctx.restore();
 }
 /**
  * Googly paper eyes: the pupil rolls toward the cat and the lid blinks on a
@@ -49,12 +64,11 @@ export function googly(
     py = y + (dy / d) * reach * 0.8,
     beat = (time * 0.55 + hash(id * 7 + 1) * 4) % 4,
     blink = beat < 0.13;
-  piece(ctx, oval(x, y, r, r * 1.05, id + 3, 0.05), "#f6efe0", {
-    shadow: 0.6,
-    edge: "#ffffff",
-    texture: 0.25,
-    thickness: 0.45,
-  });
+  enemyPart("eye", 16, 18, (c) => {
+    piece(c, oval(0, 0, 4, 4.2, 3, 0.05), "#f6efe0", {
+      shadow: 0.6, edge: "#ffffff", texture: 0.25, thickness: 0.45,
+    });
+  }).draw(ctx, { x, y, scale: r / 4 });
   if (blink) {
     line(ctx, x - r * 0.8, y, x + r * 0.8, y, "#2a2033", 1.1);
     return;
@@ -107,23 +121,16 @@ export function drawCraftEnemy(
 }
 /** A small folded gold-paper crown with stitched band. */
 function drawEliteCrown(ctx: Ctx, x: number, y: number, s: number, seed: number, time: number): void {
-  const bob = Math.sin(time * 2.6 + seed) * 1.2,
-    w = 13 * s,
-    h = 8 * s,
-    cy = y + bob,
-    crown = path([
-      [x - w, cy + h * 0.4],
-      [x - w * 0.95, cy - h * 0.7],
-      [x - w * 0.45, cy - h * 0.05],
-      [x, cy - h * 1.05],
-      [x + w * 0.45, cy - h * 0.05],
-      [x + w * 0.95, cy - h * 0.7],
-      [x + w, cy + h * 0.4],
-    ]);
-  piece(ctx, crown, "#e5bd62", { shadow: 1.2, edge: "#fff0c4", texture: 0.5, thickness: 0.8 });
-  stitch(ctx, path([[x - w * 0.9, cy + h * 0.15], [x + w * 0.9, cy + h * 0.15]]), "#9c7434", 0.8);
-  ctx.fillStyle = "#c2493f";
-  ctx.fill(oval(x, cy - h * 0.25, 1.6 * s, 1.6 * s, seed));
+  const bob = Math.sin(time * 2.6 + seed) * 1.2;
+  enemyPart("elite-crown", 42, 32, (c) => {
+    const crown = path([[-13, 3.2], [-12.35, -5.6], [-5.85, -0.4], [0, -8.4], [5.85, -0.4], [12.35, -5.6], [13, 3.2]]);
+    piece(c, crown, "#e5bd62", { shadow: 1.2, edge: "#fff0c4", texture: 0.5, thickness: 0.9 });
+    c.fillStyle = "#ac7f45";
+    c.fill(path([[0, -8.4], [0, 3], [5.85, -0.4]]));
+    stitch(c, path([[-11.7, 1.2], [11.7, 1.2]]), "#9c7434", 0.8);
+    c.fillStyle = "#c2493f";
+    c.fill(oval(0, -2, 1.6, 1.6));
+  }).draw(ctx, { x, y: y + bob, scale: s });
 }
 export function dashed(ctx: Ctx, p: Path2D, color: string, alpha: number, width = 1.4): void {
   ctx.save();
@@ -136,13 +143,14 @@ export function dashed(ctx: Ctx, p: Path2D, color: string, alpha: number, width 
 /** Puddles, landing marks and Boss telegraphs, drawn flat on the yard. */
 export function drawEnemyGround(ctx: Ctx, state: SimState): void {
   for (const h of state.hazards) {
-    const k = h.life / h.maxLife,
-      p = oval(h.x, h.y, h.radius, h.radius * 0.62, h.id, 0.28);
+    const k = h.life / h.maxLife, v = Math.abs(h.id) % 3;
     ctx.save();
-    ctx.globalAlpha = Math.min(1, k * 3) * 0.85;
-    piece(ctx, p, "#33263f", { shadow: 0, edge: "#6c5486", texture: 0.5, thickness: 0.8 });
-    ctx.fillStyle = "#8a74a855";
-    ctx.fill(oval(h.x - h.radius * 0.3, h.y - h.radius * 0.18, h.radius * 0.28, h.radius * 0.12, h.id + 2));
+    ctx.globalAlpha *= Math.min(1, k * 3) * 0.85;
+    enemyPart(`ink-puddle:${v}`, 58, 40, (c) => {
+      piece(c, oval(0, 0, 20, 12.4, v, 0.28), "#33263f", { shadow: 0, edge: "#6c5486", texture: 0.5, thickness: 0.8 });
+      c.fillStyle = "#8a74a855";
+      c.fill(oval(-6, -3.6, 5.6, 2.4, v + 2));
+    }).draw(ctx, { x: h.x, y: h.y, scale: h.radius / 20 });
     ctx.restore();
   }
   for (const s of state.enemyShots) {
@@ -163,13 +171,12 @@ export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {
     x = s.x0 + (s.tx - s.x0) * k,
     gy = s.y0 + (s.ty - s.y0) * k,
     lift = 32 + Math.sin(k * Math.PI) * 46 - k * 18;
-  shadow(ctx, x, gy, 4, 1.5);
-  piece(
-    ctx,
-    new Path2D(`M ${x} ${gy - lift - 6} q 4.5 5 3.5 8 a 3.6 3.6 0 1 1 -7 0 q -1 -3 3.5 -8 Z`),
-    "#3a2c4b",
-    { shadow: 1, edge: "#8a6fa3", texture: 0.4, thickness: 0.5 },
-  );
+  enemyShadow(ctx, x, gy, 4, 1.5);
+  enemyPart("ink-drop", 24, 28, (c) => {
+    piece(c, new Path2D("M 0 -8 Q 5 -1 4 4 Q 0 10 -4 4 Q -5 -1 0 -8 Z"), "#3a2c4b",
+      { shadow: 1, edge: "#8a6fa3", texture: 0.4, thickness: 0.7 });
+    line(c, -2, -1, -2, 3, "#b5a0bd", 0.9, 0.7);
+  }).draw(ctx, { x, y: gy - lift });
 }
 /** Splats, erase smears, summons, crumple bursts and the Boss's defeat. */
 export function drawEnemyEffect(ctx: Ctx, e: Impact): boolean {

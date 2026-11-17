@@ -14,7 +14,10 @@ import {
   type SkillIconKind,
 } from "./art-registry.js";
 import { orbitPositions } from "../game/sim.js";
-import { line, rect, type Ctx } from "./pixel-art.js";
+import { rect, type Ctx } from "./pixel-art.js";
+import { combatPart } from "./craft-combat.js";
+import { foldLine } from "./paper-kit.js";
+import { stroke } from "./paper-material.js";
 
 export function ring(
   ctx: Ctx,
@@ -25,20 +28,17 @@ export function ring(
   ratio = 1,
   progress = 1,
 ): void {
-  const segments = 96;
-  for (let i = 0; i < segments * progress; i++) {
-    if (i % 12 === 11) continue;
-    const a = (i / segments) * Math.PI * 2,
-      b = ((i + 1) / segments) * Math.PI * 2;
-    line(
-      ctx,
-      x + Math.cos(a) * r,
-      y + Math.sin(a) * r * ratio,
-      x + Math.cos(b) * r,
-      y + Math.sin(b) * r * ratio,
-      color,
-    );
+  if (r <= 0 || ratio <= 0 || progress <= 0) return;
+  const end = Math.min(1, progress) * Math.PI * 2, cut = new Path2D();
+  // Eight paper arcs leave room for actors, instead of 96 separately drawn dashes.
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4, b = Math.min(end, a + Math.PI / 4 - 0.065);
+    if (a >= b) break;
+    cut.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r * ratio);
+    cut.ellipse(x, y, r, r * ratio, 0, a, b);
   }
+  stroke(ctx, cut, "#231c30", 2.8, 0.4);
+  stroke(ctx, cut, color, 1.2);
 }
 export function star(
   ctx: Ctx,
@@ -48,18 +48,21 @@ export function star(
   color: string,
   angle = 0,
 ): void {
-  const points: Array<[number, number]> = [];
-  for (let i = 0; i < 8; i++) {
-    const a = angle + (i * Math.PI) / 4,
-      rr = i % 2 ? r * 0.32 : r;
-    points.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
-  }
-  paperPiece(ctx, paperPath(points), color, {
-    shadow: 0.4,
-    texture: 0.35,
-    thickness: 0.3,
-  });
-  rect(ctx, x - 1, y - 1, 2, 2, "#fff3d1");
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  combatPart(`star:${color}`, 26, 26, (c) => {
+    const points: Array<[number, number]> = [];
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, rr = i % 2 ? 2.56 : 8;
+      points.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
+    paperPiece(c, paperPath(points), color, { shadow: 0.6, texture: 0.35, thickness: 0.65 });
+    c.fillStyle = "#fff3d155";
+    c.fill(paperPath([[0, -8], [0, 0], [-2.56, -2.56]]));
+    foldLine(c, 0, -6, 0, 6, 0.45);
+  }).draw(ctx, { x: 0, y: 0, scale: r / 8 });
+  ctx.restore();
 }
 /** Flat marks under the cat: its own ground art, then each active weapon's. */
 export function drawCombatGround(ctx: Ctx, state: SimState): void {
@@ -75,9 +78,23 @@ export function drawOrbitStar(
   full = false,
 ): void {
   light(ctx, x, y - 12, full ? 22 : 17, full ? "#f1dca6" : "#c2a6ee", 0.24, 1);
-  for (let k = 1; k < 4; k++) rect(ctx, x - k * 2, y - 12 + k, 1, 1, "#8b79b7");
+  paperTrail(ctx, x, y - 12, time * 1.2 + index, 18, full ? "#c5b58d" : "#9b84bf", 0.65);
   star(ctx, x, y - 12, full ? 8.5 : 7, full ? "#efe2bd" : "#d7c8f6", time * 1.2 + index);
   star(ctx, x, y - 12, full ? 4 : 3, "#fff1ce", time * 1.2 + index);
+}
+/** Two tapered paper ribbons separated by air, not an opaque glow over enemies. */
+export function paperTrail(ctx: Ctx, x: number, y: number, angle: number, length: number, color: string, width = 1): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(length / 28, width);
+  combatPart(`trail:${color}`, 44, 18, (c) => {
+    c.globalAlpha = 0.48;
+    paperPiece(c, paperPath([[-19, -4], [9, -1.6], [-8, -1.2]]), color, { shadow: 0, texture: 0.2, thickness: 0.35 });
+    c.globalAlpha = 0.27;
+    paperPiece(c, paperPath([[-16, 3.5], [7, 1], [-6, 1.2]]), color, { shadow: 0, texture: 0.2, thickness: 0.35 });
+  }).draw(ctx, { x: -9, y: 0 });
+  ctx.restore();
 }
 /** Weapon art in front of the cat, then the moon shield. */
 export function drawCombatFront(ctx: Ctx, state: SimState): void {

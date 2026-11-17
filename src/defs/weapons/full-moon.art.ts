@@ -2,6 +2,8 @@
 import type { WeaponArt } from "../../render/art-registry.js";
 import { piece, oval, glow } from "../../render/paper-material.js";
 import { ring, star } from "../../render/combat-fx.js";
+import { combatPart } from "../../render/craft-combat.js";
+import { foldLine } from "../../render/paper-kit.js";
 import { playerStats, UPGRADE_VALUES } from "../../game/upgrades.js";
 import { ellipse } from "../../render/pixel-art.js";
 import { NICOLE_STATS } from "../cats/nicole/stats.js";
@@ -53,14 +55,12 @@ export const FULL_MOON_ART: WeaponArt = {
       my = p.y - 64,
       r = 5 + charge * 2.2;
     glow(ctx, mx, my, 22 + charge * 10, "#f3dfa6", 0.2 + charge * 0.15, 1);
-    piece(ctx, oval(mx, my, r, r, 7, 0.06), "#efe0b4", {
-      shadow: 1.2,
-      edge: "#fff6d8",
-      texture: 0.6,
-      thickness: 0.6,
-    });
-    ctx.fillStyle = "#c8b98f";
-    ctx.fill(oval(mx - r * 0.3, my - r * 0.15, r * 0.22, r * 0.2, 3));
-    ctx.fill(oval(mx + r * 0.35, my + r * 0.3, r * 0.16, r * 0.14, 5));
+    combatPart("full-moon", 28, 30, (c) => {
+      piece(c, oval(0, 0, 8, 8, 7, 0.06), "#efe0b4", { shadow: 1.2, edge: "#fff6d8", texture: 0.6, thickness: 0.8 });
+      c.fillStyle = "#c8b98f";
+      c.fill(oval(-2.4, -1.2, 1.76, 1.6, 3));
+      c.fill(oval(2.8, 2.4, 1.28, 1.12, 5));
+      foldLine(c, 2, -6, -1, 6, 0.25);
+    }).draw(ctx, { x: mx, y: my, scale: r / 8 });
   },
 };

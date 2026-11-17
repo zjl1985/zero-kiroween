@@ -308,9 +308,10 @@ function boot(): void {
       "aria-label",
       `${t(locale, "title.name")} · ${catName(locale, sim?.player.id ?? selectedCat)}`,
     );
-    must("pause-note").textContent = hiddenPause
-      ? t(locale, "pause.hidden")
-      : "";
+    must("pause-note").textContent = [
+      ...(hiddenPause ? [t(locale, "pause.hidden")] : []),
+      t(locale, "help.paper-world"),
+    ].join(" ");
     must("dash-btn").textContent = characterCopy(
       locale,
       selectedCat,

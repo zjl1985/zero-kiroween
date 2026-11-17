@@ -1,3 +1,4 @@
+import { OBSERVATORY } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
 import { paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, shadow, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
@@ -182,13 +183,15 @@ export const STAR_OBSERVATORY_ART: LandmarkArt = {
     stitchAlong(ctx, oval(0, 26, 151, 84, l.seed + 1, 0.04), "#cdc2a6", 0.75);
     stroke(ctx, oval(0, 26, 112, 62, 5, 0.015), "#c6bba1", 1.5, 0.65);
     stroke(ctx, oval(0, 26, 104, 56, 5, 0.015), "#c6bba1", 0.65, 0.6);
-    // Compass rose in the walkable court; no signs, labels or new interaction markers.
+    // The alignment activity and its compass rose share a walkable court anchor.
+    const { x: ox, y: oy } = OBSERVATORY.point;
+    ring(ctx, ox, oy, 49, 29, 1.5, "#d7c9a3");
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI) / 4, r = i % 2 ? 28 : 44,
-        tip: Point = [Math.cos(a) * r, 38 + Math.sin(a) * r * 0.55],
-        left: Point = [Math.cos(a - 0.3) * 10, 38 + Math.sin(a - 0.3) * 6],
-        right: Point = [Math.cos(a + 0.3) * 10, 38 + Math.sin(a + 0.3) * 6];
-      paperCut(ctx, [[0, 38], left, tip, right], { color: i % 2 ? "#a6a1a4" : "#cabd98", thickness: 0.5, shadow: 0.3, fold: { from: [0, 38], to: tip, depth: 0.18 } });
+        tip: Point = [ox + Math.cos(a) * r, oy + Math.sin(a) * r * 0.55],
+        left: Point = [ox + Math.cos(a - 0.3) * 10, oy + Math.sin(a - 0.3) * 6],
+        right: Point = [ox + Math.cos(a + 0.3) * 10, oy + Math.sin(a + 0.3) * 6];
+      paperCut(ctx, [[ox, oy], left, tip, right], { color: i % 2 ? "#a6a1a4" : "#cabd98", thickness: 0.5, shadow: 0.3, fold: { from: [ox, oy], to: tip, depth: 0.18 } });
     }
     for (let i = 0; i < 3; i++) paperCut(ctx, [[-22, 83 + i * 18], [22, 83 + i * 18], [25, 96 + i * 18], [-25, 96 + i * 18]], { color: "#b4adab", thickness: 0.7, shadow: 0.6 });
     for (let i = 0; i < 6; i++) {

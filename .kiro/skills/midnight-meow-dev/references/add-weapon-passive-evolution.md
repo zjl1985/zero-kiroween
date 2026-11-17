@@ -56,7 +56,7 @@ Reference: `src/defs/weapons/star-fall.ts` (timed area hits) or `paper-crane.ts`
    ```
 
    - Randomness only from `rng`. Using it changes the RNG sequence, so later spawns and card rolls change too; that is fine for new content but it re-records the behaviour probes (see testing-and-verification.md).
-   - Shots: `ctx.spawnShot(state, { x, y, vx, vy, life, alive: true, weapon: "<shotTag>", damage, pierce, hits: [] })`. The sim maps `shotTag` to `elements[0]` for prop hits.
+   - Shots: `ctx.spawnShot(state, { x, y, vx, vy, life, alive: true, weapon: "<shotTag>", damage, pierce, hits: [] })`. The sim maps `shotTag` to `elements[0]` for environmental hits through `applyElement` (props plus eligible landmark activities). Extra listed elements are not automatically applied. Paper Crane keeps wind shots and explicitly supplies one radius-84, power-1 fold pulse at the cat per successful volley launch; do not apply fold once per projectile or alter its fan/homing/RNG. Nicole's skill separately supplies fold at her field radius. See [paper-ecology.md](paper-ecology.md) for treatment and activity contracts.
    - A new impact kind needs a value in the `EffectKind` union and in `EFFECT_LIFE` (`src/game/types.ts`), and a painter under `effects` in the art.
    - `init(state)` sets initial SimState fields in `createSim`; `hooks` run only while the weapon is owned or is the chosen cat's start weapon.
 
@@ -145,6 +145,7 @@ Known gap (not fixed): if all passive slots fill before the paired passive is ta
 - `tests/registry.test.mjs` checks pools, evolution pairs, icons (`upgradeIcon`) and i18n keys for every registered weapon, passive and evolution automatically.
 - `tests/upgrades.test.mjs`: add a damage test like "the extra weapons hit ink: night claw, star fall, paper crane, pumpkin seed": grant it the way the game does (`s.pendingChoice = { options: ["<id>"] }; chooseUpgrade(s, 0);`), place a stunned enemy with the file's `enemy(s, x, y, hp)` helper, step with `idle` input and assert its hp dropped.
 - For a cat-specific item, `each cat is only ever offered its own pool` covers pools.
+- `tests/paper-elements.test.mjs` checks crane fold pulse count and preserved volley behavior for both cats; `landmark-actions.test.mjs` / `environment-integration.test.mjs` check real environmental dispatch. `paper-visuals.test.mjs` checks cached crane/star/ring cuts and negative space, not browser motion or FPS.
 
 ## Checklist
 

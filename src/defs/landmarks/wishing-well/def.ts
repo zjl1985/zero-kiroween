@@ -1,4 +1,5 @@
 import type { LandmarkDef } from "../../types.js";
+import { WATER, waterOval } from "../../water.js";
 
 /** Pond numbers of the wishing well (ground art reads them too). */
 export const POND = { rx: 120, ry: 58, dy: 42 } as const;
@@ -7,6 +8,13 @@ export const POND = { rx: 120, ry: 58, dy: 42 } as const;
 export const WISHING_WELL: LandmarkDef = {
   id: "wishing-well",
   radius: 170,
+  water(l) {
+    return [{ id: `${l.id}:pond`, seed: l.seed,
+      shore: waterOval(l.x, l.y + POND.dy, POND.rx, POND.ry),
+      core: waterOval(l.x, l.y + POND.dy, POND.rx - WATER.rim, POND.ry - WATER.rim),
+      crossings: [],
+    }];
+  },
   layout(_l, b) {
     b.add("well", 0, -36, 1);
     b.wall(-22, -40, 22, -40, 16);

@@ -6,6 +6,8 @@ References: `src/defs/enemies/ink-blob/` (minimal), `crumple/` (`onDeath` split)
 
 The crowd is capped at `HORDE.hardCap` (100) alive, counting splits, summons, waves and elites. Respect it in anything that spawns (`ctx.livingEnemies(state) >= HORDE.hardCap`).
 
+Enemies inherit shared paper-actor status: radius fire contact, 3 s carried burn, 0.4 damage per 0.2 s, water-first extinguishing and 1.25 s wet protection. Arrival/dead enemies are excluded, and death-hook newborns do not inherit that actor pass's burn tick. Normal movement uses shared water sweeps and shallow slowdown even for scenery-ignoring actors; do not implement a separate painted-water approximation. Smudge landing applies ink once while retaining its existing hazard behavior. See [paper-ecology.md](paper-ecology.md).
+
 ## Steps
 
 1. **Def** `src/defs/enemies/<id>/def.ts`:
@@ -80,7 +82,7 @@ The crowd is capped at `HORDE.hardCap` (100) alive, counting splits, summons, wa
    };
    ```
 
-   Elites are scaled, glowed and crowned by the caller; draw only the base body. Append to the `ENEMY_ART` list in `src/render/art-index.ts`. `src/render/craft-enemies.ts` must not switch on kinds or name kind literals (tested).
+   Elites are scaled, glowed and crowned by the caller; draw only the base body. Append to the `ENEMY_ART` list in `src/render/art-index.ts`. `src/render/craft-enemies.ts` must not switch on kinds or name kind literals (tested). Reuse finite `enemyPart`/shadow cuts for facets, wings and sleeves, applying live transforms rather than rebuilding texture each frame. World rendering attaches shared burn/wet overlays after the actual actor art; do not paint duplicate statuses inside each def or obscure eyes/telegraphs.
 
 6. **i18n**: `enemy.<id>.name` (gallery label) in keys.ts, en.ts, zh.ts.
 
@@ -89,6 +91,8 @@ The crowd is capped at `HORDE.hardCap` (100) alive, counting splits, summons, wa
 - `tests/registry.test.mjs` covers: spawn tables, elites, waves and kind caps name registered enemies; behaviours exist; names in both packs; art exists with dissolve flakes.
 - `tests/enemies.test.mjs`: add a behaviour test (pattern: "a crumpled ball splits into two small blobs on defeat", or "later phases bring bats, crumples and smudges, deterministically").
 - `tests/gallery.test.mjs` adds normal and elite cells automatically.
+- `tests/fire-water.test.mjs`, `paper-elements.test.mjs`, `water.test.mjs`: actor status, arrival/death handling, smudge ink and swept water geometry.
+- `tests/paper-visuals.test.mjs`: finite enemy-part caches and read-only overlays across static sampled times; not animation or FPS verification.
 
 ## Checklist
 

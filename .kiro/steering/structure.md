@@ -24,7 +24,7 @@ src/engine/           content-agnostic, imports no other layer (tested)
 src/defs/             content definitions (numbers + hooks); sim defs never import render or the DOM
   types.ts            CharacterDef, WeaponDef, PassiveDef, EvolutionDef, EnemyDef, EnemyBehaviour,
                       SimContext, SimEvents, PlayerStats, Element, MaterialDef, ReactionDef, PropDef,
-                      LandmarkDef, BiomeDef ...
+                      LandmarkDef, LandmarkActivity, BiomeDef, WaterShape, WaterRegion, WaterCrossing ...
   registries.ts       CATS, WEAPON_DEFS, PASSIVE_DEFS, EVOLUTION_DEFS, ENEMY_DEFS, BEHAVIOURS, MATERIALS,
                       REACTIONS, PROP_DEFS, LANDMARK_DEFS, BIOME_DEFS, SIM_EVENTS
   index.ts            registers cats, weapons, passives, evolutions, behaviours, enemies; gates hooks
@@ -32,14 +32,17 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
   progression.ts      BUILD slots, XP curve
   horde.ts            HORDE (hardCap 100), FILLER_KIND, KIND_CAP, PHASE_AT, ELITE, SPAWN_TABLE, WAVES
   materials.ts, fire.ts   paper materials; FIRE and PROP_HITS numbers
+  water.ts            pure shore/core/crossing polygon helpers, WATER tuning and teaching basin
+  ecology.ts          ink fuel multiplier, safe collider clearance and lifecycle retry timing
+  landmark-activities.ts   four activity definitions, shared court anchors and reward/rotor tuning
   cats/<id>/          stats.ts, def.ts, art.ts (zero, nicole)
   weapons/<id>.ts     + <id>.art.ts; steps.ts, timers.ts helpers (8 weapons incl. 2 evolved)
   passives/<id>.ts    + <id>.art.ts (11 incl. the snack filler)
   evolutions/<id>.ts  echo-legion, full-moon
   enemies/<id>/       def.ts, art.ts (ink-blob, paper-bat, crumple, smudge, eraser-boss);
                       behaviours.ts, fx-life.ts, eraser-boss/attacks.ts
-  reactions/<id>.ts   material x element rows (tear.ts holds the shared tearRow helper)
-  props/<id>/         def.ts, art.ts (15 props)
+  reactions/<id>.ts   23 unique material x element rows; tear.ts and paper-status.ts shared helpers
+  props/<id>/         def.ts, art.ts (17 props, including ink-vat / wax-candle; 5 renewable flora)
   landmarks/<id>/     def.ts, art.ts (12 kinds over 24 sites); plaza.art.ts shared ground;
                       night-workshop-kit.art.ts shared beams, folded plants, pots and star motifs
   biomes/<id>.ts      + <id>.art.ts (5 districts); districts.ts (DISTRICTS, BASE_DECOR)
@@ -47,14 +50,19 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
   sim.ts              createSim, step, snapshot, chunk loading, ring spawning, makeRoom, weapons by
                       timing, shards, upgrades, elites, chests and evolution, Boss, interactions,
                       landmark discovery, win / lose; applyElement / igniteAt for tools and tests
-  props.ts            prop phases, element hits through the reaction table, fire cells and spread
+  props.ts            prop phases, element reactions, capped fire, safe unfolding/regrowth, lifetime loot
+  paper-status.ts     radius fire/water contact, carried burn, normal damage hooks and wet protection
+  water.ts            shared region queries, dry/shallow/deep/bridge status, swept movement/recovery
+  landmark-actions.ts   per-site activity charge/cooldowns, bounded renewal and integrated wind turn
   stats.ts            playerStats fold from the registries
   world-gen.ts        bounded seeded world: SCREEN, WORLD (10 x 10 screens), CHUNK, LANDMARK, landmarks,
-                      roads, districtSites, biomeAt, chunkContent (pure hash), nearColliders, nearProps
+                      roads, districtSites, biomeAt, chunkContent (pure hash), nearColliders, nearProps;
+                      waterRegionsNear (pure spatial index independent of chunkContent, explicit crossings)
   characters.ts, upgrades.ts, enemies.ts
                       facades that keep the old export names over the registries
   interactions.ts     pumpkins, moon-lantern, fish treats, chests (start yard spots match scene.ts props)
-  types.ts            SimState, STATS, EFFECT_LIFE, FX_CAP, EffectKind, Notice
+  types.ts            SimState, PaperStatus, PropState, LandmarkEventState, STATS, EFFECT_LIFE, FX_CAP,
+                      EffectKind, Notice
   input.ts            keyboard input (WASD / arrows, Space skill, Esc / P pause, 1 / 2 / 3 cards)
   collision.ts, scenery.ts, rng.ts, clock.ts
   seed.ts             pure decimal uint32 query-pin validation (invalid pins use fresh randomness)
@@ -68,13 +76,18 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   sprite-tint.ts      cached offscreen alpha-masked tints for burning props and folding decor
   paper-material.ts   low-level paper fiber, cut edges, thickness, shadows, stitching, glow
   paper-scraps.ts     scrap pieces, ash patch, torn stubs
-  craft-props.ts      prop sprites per phase, fire ground and flames, prop impacts
+  paper-face.ts       cached visible color contours / silhouette from untouched official data;
+                      shared world head and portrait cuts, original anchors and narrow rim
+  paper-status-art.ts read-only actor flame/char and wet overlays; steam, ink, regrow, reward cues
+  water-art.ts        exact simulation shore/core/crossing vertices, layered paper water and dry decks
+  craft-props.ts      prop phases, alpha-masked ink, deferred fold/regrow looks, real fire-cell marks
   craft-world.ts      per-chunk ground caches, roads, hedge, biome patches, landmark ground and pieces,
-                      pop-up folding, culling, nav arrows, landmarkPreview
+                      shared water/decks, pop-up folding, bounds-based occlusion, live pieces and activity
+                      progress, culling, nav arrows, landmarkPreview
   gallery.ts          paintGallery for ?gallery=1
   camera.ts           follow camera (deadzone, smoothing, clamp to WORLD)
   craft-scene.ts      screen-space sky, world-space hills and ground, trees, houses, start yard, dawn
-  craft-cat.ts        official printed head / narrow edge over the articulated paper body
+  craft-cat.ts        official-derived layered paper head / narrow edge over the articulated body
   cat-detail.ts       finite cached clothing / limb / lantern parts selected by appearance metadata
   scenery-details.ts shared folded leaf, fern and flower painters for grouped scenery
   craft-combat.ts, combat-fx.ts, craft-enemies.ts, craft-juice.ts
@@ -87,14 +100,17 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
                       legacy code that craft-scene still uses for layout coordinates and symbols;
                       not a second art style, do not delete blindly
 src/ui/               hud.ts, journal.ts, journal-geometry.ts (pure, tested), character-panel.ts (tickets
-                      built from CATS), upgrade-cards.ts, gallery-layout.ts (pure, tested), ink.ts, touch.ts
+                      built from CATS), upgrade-cards.ts, gallery-layout.ts (pure, tested),
+                      environment-copy.ts (hazard-priority and court guidance), ink.ts, touch.ts
 src/content/          i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys, formatTime)
 src/audio/sfx.ts      procedural Web Audio sound effects and ambience (incl. tear, crackle), mute
 src/cats/             Meow Wall official cat head data (meow-wall-art.ts CAT_VARIANTS), composition
 tests/*.test.mjs      node:test suites against dist/ (characters, enemies, gallery, interactions, journal,
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,
-                      world)
+                      world); ecology suites: environment-integration, fire-water, landmark-actions,
+                      paper-elements, paper-visuals, water (latest verification: 237 passing tests)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
 docs/archive/         obsolete history, not instructions
-output/playwright/    local screenshots and throwaway probes, git-ignored, not game assets
+output/playwright/    local screenshots/probes, git-ignored, not game assets; paper-ecology-review.png
+                      was captured/viewed in system Chrome (selected art only, not gameplay/mobile approval)
 ```

@@ -14,6 +14,7 @@ export const SMUDGE = {
   puddleRadius: 24,
   puddleLife: 3,
   puddleSlow: 0.6,
+    inkPower: 1,
 } as const;
 
 export const SMUDGE_DEF: EnemyDef = {
@@ -43,6 +44,7 @@ export const SMUDGE_DEF: EnemyDef = {
       if (s.t < s.flight) continue;
       s.alive = false;
       ctx.effect(state, s.tx, s.ty, "splat", ENEMY_FX_LIFE.splat);
+            ctx.elementHit(state, s.tx, s.ty, SMUDGE.puddleRadius, "ink", SMUDGE.inkPower);
       state.hazards.push({
         id: state.nextHazardId++,
         kind: "puddle",

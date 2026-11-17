@@ -49,6 +49,22 @@ import { MOON_HILL } from "./landmarks/moon-hill/def.js";
 import { PUMPKIN_FIELD } from "./landmarks/pumpkin-field/def.js";
 import { STONE_BRIDGE } from "./landmarks/stone-bridge/def.js";
 import { BIOME_DEFS, LANDMARK_DEFS, MATERIALS, PROP_DEFS, REACTIONS } from "./registries.js";
+import { INK_THIN_PAPER } from "./reactions/ink-thin-paper.js";
+import { INK_CARD } from "./reactions/ink-card.js";
+import { INK_CLOTH } from "./reactions/ink-cloth.js";
+import { INK_STRAW } from "./reactions/ink-straw.js";
+import { FOLD_THIN_PAPER } from "./reactions/fold-thin-paper.js";
+import { FOLD_CARD } from "./reactions/fold-card.js";
+import { FOLD_CLOTH } from "./reactions/fold-cloth.js";
+import { FOLD_STRAW } from "./reactions/fold-straw.js";
+import { SPILL_INK } from "./reactions/spill-ink.js";
+import { GUST_INK } from "./reactions/gust-ink.js";
+import { MELT_WAX } from "./reactions/melt-wax.js";
+import { TEAR_WAX } from "./reactions/tear-wax.js";
+import { INK_VAT } from "./props/ink-vat/def.js";
+import { WAX_CANDLE } from "./props/wax-candle/def.js";
+import { BURN_CARD } from "./reactions/burn-card.js";
+import { BURN_CLOTH } from "./reactions/burn-cloth.js";
 
 for (const m of [THIN_PAPER, CARD, INK, CLOTH, WAX, STRAW]) MATERIALS.register(m);
 for (const r of [
@@ -61,6 +77,20 @@ for (const r of [
   GUST_STRAW,
   BURN_STRAW,
   GUST_CLOTH,
+  INK_THIN_PAPER,
+  INK_CARD,
+  INK_CLOTH,
+  INK_STRAW,
+  FOLD_THIN_PAPER,
+  FOLD_CARD,
+  FOLD_CLOTH,
+  FOLD_STRAW,
+  SPILL_INK,
+  GUST_INK,
+  MELT_WAX,
+  TEAR_WAX,
+  BURN_CARD,
+  BURN_CLOTH,
 ])
   REACTIONS.register(r);
 // Migrated decor first (fence, bush), then the props districts scatter.
@@ -80,6 +110,8 @@ for (const p of [
   LAUNDRY_LINE,
   PAPER_TOMBSTONE,
   DEAD_TREE,
+  INK_VAT,
+  WAX_CANDLE,
 ])
   PROP_DEFS.register(p);
 // Order is the order world-gen hands kinds out (each at least once).

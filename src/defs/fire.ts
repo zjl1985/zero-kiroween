@@ -15,9 +15,18 @@ export const FIRE = {
   tick: 0.2,
   /** Chance per tick that a burning cell lights one flammable neighbour (times flammability). */
   spreadChance: 0.35,
-  /** Damage per tick to ink standing in a burning cell. The cat is never hurt by fire. */
+  /** Carried fire lasts this long after the last dry flame contact. */
+  actorBurnTime: 3,
+  /** A cat gets a full beat to seek water before its first burn hit. */
+  playerInterval: 1,
+  playerDamage: 1,
+  enemyInterval: 0.2,
   enemyDamage: 0.4,
-  /** Durability a burning cell takes off each prop it lies under, per tick. */
+  /** Damp paper cannot reignite immediately after leaving water. */
+  wetTime: 1.25,
+  /** Carried flames reach just beyond the actor, on the fire tick only. */
+  carryReach: 4,
+  /** Durability lost by each burning prop once per tick, regardless of footprint. */
   propBurn: 0.5,
   /** Ash cells remembered (oldest are forgotten first). */
   maxAsh: 500,

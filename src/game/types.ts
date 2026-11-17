@@ -9,7 +9,13 @@ export interface FrameInput {
   /** Index (0..2) of an upgrade card while a choice is pending. */
   choose?: number;
 }
-export interface PlayerState {
+export interface PaperStatus {
+  /** Seconds of carried fire / damp protection remaining. */
+  burnTime?: number;
+  burnClock?: number;
+  wetTime?: number;
+}
+export interface PlayerState extends PaperStatus {
   id: CatId;
   x: number;
   y: number;
@@ -55,7 +61,7 @@ export interface BossAct {
   dx: number;
   dy: number;
 }
-export interface EnemyState {
+export interface EnemyState extends PaperStatus {
   id: number;
   kind: EnemyKind;
   x: number;
@@ -220,7 +226,11 @@ export type EffectKind =
   | "seed-burst"
   | "prop-tear"
   | "prop-scraps"
-  | "ember";
+  | "ember"
+  | "steam"
+  | "regrow"
+  | "ink-wash"
+  | "landmark-reward";
 export interface Impact {
   x: number;
   y: number;
@@ -269,6 +279,10 @@ export const EFFECT_LIFE = {
   "prop-scraps": 0.9,
   /** Sparks where fire caught. */
   "ember": 0.6,
+  steam: 0.7,
+  regrow: 0.9,
+  "ink-wash": 0.65,
+  "landmark-reward": 1.1,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -324,7 +338,13 @@ export type Notice =
   | "found-fold-greenhouse"
   | "found-star-observatory"
   | "elite"
-  | "chest";
+  | "chest"
+  | "burning"
+  | "extinguished"
+  | "landmark-tea"
+  | "landmark-greenhouse"
+  | "landmark-observatory"
+  | "landmark-windmill";
 export interface UpgradeChoice {
   options: string[];
 }
@@ -352,17 +372,32 @@ export interface PropState {
   hitAt: number;
   /** state.elapsed of the last fire tick that burnt it (render glow). */
   burnAt?: number;
+  destroyedAt?: number;
+  regrowAt?: number;
+  /** Regrowth must not create an unlimited loot farm. */
+  dropsClaimed?: boolean;
+  foldedUntil?: number;
+  inkedUntil?: number;
 }
 /** The sparse fire grid: keys are "ix,iy" cell coords (FIRE.cell). */
 export interface FireState {
   /** Burning cells and their seconds left. */
   cells: Record<string, number>;
-  /** Burnt-out cells (value: ash order); they never burn again. */
+  /** Burnt-out cells (value: ash order); renewed flora clears its own old ash. */
   ash: Record<string, number>;
   /** Time banked toward the next fire tick. */
   clock: number;
   /** Fire ticks run so far (seeds the spread hash). */
   ticks: number;
+}
+export interface LandmarkEventState {
+  progress: number;
+  cooldown: number;
+  activations: number;
+  /** Seconds of extra wind-driven motion remaining. */
+  wind: number;
+  /** Integrated rotor angle; rendering never advances it. */
+  turn?: number;
 }
 export interface SimState {
   seed: number;
@@ -423,12 +458,13 @@ export interface SimState {
   chests: ChestState[];
   nextChestId: number;
   /**
-   * Touched props by id ("cx,cy#i"), kept for the whole run so a torn fence
-   * is still torn after its chunk unloads and loads again. Bounded by the
-   * number of props in the world.
+   * Touched props by id ("cx,cy#i"), retained across chunk reloads with
+   * destruction, treatment, regeneration deadlines and lifetime loot claims.
+   * Bounded by the number of props in the world.
    */
   props: Record<string, PropState>;
   fire: FireState;
+  landmarkEvents: Record<string, LandmarkEventState>;
 }
 export interface SimConfig {
   cat: CatId;

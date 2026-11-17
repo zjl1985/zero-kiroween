@@ -68,7 +68,11 @@ import {
 } from "./types.js";
 import { CHEST, FISH, MOON_LANTERN, PUMPKIN } from "./interactions.js";
 import { FIRE } from "../defs/fire.js";
-import { damageProp, elementHit, ignite, nearPropColliders, propPhase, stepFire } from "./props.js";
+import { damageProp, elementHit, ignite, nearPropColliders, propBlocks, stepFire } from "./props.js";
+import { hitLandmarkActions, stepLandmarkActions } from "./landmark-actions.js";
+import { avoidDeepWater, resolveWaterMove, waterAt } from "./water.js";
+import { WATER } from "../defs/water.js";
+import { touchPaperEnvironment } from "./paper-status.js";
 
 export { inSweep, startBossAttack } from "../defs/enemies/eraser-boss/attacks.js";
 
@@ -92,7 +96,7 @@ const ctx: SimContext = {
   dropShard,
   dropChest,
   dropTreat,
-  elementHit: (state, x, y, radius, element, power) => elementHit(state, x, y, radius, element, power, ctx),
+  elementHit: applyElement,
   damageProp: (state, prop, amount, burnt) => damageProp(state, prop, amount, ctx, burnt),
   ignite: (state, x, y, radius) => ignite(state, x, y, radius, ctx),
 };
@@ -223,6 +227,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     nextChestId: 1,
     props: {},
     fire: { cells: {}, ash: {}, clock: 0, ticks: 0 },
+    landmarkEvents: {},
   };
   for (const w of WEAPON_DEFS.all()) w.init?.(state);
   syncChunks(state);
@@ -498,13 +503,15 @@ function notify(state: SimState, kind: Notice): void {
   state.notice = { kind, life: 2.2 };
 }
 function safePosition(state: SimState, x: number, y: number, radius: number) {
-  const a = clampToWorld(x, y, radius);
+  const dry = avoidDeepWater(state.seed, x, y, radius);
+  const a = clampToWorld(dry.x, dry.y, radius);
   // Only the colliders of the chunks around the actor are tested.
   let b = avoidScenery(a.x, a.y, radius, nearStaticColliders(state.seed, a.x, a.y));
   // Props add their colliders until they are torn to scraps (the path opens).
   for (const c of nearPropColliders(state.seed, a.x, a.y))
-    if (propPhase(state, c.id) < 2) b = avoidScenery(b.x, b.y, radius, c.caps);
-  return clampToWorld(b.x, b.y, radius);
+    if (propBlocks(state, c.id)) b = avoidScenery(b.x, b.y, radius, c.caps);
+  const shore = avoidDeepWater(state.seed, b.x, b.y, radius);
+  return clampToWorld(shore.x, shore.y, radius);
 }
 /**
  * Keeps interactables live for the chunks around the cat. Ids are stable from
@@ -638,6 +645,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   stepTreats(state, dt);
   stepFire(state, dt, ctx);
   if (state.ended === "playing") {
+    stepLandmarkActions(state, dt, ctx);
     stepSchedule(state, rng);
     announcePhase(state);
     spawnTreat(state, dt, rng);
@@ -697,7 +705,8 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
   const p = state.player,
     cat = CATS.get(p.id),
     def = cat.stats,
-    ps = playerStats(state);
+    ps = playerStats(state),
+    from = { x: p.x, y: p.y };
   p.invuln = Math.max(0, p.invuln - dt);
   p.dashCooldown = Math.max(0, p.dashCooldown - dt);
   p.attackCooldown = Math.max(0, p.attackCooldown - dt);
@@ -712,6 +721,7 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
       : 1;
   // Leftovers of enemy kinds (smudge puddles) slow the cat.
   for (const d of ENEMY_DEFS.all()) if (d.catSlow) p.slow *= d.catSlow(state);
+  if (waterAt(state.seed, p.x, p.y) === "shallow") p.slow *= WATER.shallowSlow;
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
       length(input.ax, input.ay) < 0.15
@@ -739,9 +749,11 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
     p.y += p.vy * dt;
     if (Math.abs(dir.x) > 0.1) p.facing = dir.x < 0 ? -1 : 1;
   }
-  const pos = safePosition(state, p.x, p.y, STATS.playerRadius);
+  const bank = resolveWaterMove(state.seed, from, p, STATS.playerRadius);
+  const pos = safePosition(state, bank.x, bank.y, STATS.playerRadius);
   p.x = pos.x;
   p.y = pos.y;
+  touchPaperEnvironment(state, p, STATS.playerRadius, ctx, true);
   // Hand weapons (Meow Bolt) fire from where the cat now stands.
   runWeapons(state, "move", dt, rng, ps);
   maybeReink(state, p.x, p.y, STATS.playerRadius);
@@ -1019,6 +1031,7 @@ function dropShard(state: SimState, x: number, y: number, value: number): void {
   });
 }
 function stepPickups(state: SimState, dt: number, rng: Rng): void {
+  if (state.ended !== "playing") return;
   const p = state.player,
     ps = playerStats(state);
   for (const s of state.pickups) {
@@ -1082,7 +1095,7 @@ function stepShots(state: SimState, dt: number): void {
     maybeReink(state, s.x, s.y, STATS.shotRadius + 6);
     // Shots in flight cut (bolts) or ruffle (cranes) paper props; seeds only burn when they burst.
     const element = s.burst ? undefined : SHOT_ELEMENT.get(s.weapon ?? "bolt");
-    if (element) elementHit(state, s.x, s.y, STATS.shotRadius + 2, element, s.damage ?? ps.shotDamage, ctx);
+    if (element) applyElement(state, s.x, s.y, STATS.shotRadius + 2, element, s.damage ?? ps.shotDamage);
     const hits = s.hits ?? (s.hits = []);
     // Swept collision prevents fast shots skipping small enemies between fixed steps.
     const targets = state.enemies
@@ -1140,7 +1153,7 @@ function seedBurst(state: SimState, s: ShotState): void {
   const r = s.burst!;
   effect(state, s.x, s.y, "seed-burst", EFFECT_LIFE["seed-burst"], { radius: r });
   const element = SHOT_ELEMENT.get(s.weapon ?? "bolt");
-  if (element) elementHit(state, s.x, s.y, r, element, s.damage ?? 1, ctx);
+  if (element) applyElement(state, s.x, s.y, r, element, s.damage ?? 1);
   for (const e of state.enemies)
     if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + enemyRadius(e))
       hurtEnemy(state, e, s.damage ?? 1);
@@ -1217,6 +1230,11 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       if (b.steer && b.steer(state, e, move, ref.params, rng, ctx) === "halt") return;
     }
     let { dx, dy } = move;
+    // Apply after steering: custom charge velocities must obey shallow water too.
+    if (waterAt(state.seed, e.x, e.y) === "shallow") {
+      dx *= WATER.shallowSlow;
+      dy *= WATER.shallowSlow;
+    }
     // Simple O(n^2) separation (fine at <= HORDE.hardCap) so crowds read as a crowd.
     if (def.crowd !== false)
       for (const other of state.enemies) {
@@ -1230,11 +1248,13 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
         dx += (ox / dist) * (gap - dist) * dt * 2;
         dy += (oy / dist) * (gap - dist) * dt * 2;
       }
+    const bank = resolveWaterMove(state.seed, e, { x: e.x + dx, y: e.y + dy }, radius);
     const kept = def.throughScenery
-      ? clampToWorld(e.x + dx, e.y + dy, radius)
-      : safePosition(state, e.x + dx, e.y + dy, radius);
+      ? clampToWorld(bank.x, bank.y, radius)
+      : safePosition(state, bank.x, bank.y, radius);
     e.x = kept.x;
     e.y = kept.y;
+    touchPaperEnvironment(state, e, radius, ctx);
     if (
       p.invuln > 0 ||
       !circlesOverlap(e.x, e.y, radius, p.x, p.y, STATS.playerRadius)
@@ -1242,23 +1262,17 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       continue;
     hurtPlayer(state, def.stats.contactDamage);
     const push = normalize(p.x - e.x, p.y - e.y),
-      pos = safePosition(
-        state,
-        p.x + push.x * def.contactPush,
-        p.y + push.y * def.contactPush,
-        STATS.playerRadius,
-      );
+      playerBank = resolveWaterMove(state.seed, p, { x: p.x + push.x * def.contactPush, y: p.y + push.y * def.contactPush }, STATS.playerRadius),
+      pos = safePosition(state, playerBank.x, playerBank.y, STATS.playerRadius);
     p.x = pos.x;
     p.y = pos.y;
+    touchPaperEnvironment(state, p, STATS.playerRadius, ctx, true);
     const back = 18 * knockOf(e),
-      enemyPos = safePosition(
-        state,
-        e.x - push.x * back,
-        e.y - push.y * back,
-        radius,
-      );
+      enemyBank = resolveWaterMove(state.seed, e, { x: e.x - push.x * back, y: e.y - push.y * back }, radius),
+      enemyPos = safePosition(state, enemyBank.x, enemyBank.y, radius);
     e.x = enemyPos.x;
     e.y = enemyPos.y;
+    touchPaperEnvironment(state, e, radius, ctx);
     if (state.ended !== "playing") return;
   }
 }
@@ -1293,6 +1307,7 @@ export function applyElement(
   power: number,
 ): void {
   elementHit(state, x, y, radius, element, power, ctx);
+  hitLandmarkActions(state, x, y, radius, element, power, ctx);
 }
 /** Sets flammable cells around (x, y) alight with the sim's own context (tools and tests). */
 export function igniteAt(state: SimState, x: number, y: number, radius: number): void {

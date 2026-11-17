@@ -53,6 +53,8 @@ import { PAPER_MUSHROOM_ART } from "../defs/props/paper-mushroom/art.js";
 import { LAUNDRY_LINE_ART } from "../defs/props/laundry-line/art.js";
 import { PAPER_TOMBSTONE_ART } from "../defs/props/paper-tombstone/art.js";
 import { DEAD_TREE_ART } from "../defs/props/dead-tree/art.js";
+import { INK_VAT_ART } from "../defs/props/ink-vat/art.js";
+import { WAX_CANDLE_ART } from "../defs/props/wax-candle/art.js";
 import { PAPER_WINDMILL_ART } from "../defs/landmarks/paper-windmill/art.js";
 import { PUPPET_THEATRE_ART } from "../defs/landmarks/puppet-theatre/art.js";
 import { WISHING_WELL_ART } from "../defs/landmarks/wishing-well/art.js";
@@ -111,6 +113,8 @@ for (const a of [
   LAUNDRY_LINE_ART,
   PAPER_TOMBSTONE_ART,
   DEAD_TREE_ART,
+  INK_VAT_ART,
+  WAX_CANDLE_ART,
 ])
   PROP_ART.register(a);
 for (const a of [

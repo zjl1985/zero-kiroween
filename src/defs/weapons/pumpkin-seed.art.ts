@@ -1,7 +1,8 @@
 /** Card art for pumpkin-seed. */
 import type { WeaponArt } from "../../render/art-registry.js";
 import { piece, oval, line, glow } from "../../render/paper-material.js";
-import { ring } from "../../render/combat-fx.js";
+import { ring, paperTrail } from "../../render/combat-fx.js";
+import { combatPart, paperFleck } from "../../render/craft-combat.js";
 import { ellipse } from "../../render/pixel-art.js";
 
 export const PUMPKIN_SEED_ART: WeaponArt = {
@@ -20,13 +21,18 @@ export const PUMPKIN_SEED_ART: WeaponArt = {
     const x = s.x,
       y = s.y - 14;
     ellipse(ctx, s.x, s.y, 5, 2, "#0b101c55");
-    glow(ctx, x, y, 12, "#ffb45c", 0.35, 0.8);
-    piece(ctx, oval(x, y, 3, 4.5, s.id, 0.06), "#f0dfb4", {
-      shadow: 0.6,
-      texture: 0.3,
-      thickness: 0.5,
-      edge: "#e7a35a",
-    });
+    const angle = Math.atan2(s.vy, s.vx);
+    paperTrail(ctx, x, y, angle, 18, "#d6a45f", 0.7);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    combatPart("pumpkin-seed", 34, 34, (c) => {
+      glow(c, 0, 0, 12, "#ffb45c", 0.25, 0.8);
+      piece(c, oval(0, 0, 3, 4.5, 2, 0.06), "#f0dfb4", { shadow: 0.6, texture: 0.3, thickness: 0.6, edge: "#e7a35a" });
+      line(c, 0, -3, -0.5, 3, "#a8824a", 0.6);
+      line(c, 0.8, -2.5, 0.5, 2, "#fff4d0", 0.7);
+    }).draw(ctx, { x: 0, y: 0 });
+    ctx.restore();
   },
   effects: {
     "seed-burst"(ctx, e, { fade, ease }) {
@@ -38,11 +44,7 @@ export const PUMPKIN_SEED_ART: WeaponArt = {
         const a = (i / 8) * Math.PI * 2 + (e.seed ?? 0),
           x = e.x + Math.cos(a) * r * 0.8,
           y = e.y - 6 + Math.sin(a) * r * 0.5;
-        piece(ctx, oval(x, y, 2.6, 1.6, i, 0.1), i % 2 ? "#e7a35a" : "#f0dfb4", {
-          shadow: 0.4,
-          texture: 0.2,
-          thickness: 0.3,
-        });
+        paperFleck(ctx, x, y, 3, i % 2 ? "#e7a35a" : "#f0dfb4", a + ease);
       }
     },
   },

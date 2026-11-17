@@ -1,3 +1,4 @@
+import { GREENHOUSE } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
 import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, path, shadow, stroke, type Ctx } from "../../../render/paper-material.js";
@@ -186,6 +187,14 @@ export const FOLD_GREENHOUSE_ART: LandmarkArt = {
       paperCut(ctx, [[px - 23, py - 6], [px + 22, py - 8], [px + 26, py + 8], [px - 25, py + 9]], { color: i % 2 ? "#b0b294" : "#c1bda0", thickness: 0.9, shadow: 0.8, wear: 0.15, seed: l.seed + i });
       foldLine(ctx, px - 19, py + 5, px + 20, py + 4, 0.35);
     }
+    // A creased seed-sheet marks the fold target on the clear side of the workbench.
+    const { x: gx, y: gy } = GREENHOUSE.point;
+    paperCut(ctx, [[gx - 22, gy - 11], [gx + 22, gy - 11], [gx + 25, gy + 12], [gx - 24, gy + 12]], {
+      color: "#d0c49a", thickness: 0.8, shadow: 0.6, stitch: "#6e8c67", stitchInset: 2,
+      fold: [{ from: [gx - 21, gy - 10], to: [gx + 24, gy + 11], depth: 0.2 }, { from: [gx + 21, gy - 10], to: [gx - 23, gy + 11], depth: 0.2 }],
+    });
+    foldedLeaf(ctx, gx, gy + 5, 17, 5, -0.55, "#738e60");
+    foldedLeaf(ctx, gx, gy + 5, 14, 4, 0.7, "#95a66d");
     // Coiled garden hose is flat ground detail, not an invisible obstacle.
     const hose = new Path2D();
     hose.ellipse(128, 102, 23, 9, -0.2, 0, Math.PI * 2);

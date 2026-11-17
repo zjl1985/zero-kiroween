@@ -1,10 +1,10 @@
 import type { BiomeArt } from "../../render/art-registry.js";
 import { paperCut } from "../../render/paper-kit.js";
-import { line, oval, stroke } from "../../render/paper-material.js";
+import { line, oval } from "../../render/paper-material.js";
 import { reedFan } from "../../render/scenery-details.js";
 import { variant } from "../../render/variants.js";
 
-/** Walkable damp bank scraps, not a deep channel: land dominates the small inset wash. */
+/** Dry towpath scraps only. Real water is generated once and drawn by water-art. */
 export const LANTERN_CANAL_ART: BiomeArt = {
   id: "lantern-canal",
   swatch: ["#4f5a4c", "#2c4560", "#f0b85a"],
@@ -15,18 +15,11 @@ export const LANTERN_CANAL_ART: BiomeArt = {
     ctx.translate(x, y);
     ctx.scale(r / 70 * look.flip, r / 70);
     paperCut(ctx, oval(0, 3, 61, 22, seed, 0.12), { color: look.color, shadow: 0.5, thickness: 0.7, texture: 0.65, edge: "#909b81" });
-    // The old pond was 0.8r × 0.32r; this shallow reflection is only 0.6r × 0.13r.
-    const wash = oval(0, 2, 42, 9, seed, 0.09);
-    paperCut(ctx, wash, { color: "#5d7775", shadow: 0, thickness: 0.5, texture: 0.55, edge: "#81958b" });
-    ctx.save();
-    ctx.clip(wash);
+    // Layered towpath fibres do not imply wet status on otherwise dry ground.
     for (let i = 0; i < 4; i++) {
-      const yy = -3 + i * 3, sx = -24 + (i % 2) * 8;
-      stroke(ctx, new Path2D(`M ${sx} ${yy} Q -3 ${yy - 1.5} ${22 - i * 3} ${yy}`), "#a0b2a5", 0.6, 0.45);
-      // Broken, muted warm reflections; no fake collectible or floating lantern.
-      line(ctx, 13 - i % 2 * 2, yy, 19 + i % 2 * 3, yy, "#c0aa76", 1.2, 0.4);
+      const yy = -3 + i * 3;
+      line(ctx, -25 + i * 4, yy, 23 - i * 2, yy - 1, "#a0a18a", 0.7, 0.45);
     }
-    ctx.restore();
     paperCut(ctx, [[-60, -4], [-39, -15], [-13, -16], [17, -12], [47, -10], [58, -2], [31, -6], [5, -7], [-23, -10], [-44, -5]], {
       color: "#84907a", layers: 1, shadow: 0.4, thickness: 0.6, texture: 0.65, edge: "#a5af91",
     });

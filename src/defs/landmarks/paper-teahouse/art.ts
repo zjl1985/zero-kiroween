@@ -1,3 +1,4 @@
+import { TEA } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
 import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, path, shadow, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
@@ -161,6 +162,11 @@ export const PAPER_TEAHOUSE_ART: LandmarkArt = {
       const px = -146 + hash(l.seed + i * 13) * 52, py = 102 + hash(l.seed + i * 7) * 15;
       foldedLeaf(ctx, px, py, 7 + hash(l.seed + i) * 4, 2.5, hash(l.seed + i * 3) * 5, "#af8451");
     }
+    // A stitched tea mat marks the reachable waiting place, beside rather than under the table.
+    const { x: tx, y: ty } = TEA.point;
+    paperCut(ctx, oval(tx, ty, 25, 14, l.seed), { color: "#8b6751", thickness: 0.75, shadow: 0.6, stitch: "#e0c399", stitchInset: 3 });
+    paperCut(ctx, [[tx - 7, ty - 5], [tx + 7, ty - 5], [tx + 5, ty + 4], [tx - 5, ty + 4]], { color: "#d9c49b", thickness: 0.4, shadow: 0.3 });
+    stroke(ctx, new Path2D(`M ${tx + 7} ${ty - 4} Q ${tx + 15} ${ty - 3} ${tx + 7} ${ty + 2}`), "#d9c49b", 1.7);
     stroke(ctx, path([[-37, -14], [-37, -7], [32, -7], [32, -14]]), "#d2bc97", 1, 0.6);
     ctx.restore();
   },

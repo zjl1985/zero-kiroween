@@ -7,14 +7,17 @@
 import { FIRE } from "../defs/fire.js";
 import { PROP_DEFS } from "../defs/registries.js";
 import { PROP_PHASES, type PropSpot } from "../defs/types.js";
-import { cachedSprite } from "../engine/sprite.js";
+import { cachedSprite, type CanvasSprite } from "../engine/sprite.js";
 import type { Impact, SimState } from "../game/types.js";
 import { EFFECT_LIFE } from "../game/types.js";
 import { chunkContent, chunkOf } from "../game/world-gen.js";
+import { inFootprint } from "../game/props.js";
 import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
-import { glow, hash, mix, path, piece, type Ctx, type Point } from "./paper-material.js";
+import { glow, hash, mix, path, stroke, type Ctx } from "./paper-material.js";
+import { foldLine } from "./paper-kit.js";
+import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
 import { tintedSprite } from "./sprite-tint.js";
 
@@ -39,31 +42,31 @@ function propSprite(art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burnt: boolean)
     { x: ax / w, y: ay / h },
   );
 }
-/** A cut-paper flame with an inner tongue; `k` 0..1 flickers its height. */
-function flame(ctx: Ctx, x: number, y: number, size: number, k: number, seed: number): void {
-  const h = size * (0.8 + k * 0.45),
-    w = size * 0.42,
-    sway = (k - 0.5) * size * 0.25;
-  const outer: Point[] = [
-    [x - w, y],
-    [x - w * 0.9, y - h * 0.35],
-    [x - w * 0.35 + sway, y - h * 0.62],
-    [x - w * 0.2 + sway, y - h * 0.48],
-    [x + sway * 1.4, y - h],
-    [x + w * 0.35 + sway, y - h * 0.56],
-    [x + w * 0.5 + sway, y - h * 0.7],
-    [x + w * 0.95, y - h * 0.3],
-    [x + w, y],
-  ];
-  piece(ctx, path(outer, true), "#df7434", { shadow: 0, edge: "#f7b25a", texture: 0, thickness: 0.6 });
-  const inner: Point[] = [
-    [x - w * 0.5, y],
-    [x - w * 0.3 + sway * 0.6, y - h * 0.4],
-    [x + sway, y - h * 0.68],
-    [x + w * 0.35 + sway * 0.6, y - h * 0.38],
-    [x + w * 0.5, y],
-  ];
-  piece(ctx, path(inner, true), hash(seed) > 0.5 ? "#f3c45b" : "#f0b54c", { shadow: 0, edge: "#fbe3a0", texture: 0, thickness: 0.4 });
+/** Ink soaks into the cut's own alpha, with two restrained pooling/sheened edges. */
+function inkCoating(sprite: CanvasSprite): CanvasSprite {
+  if (!sprite.canvas) return sprite;
+  return cachedSprite(`prop-ink:${sprite.id}`, sprite.width, sprite.height, sprite.scale, (c) => {
+    sprite.draw(c, { x: sprite.width * sprite.anchor.x, y: sprite.height * sprite.anchor.y });
+    c.save();
+    c.globalCompositeOperation = "source-atop";
+    c.globalAlpha = 0.65;
+    c.fillStyle = "#30233f";
+    c.fillRect(0, 0, sprite.width, sprite.height);
+    const w = sprite.width, h = sprite.height;
+    c.globalAlpha = 0.3;
+    c.fillStyle = "#21182f";
+    c.fill(new Path2D(`M 0 ${h * 0.3} Q ${w * 0.6} ${h * 0.7} ${w} ${h * 0.2} L ${w} ${h} L 0 ${h} Z`));
+    c.strokeStyle = "#b1a1bd";
+    c.lineWidth = 1.1;
+    c.stroke(new Path2D(`M ${w * 0.1} ${h * 0.32} Q ${w * 0.5} ${h * 0.58} ${w * 0.86} ${h * 0.31}`));
+    c.restore();
+  }, sprite.anchor);
+}
+const flame = drawPaperFlame;
+export interface PropVisualState {
+  readonly folded?: boolean;
+  readonly inked?: boolean;
+  readonly regrow?: number;
 }
 const flicker = (time: number, seed: number) => 0.5 + 0.5 * Math.sin(time * (8 + hash(seed) * 5) + seed);
 
@@ -80,6 +83,7 @@ export function drawProp(
   burnt: boolean,
   burning: boolean,
   time: number,
+  state: PropVisualState = {},
 ): void {
   const sprite = propSprite(art, p, phase, burnt),
     look = variant(p.seed, { palette: art.scraps, ...(art.look ?? PROP_LOOK) });
@@ -87,24 +91,36 @@ export function drawProp(
   ctx.translate(p.x, p.y);
   ctx.rotate(look.angle);
   ctx.scale(look.flip * look.scale, look.scale);
+  const folded = state.folded && phase < 2;
+  ctx.save();
+  if (folded) ctx.transform(1, 0, -0.2, 0.2, 0, 0);
+  const paper = state.inked && phase < 2 ? inkCoating(sprite) : sprite;
   if (burning) {
     // Charring stays inside the cached paper silhouette; flames remain live.
-    tintedSprite(sprite, "#362417", 0.5).draw(ctx, { x: 0, y: 0 });
+    tintedSprite(paper, "#362417", 0.5).draw(ctx, { x: 0, y: 0 });
     glow(ctx, 0, -10 * p.s, 46 * p.s, "#f08a3c", 0.45, 0.6);
     art.flames.forEach(([fx, fy], i) => flame(ctx, fx * p.s, fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i));
-  } else sprite.draw(ctx, { x: 0, y: 0 });
+  } else paper.draw(ctx, { x: 0, y: 0 });
+  ctx.restore();
+  if (folded) {
+    const b = art.bounds, y = b.t * p.s * 0.08;
+    foldLine(ctx, b.l * p.s * 0.65, y, b.r * p.s * 0.65, y, 0.75);
+    stroke(ctx, path([[b.l * p.s * 0.55, y + 1.5], [b.r * p.s * 0.55, y + 1.5]]), "#332b36", 1, 0.6);
+  }
+  if (phase === 2 && state.regrow) drawRegrowCue(ctx, 0, 0, state.regrow, p.s);
   ctx.restore();
 }
 
 /** Props inside the view as y-sorted sprites, burning ones with flames. */
 export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: Camera, time: number, add: Add): void {
+  const activeFire = sim ? cellsInView(sim.fire.cells, cam).filter(([, , left]) => left > 0) : [];
   const view = viewRect(cam, 60),
     a = chunkOf(view.x0 - 120, view.y0 - 60),
     b = chunkOf(view.x1 + 120, view.y1 + 60);
   for (let cy = a.cy; cy <= b.cy; cy++)
     for (let cx = a.cx; cx <= b.cx; cx++)
       for (const p of chunkContent(seed, cx, cy).props) {
-        const art = PROP_ART.find(PROP_DEFS.get(p.kind).art);
+        const def = PROP_DEFS.get(p.kind), art = PROP_ART.find(def.art);
         if (!art) continue;
         const bd = art.bounds;
         if (p.x + bd.r * p.s < view.x0 || p.x + bd.l * p.s > view.x1 || p.y + bd.b * p.s < view.y0 || p.y + bd.t * p.s > view.y1)
@@ -112,8 +128,16 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
         const m = sim?.props[p.id],
           phase = m?.phase ?? 0,
           burnt = !!m?.burnt,
-          burning = !!sim && m?.burnAt !== undefined && phase < 2 && sim.elapsed - m.burnAt < FIRE.tick * 1.6;
-        add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time));
+          burning = !!sim && m?.burnAt !== undefined && phase < 2 && sim.elapsed - m.burnAt < FIRE.tick * 1.6 &&
+                      activeFire.some(([x, y]) => inFootprint(p, def, x, y, 0));
+        const elapsed = sim?.elapsed ?? 0,
+          regrow = m?.regrowAt !== undefined && m.destroyedAt !== undefined
+            ? Math.max(0, Math.min(1, (elapsed - m.destroyedAt) / Math.max(0.01, m.regrowAt - m.destroyedAt))) : 0;
+        add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time, {
+          folded: m?.foldedUntil !== undefined,
+          inked: (m?.inkedUntil ?? 0) > elapsed,
+          regrow,
+        }));
       }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [number, number, number][] {
@@ -145,21 +169,28 @@ export function drawFireGround(ctx: Ctx, sim: SimState, cam: Camera): void {
     ctx.ellipse(x + 2, y - 1, r * 0.45, r * 0.25, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  for (const [x, y] of cellsInView(sim.fire.cells, cam)) {
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = "#3a2420";
-    ctx.beginPath();
-    ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
-    ctx.fill();
+  for (const [x, y, left] of cellsInView(sim.fire.cells, cam)) {
+    if (left <= 0) continue;
+    const half = FIRE.cell / 2;
+    // The scorched sheet is the actual square simulation cell, not an ellipse
+    // implying a smaller safe corner or a larger decorative damage area.
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = "#633a2b";
+    ctx.fillRect(x - half, y - half, FIRE.cell, FIRE.cell);
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#c28a59";
+    ctx.lineWidth = 0.75;
+    ctx.strokeRect(x - half + 0.5, y - half + 0.5, FIRE.cell - 1, FIRE.cell - 1);
   }
   ctx.restore();
 }
 /** One flame per burning cell, y-sorted with the rest of the world. */
 export function fireSprites(ctx: Ctx, sim: SimState, cam: Camera, time: number, add: Add): void {
   for (const [x, y, left] of cellsInView(sim.fire.cells, cam)) {
+    if (left <= 0) continue;
     const sd = Math.floor(x * 3 + y * 5),
       // Flames grow as a cell catches and shrink as it burns out.
-      life = Math.min(1, (FIRE.burnTime - left) / 0.4, left / 0.6);
+      life = Math.max(0, Math.min(1, (FIRE.burnTime - left) / 0.4, left / 0.6));
     add(y + FIRE.cell * 0.3, () => {
       glow(ctx, x, y - 6, 34, "#f08a3c", 0.32 * life, 0.7);
       flame(ctx, x + (hash(sd) - 0.5) * 6, y + 4, 16 * Math.max(0.35, life), flicker(time, sd), sd);
