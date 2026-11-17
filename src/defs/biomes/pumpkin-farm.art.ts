@@ -1,36 +1,48 @@
 import type { BiomeArt } from "../../render/art-registry.js";
-import { leaf, grassTuft, flower } from "../../render/craft-scene.js";
-import { paperCut, stitchAlong, warmGlow } from "../../render/paper-kit.js";
-import { box, glow, hash, line, mix, oval, stroke } from "../../render/paper-material.js";
+import { paperCut } from "../../render/paper-kit.js";
+import { line, oval, stroke } from "../../render/paper-material.js";
+import { paperSprig } from "../../render/scenery-details.js";
+import { variant } from "../../render/variants.js";
 
-/** Pumpkin farmland: strips of furrowed soil with straw bits. */
+/** Furrowed beds: a leafy runner, paired seedlings, or a tied harvest-straw bundle. */
 export const PUMPKIN_FARM_ART: BiomeArt = {
   id: "pumpkin-farm",
   swatch: ["#6a6a44", "#6b4f38", "#e0863f"],
   patchChance: 0.7,
   patch(ctx, x, y, r, seed) {
-    const soil = oval(x, y, r, r * 0.38, seed, 0.14);
-    paperCut(ctx, soil, { color: "#5f4a36", shadow: 1, thickness: 1, texture: 0.85, edge: "#8c6a4c" });
+    const look = variant(seed, { palette: ["#61503b", "#65573e", "#6a5940"], flip: true });
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(r / 70 * look.flip, r / 70);
+    const soil = oval(0, 0, 61, 24, seed, 0.12);
+    paperCut(ctx, soil, { color: look.color, shadow: 0.6, thickness: 0.8, texture: 0.7, edge: "#8c7650" });
     ctx.save();
     ctx.clip(soil);
-    for (let i = -2; i <= 2; i++) {
-      const fy = y + i * r * 0.14,
-        f = new Path2D();
-      f.moveTo(x - r, fy);
-      f.quadraticCurveTo(x, fy + 4 + hash(seed + i) * 3, x + r, fy - 2);
-      stroke(ctx, f, "#3e2e25", 1.8, 0.55);
-      ctx.save();
-      ctx.translate(0, -1.2);
-      stroke(ctx, f, "#8a6a4a", 0.7, 0.5);
-      ctx.restore();
+    for (let row = 0; row < 4; row++) {
+      const yy = -16 + row * 10;
+      // Broad overlapping ridges, with a dark lower lip and one pale folded edge.
+      paperCut(ctx, [[-62, yy], [-25, yy + 2], [24, yy - 2], [63, yy - 4], [61, yy + 1], [22, yy + 3], [-26, yy + 6], [-62, yy + 4]], {
+        color: row % 2 ? "#7c6343" : "#725b3f", shadow: 0.5, thickness: 0.7, texture: 0.6, edge: "#9d7e50",
+      });
     }
     ctx.restore();
-    for (let i = 0; i < 7; i++) {
-      const sx = x + (hash(seed + i * 7) - 0.5) * r * 1.6,
-        sy = y + (hash(seed + i * 9) - 0.5) * r * 0.5,
-        a = hash(seed + i) * 3;
-      line(ctx, sx, sy, sx + Math.cos(a) * 6, sy + Math.sin(a) * 2, "#d8b363", 1, 0.85);
+    const runner = new Path2D("M -50 11 Q -28 -2 -8 5 Q 12 12 36 -4 Q 46 -10 51 -6 Q 57 0 49 2");
+    stroke(ctx, runner, "#3f4b32", 2.3, 0.7);
+    stroke(ctx, runner, "#94915a", 0.9, 0.9);
+    const shoots = look.index === 1 ? [-34, -8, 20, 43] : [-34, 3, 37];
+    for (const [i, sx] of shoots.entries())
+      paperSprig(ctx, sx, i % 2 ? 7 : 4, look.index === 1 ? 0.43 : 0.6, seed + i, i % 2 ? "#828651" : "#6f7e4d");
+    if (look.index === 2) {
+      for (let i = 0; i < 6; i++) {
+        line(ctx, -47 + i, 17 + i * 0.4, -24 + i * 1.4, 11 + i, "#b69c64", 0.9, 0.8);
+        line(ctx, -47 + i, 17 + i * 0.4, -43 + i, 15 + i * 0.4, "#d0b57d", 0.7, 0.7);
+      }
+      line(ctx, -35, 11, -32, 21, "#6d7450", 1.7);
+    } else {
+      // Small folded seed leaves, not glowing pumpkins that suggest an interaction.
+      paperCut(ctx, [[38, 15], [44, 11], [51, 14], [47, 20], [42, 19]], { color: "#a2894e", shadow: 0.4, thickness: 0.5, texture: 0.6 });
+      line(ctx, 40, 16, 48, 14, "#c4ac6c", 0.6, 0.65);
     }
-    grassTuft(ctx, x + r * 0.9, y + 3, 0.8, seed);
+    ctx.restore();
   },
 };

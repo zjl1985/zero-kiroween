@@ -14,6 +14,7 @@ import {
   clearWorldCache,
   insideWorld,
   landmarks,
+  landmarkParts,
   nearColliders,
   roads,
   viewCentre,
@@ -298,11 +299,44 @@ test("districts change what grows: biome props stay in their biomes and differ b
 test("the new landmarks are placed for several seeds, every kind fits the super-cells", () => {
   const cells = LANDMARK.cols * LANDMARK.rows - 1;
   assert.ok(LANDMARK_KINDS.length <= cells, `${LANDMARK_KINDS.length} kinds fit ${cells} cells`);
-  for (const kind of ["paper-windmill", "puppet-theatre", "wishing-well"]) assert.ok(LANDMARK_DEFS.has(kind), kind);
+  for (const kind of ["paper-windmill", "puppet-theatre", "wishing-well", "paper-teahouse", "fold-greenhouse", "star-observatory"]) assert.ok(LANDMARK_DEFS.has(kind), kind);
   assert.deepEqual([...LANDMARK_KINDS], LANDMARK_DEFS.ids());
   for (const seed of [4, 8, 15, 16, 23, 42]) {
     const ls = landmarks(seed);
     for (const kind of LANDMARK_KINDS) assert.ok(ls.some((l) => l.kind === kind), `${seed} lacks ${kind}`);
+  }
+});
+
+test("the denser town has 24 sites across five rows without enlarging the map", () => {
+  assert.equal(LANDMARK.cols * LANDMARK.rows - 1, 24);
+  for (const seed of [0, 7, 42, 20261116, 4294967295]) {
+    const sites = landmarks(seed), rows = Array(LANDMARK.rows).fill(0);
+    assert.equal(sites.length, 24);
+    assert.equal(new Set(sites.map((l) => JSON.stringify(chunkOf(l.x, l.y)))).size, 24);
+    for (const l of sites) rows[Math.floor(l.y / (WORLD.height / LANDMARK.rows))]++;
+    assert.deepEqual(rows, [4, 5, 5, 5, 5], "each band offers places to visit, not one crowded corner");
+  }
+});
+
+test("new workshop courts leave walkable approaches and reachable interaction spots", () => {
+  const kinds = ["paper-teahouse", "fold-greenhouse", "star-observatory"];
+  const distance = (x, y, o) => {
+    const dx = o.x2 - o.x1, dy = o.y2 - o.y1;
+    const t = Math.max(0, Math.min(1, ((x - o.x1) * dx + (y - o.y1) * dy) / (dx * dx + dy * dy || 1)));
+    return Math.hypot(x - o.x1 - t * dx, y - o.y1 - t * dy);
+  };
+  for (const seed of [0, 7, 42]) for (const kind of kinds) {
+    const l = landmarks(seed).find((p) => p.kind === kind), parts = landmarkParts(l);
+    assert.ok(parts.spots.length > 0, `${kind} is not just a facade`);
+    for (let dy = 20; dy <= 150; dy += 10)
+      for (const wall of parts.colliders) assert.ok(distance(l.x, l.y + dy, wall) > wall.radius + STATS.playerRadius + 12, `${kind}: approach at ${dy}`);
+    for (const spot of parts.spots) for (const wall of parts.colliders)
+      assert.ok(distance(spot.x, spot.y, wall) > wall.radius + STATS.playerRadius, `${kind}: interaction can be reached`);
+    const s = quiet(seed);
+    Object.assign(s.player, { x: l.x, y: l.y + 150 });
+    step(s, { ax: 0, ay: 0, dash: false }, DT);
+    assert.ok(s.landmarksFound.includes(l.id));
+    assert.equal(s.notice.kind, `found-${kind}`);
   }
 });
 

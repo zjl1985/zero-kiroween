@@ -27,6 +27,9 @@ import { SIGNPOST } from "./props/signpost/def.js";
 import { PAPER_WINDMILL } from "./landmarks/paper-windmill/def.js";
 import { PUPPET_THEATRE } from "./landmarks/puppet-theatre/def.js";
 import { WISHING_WELL } from "./landmarks/wishing-well/def.js";
+import { PAPER_TEAHOUSE } from "./landmarks/paper-teahouse/def.js";
+import { FOLD_GREENHOUSE } from "./landmarks/fold-greenhouse/def.js";
+import { STAR_OBSERVATORY } from "./landmarks/star-observatory/def.js";
 import { BURN_STRAW } from "./reactions/burn-straw.js";
 import { GUST_CLOTH } from "./reactions/gust-cloth.js";
 import { GUST_STRAW } from "./reactions/gust-straw.js";
@@ -90,6 +93,9 @@ for (const l of [
   PAPER_WINDMILL,
   PUPPET_THEATRE,
   WISHING_WELL,
+  PAPER_TEAHOUSE,
+  FOLD_GREENHOUSE,
+  STAR_OBSERVATORY,
 ])
   LANDMARK_DEFS.register(l);
 // District biomes; the first is also the start yard's district.

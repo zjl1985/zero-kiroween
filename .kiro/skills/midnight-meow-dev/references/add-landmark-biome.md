@@ -8,7 +8,7 @@ Any change here changes the generated world for every seed, so the behaviour pro
 
 ## Landmark
 
-The world has 14 landmark super-cells (`LANDMARK.cols` 5 x `rows` 3, minus the start cell); each registered kind is placed at least once, so at most 14 kinds fit (tested). There are 9 today.
+The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the start cell); each registered kind is placed at least once, so at most 24 kinds fit (tested). There are 12 today, including paper-teahouse, fold-greenhouse and star-observatory. The 10 x 10 screen world is unchanged; the extra rows shorten gaps between places to visit. Keep the 360-unit cell margins and check start-yard, per-chunk ownership and approach clearance when changing placement.
 
 1. **Def** `src/defs/landmarks/<id>/def.ts` (reference `wishing-well`, `clock-tower`; `stone-bridge` uses `span` and `keepOut` for its river):
 

@@ -320,6 +320,9 @@ export type Notice =
   | "found-paper-windmill"
   | "found-puppet-theatre"
   | "found-wishing-well"
+  | "found-paper-teahouse"
+  | "found-fold-greenhouse"
+  | "found-star-observatory"
   | "elite"
   | "chest";
 export interface UpgradeChoice {

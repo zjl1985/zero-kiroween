@@ -24,6 +24,9 @@ import {
 } from "./scene.js";
 export { LAMPS, YARD_PROPS };
 import { STATS } from "../game/types.js";
+import { foldLine, paperCut } from "./paper-kit.js";
+import { paperFlower, paperSprig } from "./scenery-details.js";
+import { variant } from "./variants.js";
 const W = 960,
   H = 540,
   /** Height of the screen-space sky sheet. */
@@ -405,25 +408,22 @@ export function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): v
     "M -5 -3 Q 1 -31 -3 -54 M 5 -7 Q 2 -39 6 -61 M 0 -69 L 5 -97 M -6 -55 L -17 -84 M 9 -49 L 26 -83",
   );
   stroke(ctx, bark, "#a07850", 0.7, 0.75);
-  const clumps = [
-    [-38, -84, 30, 33],
-    [-18, -113, 33, 32],
-    [15, -111, 33, 34],
-    [41, -83, 29, 31],
-    [-22, -66, 32, 27],
-    [12, -72, 37, 33],
+  const look = variant(seed, { palette: ["#b2724b", "#a76150", "#b58951"], flip: true, shift: 0.15 });
+  // Rounded, upright and spreading crowns fit the same cached sprite envelope.
+  const crowns = [
+    [[-38, -84, 30, 31], [-18, -113, 32, 31], [15, -111, 32, 33], [40, -83, 28, 30], [-22, -66, 31, 26], [12, -72, 35, 31]],
+    [[-32, -88, 28, 28], [-14, -120, 27, 26], [17, -112, 29, 30], [36, -80, 29, 26], [-20, -66, 27, 24], [11, -68, 31, 28]],
+    [[-42, -80, 28, 28], [-25, -109, 29, 29], [10, -113, 32, 29], [41, -86, 29, 27], [-26, -62, 30, 24], [13, -66, 35, 27]],
   ];
-  const palette =
-    seed % 2
-      ? ["#934b4f", "#bc7050", "#d18b50", "#c77b45", "#974c4e", "#ba6b48"]
-      : ["#8c4351", "#aa5949", "#d18a4a", "#c77842", "#9b4b49", "#bd6742"];
+  const clumps = crowns[Math.abs(seed) % crowns.length]!;
+  ctx.save();
+  ctx.scale(look.flip, 1);
   clumps.forEach(([cx, cy, rx, ry], i) => {
-    const p = oval(cx!, cy!, rx!, ry!, seed + i * 17, 0.13);
-    piece(ctx, p, palette[i]!, {
-      shadow: 3.2,
-      texture: 0.95,
-      edge: "#bb8c5c",
-      thickness: 0.85,
+    const color = mix(look.color, i < 2 || i === 4 ? "#713e49" : "#d7a760", i < 2 || i === 4 ? 0.26 : 0.2);
+    const p = oval(cx!, cy!, rx!, ry!, seed + i * 17, 0.19);
+    paperCut(ctx, p, {
+      color, shadow: 2.4, texture: 0.75, edge: "#bb8c5c", thickness: 0.9,
+      fold: { from: [cx! - 5, cy! - ry! * 0.8], to: [cx! + 4, cy! + ry! * 0.9], depth: 0.12 },
     });
     ctx.save();
     ctx.clip(p);
@@ -454,34 +454,34 @@ export function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): v
     branch.lineTo(cx! + rx! * 0.5, cy! - ry! * 0.4);
     stroke(ctx, branch, "#a7794f", 1.4, 0.85);
     stroke(ctx, branch, "#d1a260", 0.45, 0.8);
-    // Pressed irregular leaf marks are kept within the paper clump.
+    // Leaf fans grow from the branch forks; the rest of each crown stays quiet.
     ctx.save();
     ctx.clip(p);
-    for (let j = 0; j < 20; j++) {
-      const xx = cx! + (hash(j * 13 + i * 71 + seed) - 0.5) * rx! * 1.5,
-        yy = cy! + (hash(j * 31 + i * 5 + seed) - 0.5) * ry! * 1.5;
-      line(ctx, xx, yy, xx + 2, yy - 1, "#e6ae72", 0.45, 0.25);
+    for (const [j, [dx, dy]] of [[-0.4, -0.02], [0.37, -0.16]].entries()) {
+      const xx = cx! + dx! * rx!, yy = cy! + dy! * ry!;
+      for (let k = 0; k < 3; k++)
+        leaf(ctx, xx, yy, 10 + k * 2, 4.5, (k - 1) * 0.62 + (j ? 0.5 : -0.5), mix(color, "#e1b777", 0.12 + k * 0.09), seed + i * 7 + j);
     }
     ctx.restore();
   });
-  for (let i = 0; i < 10; i++)
-    leaf(
-      ctx,
-      (hash(seed + i * 11) - 0.5) * 75,
-      hash(seed + i * 31) * 10,
-      7,
-      3,
-      hash(i) * 5,
-      ["#b57944", "#a0583b", "#c28c49"][i % 3]!,
-      i,
-    );
+  ctx.restore();
+  paperCut(ctx, [[-14, 2], [-8, -5], [0, -2], [10, -4], [19, 4], [8, 3], [0, 7]], {
+    color: "#726045", shadow: 0.7, thickness: 0.7, texture: 0.65,
+  });
+  foldLine(ctx, -8, 0, 5, 3, 0.55);
+  paperSprig(ctx, -20, 5, 0.55, seed, "#7e8051");
+  for (let i = 0; i < 6; i++)
+    leaf(ctx, 18 + (i % 3) * 6, 4 + Math.floor(i / 3) * 4, 7, 3, -1.2 + (i % 3) * 0.7, ["#b57944", "#a0583b", "#c28c49"][i % 3]!, seed + i);
   ctx.restore();
 }
-function windowArt(ctx: Ctx, x: number, y: number, w: number, h: number): void {
-  const p = new Path2D(
-    `M ${x} ${y + h} L ${x} ${y + 7} Q ${x + w / 2} ${y - 7} ${x + w} ${y + 7} L ${x + w} ${y + h} Z`,
-  );
-  glow(ctx, x + w / 2, y + h * 0.6, w * 2.6, "#ffc065", 0.37);
+function windowArt(ctx: Ctx, x: number, y: number, w: number, h: number, style = 0, shutters = false): void {
+  const arch = (pad: number) => style % 2
+    ? path([[x - pad, y + h + pad], [x - pad, y + 1 - pad], [x + w + pad, y + 1 - pad], [x + w + pad, y + h + pad]])
+    : new Path2D(`M ${x - pad} ${y + h + pad} L ${x - pad} ${y + 7} Q ${x + w / 2} ${y - 7 - pad * 2} ${x + w + pad} ${y + 7} L ${x + w + pad} ${y + h + pad} Z`);
+  const p = arch(0);
+  glow(ctx, x + w / 2, y + h * 0.6, w * 1.25, "#ffc065", 0.23);
+  paperCut(ctx, arch(3), { color: "#948069", shadow: 0.6, thickness: 0.8, texture: 0.65, edge: "#e0c7a0" });
+  paperCut(ctx, arch(1.7), { color: "#493f3c", shadow: 0, thickness: 0.7, texture: 0.5 });
   piece(ctx, p, "#edbb64", {
     shadow: 1.1,
     edge: "#634431",
@@ -498,6 +498,19 @@ function windowArt(ctx: Ctx, x: number, y: number, w: number, h: number): void {
   ctx.fill(p);
   grain(ctx, p, 0.32);
   ctx.restore();
+  // A dark inner jamb and pale opposite lip make the light sit behind the wall.
+  line(ctx, x + 1, y + 7, x + 1, y + h - 1, "#785138", 1.7);
+  line(ctx, x + w - 1, y + 7, x + w - 1, y + h - 1, "#ffe2a0", 0.65);
+  if (shutters) {
+    for (const side of [-1, 1]) {
+      const sx = side < 0 ? x - 9 : x + w + 3;
+      paperCut(ctx, [[sx, y + 5], [sx + 5, y + 3], [sx + 5, y + h - 1], [sx, y + h - 3]], {
+        color: style > 1 ? "#667566" : "#8b6754", shadow: 0.7, thickness: 0.6, texture: 0.65, edge: "#b3a184",
+      });
+      for (let row = 0; row < 4; row++) line(ctx, sx + 1, y + 9 + row * 4, sx + 4, y + 8 + row * 4, "#c0ae89", 0.6, 0.65);
+      foldLine(ctx, sx + 2.5, y + 5, sx + 2.5, y + h - 3, 0.35);
+    }
+  }
   line(ctx, x + w / 2, y + 2, x + w / 2, y + h, "#805337", 1.6);
   line(ctx, x + 1, y + h * 0.58, x + w - 1, y + h * 0.58, "#8f5b35", 1.4);
   piece(ctx, box(x - 3, y + h, w + 6, 3), "#baa07e", {
@@ -517,7 +530,9 @@ export function cottage(
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
-  shadow(ctx, -9, 6, 99, 16);
+  const look = variant(seed, { palette: ["#dcc9a9", "#cabb9c", "#d6bf9f"], shift: 0.12 });
+  const style = Math.abs(seed) % 4, ridgeY = style % 2 ? -128 : -133;
+  shadow(ctx, -9, 3, 96, 7);
   // A turned side wall and a cream front gable give the cottage a folded-paper volume.
   piece(
     ctx,
@@ -527,19 +542,19 @@ export function cottage(
       [-23, 3],
       [-96, -1],
     ]),
-    "#b6a58a",
+    mix(look.color, "#6e7060", 0.32),
     { shadow: 3.2, edge: "#e0c6a0", texture: 0.9, thickness: 1.1 },
   );
   piece(
     ctx,
     path([
       [-24, -61],
-      [23, -123],
+      [23, ridgeY + 10],
       [83, -62],
       [83, 4],
       [-24, 4],
     ]),
-    "#dcc9a9",
+    look.color,
     { shadow: 2.7, edge: "#f0d7af", texture: 0.9, thickness: 1.1 },
   );
   piece(
@@ -557,7 +572,7 @@ export function cottage(
   ctx.clip(
     path([
       [-24, -61],
-      [23, -123],
+      [23, ridgeY + 10],
       [83, -62],
       [83, 4],
       [-24, 4],
@@ -569,16 +584,17 @@ export function cottage(
   ctx.fillStyle = wallLight;
   ctx.fillRect(-24, -123, 108, 127);
   ctx.restore();
-  for (let i = 0; i < 48; i++) {
-    const xx = -91 + hash(seed + i * 13) * 167,
-      yy = -48 + hash(seed + i * 31) * 46;
-    piece(
-      ctx,
-      box(xx, yy, 3 + hash(i) * 5, 2.3, i),
-      xx < -24 ? "#a69377" : "#c5af8c",
-      { shadow: 0, texture: 0.75, thickness: 0.18 },
-    );
+  // Exposed corner masonry and grouped repairs replace uniform wall speckles.
+  for (let row = 0; row < 5; row++) {
+    for (const xx of [-94, -23, 74])
+      paperCut(ctx, box(xx, -42 + row * 9, row % 2 ? 7 : 10, 5, seed + row), {
+        color: xx < -24 ? "#a69377" : "#c0aa88", shadow: 0.25, thickness: 0.4, texture: 0.65,
+      });
   }
+  for (let i = 0; i < 5; i++)
+    paperCut(ctx, box(-60 + (i % 3) * 9, -10 - Math.floor(i / 3) * 5, 8, 3.5, i), {
+      color: "#9d8a70", shadow: 0.2, thickness: 0.3, texture: 0.6,
+    });
   piece(
     ctx,
     path([
@@ -595,31 +611,27 @@ export function cottage(
   // The broad roof is a receding plane; the front gable remains visible below the ridge.
   const roof = path([
     [-111, -58],
-    [-40, -130],
-    [24, -133],
+    [-40, ridgeY + 3],
+    [24, ridgeY],
     [-24, -57],
   ]);
-  piece(ctx, roof, "#4a3449", {
-    shadow: 4,
-    edge: "#b48b59",
-    texture: 0.8,
-    thickness: 1.7,
+  paperCut(ctx, roof, {
+    color: style > 1 ? "#445253" : "#4a3449", layers: 1, shadow: 2.5,
+    edge: "#b48b59", texture: 0.75, thickness: 1.4,
   });
   ctx.save();
   ctx.clip(roof);
-  for (let row = 0; row < 12; row++) {
-    const yy = -58 - row * 6.4;
-    for (let xx = -116 - (row % 2) * 5; xx < 35; xx += 11) {
+  for (let row = 0; row < 8; row++) {
+    const yy = -124 + row * 9;
+    for (let col = 0; col < 11; col++) {
+      const xx = -120 + col * 15 - (row % 2) * 7;
       const p = new Path2D(
-        `M ${xx} ${yy - 7} L ${xx + 12} ${yy - 7} L ${xx + 10} ${yy + 1} Q ${xx + 5} ${yy + 4} ${xx - 1} ${yy + 1} Z`,
+        `M ${xx} ${yy - 8} L ${xx + 16} ${yy - 8} L ${xx + 14} ${yy + 1} Q ${xx + 7} ${yy + 4} ${xx} ${yy + 1} Z`,
       );
-      const palette = ["#57404e", "#644553", "#714d59", "#4c3749"];
-      piece(
-        ctx,
-        p,
-        palette[Math.floor(hash(seed + row * 71 + Math.floor(xx)) * 4)]!,
-        { shadow: 1.25, texture: 0.8, edge: "#98765e", thickness: 0.5 },
-      );
+      const palette = style > 1 ? ["#536467", "#5c6b68", "#4c5b60"] : ["#644553", "#714d59", "#57404e"];
+      piece(ctx, p, palette[(row + Math.floor(col / 3) + style) % 3]!, {
+        shadow: 0.8, texture: 0.65, edge: "#a08b70", thickness: 0.65,
+      });
     }
   }
   const shade = ctx.createLinearGradient(-102, -75, 15, -121);
@@ -628,15 +640,18 @@ export function cottage(
   ctx.fillStyle = shade;
   ctx.fill(roof);
   ctx.restore();
-  const eaves = new Path2D("M -112 -57 L -24 -56 L 24 -134 L 90 -58");
+  paperCut(ctx, [[24, ridgeY], [32, ridgeY + 6], [92, -59], [84, -56], [25, ridgeY + 12], [-19, -54], [-27, -58]], {
+    color: "#997550", shadow: 1.1, thickness: 0.8, texture: 0.65, edge: "#d7b482",
+  });
+  const eaves = new Path2D(`M -112 -57 L -24 -56 L 24 ${ridgeY - 1} L 90 -58`);
   stroke(ctx, eaves, "#48332e", 3.8);
   stroke(ctx, eaves, "#c29a61", 1.0);
-  const ridge = new Path2D("M -40 -131 L 24 -134");
+  const ridge = new Path2D(`M -40 ${ridgeY + 2} L 24 ${ridgeY - 1}`);
   stroke(ctx, ridge, "#74513b", 3);
   stroke(ctx, ridge, "#d0a767", 0.7);
   stitch(
     ctx,
-    new Path2D("M -107 -60 L -27 -59 L 23 -128 L 85 -60"),
+    new Path2D(`M -107 -60 L -27 -59 L 23 ${ridgeY + 5} L 85 -60`),
     "#d1ad77",
     0.7,
   );
@@ -674,12 +689,27 @@ export function cottage(
     edge: "#ba9160",
     texture: 0.85,
   });
-  // Windows are recessed and light their cream surrounds.
-  windowArt(ctx, -83, -44, 17, 27);
-  windowArt(ctx, -52, -43, 17, 26);
-  windowArt(ctx, -10, -43, 19, 27);
-  windowArt(ctx, 57, -43, 17, 27);
-  windowArt(ctx, 19, -82, 12, 18);
+  // Two silhouettes add a dormer; the other two keep the uninterrupted tiled plane.
+  if (style % 2 === 0) {
+    paperCut(ctx, [[-63, -79], [-63, -96], [-52, -106], [-41, -94], [-41, -78]], {
+      color: mix(look.color, "#8d7d69", 0.25), shadow: 1.2, thickness: 0.9, texture: 0.65,
+    });
+    paperCut(ctx, [[-68, -94], [-53, -110], [-36, -94], [-41, -91], [-53, -102], [-64, -91]], {
+      color: style > 1 ? "#526466" : "#72515b", layers: 1, shadow: 1, thickness: 0.7, texture: 0.65,
+    });
+    windowArt(ctx, -57, -94, 10, 12, style);
+  }
+  windowArt(ctx, -83, -44, 17, 27, style, true);
+  windowArt(ctx, -52, -43, 17, 26, style);
+  windowArt(ctx, -10, -43, 19, 27, style, style % 2 === 1);
+  windowArt(ctx, 57, -43, 17, 27, style, true);
+  windowArt(ctx, 19, -82, 12, 18, style);
+  paperCut(ctx, [[18, 4], [18, -33], [24, -42], [35, -46], [47, -41], [51, -33], [51, 4]], {
+    color: "#a18a6d", shadow: 0.8, thickness: 1, texture: 0.65, edge: "#e0c49b",
+  });
+  paperCut(ctx, new Path2D("M 22 4 L 22 -34 Q 35 -49 48 -34 L 48 4 Z"), {
+    color: "#453b33", shadow: 0, thickness: 0.7, texture: 0.45,
+  });
   const door = new Path2D("M 24 4 L 24 -34 Q 35 -47 46 -34 L 46 4 Z");
   piece(ctx, door, "#624731", {
     shadow: 2,
@@ -691,28 +721,24 @@ export function cottage(
     line(ctx, 27 + i * 4.6, -31, 27 + i * 4.6, 3, "#a07a47", 0.6);
   ctx.fillStyle = "#d5b269";
   ctx.fill(oval(41, -13, 1.1, 1.1));
+  // Build the stoop back to front, staying above the sprite's +16 bottom bound.
   for (let i = 0; i < 3; i++)
-    piece(ctx, box(19 - i * 3, 10 + i * 3, 32 + i * 6, 3.6), "#b0a084", {
-      shadow: 1.2,
-      edge: "#dac49c",
-      texture: 0.8,
-      thickness: 0.6,
+    paperCut(ctx, [[23 - i * 3, 3 + i * 3], [47 + i * 3, 3 + i * 3], [50 + i * 3, 6 + i * 3], [20 - i * 3, 6 + i * 3]], {
+      color: i % 2 ? "#a4967c" : "#b0a084", layers: 1, shadow: 0.6, edge: "#dac49c", texture: 0.65, thickness: 0.6,
     });
+  for (const yy of [-24, -6]) {
+    line(ctx, 25, yy, 31, yy, "#473c32", 1.8);
+    line(ctx, 26, yy - 0.5, 29, yy - 0.5, "#b2a17c", 0.5);
+  }
   line(ctx, -24, -56, -24, 2, "#ac9471", 1.3);
   line(ctx, 82, -57, 82, 3, "#927451", 1.3);
-  piece(ctx, box(-86, -13, 24, 5), "#876044", {
-    shadow: 1.3,
-    edge: "#bf955d",
-    texture: 0.85,
-  });
-  piece(ctx, box(-12, -12, 24, 5), "#876044", {
-    shadow: 1.3,
-    edge: "#bf955d",
-    texture: 0.85,
-  });
-  for (let i = 0; i < 6; i++) {
-    flower(ctx, -83 + i * 3.6, -13 - (i % 2), 0.45, i);
-    flower(ctx, -9 + i * 3.6, -12 - (i % 2), 0.42, i + 1);
+  for (const bx of [-86, style % 2 ? 54 : -12]) {
+    paperCut(ctx, [[bx - 1, -14], [bx + 23, -14], [bx + 26, -11], [bx + 23, -6], [bx + 2, -6]], {
+      color: "#876044", layers: 1, shadow: 0.7, thickness: 0.7, texture: 0.65, edge: "#bf955d",
+    });
+    paperCut(ctx, oval(bx + 12, -13, 11, 2, seed), { color: "#4e5140", shadow: 0, thickness: 0.4, texture: 0.5 });
+    foldLine(ctx, bx + 2, -10, bx + 23, -10, 0.45);
+    for (let i = 0; i < 4; i++) flower(ctx, bx + 3 + i * 5, -13, 0.43, seed + i);
   }
   const ivy = new Path2D("M -22 -8 Q -31 -39 -16 -69 Q 2 -83 15 -116");
   stroke(ctx, ivy, "#785c3d", 1.1);
@@ -843,27 +869,7 @@ export function bush(ctx: Ctx, x: number, y: number, s: number, seed: number): v
       );
 }
 export function flower(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
-  line(ctx, x, y, x, y - 10 * s, "#8c915b", 0.7 * s);
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2,
-      p = oval(
-        x + Math.cos(a) * 3 * s,
-        y - 12 * s + Math.sin(a) * 3 * s,
-        2.6 * s,
-        1.6 * s,
-        seed + i,
-      );
-    piece(ctx, p, seed % 2 ? "#dac69c" : "#c39d8a", {
-      shadow: 0.4,
-      texture: 0.6,
-      thickness: 0.3,
-    });
-  }
-  piece(ctx, oval(x, y - 12 * s, 1.6 * s, 1.6 * s), "#dfb366", {
-    shadow: 0.4,
-    texture: 0.6,
-    thickness: 0.2,
-  });
+  paperFlower(ctx, x, y, s, seed);
 }
 export function pumpkin(
   ctx: Ctx,

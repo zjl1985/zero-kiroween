@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. The suite has 149 tests at the time of writing. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. Deployment setup is ready, but a live deployment has not been checked.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. The suite has 163 tests at the time of writing. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works. The latest character / scenery refinement has not been deployed or viewed by the agent.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -26,6 +26,8 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `world.test.mjs` | 10 x 10 world and chunk tiling, pure chunk content, landmarks, start yard, exploring, edges, spawn ring, leash, discovery, camera, districts and biome props, prop cap |
 | `sim.test.mjs` | determinism, decoy without RNG, single player, hit feedback, `makeRoom` |
 | `characters.test.mjs` | Zero and Nicole kits |
+| `cat-art.test.mjs` | registered appearance metadata, preserved face print / edge, finite caches, deterministic pose geometry / bounds |
+| `scenery-art.test.mjs` | district motifs, seed determinism, patch / cottage / tree bounds, cached scenery reuse |
 | `upgrades.test.mjs` | build slots, steps, chest-only evolution, snack, extra weapons, per-cat pools, names |
 | `enemies.test.mjs` | horde ramp and hard cap, phases, crumple split, elites, chests, Boss arrival, sweep, reward, dawn win |
 | `interactions.test.mjs` | pumpkins, fish treats, moon-lantern, streaks, notices, spot kinds per landmark |
@@ -52,7 +54,7 @@ When adding content, the generic registry, reactions and gallery tests usually c
 2. `npm run build && npm start`.
 3. Open `http://localhost:4173/?start=1` (straight into a run with the saved cat), add `&seed=N` to pin the world, or `/?gallery=1` for the art gallery.
 
-In this sandbox, Playwright and headless Chromium have been blocked (permission errors). If a screenshot fails, skip it and report that no screenshot was taken. Never describe art you have not seen.
+Earlier attempts encountered sandbox permissions. The latest one-static-shot attempt failed because the installed Playwright package's Chromium headless-shell executable is missing; no image was produced. If a screenshot fails, skip it and report the actual error. Do not retry or install browsers just to extend this light verification. Never describe art you have not seen.
 
 ## Query parameters
 

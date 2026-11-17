@@ -32,8 +32,13 @@ export interface CatBodyPalette {
   readonly bib: string;
   readonly belt: string;
   readonly arm: string;
-  /** A small gold chain on the chest. */
-  readonly chain: boolean;
+  /** Appearance only: tailored paper silhouettes, independent of the cat's kit. */
+  readonly tailoring: "split-coat" | "bell-coat";
+  readonly accessory: "watch-chain" | "moon-satchel";
+  readonly lantern: "shutter" | "petal";
+  readonly lining: string;
+  readonly trim: string;
+  readonly metal: string;
 }
 /** Accent colours the HUD, cards and cues use for this cat. */
 export interface CatColors {

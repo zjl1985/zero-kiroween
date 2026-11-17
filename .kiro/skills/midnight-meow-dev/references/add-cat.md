@@ -77,7 +77,11 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
 
    export const <ID>_ART: CatArt = {
      id: "<id>",
-     body: { rim, tail, paw, pawEdge, cape, capeEdge, capeFold, body, bodyEdge, bib, belt, arm, chain: false },
+     body: {
+       rim, tail, paw, pawEdge, cape, capeEdge, capeFold, body, bodyEdge, bib, belt, arm,
+       tailoring: "bell-coat", accessory: "moon-satchel", lantern: "petal",
+       lining, trim, metal,
+     },
      colors: { hud, tone, cardPaper, cardInk, icon, levelUp, evolve },
      draw(ctx, pose) { drawCraftCat(ctx, pose, <ID>_ART.body); },
      skillPreview(ctx, pose) { /* draw this cat's skill effect and pose without a sim or audio */ },
@@ -92,6 +96,8 @@ Hard rules: only the chosen cat is in a run (no companion), and every cat keeps 
    Register it in `src/render/art-index.ts`: append to
    `for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(a);`
    `CAT_ART` order must equal `CATS` order (tested). The required `skillPreview` owns the gallery skill pose: choose dashing only when it fits this cat's skill, and draw the cat as well as the effect.
+
+   `CatBodyPalette` is appearance metadata, not gameplay: `tailoring` is `split-coat` / `bell-coat`, `accessory` is `watch-chain` / `moon-satchel`, and `lantern` is `shutter` / `petal`. `cat-detail.ts` caches finite body parts and articulates them from the supplied pose; do not key sprites by time or name cat ids in the generic renderer. The former `chain` boolean is no longer used.
 
 7. **i18n** (keys.ts + en.ts + zh.ts), see [i18n.md](i18n.md):
    `<id>.name`, `<id>.role`, `<id>.story`, `<id>.tactic`, `<id>.attack.name`, `<id>.attack.desc`, `<id>.active.name`, `<id>.active.short`, `<id>.active.desc`, `<id>.passive.name`, `<id>.passive.desc`, `cat.<id>.choice`, `notice.<skillNotice>`, the evolution's `notice.<notice>`, plus `upgrade.<id>.name/.desc` for each new weapon / passive.

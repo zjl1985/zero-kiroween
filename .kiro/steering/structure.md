@@ -40,7 +40,8 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
                       behaviours.ts, fx-life.ts, eraser-boss/attacks.ts
   reactions/<id>.ts   material x element rows (tear.ts holds the shared tearRow helper)
   props/<id>/         def.ts, art.ts (15 props)
-  landmarks/<id>/     def.ts, art.ts (9 landmarks); plaza.art.ts shared ground
+  landmarks/<id>/     def.ts, art.ts (12 kinds over 24 sites); plaza.art.ts shared ground;
+                      night-workshop-kit.art.ts shared beams, folded plants, pots and star motifs
   biomes/<id>.ts      + <id>.art.ts (5 districts); districts.ts (DISTRICTS, BASE_DECOR)
 src/game/             generic simulation, no DOM, no per-cat literals (tested)
   sim.ts              createSim, step, snapshot, chunk loading, ring spawning, makeRoom, weapons by
@@ -73,7 +74,9 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   gallery.ts          paintGallery for ?gallery=1
   camera.ts           follow camera (deadzone, smoothing, clamp to WORLD)
   craft-scene.ts      screen-space sky, world-space hills and ground, trees, houses, start yard, dawn
-  craft-cat.ts        papercraft cat body with the official head (narrow face paper edge)
+  craft-cat.ts        official printed head / narrow edge over the articulated paper body
+  cat-detail.ts       finite cached clothing / limb / lantern parts selected by appearance metadata
+  scenery-details.ts shared folded leaf, fern and flower painters for grouped scenery
   craft-combat.ts, combat-fx.ts, craft-enemies.ts, craft-juice.ts
                       shared painters the art files call (no per-kind switch)
   timeline.ts         pure cue timelines, slow motion, zoom, card deal stagger, POPUP fold numbers

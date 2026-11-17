@@ -63,9 +63,9 @@ export const SPAWN_RING = { marginX: 90, marginY: 80, tries: 6, leash: 1500 } as
 export const LANDMARK_KINDS: readonly string[] = LANDMARK_DEFS.ids();
 export type LandmarkKind = string;
 export const LANDMARK = {
-  /** One landmark per super-cell (5 x 3 cells of 1920 x 1800), except the start cell. */
+  /** One landmark per super-cell (5 x 5 cells of 1920 x 1080), except the start cell. */
   cols: 5,
-  rows: 3,
+  rows: 5,
   /** Distance kept from a cell's sides, so landmarks are at least 2 x margin apart. */
   margin: 360,
   /** Coming this close marks a landmark as found. */

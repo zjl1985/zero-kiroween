@@ -22,7 +22,12 @@ export const ZERO_ART: CatArt = {
     bib: "#4c3c3c",
     belt: "#77613f",
     arm: "#3c303b",
-    chain: true,
+    tailoring: "split-coat",
+    accessory: "watch-chain",
+    lantern: "shutter",
+    lining: "#79604e",
+    trim: "#c5a16a",
+    metal: "#ddb66b",
   },
   colors: {
     hud: "#f0b863",

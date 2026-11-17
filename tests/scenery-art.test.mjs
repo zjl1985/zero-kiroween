@@ -1,0 +1,214 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { OLD_TOWN_ART } from "../dist/defs/biomes/old-town.art.js";
+import { PUMPKIN_FARM_ART } from "../dist/defs/biomes/pumpkin-farm.art.js";
+import { GRAVEYARD_WOODS_ART } from "../dist/defs/biomes/graveyard-woods.art.js";
+import { LANTERN_CANAL_ART } from "../dist/defs/biomes/lantern-canal.art.js";
+import { MOON_MEADOW_ART } from "../dist/defs/biomes/moon-meadow.art.js";
+import { clearSpriteCache } from "../dist/engine/sprite.js";
+import { WORLD, chunkContent, chunkOf } from "../dist/game/world-gen.js";
+import { cottage, tree } from "../dist/render/craft-scene.js";
+import { worldSprites } from "../dist/render/craft-world.js";
+
+const districts = [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART];
+const identity = [1, 0, 0, 1, 0, 0];
+const multiply = (a, b) => [
+  a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1],
+  a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3],
+  a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5],
+];
+class Matrix {
+  constructor(m = identity) { this.m = [...m]; }
+  scale(s) { return new Matrix(multiply(this.m, [s, 0, 0, s, 0, 0])); }
+  inverse() {
+    const [a, b, c, d, e, f] = this.m, det = a * d - b * c;
+    return new Matrix([d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det]);
+  }
+  transformPoint({ x, y }) {
+    const [a, b, c, d, e, f] = this.m;
+    return { x: a * x + c * y + e, y: b * x + d * y + f };
+  }
+}
+
+// Conservative control-point bounds, not rasterization. All SVG commands used by
+// these painters are absolute M/L/Q/C/Z; fail explicitly if new syntax is added.
+class RecordingPath {
+  constructor(source) {
+    this.ops = source instanceof RecordingPath ? [...source.ops] : [];
+    if (typeof source === "string") {
+      const tokens = source.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/g) ?? [];
+      const commands = { M: ["moveTo", 2], L: ["lineTo", 2], Q: ["quadraticCurveTo", 4], C: ["bezierCurveTo", 6], Z: ["closePath", 0] };
+      for (let i = 0; i < tokens.length;) {
+        const command = tokens[i++], spec = commands[command];
+        assert.ok(spec, `unsupported path command: ${command}`);
+        this[spec[0]](...tokens.slice(i, i + spec[1]).map(Number));
+        i += spec[1];
+      }
+    }
+  }
+  rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); }
+}
+for (const op of ["moveTo", "lineTo", "quadraticCurveTo", "bezierCurveTo", "closePath"])
+  RecordingPath.prototype[op] = function (...args) { this.ops.push([op, ...args]); };
+const intersect = (a, b) => [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])];
+function bounds(path, matrix) {
+  const points = path.ops.flatMap(([, ...args]) => Array.from({ length: args.length / 2 }, (_, i) => new Matrix(matrix).transformPoint({ x: args[i * 2], y: args[i * 2 + 1] })));
+  return [Math.min(...points.map((p) => p.x)), Math.min(...points.map((p) => p.y)), Math.max(...points.map((p) => p.x)), Math.max(...points.map((p) => p.y))];
+}
+function recordingCanvas() {
+  const canvas = { width: 480, height: 540 }, calls = [], stack = [];
+  let state = { matrix: identity, clip: [-Infinity, -Infinity, Infinity, Infinity], globalAlpha: 1, globalCompositeOperation: "source-over", fillStyle: "#000000", strokeStyle: "#000000", lineWidth: 1, filter: "none" };
+  let current = new RecordingPath();
+  const record = (op, p) => {
+    const raw = bounds(p, state.matrix);
+    const half = op === "stroke" ? state.lineWidth * Math.max(Math.hypot(...state.matrix.slice(0, 2)), Math.hypot(...state.matrix.slice(2, 4))) / 2 : 0;
+    const extent = intersect([raw[0] - half, raw[1] - half, raw[2] + half, raw[3] + half], state.clip);
+    if (extent[0] > extent[2] || extent[1] > extent[3]) return;
+    const color = JSON.parse(JSON.stringify(op === "stroke" ? state.strokeStyle : state.fillStyle));
+    calls.push({ op, path: p.ops, matrix: [...state.matrix], bounds: extent, color, alpha: state.globalAlpha, composite: state.globalCompositeOperation });
+  };
+  const methods = {
+    save() { stack.push({ ...state }); },
+    restore() { state = stack.pop(); assert.ok(state, "balanced save/restore"); },
+    translate(x, y) { state.matrix = multiply(state.matrix, [1, 0, 0, 1, x, y]); },
+    scale(x, y) { state.matrix = multiply(state.matrix, [x, 0, 0, y, 0, 0]); },
+    rotate(a) { state.matrix = multiply(state.matrix, [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]); },
+    getTransform() { return new Matrix(state.matrix); },
+    clip(p) { state.clip = intersect(state.clip, bounds(p, state.matrix)); },
+    fill(p = current) { record("fill", p); },
+    stroke(p = current) { record("stroke", p); },
+    fillRect(x, y, w, h) { const p = new RecordingPath(); p.rect(x, y, w, h); record("fillRect", p); },
+    beginPath() { current = new RecordingPath(); },
+    moveTo(...args) { current.moveTo(...args); },
+    lineTo(...args) { current.lineTo(...args); },
+    setLineDash() {},
+    createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
+    putImageData() {},
+    createPattern() { return { kind: "paper-fibre", setTransform() {} }; },
+    drawImage(image, ...args) { calls.push({ op: "drawImage", image, args }); },
+  };
+  for (const name of ["createLinearGradient", "createRadialGradient"])
+    methods[name] = (...args) => ({ kind: name, args, stops: [], addColorStop(at, color) { this.stops.push([at, color]); } });
+  const ctx = new Proxy({}, {
+    get: (_, key) => key === "canvas" ? canvas : key === "calls" ? calls : key === "stackDepth" ? stack.length : key === "state" ? state : key in methods ? methods[key] : state[key],
+    set: (_, key, value) => { state[key] = value; return true; },
+  });
+  canvas.getContext = () => ctx;
+  return canvas;
+}
+function environment(t) {
+  clearSpriteCache();
+  const created = [];
+  for (const [name, value] of Object.entries({
+    Path2D: RecordingPath, DOMMatrix: Matrix,
+    document: { createElement(name) { assert.equal(name, "canvas"); const c = recordingCanvas(); created.push(c); return c; } },
+  })) {
+    const old = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
+    t.after(() => old ? Object.defineProperty(globalThis, name, old) : delete globalThis[name]);
+  }
+  t.mock.method(Math, "random", () => assert.fail("scenery consumed random state"));
+  t.after(clearSpriteCache);
+  return created;
+}
+function paint(painter, ...args) {
+  const ctx = recordingCanvas().getContext("2d");
+  painter(ctx, ...args);
+  assert.equal(ctx.stackDepth, 0);
+  assert.deepEqual(ctx.state.matrix, identity, "painter restores placement transform");
+  assert.equal(ctx.globalAlpha, 1);
+  assert.equal(ctx.globalCompositeOperation, "source-over");
+  assert.equal(ctx.filter, "none");
+  return ctx.calls;
+}
+function fits(calls, [l, t, r, b], label) {
+  for (const call of calls) {
+    assert.ok(call.bounds.every(Number.isFinite), `${label}: finite geometry`);
+    const [x0, y0, x1, y1] = call.bounds;
+    assert.ok(x0 >= l - 1e-6 && x1 <= r + 1e-6 && y0 >= t - 1e-6 && y1 <= b + 1e-6,
+      `${label}: ${call.op} ${JSON.stringify(call.color)} [${call.bounds}] outside [${l},${t},${r},${b}]`);
+  }
+}
+
+test("district paintings are deterministic, distinct and restore the caller's drawing state", (t) => {
+  environment(t);
+  const signatures = new Set();
+  for (const art of districts) {
+    const variants = new Set();
+    for (const seed of [0, 1, 2, 7, 23, 97]) {
+      const a = paint(art.patch, 0, 0, 70, seed), b = paint(art.patch, 0, 0, 70, seed);
+      assert.deepEqual(a, b, `${art.id}: stable seed ${seed}`);
+      assert.ok(a.length > 30 && a.length < 1000, `${art.id}: bounded grouped detail cost (${a.length})`);
+      variants.add(JSON.stringify(a.map(({ path, matrix }) => [path, matrix])));
+      signatures.add(JSON.stringify(a));
+    }
+    assert.ok(variants.size >= 3, `${art.id}: geometry varies, not only the palette`);
+  }
+  assert.equal(signatures.size, districts.length * 6);
+});
+
+test("district details stay inside existing patch reach with quiet space above and below", (t) => {
+  environment(t);
+  for (const art of districts) for (const r of [46, 70, 84]) for (const seed of [0, 1, 2, 7, 23, 97]) {
+    const x = -473, y = 1081;
+    const calls = paint(art.patch, x, y, r, seed);
+    fits(calls, [x - r, y - r * 0.6, x + r, y + r * 0.6], `${art.id}/${r}/${seed}`);
+  }
+});
+
+test("walkable canal detail is land-led: small muted wash, no glowing lantern or deep-water halo", (t) => {
+  environment(t);
+  for (const seed of [0, 1, 2, 7, 23, 97]) {
+    const calls = paint(LANTERN_CANAL_ART.patch, 0, 0, 70, seed);
+    const wash = calls.find((c) => c.op === "fill" && c.color === "#5d7775");
+    assert.ok(wash);
+    const [l, top, r, b] = wash.bounds;
+    // oval's rough cut may expand a radius by up to rough * 0.85 (here 7.65%).
+    assert.ok(r - l <= 91 && b - top <= 20, "rough-cut wash stays smaller than the previous 112 × 44.8 pond at radius 70");
+    assert.ok(calls.some((c) => c.bounds[0] < l - 10 && c.bounds[2] > r + 10), "layered banks dominate the wash");
+    assert.ok(!calls.some((c) => c.composite === "screen"), "no decorative glow suggesting an interaction or hazard");
+    assert.ok(calls.filter((c) => c.color === "#c0aa76").every((c) => c.alpha <= 0.4));
+  }
+});
+
+test("all cached tree and cottage variants fit the unchanged core bounds at world scales", (t) => {
+  environment(t);
+  // Paint/control-point bounds include clipped folds and stroke width, not blur kernels.
+  for (const [kind, painter, variants, bounds] of [
+    ["tree", tree, 6, [-82, -158, 82, 16]],
+    ["cottage", cottage, 4, [-120, -144, 100, 16]],
+  ]) for (let seed = 0; seed < variants; seed++) for (const s of [0.65, 1, 1.4]) {
+    const x = -180, y = 367;
+    const calls = paint(painter, x, y, s, seed);
+    fits(calls, [x + bounds[0] * s, y + bounds[1] * s, x + bounds[2] * s, y + bounds[3] * s], `${kind}/${seed}/${s}`);
+    assert.deepEqual(calls, paint(painter, x, y, s, seed), `${kind}: pure cached painter`);
+  }
+});
+
+test("world scenery reuses existing sprite keys and canvas sizes without repainting details", (t) => {
+  const created = environment(t), seed = 7, wanted = new Map();
+  const a = chunkOf(WORLD.minX, WORLD.minY), b = chunkOf(WORLD.maxX - 1, WORLD.maxY - 1);
+  for (let cy = a.cy; cy <= b.cy && wanted.size < 2; cy++) for (let cx = a.cx; cx <= b.cx && wanted.size < 2; cx++)
+    for (const d of chunkContent(seed, cx, cy).decor)
+      if ((d.kind === "tree" || d.kind === "cottage") && !wanted.has(d.kind)) wanted.set(d.kind, d);
+  assert.equal(wanted.size, 2);
+  for (const [kind, decor] of wanted) {
+    const before = JSON.stringify(decor), ctx = recordingCanvas().getContext("2d"), cam = { x: decor.x, y: decor.y };
+    const draw = () => {
+      const sprite = worldSprites(ctx, seed, cam, 0).sprites.find((s) => s.y === decor.y);
+      assert.ok(sprite, `${kind} is visible`);
+      sprite.draw();
+      return ctx.calls.at(-1);
+    };
+    const first = draw();
+    assert.equal(first.op, "drawImage");
+    const size = kind === "tree" ? [164, 174] : [220, 160], s = Math.round(decor.s * 20) / 20;
+    assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil((n * s + 16) * 2)), "unchanged BOUNDS/PAD allocation");
+    const paints = first.image.getContext("2d").calls.length, allocated = created.length;
+    assert.equal(draw().image, first.image, "same sprite identity");
+    assert.equal(created.length, allocated, "no new offscreen canvas on a cache hit");
+    assert.equal(first.image.getContext("2d").calls.length, paints, "details are not repainted on a cache hit");
+    assert.ok(ctx.calls.every((c) => c.op === "drawImage"), "live pass only stamps the cached sprite");
+    assert.equal(JSON.stringify(decor), before, "rendering does not mutate decor");
+  }
+});

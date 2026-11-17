@@ -22,7 +22,12 @@ export const NICOLE_ART: CatArt = {
     bib: "#f3e8ce",
     belt: "#79556b",
     arm: "#c6b498",
-    chain: false,
+    tailoring: "bell-coat",
+    accessory: "moon-satchel",
+    lantern: "petal",
+    lining: "#b58a9d",
+    trim: "#e2c8b0",
+    metal: "#e4d2a2",
   },
   colors: {
     hud: "#c9b2f0",

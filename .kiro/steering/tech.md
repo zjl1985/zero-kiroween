@@ -25,7 +25,7 @@ npm test        # npm run build && node --test tests/*.test.mjs
 - Open `http://localhost:4173/`; `/?start=1` jumps straight into a run with the saved cat, `?seed=N` pins the run seed (otherwise each run gets a fresh one), `/?gallery=1` shows every registered entry on paper cards.
 - An old local server may still hold port 4173. Check the port before starting another one.
 - Tests import compiled modules from `dist/` and inspect the static output in `site/`, so they always run the production build first.
-- `vercel.json` uses `npm ci`, `npm run build`, output `site/`, no framework or SPA fallback. The production site needs no Python, server process or environment variables. The deployment configuration is ready; no live deployment has been performed.
+- `vercel.json` uses `npm ci`, `npm run build`, output `site/`, no framework or SPA fallback. The production site needs no Python, server process or environment variables. The user confirmed the previous Vercel deployment works; the latest local visual refinement still requires publication and visual review.
 
 ## Conventions
 

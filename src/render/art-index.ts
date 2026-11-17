@@ -56,6 +56,9 @@ import { DEAD_TREE_ART } from "../defs/props/dead-tree/art.js";
 import { PAPER_WINDMILL_ART } from "../defs/landmarks/paper-windmill/art.js";
 import { PUPPET_THEATRE_ART } from "../defs/landmarks/puppet-theatre/art.js";
 import { WISHING_WELL_ART } from "../defs/landmarks/wishing-well/art.js";
+import { PAPER_TEAHOUSE_ART } from "../defs/landmarks/paper-teahouse/art.js";
+import { FOLD_GREENHOUSE_ART } from "../defs/landmarks/fold-greenhouse/art.js";
+import { STAR_OBSERVATORY_ART } from "../defs/landmarks/star-observatory/art.js";
 import { OLD_TOWN_ART } from "../defs/biomes/old-town.art.js";
 import { PUMPKIN_FARM_ART } from "../defs/biomes/pumpkin-farm.art.js";
 import { GRAVEYARD_WOODS_ART } from "../defs/biomes/graveyard-woods.art.js";
@@ -120,6 +123,9 @@ for (const a of [
   PAPER_WINDMILL_ART,
   PUPPET_THEATRE_ART,
   WISHING_WELL_ART,
+  PAPER_TEAHOUSE_ART,
+  FOLD_GREENHOUSE_ART,
+  STAR_OBSERVATORY_ART,
 ])
   LANDMARK_ART.register(a);
 for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(a);

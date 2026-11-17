@@ -1,8 +1,8 @@
 # Handoff: current requirements
 
-Updated 2026-11-17, after correctness fixes and Vercel deployment preparation. `npm run build` and `npm test` pass (149 / 149). The Vercel configuration is ready; no live deployment has been performed. The earlier extensible skeleton and paper world round (task-extensible-paper-world, `852fd08` to `b582c47`) had an APPROVED review and 130 passing tests; that review does not cover the latest changes.
+Updated 2026-11-17, after the character / scenery refinement and landmark expansion. `npm run build` and `npm test` pass (163 / 163). The user confirmed the previous version works on Vercel, then requested finer characters and more detailed, varied scenes. The latest refinement has not been pushed or deployed. The earlier skeleton / paper-world review was APPROVED; it does not cover this work.
 
-Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.13). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its eight `references/` recipes cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
+Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.14). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its eight `references/` recipes cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
 
 ## First: do not restore the dual style
 
@@ -10,7 +10,7 @@ Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md]
 
 ## Status labels
 
-"Implemented in code" only means the code exists, compiles and passes tests. **Nobody has viewed anything listed in this file in a browser, and the user has not approved the art.**
+"Implemented in code" only means the code exists, compiles and passes tests. **The user has viewed the deployed previous version and said it is usable, but explicitly requested better art. The latest refinement has not been viewed in a real browser or approved.**
 
 ## What the user asked for
 
@@ -27,7 +27,17 @@ Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md]
 11. **A Vampire Survivors style roguelike, not hundreds of enemies.** The user said: "the map does not need to be infinite, at most 100" and "I mean similar, not hundreds, just this kind of roguelike". Read as a map of at most 10 x 10 screens (`WORLD`) and a hard cap of 100 living enemies (`HORDE.hardCap`). Both are tunable data.
 12. **Extensible skeleton and paper world** (this round): move to "definitions + hooks + registries" without changing gameplay, add material x element reactions (tear, burn, pop-up), build paper primitives, seeded variants and a gallery page, then add districts, landmarks and props, and finally package the workflow as an English project skill under `.kiro`. The user said: "whatever I don't understand, finish it the best way you can".
 
-## Latest fixes and deployment preparation
+## Latest character / scenery refinement
+
+- **Characters:** `src/render/cat-detail.ts` renders finite cached articulated parts. Zero has a split-tail coat, lapels, watch chain and shuttered lantern; Nicole has a bell coat, scalloped cape, moon satchel and petal lantern. Both gain segmented limbs, cuffs, soles, pleats and stitched hems. Registered `CatBodyPalette` appearance fields select these details without cat-id branches. The official face print, narrow head edge, head placement and gameplay kits are unchanged.
+- **Scenery:** grouped tree crowns and leaf fans; cottage roof variants, shingles, dormers, recessed windows, shutters, window boxes and stoops within existing sprite bounds. `scenery-details.ts` supplies shared folded flora. The five district ground painters now have stone courses / grates, furrows / vines, moss / roots / ferns, reeds / banks / subdued reflections, and flower / pebble clusters. Canal water remains decorative and walkable, with a smaller, subdued wash.
+- **New landmarks:** paper-teahouse (纸灯茶屋), fold-greenhouse (折纸温室), star-observatory (星象台), with 10 custom decor pieces, their own ground, supporting furniture / plants, colliders, discovery notices, zh/en labels and existing lantern / pumpkin interactions. All use the normal world and art registries and appear in the gallery.
+- **Map:** 12 landmark kinds across 24 sites (was 9 / 14). The grid is now 5 x 5 minus the start cell, without enlarging the 10 x 10 screen map. Margins, start-yard protection and prop/enemy caps remain unchanged. **Fixed seeds produce different maps than the previous version.**
+- **Checks:** 163 tests pass, including cached character geometry, deterministic scenery motifs and bounds, 24-site coverage, new landmark approach clearance and reachable interaction spots. These are code / command-recording checks, not browser pixels or performance measurements. Old local snapshot probe reference files were not regenerated; current deterministic snapshot tests pass.
+- **Screenshot:** one static-art screenshot attempt failed because the Playwright Chromium headless-shell executable is missing. No screenshot was produced, no browser was installed, and no animation / recording / audio / frame-rate checks were run.
+- **Deployment evidence:** commit `5b67387` and earlier local history were successfully pushed to `origin/main`. The user then confirmed the Vercel version works; no deployment URL was supplied. Do not claim that this latest local refinement is already online.
+
+## Previous fixes and deployment preparation
 
 - `makeRoom` determines off-screen enemies around clamped `viewCentre`, while retaining distance-from-player ordering and elite / Boss protection. Regression tests cover west, east and south edges, ties and fallback. The obsolete comment was removed.
 - `src/game/seed.ts` validates `?seed=N`: 1–10 decimal digits within `0..4294967295`. Invalid or overflowing pins use a fresh random seed instead of wrapping; zero remains valid.
@@ -148,9 +158,9 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Evidence limits
 
-- `npm run build` and `npm test` (149 tests) pass. That checks compilation, tested sim behavior, Canvas command dispatch and static packaging, not browser visuals, frame rate or a live deployment.
-- **Nobody has viewed anything in a real browser**: not this round's art layer, props, fire, pop-up folding, district ground, new landmarks or gallery, and not the earlier map, camera, elites, chests, weapons, journal UI or motion cues. The sandbox blocks Playwright and headless Chromium, so no screenshot was taken this round. Drawing was only smoke-run in Node against a fake Canvas context (no errors, no pixels checked).
-- **Nobody has heard the audio**, including the tear and crackle cues.
+- `npm run build` and `npm test` (163 tests) pass. That checks compilation, tested sim behavior, Canvas command dispatch / geometry and static packaging, not browser visuals or frame rate.
+- The user confirmed the previous deployed version works, but said scenes and characters lack detail. The latest refinement is unviewed: the single screenshot attempt failed due to a missing Chromium executable. No screenshot was produced.
+- **Audio has not been evaluated by the agent**, including the tear and crackle cues; no user audio-quality report is recorded.
 - **Balance was only probed with throwaway idle bots**; an idle Nicole cannot finish the Eraser.
 - **Frame rate at about 100 enemies with fire is unmeasured.** There is no spatial hash or object pool, and chunk caches build synchronously.
 - **The user has not approved the art.** Do not mark the art or the entry as finished.
@@ -179,7 +189,7 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 6. Legacy leftovers: the unused `drawMascot` in `src/render/layout.ts` has a `pose.id === "nicole"` branch, and `craft-juice.ts` has two `"eraser-boss"` presentation checks. Kept under "do not delete blindly".
 7. Gallery skill poses and landmark interaction markers are fixed in code and covered by command-recording tests, but have not been viewed in a real browser.
 8. English default: not switched (default `zh`, `en` complete). When switching, also update `<html lang>` and `<title>`.
-9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. Vercel configuration and isolated static output are ready, but nothing is deployed yet. See README for import settings. Record a video only with the user's consent.
+9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. The user has deployed the previous version to Vercel and confirmed it works. Publish the latest refinement after commit / push authorization; Devpost materials remain pending. See README for settings. Record a video only with the user's consent.
 
 Smaller items: a side road may cross another landmark's river; foreground leaves and the torn frame are still screen space; zh / en card text length on small screens is unchecked.
 
@@ -189,11 +199,11 @@ Smaller items: a side road may cross another landmark's river; foreground leaves
 npm ci          # Node.js 22+, TypeScript only
 npm run build   # tsc -> dist/; package production files -> site/
 npm start       # python3 -m http.server 4173 --directory site
-npm test        # production build + node --test tests/*.test.mjs (149 tests)
+npm test        # production build + node --test tests/*.test.mjs (163 tests)
 ```
 
 - Open `http://localhost:4173/`. An old local server may still hold port 4173; check the port first.
 - `/?start=1` starts a run with the saved cat; `?seed=N` pins a decimal uint32 seed (0..4294967295; invalid or missing pins get a fresh one); `/?gallery=1` opens the gallery.
 - Verification is build + test, at most one static screenshot, no animation or recording checks.
 - Screenshots and probes in `output/playwright/` exist only on this machine and are git-ignored.
-- `main` carries local commits ahead of origin. The sandbox blocks SSH push and `gh`, so pushing has to happen outside it.
+- SSH push succeeded for `5b67387` to `origin/main`; the old blanket claim that pushing is blocked is obsolete. Only commit / push when the user authorizes it; never include `.agents/`, `output/`, `dist/` or `site/`.
