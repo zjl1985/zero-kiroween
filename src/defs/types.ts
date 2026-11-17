@@ -149,6 +149,11 @@ export interface CharacterDef<K extends CatBaseStats = CatBaseStats> {
   readonly art: string;
   /** Notice shown when the skill is used. */
   readonly skillNotice: Notice;
+  /**
+   * Named numbers the kit copy interpolates (`{decoy}`, `{stars}` ...). The UI
+   * merges every cat's params, so one cat's text may cite another's numbers.
+   */
+  copyParams?(): Readonly<Record<string, number>>;
   /** Speed factor of ink slowed by this cat's skill and weapons (1 = no slow). */
   readonly enemySlow?: number;
   /** Skill effect after the shared dash has started. */

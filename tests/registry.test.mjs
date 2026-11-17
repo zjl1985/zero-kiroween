@@ -135,3 +135,75 @@ test("the engine stays content-free and src/game has no per-cat literals", () =>
       assert.ok(!text.includes(`"${cat}"`), `game/${file} names "${cat}"`);
   }
 });
+
+// ---- Art layer (render side; imported without a DOM) ----
+import { CAT_ART, ENEMY_ART, PASSIVE_ART, WEAPON_ART, upgradeIcon } from "../dist/render/art-index.js";
+import { SPRITE_CACHE_LIMIT, cachedSprite, clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
+
+test("every registered cat and enemy has registered art, and no art is orphaned", () => {
+  for (const id of CATS.ids()) {
+    const art = CAT_ART.find(id);
+    assert.ok(art, `cat ${id} has art`);
+    for (const fn of ["draw", "portrait", "heroAura", "skillIcon"])
+      assert.equal(typeof art[fn], "function", `cat ${id} art.${fn}`);
+    const cat = CATS.get(id);
+    for (const key of [`${cat.i18n}.name`, `cat.${id}.choice`]) {
+      assert.ok(hasKey(key), `${key} is a message key`);
+      for (const locale of ["zh", "en"]) assert.ok(!missingKeys(locale).includes(key), `${key} in ${locale}`);
+    }
+  }
+  for (const id of ENEMY_DEFS.ids()) {
+    const art = ENEMY_ART.find(id);
+    assert.ok(art, `enemy ${id} has art`);
+    assert.equal(typeof art.draw, "function");
+    assert.ok(art.dissolve.flakes.length > 0 && art.dissolve.count > 0, `enemy ${id} dissolve`);
+  }
+  assert.deepEqual([...CAT_ART.ids()], [...CATS.ids()], "cat art follows cat registration order");
+  for (const id of ENEMY_ART.ids()) assert.ok(ENEMY_DEFS.has(id), `enemy art ${id} has a def`);
+  for (const id of WEAPON_ART.ids()) assert.ok(WEAPON_DEFS.has(id), `weapon art ${id} has a def`);
+  for (const id of PASSIVE_ART.ids()) assert.ok(PASSIVE_DEFS.has(id), `passive art ${id} has a def`);
+});
+
+test("every weapon, passive and evolution has a card icon painter", () => {
+  const ids = [...WEAPON_DEFS.ids(), ...PASSIVE_DEFS.ids(), ...EVOLUTION_DEFS.ids()];
+  for (const id of ids) assert.equal(typeof upgradeIcon(id), "function", `${id} has an icon`);
+  // Shots tagged by a weapon are drawn by exactly one weapon art.
+  const tags = WEAPON_ART.all().filter((w) => w.shotTag).map((w) => w.shotTag);
+  assert.equal(new Set(tags).size, tags.length);
+});
+
+test("cached sprites are keyed, capped and import-safe without a DOM", () => {
+  clearSpriteCache();
+  let painted = 0;
+  const a = cachedSprite("probe:a", 10, 6, 2, () => painted++, { x: 0.5, y: 1 });
+  assert.equal(cachedSprite("probe:a", 10, 6, 2, () => painted++), a, "same key, same sprite");
+  assert.equal(a.canvas, undefined, "no canvas without a DOM");
+  // Without a canvas, draw runs the painter directly at the anchored spot.
+  const calls = [];
+  const ctx = new Proxy({}, { get: (_, k) => (...args) => calls.push([k, ...args]) });
+  a.draw(ctx, { x: 20, y: 30 });
+  assert.equal(painted, 1);
+  assert.deepEqual(calls.find((c) => c[0] === "translate"), ["translate", 15, 24]);
+  for (let i = 0; i < SPRITE_CACHE_LIMIT + 5; i++) cachedSprite(`probe:${i}`, 1, 1, 1, () => {});
+  assert.equal(spriteCacheSize(), SPRITE_CACHE_LIMIT);
+  assert.notEqual(cachedSprite("probe:a", 10, 6, 2, () => {}), a, "least recently used entry was evicted");
+  clearSpriteCache();
+});
+
+test("render, UI and main draw cats and enemies through registries, not literals", () => {
+  const src = new URL("../src/", import.meta.url);
+  // Legacy pixel-era helpers kept as code dependencies (see .kiro/steering/structure.md).
+  const legacy = new Set(["scene.ts", "layout.ts", "pixel.ts", "pixel-art.ts", "cast.ts"]);
+  const files = [
+    ...readdirSync(new URL("render/", src)).filter((f) => f.endsWith(".ts") && !legacy.has(f)).map((f) => `render/${f}`),
+    ...readdirSync(new URL("ui/", src)).filter((f) => f.endsWith(".ts")).map((f) => `ui/${f}`),
+    "main.ts",
+  ];
+  for (const file of files) {
+    const text = readFileSync(new URL(file, src), "utf8");
+    for (const cat of CATS.ids()) assert.ok(!text.includes(`"${cat}"`), `${file} names "${cat}"`);
+  }
+  const enemies = readFileSync(new URL("render/craft-enemies.ts", src), "utf8");
+  assert.doesNotMatch(enemies, /switch \(/, "craft-enemies.ts has no switch over kinds");
+  for (const kind of ENEMY_DEFS.ids()) assert.ok(!enemies.includes(`"${kind}"`), `craft-enemies.ts names "${kind}"`);
+});

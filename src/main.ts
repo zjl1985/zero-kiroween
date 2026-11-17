@@ -1,8 +1,12 @@
 import {
+  buildCatTickets,
+  catName,
   paintCharacterPanel,
   characterCopy,
   characterValues,
 } from "./ui/character-panel.js";
+import { CATS } from "./defs/index.js";
+import "./render/art-index.js";
 import type { CatId } from "./cats/types.js";
 import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
@@ -45,16 +49,18 @@ interface Prefs {
   cat: CatId;
   muted: boolean;
 }
+/** The first registered cat: the default pick. */
+const firstCat = (): CatId => CATS.ids()[0]!;
 function initialPrefs(): Prefs {
   try {
     const value = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
     return {
       locale: isLocale(value.locale) ? value.locale : "zh",
-      cat: value.cat === "nicole" ? "nicole" : "zero",
+      cat: typeof value.cat === "string" && CATS.has(value.cat) ? value.cat : firstCat(),
       muted: value.muted === true,
     };
   } catch {
-    return { locale: "zh", cat: "zero", muted: false };
+    return { locale: "zh", cat: firstCat(), muted: false };
   }
 }
 function savePrefs(prefs: Prefs): void {
@@ -254,7 +260,7 @@ function boot(): void {
     paintCharacterPanel(locale, selectedCat);
     stage.setAttribute(
       "aria-label",
-      `${t(locale, "title.name")} · ${(sim?.player.id ?? selectedCat) === "zero" ? "Zero" : "Nicole"}`,
+      `${t(locale, "title.name")} · ${catName(locale, sim?.player.id ?? selectedCat)}`,
     );
     must("pause-note").textContent = hiddenPause
       ? t(locale, "pause.hidden")
@@ -275,7 +281,7 @@ function boot(): void {
       must("pause-kit").textContent = t(
         locale,
         "pause.kit",
-        characterValues(id),
+        characterValues(locale, id),
       );
       must("pause-skill").textContent = characterCopy(
         locale,
@@ -292,7 +298,7 @@ function boot(): void {
           sim.ended === "won" ? "result.win" : "result.lose",
         );
         must("result-cat").textContent =
-          `${id === "zero" ? "ZERO" : "NICOLE"} · ${characterCopy(locale, id, "role")}`;
+          `${catName(locale, id).toUpperCase()} · ${characterCopy(locale, id, "role")}`;
         must("btn-result-back").textContent = t(locale, "result.change");
         paintJournal(locale, sim);
       }
@@ -402,8 +408,9 @@ function boot(): void {
   magnet.addEventListener("pointerenter", (e) => aim(e, true));
   magnet.addEventListener("pointermove", (e) => aim(e, true));
   magnet.addEventListener("pointerleave", (e) => aim(e, false));
-  for (const id of ["zero", "nicole"] as const) {
-    must(`btn-cat-${id}`).addEventListener("click", () => {
+  for (const ticket of buildCatTickets()) {
+    const id = ticket.dataset.cat!;
+    ticket.addEventListener("click", () => {
       if (screen !== "title") return;
       selectedCat = id;
       savePrefs({ locale, cat: selectedCat, muted });
@@ -421,14 +428,15 @@ function boot(): void {
         return;
       event.preventDefault();
       event.stopPropagation();
-      const id =
-        key === "Home"
-          ? "zero"
-          : key === "End"
-            ? "nicole"
-            : selectedCat === "zero"
-              ? "nicole"
-              : "zero";
+      // Home / End jump to the first / last ticket; arrows step and wrap.
+      const ids = CATS.ids(),
+        at = Math.max(0, ids.indexOf(selectedCat)),
+        id =
+          key === "Home"
+            ? ids[0]!
+            : key === "End"
+              ? ids[ids.length - 1]!
+              : ids[(at + (key === "ArrowLeft" ? -1 : 1) + ids.length) % ids.length]!;
       const button = must<HTMLButtonElement>(`btn-cat-${id}`);
       button.focus();
       button.click();

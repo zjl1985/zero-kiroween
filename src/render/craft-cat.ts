@@ -5,6 +5,8 @@ import {
 } from "../cats/official.js";
 import type { CatId } from "../cats/types.js";
 import type { CatPose } from "./layout.js";
+import type { CatBodyPalette } from "./art-registry.js";
+import { cachedSprite } from "../engine/sprite.js";
 import {
   piece,
   path,
@@ -19,42 +21,35 @@ import {
   surface,
   type Ctx,
 } from "./paper-material.js";
-const heads = new Map<CatId, HTMLCanvasElement>();
 const SCALE = 0.16;
+const HEAD_W = Math.ceil(MASCOT_VIEWBOX_WIDTH * SCALE + 8),
+  HEAD_H = Math.ceil(MASCOT_VIEWBOX_HEIGHT * SCALE + 8);
+/** The printed head, cached per cat at 2x. */
 function head(id: CatId): HTMLCanvasElement {
-  let cached = heads.get(id);
-  if (cached) return cached;
-  const w = Math.ceil(MASCOT_VIEWBOX_WIDTH * SCALE + 8),
-    h = Math.ceil(MASCOT_VIEWBOX_HEIGHT * SCALE + 8);
-  cached = surface(w * 2, h * 2);
-  const ctx = cached.getContext("2d")!;
-  ctx.scale(2, 2);
-  for (const r of officialRects(id)) {
-    const n = parseInt(r.fill.slice(1), 16);
-    ctx.fillStyle =
-      n >> 16 < 44 && ((n >> 8) & 255) < 44 && (n & 255) < 44
-        ? "#30252f"
-        : r.fill;
-    // Shared physical-pixel boundaries keep adjacent printed blocks seamless.
-    const x0 = Math.round((4 + r.x * SCALE) * 2) / 2;
-    const y0 = Math.round((4 + r.y * SCALE) * 2) / 2;
-    const x1 = Math.round((4 + (r.x + r.w) * SCALE) * 2) / 2;
-    const y1 = Math.round((4 + (r.y + r.h) * SCALE) * 2) / 2;
-    ctx.fillRect(x0, y0, Math.max(0.5, x1 - x0), Math.max(0.5, y1 - y0));
-  }
-  const mask = surface(w * 2, h * 2);
-  mask.getContext("2d")!.drawImage(cached, 0, 0);
-  grain(ctx, box(0, 0, w, h), 0.65);
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = "destination-in";
-  ctx.drawImage(mask, 0, 0);
-  ctx.restore();
-
-  heads.set(id, cached);
-  return cached;
+  return cachedSprite(`cat-head:${id}`, HEAD_W, HEAD_H, 2, (ctx, canvas) => {
+    for (const r of officialRects(id)) {
+      const n = parseInt(r.fill.slice(1), 16);
+      ctx.fillStyle =
+        n >> 16 < 44 && ((n >> 8) & 255) < 44 && (n & 255) < 44
+          ? "#30252f"
+          : r.fill;
+      // Shared physical-pixel boundaries keep adjacent printed blocks seamless.
+      const x0 = Math.round((4 + r.x * SCALE) * 2) / 2;
+      const y0 = Math.round((4 + r.y * SCALE) * 2) / 2;
+      const x1 = Math.round((4 + (r.x + r.w) * SCALE) * 2) / 2;
+      const y1 = Math.round((4 + (r.y + r.h) * SCALE) * 2) / 2;
+      ctx.fillRect(x0, y0, Math.max(0.5, x1 - x0), Math.max(0.5, y1 - y0));
+    }
+    const mask = surface(HEAD_W * 2, HEAD_H * 2);
+    mask.getContext("2d")!.drawImage(canvas!, 0, 0);
+    grain(ctx, box(0, 0, HEAD_W, HEAD_H), 0.65);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(mask, 0, 0);
+    ctx.restore();
+  }).canvas!;
 }
-const edges = new Map<CatId, HTMLCanvasElement>();
 /** Padding of the edge canvas around the head, in head-canvas (2x) pixels. */
 const EDGE_PAD = 4;
 /** Tints a copy of the head alpha, stamped at the given offsets. */
@@ -74,36 +69,33 @@ function silhouette(
 }
 /**
  * A narrow warm-grey cut edge that follows the printed head silhouette, with a
- * low-alpha under-side copy for paper thickness. Cached per cat.
+ * low-alpha under-side copy for paper thickness. Cached per cat and rim colour.
  */
-function headEdge(id: CatId): HTMLCanvasElement {
-  let cached = edges.get(id);
-  if (cached) return cached;
-  const image = head(id);
-  const ring: [number, number][] = [];
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    ring.push([Math.cos(a) * 1.25, Math.sin(a) * 1.25]);
-  }
-  const under = silhouette(
-    image,
-    ring.map(([x, y]) => [x * 0.6, y * 0.4 + 2.2] as const),
-    "#241b26",
-  );
-  const rim = silhouette(image, ring, id === "nicole" ? "#cbbfae" : "#c9bba6");
-  cached = surface(rim.width, rim.height);
-  const ctx = cached.getContext("2d")!;
-  ctx.globalAlpha = 0.42;
-  ctx.drawImage(under, 0, 0);
-  ctx.globalAlpha = 1;
-  ctx.drawImage(rim, 0, 0);
-  edges.set(id, cached);
-  return cached;
+function headEdge(id: CatId, rimColor: string): HTMLCanvasElement {
+  const pad = EDGE_PAD / 2;
+  return cachedSprite(`cat-edge:${id}:${rimColor}`, HEAD_W + pad * 2, HEAD_H + pad * 2, 2, (ctx) => {
+    const image = head(id);
+    const ring: [number, number][] = [];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ring.push([Math.cos(a) * 1.25, Math.sin(a) * 1.25]);
+    }
+    const under = silhouette(
+      image,
+      ring.map(([x, y]) => [x * 0.6, y * 0.4 + 2.2] as const),
+      "#241b26",
+    );
+    const rim = silhouette(image, ring, rimColor);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 0.42;
+    ctx.drawImage(under, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(rim, 0, 0);
+  }).canvas!;
 }
 /** The official stepped face is a printed paper cutout, on a separately layered body. */
-export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
-  const k = (pose.scale ?? SCALE) / SCALE,
-    nicole = pose.id === "nicole";
+export function drawCraftCat(ctx: Ctx, pose: CatPose, look: CatBodyPalette): void {
+  const k = (pose.scale ?? SCALE) / SCALE;
   const bob = pose.dashing
     ? 0
     : Math.sin(pose.time * (pose.moving ? 12 : 2)) * (pose.moving ? 1.1 : 0.25);
@@ -116,7 +108,7 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   ctx.scale(pose.facing, 1);
   const tail = new Path2D("M -9 -9 Q -30 -4 -25 -19");
   stroke(ctx, tail, "#2d2431", 4.5);
-  stroke(ctx, tail, nicole ? "#a98e77" : "#c6a05b", 2.3);
+  stroke(ctx, tail, look.tail, 2.3);
   for (const side of [-1, 1]) {
     const lift = Math.max(0, stride * side),
       x = side < 0 ? -10 : 3;
@@ -129,10 +121,10 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
     piece(
       ctx,
       oval(x + 3, -2 - lift, 5, 2.2, side + 5, 0.06),
-      nicole ? "#ceb28f" : "#51424a",
+      look.paw,
       {
         shadow: 0.7,
-        edge: nicole ? "#ead4af" : "#8d746c",
+        edge: look.pawEdge,
         texture: 0.6,
         thickness: 0.6,
       },
@@ -142,16 +134,16 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   const cape = new Path2D(
     "M -12 -37 Q -15 -19 -29 -9 Q -20 -4 -7 -11 Q 0 -10 10 -7 Q 20 -4 28 -8 Q 20 -21 12 -37 Z",
   );
-  piece(ctx, cape, nicole ? "#74536f" : "#483a50", {
+  piece(ctx, cape, look.cape, {
     shadow: 2,
-    edge: nicole ? "#a77d83" : "#a18664",
+    edge: look.capeEdge,
     texture: 0.9,
     thickness: 1.2,
   });
   const fold = new Path2D(
     "M -9 -32 Q -11 -19 -20 -9 M 9 -33 Q 10 -17 21 -8 M -2 -28 Q -4 -18 -7 -11",
   );
-  stroke(ctx, fold, nicole ? "#4c354f" : "#282537", 1.3, 0.7);
+  stroke(ctx, fold, look.capeFold, 1.3, 0.7);
   stroke(ctx, fold, "#ac8b7d", 0.45, 0.55);
   stitch(
     ctx,
@@ -172,9 +164,9 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   const body = new Path2D(
     "M -10 -29 Q 0 -34 11 -29 L 13 -14 Q 7 -7 -9 -10 L -13 -16 Z",
   );
-  piece(ctx, body, nicole ? "#e0d1b8" : "#302a34", {
+  piece(ctx, body, look.body, {
     shadow: 1.3,
-    edge: nicole ? "#f0dec1" : "#726055",
+    edge: look.bodyEdge,
     texture: 0.8,
     thickness: 0.8,
   });
@@ -187,17 +179,17 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
       [5, -30],
       [-5, -30],
     ]),
-    nicole ? "#f3e8ce" : "#4c3c3c",
+    look.bib,
     { shadow: 0.6, edge: "#c6af85", texture: 0.5, thickness: 0.5 },
   );
-  line(ctx, -10, -12, 10, -12, nicole ? "#79556b" : "#77613f", 2.2);
+  line(ctx, -10, -12, 10, -12, look.belt, 2.2);
   piece(ctx, oval(0, -12, 2, 2), "#c9a35f", {
     shadow: 0.5,
     texture: 0.5,
     edge: "#f1cf8c",
     thickness: 0.4,
   });
-  if (!nicole) {
+  if (look.chain) {
     const chain = new Path2D("M -6 -24 Q 0 -16 6 -24");
     stroke(ctx, chain, "#d6b465", 1.4);
     piece(ctx, box(-1, -19, 2, 3), "#e2c47d", {
@@ -210,7 +202,7 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   stroke(
     ctx,
     new Path2D(`M 11 -23 Q 15 -17 21 ${ly}`),
-    nicole ? "#c6b498" : "#3c303b",
+    look.arm,
     4,
   );
   piece(ctx, oval(21, ly, 2.6, 2.1), "#d3b48d", {
@@ -250,7 +242,7 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   const image = head(pose.id),
     w = image.width / 2,
     h = image.height / 2;
-  const edge = headEdge(pose.id),
+  const edge = headEdge(pose.id, look.rim),
     pad = EDGE_PAD / 2;
   ctx.drawImage(
     edge,

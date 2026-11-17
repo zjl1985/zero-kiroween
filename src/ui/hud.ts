@@ -4,7 +4,8 @@ import type { SimState } from "../game/types.js";
 import { STATS } from "../game/types.js";
 import { inkReveal } from "./ink.js";
 import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
-import { characterCopy, paintPortrait } from "./character-panel.js";
+import { catName, characterCopy, paintPortrait } from "./character-panel.js";
+import { catArt } from "../render/art-index.js";
 import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
@@ -43,8 +44,11 @@ export interface HudRefs {
   bannerName: HTMLElement;
   bannerLine: HTMLElement;
 }
-/** Cat accent used on the minimap marker (matches --accent in styles.css). */
-const ACCENT: Readonly<Record<string, string>> = { zero: "#f0b863", nicole: "#c9b2f0" };
+/** The badge line when no shield or empower is up: the cat's own status, or its role. */
+function statusLine(locale: Locale, sim: SimState): string {
+  const key = catArt(sim.player.id).status?.(sim);
+  return key ? t(locale, key) : characterCopy(locale, sim.player.id, "role");
+}
 /** Chunks each run has seen, kept outside the sim (presentation state only). */
 const explored = new WeakMap<SimState, Set<number>>();
 let motion: MediaQueryList | null = null;
@@ -227,7 +231,7 @@ function renderMap(refs: HudRefs, locale: Locale, sim: SimState): void {
   paintIf(refs.map, sig, () =>
     paintMinimap(refs.map, {
       player: p,
-      accent: ACCENT[p.id],
+      accent: catArt(p.id).colors.hud,
       explored: seen,
       landmarks: landmarks(sim.seed),
       found: sim.landmarksFound,
@@ -272,7 +276,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     "aria-label",
     `${t(locale, "hud.hearts")} ${p.hp}/${p.maxHp}${p.shield > 0 ? ` · ${t(locale, "hud.shield", { count: p.shield })}` : ""}`,
   );
-  text(refs.name, p.id === "zero" ? "ZERO" : "NICOLE");
+  text(refs.name, catName(locale, p.id).toUpperCase());
   if (refs.portrait.dataset.cat !== p.id) {
     paintPortrait(refs.portrait, p.id);
     refs.portrait.dataset.cat = p.id;
@@ -283,9 +287,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
       ? t(locale, "hud.shield", { count: p.shield })
       : p.empowerTime > 0
         ? t(locale, "hud.empowered", { time: p.empowerTime.toFixed(1) })
-        : p.id === "nicole"
-          ? t(locale, p.rescueUsed ? "hud.rescue_used" : "hud.rescue_ready")
-          : characterCopy(locale, p.id, "role");
+        : statusLine(locale, sim);
   text(refs.buff, buff);
   refs.buff.classList.toggle("buff-active", p.shield > 0 || p.empowerTime > 0);
   renderSeam(refs, locale, sim);

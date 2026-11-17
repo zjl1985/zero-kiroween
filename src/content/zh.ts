@@ -36,6 +36,7 @@ export const ZH: Messages = {
   "selector.passive": "角色被动",
   "selector.preview": "守夜者档案",
   "selector.controls": "移动寻找角度，按空格施放专属技能。",
+  "zero.name": "Zero",
   "zero.role": "疾影猎手",
   "zero.story": "把敌人留给影子，把前路留给自己。",
   "zero.attack.name": "喵线",
@@ -48,6 +49,7 @@ export const ZH: Messages = {
   "zero.passive.desc":
     "冲刺后 {empower}s 射速加倍，弹道可命中 {pierce} 个敌人。",
   "zero.tactic": "拉开距离 → 留影引怪 → 穿透清线",
+  "nicole.name": "Nicole",
   "nicole.role": "月环守护者",
   "nicole.story": "让星光绕身，把汹涌的夜晚慢下来。",
   "nicole.attack.name": "月星环",

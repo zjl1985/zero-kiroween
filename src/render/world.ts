@@ -1,4 +1,4 @@
-import { drawCraftCat } from "./craft-cat.js";
+import { activeWeaponArt, catArt, ENEMY_ART } from "./art-index.js";
 import { drawCraftShot, drawInkShard } from "./craft-combat.js";
 import {
   drawCraftEnemy,
@@ -11,11 +11,8 @@ import {
   drawCombatGround,
   drawCombatFront,
   drawSkillEffect,
-  drawOrbitStar,
   drawHeroAura,
-  drawEchoDecoy,
   drawWeaponShot,
-  orbitPositions,
 } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
@@ -184,7 +181,7 @@ export function drawWorld(
       y: pose.y,
       draw: () => {
         drawFootDust(ctx, pose);
-        drawCraftCat(ctx, pose);
+        catArt(pose.id).draw(ctx, pose);
       },
     });
   };
@@ -235,11 +232,6 @@ export function drawWorld(
         time: view.time,
       });
       light(ctx, sim.decoy.x, sim.decoy.y - 18, 35, "#91bacf", 0.12, 1);
-      const decoy = sim;
-      sprites.push({
-        y: sim.decoy.y + 0.5,
-        draw: () => drawEchoDecoy(ctx, decoy, view.time),
-      });
     }
     const reach = playerStats(sim).pickupRadius;
     for (const s of sim.pickups)
@@ -257,20 +249,14 @@ export function drawWorld(
       if (t.alive && inView(near, t.x, t.y)) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
     for (const c of sim.chests)
       if (c.alive && inView(near, c.x, c.y)) sprites.push({ y: c.y, draw: () => drawChest(ctx, c, view.time) });
-    if (sim.player.id === "nicole") {
-      const full = playerStats(sim).fullMoon;
-      orbitPositions(sim).forEach((p, i) =>
-        sprites.push({
-          y: p.y,
-          draw: () => drawOrbitStar(ctx, p.x, p.y, view.time, i, full),
-        }),
-      );
-    }
+    // Weapon pieces that stand in the world (orbit stars, echo shards).
+    for (const w of activeWeaponArt(sim))
+      w.sprites?.(ctx, sim, view.time, (y, draw) => sprites.push({ y, draw }));
     // Googly eyes follow the cat.
     const look = { x: sim.player.x, y: sim.player.y - 20 };
     // Off-screen ink is culled; the Eraser is large, so it gets a wider margin.
     for (const e of sim.enemies)
-      if (e.alive && inView(near, e.x, e.y, e.kind === "eraser-boss" ? 80 : 0))
+      if (e.alive && inView(near, e.x, e.y, ENEMY_ART.find(e.kind)?.cullMargin ?? 0))
         sprites.push({
           y: e.y,
           draw: () => {

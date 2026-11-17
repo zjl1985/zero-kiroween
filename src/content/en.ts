@@ -37,6 +37,7 @@ export const EN: Messages = {
   "selector.preview": "THE NIGHT WATCH",
   "selector.controls":
     "Move to find an angle. Press Space for your signature skill.",
+  "zero.name": "Zero",
   "zero.role": "Shadow runner",
   "zero.story": "Leave a shadow behind. Make a path ahead.",
   "zero.attack.name": "Meowline",
@@ -50,6 +51,7 @@ export const EN: Messages = {
   "zero.passive.desc":
     "For {empower}s after dashing: double fire rate, bolts hit up to {pierce} enemies.",
   "zero.tactic": "Keep distance → bait with a decoy → pierce the crowd",
+  "nicole.name": "Nicole",
   "nicole.role": "Moon guardian",
   "nicole.story": "Let the stars circle. Slow the restless night.",
   "nicole.attack.name": "Moonstars",

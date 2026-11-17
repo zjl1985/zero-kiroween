@@ -7,6 +7,7 @@ import type { SimState } from "../game/types.js";
 import { bossEnemy } from "../game/sim.js";
 import { glow, path, piece, type Ctx, type Point } from "./paper-material.js";
 import { visHash } from "./hash.js";
+import { catArt } from "./art-registry.js";
 import { VIEW_HEIGHT, VIEW_WIDTH } from "./viewport.js";
 import type { Camera } from "./camera.js";
 import {
@@ -22,7 +23,6 @@ import {
   type Phase,
 } from "./timeline.js";
 
-const ACCENT: Readonly<Record<string, string>> = { zero: "#c4553f", nicole: "#7d64b8" };
 const CONFETTI = ["#f0cf83", "#efe3c8", "#e58e5f", "#c9b2f0", "#f4d48e"] as const;
 
 /** Real seconds since `phase` began (negative before it). */
@@ -108,7 +108,7 @@ function drawEvolutionWorld(ctx: Ctx, c: Cue, sim: SimState, time: number): void
   if (!p.phase) return;
   const cx = sim.player.x,
     cy = sim.player.y - 20,
-    tone = ACCENT[sim.player.id];
+    tone = catArt(sim.player.id).colors.tone;
   // Anticipation: paper pieces gather toward the cat.
   if (p.phase === "anticipation" || p.phase === "reveal") {
     const k = p.phase === "anticipation" ? easeInOut(p.local) : 1,

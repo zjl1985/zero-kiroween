@@ -28,6 +28,16 @@ export const NICOLE: CharacterDef<typeof N> = {
   i18n: "nicole",
   art: "nicole",
   skillNotice: "nicole-fold",
+  copyParams: () => ({
+    stars: N.orbitCount,
+    field: N.fieldDuration,
+    shield: N.shieldCharges,
+    shieldTime: N.shieldDuration,
+    slowPercent: Math.round((1 - N.slowMultiplier) * 100),
+    threshold: N.rescueThreshold,
+    rescue: N.rescueCharges,
+    rescueTime: N.rescueDuration,
+  }),
   enemySlow: N.slowMultiplier,
   kitStats(s) {
     s.fieldRadius = N.fieldRadius;

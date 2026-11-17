@@ -6,6 +6,7 @@ import { landmarks } from "../game/world-gen.js";
 import { paintPaw } from "../render/journal-ui.js";
 import { paces } from "./journal-geometry.js";
 import { upgradeName } from "./upgrade-cards.js";
+import { catName } from "./character-panel.js";
 
 function must<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -18,7 +19,7 @@ const PAW_INK = { won: "#b8453f", lost: "#3e4a78" } as const;
 /** The result screen as a night-watch journal entry: date line, logged numbers, landmarks and a paw stamp. */
 export function paintJournal(locale: Locale, sim: SimState): void {
   const id = sim.player.id,
-    name = id === "zero" ? "Zero" : "Nicole",
+    name = catName(locale, id),
     all = landmarks(sim.seed),
     found = sim.landmarksFound
       .map((lid) => all.find((l) => l.id === lid))

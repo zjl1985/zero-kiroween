@@ -5,7 +5,8 @@
  * sim RNG or writes to the state.
  */
 import { EFFECT_LIFE, type ChestState, type Impact, type InteractState, type SimState, type TreatState, type EnemyState, type PickupState } from "../game/types.js";
-import { ENEMIES, type EnemyKind } from "../game/enemies.js";
+import { ENEMIES } from "../game/enemies.js";
+import { ENEMY_ART } from "./art-registry.js";
 import { enemyRadius } from "../game/sim.js";
 import { PUMPKIN } from "../game/interactions.js";
 import { box, glow, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
@@ -115,14 +116,6 @@ function drawDamageTag(ctx: Ctx, e: Impact): void {
   ctx.restore();
 }
 
-const FLAKE_COLORS: Record<EnemyKind, readonly string[]> = {
-  "ink-blob": ["#2c2340", "#3d3156", "#5a4a74", "#e8d9bd"],
-  "paper-bat": ["#221c2c", "#372d42", "#4b3d55", "#c9a76f"],
-  crumple: ["#e8dcc4", "#d9c9ab", "#f2e8d4", "#b9a582"],
-  smudge: ["#3a2c4b", "#54406a", "#e3d3b5", "#6d5684"],
-  "eraser-boss": ["#f0a3b1", "#e58e9f", "#4f6f9c", "#f6ece0"],
-};
-
 /**
  * Petal Dissolve, rebuilt for paper: the defeated piece erodes into cut flakes
  * that tumble outward and flutter down. Crumples first un-crumple into a flat
@@ -131,26 +124,27 @@ const FLAKE_COLORS: Record<EnemyKind, readonly string[]> = {
 function drawDissolve(ctx: Ctx, e: Impact): void {
   const t = progress(e, EFFECT_LIFE.dissolve),
     seed = e.seed ?? 0,
-    kind = e.src ?? "ink-blob",
-    colors = FLAKE_COLORS[kind],
-    r = ENEMIES[kind].radius,
-    count = kind === "eraser-boss" ? 26 : kind === "crumple" ? 14 : 10;
+    art = (e.src !== undefined && ENEMY_ART.find(e.src)) || ENEMY_ART.all()[0]!,
+    look = art.dissolve,
+    colors = look.flakes,
+    r = ENEMIES[art.id].radius,
+    count = look.count;
   ctx.save();
-  if (kind === "crumple" && t < 0.55) drawUncrumple(ctx, e.x, e.y - r, r, t / 0.55, seed);
+  if (look.uncrumple && t < 0.55) drawUncrumple(ctx, e.x, e.y - r, r, t / 0.55, seed);
   for (let i = 0; i < count; i++) {
     const h1 = visHash(seed * 37 + i * 11),
       h2 = visHash(seed * 53 + i * 7 + 1),
       h3 = visHash(seed * 71 + i * 3 + 2),
       // Flakes leave the edge one after another, like petals letting go.
-      start = (kind === "crumple" ? 0.35 : 0) + h1 * 0.3,
+      start = (look.start ?? 0) + h1 * 0.3,
       k = clamp01((t - start) / (1 - start));
     if (k <= 0) continue;
     const a = h2 * Math.PI * 2,
-      out = r * (0.5 + h3 * 0.6) + k * (14 + h1 * 20) * (kind === "eraser-boss" ? 2.4 : 1),
+      out = r * (0.5 + h3 * 0.6) + k * (14 + h1 * 20) * (look.spread ?? 1),
       fall = k * k * (10 + h2 * 12),
       x = e.x + Math.cos(a) * out + Math.sin(k * 6 + i) * 3 * k,
       y = e.y - r + Math.sin(a) * out * 0.6 + fall - k * 6,
-      size = (kind === "eraser-boss" ? 3.6 : 2.6) * (1 - k * 0.5) + h3,
+      size = (look.size ?? 2.6) * (1 - k * 0.5) + h3,
       spin = a + k * (4 + h1 * 6),
       flip = Math.abs(Math.cos(k * 7 + i)) * 0.8 + 0.2;
     ctx.save();
