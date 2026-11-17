@@ -814,7 +814,10 @@ function stepInteractables(state: SimState, dt: number): void {
     } else {
       const was = o.charge;
       o.charge = Math.min(1, o.charge + dt / MOON_LANTERN.chargeTime);
-      if (was < 1 && o.charge >= 1 && !state.notice) notify(state, "moon-ready");
+      // Only a lantern the player can see announces itself.
+      const visible =
+        Math.abs(o.x - p.x) <= SCREEN.width / 2 && Math.abs(o.y - p.y) <= SCREEN.height / 2;
+      if (was < 1 && o.charge >= 1 && !state.notice && visible) notify(state, "moon-ready");
       if (o.charge >= 1 && touching) {
         o.charge = 0;
         moonStun(state, o.x, o.y);

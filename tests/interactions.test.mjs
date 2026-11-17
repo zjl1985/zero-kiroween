@@ -119,6 +119,25 @@ test("a fish treat heals one heart and never exceeds max hp", () => {
   assert.equal(s.player.hp, s.player.maxHp);
 });
 
+test("a moon-lantern only announces it is full when it is near the view", () => {
+  const s = quiet("zero");
+  const lantern = s.interactables.find((o) => o.kind === "lantern");
+  // Far away (two screens off): the lantern fills silently.
+  s.player.x = lantern.x + 2000;
+  s.player.y = lantern.y;
+  s.notice = null;
+  lantern.charge = 0.9999;
+  step(s, idle, DT);
+  assert.equal(lantern.charge, 1);
+  assert.notEqual(s.notice?.kind, "moon-ready");
+  // Within the view half-size, the same crossing shows the notice.
+  s.player.x = lantern.x + 300;
+  s.notice = null;
+  lantern.charge = 0.9999;
+  step(s, idle, DT);
+  assert.equal(s.notice?.kind, "moon-ready");
+});
+
 test("a charged moon-lantern stuns every enemy when touched", () => {
   const s = quiet("zero");
   const lantern = s.interactables.find((o) => o.kind === "lantern");

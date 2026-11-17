@@ -62,6 +62,15 @@ function savePrefs(prefs: Prefs): void {
     localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
   } catch {}
 }
+/**
+ * A fresh night per run; `?seed=N` (a non-negative integer) pins the seed so a
+ * run can be replayed. The sim stays deterministic for a given seed.
+ */
+function runSeed(): number {
+  const pinned = new URLSearchParams(location.search).get("seed");
+  if (pinned !== null && /^\d{1,10}$/.test(pinned)) return Number(pinned) >>> 0;
+  return crypto.getRandomValues(new Uint32Array(1))[0]!;
+}
 /** Counters the audio layer diffs each frame; audio never lives in the sim. */
 function cueState(s: SimState) {
   return {
@@ -313,7 +322,7 @@ function boot(): void {
   const start = () => {
     sim = createSim({
       cat: selectedCat,
-      seed: 20261116,
+      seed: runSeed(),
       sessionSeconds: STATS.sessionSeconds,
     });
     clock.acc = 0;
