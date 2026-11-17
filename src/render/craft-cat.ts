@@ -54,6 +54,52 @@ function head(id: CatId): HTMLCanvasElement {
   heads.set(id, cached);
   return cached;
 }
+const edges = new Map<CatId, HTMLCanvasElement>();
+/** Padding of the edge canvas around the head, in head-canvas (2x) pixels. */
+const EDGE_PAD = 4;
+/** Tints a copy of the head alpha, stamped at the given offsets. */
+function silhouette(
+  image: HTMLCanvasElement,
+  offsets: readonly (readonly [number, number])[],
+  color: string,
+): HTMLCanvasElement {
+  const c = surface(image.width + EDGE_PAD * 2, image.height + EDGE_PAD * 2);
+  const sc = c.getContext("2d")!;
+  for (const [dx, dy] of offsets)
+    sc.drawImage(image, EDGE_PAD + dx, EDGE_PAD + dy);
+  sc.globalCompositeOperation = "source-in";
+  sc.fillStyle = color;
+  sc.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+/**
+ * A narrow warm-grey cut edge that follows the printed head silhouette, with a
+ * low-alpha under-side copy for paper thickness. Cached per cat.
+ */
+function headEdge(id: CatId): HTMLCanvasElement {
+  let cached = edges.get(id);
+  if (cached) return cached;
+  const image = head(id);
+  const ring: [number, number][] = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    ring.push([Math.cos(a) * 1.25, Math.sin(a) * 1.25]);
+  }
+  const under = silhouette(
+    image,
+    ring.map(([x, y]) => [x * 0.6, y * 0.4 + 2.2] as const),
+    "#241b26",
+  );
+  const rim = silhouette(image, ring, id === "nicole" ? "#cbbfae" : "#c9bba6");
+  cached = surface(rim.width, rim.height);
+  const ctx = cached.getContext("2d")!;
+  ctx.globalAlpha = 0.42;
+  ctx.drawImage(under, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.drawImage(rim, 0, 0);
+  edges.set(id, cached);
+  return cached;
+}
 /** The official stepped face is a printed paper cutout, on a separately layered body. */
 export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   const k = (pose.scale ?? SCALE) / SCALE,
@@ -204,15 +250,15 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose): void {
   const image = head(pose.id),
     w = image.width / 2,
     h = image.height / 2;
-  const facePaper = new Path2D(
-    "M -26 -35 L -27 -64 L -11 -56 Q 0 -59 11 -56 L 28 -64 L 27 -34 Q 24 -24 12 -22 Q 0 -19 -13 -23 Q -25 -24 -26 -35 Z",
+  const edge = headEdge(pose.id),
+    pad = EDGE_PAD / 2;
+  ctx.drawImage(
+    edge,
+    -w / 2 - pad,
+    -20 - h + 4 - pad,
+    edge.width / 2,
+    edge.height / 2,
   );
-  piece(ctx, facePaper, nicole ? "#d9c2a1" : "#d7b98c", {
-    shadow: 1.5,
-    edge: "#ead3af",
-    texture: 0.55,
-    thickness: 0.65,
-  });
   ctx.drawImage(image, -w / 2, -20 - h + 4, w, h);
   glow(ctx, 24, ly - 1, 16, "#f9c46d", 0.11);
   ctx.restore();
