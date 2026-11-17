@@ -20,7 +20,8 @@
           <h1 id="title-name">猫猫守夜</h1>
           <p id="title-tag" class="tagline"></p>
         </header>
-        <div class="selection-panel">
+        <!-- The playbill of the paper theater: pick a ticket, read the cat's acts. -->
+        <div class="selection-panel playbill">
           <div class="selection-heading">
             <p id="selector-kicker" class="eyebrow"></p>
             <h2 id="cat-choice-label"></h2>
@@ -33,7 +34,7 @@
             <button
               type="button"
               id="btn-cat-zero"
-              class="cat-choice"
+              class="cat-choice ticket"
               aria-pressed="true"
             >
               <canvas width="64" height="52" aria-hidden="true"></canvas
@@ -45,7 +46,7 @@
             <button
               type="button"
               id="btn-cat-nicole"
-              class="cat-choice"
+              class="cat-choice ticket"
               aria-pressed="false"
             >
               <canvas width="64" height="52" aria-hidden="true"></canvas
@@ -56,12 +57,9 @@
             </button>
           </div>
           <div class="profile">
-            <canvas
-              id="profile-portrait"
-              width="64"
-              height="52"
-              aria-hidden="true"
-            ></canvas>
+            <div class="mini-stage" aria-hidden="true">
+              <canvas id="profile-portrait" width="64" height="52"></canvas>
+            </div>
             <div>
               <div class="profile-title">
                 <h3 id="profile-name"></h3>
@@ -128,10 +126,6 @@
             <p id="title-controls" class="hint"></p>
           </footer>
         </div>
-        <div class="hero-caption">
-          <span id="hero-kicker" class="eyebrow"></span
-          ><strong id="hero-name"></strong><span id="hero-role"></span>
-        </div>
         <div class="corner corner-tr">
           <button
             type="button"
@@ -146,8 +140,19 @@
         <p id="title-credit" class="credit corner-br"></p>
       </section>
       <div id="overlay">
+        <!-- Paper theater framing the chosen cat, which the canvas draws on the stage. -->
+        <div id="theater" class="theater" aria-hidden="true">
+          <div class="valance"></div>
+          <div class="curtain curtain-l"></div>
+          <div class="curtain curtain-r"></div>
+          <div class="stage-lip"></div>
+          <div class="hero-caption">
+            <span id="hero-kicker" class="eyebrow"></span
+            ><strong id="hero-name"></strong><span id="hero-role"></span>
+          </div>
+        </div>
         <div id="hud" class="hud hidden">
-          <div class="player-card">
+          <div class="watch-badge">
             <canvas
               id="hud-portrait"
               width="64"
@@ -155,29 +160,49 @@
               aria-hidden="true"
             ></canvas>
             <div>
-              <div class="player-heading">
-                <strong id="hud-name"></strong><span id="hud-kills"></span>
-              </div>
-              <div id="hud-hearts" class="hearts"></div>
-              <div class="xp-row">
-                <span id="hud-level" class="level-label"></span>
-                <div id="hud-xp" class="xp-bar" role="img"></div>
-              </div>
+              <strong id="hud-name"></strong>
+              <span id="hud-kills"></span>
               <span id="hud-buff" class="buff"></span>
-              <div id="hud-upgrades" class="hud-upgrades"></div>
             </div>
           </div>
-          <div class="night-card">
-            <div>
-              <span class="hud-moon glowcap" aria-hidden="true"
-                ><i class="glow-moon">☾</i><i class="glow-sun">☀</i></span
-              ><strong id="hud-time"></strong>
+          <div class="night-sky">
+            <div class="sky-arc">
+              <canvas id="hud-sky" width="440" height="120" aria-hidden="true"></canvas>
+              <div class="sky-time">
+                <strong id="hud-time"></strong>
+                <span id="hud-phase"></span>
+              </div>
             </div>
-            <div id="hud-progress" class="night-progress"></div>
-            <p id="hud-phase"></p>
+            <canvas
+              id="hud-hearts"
+              class="lantern-string"
+              width="160"
+              height="80"
+              role="img"
+            ></canvas>
+          </div>
+          <div class="map-corner">
+            <div class="hud-actions">
+              <button
+                type="button"
+                id="btn-hud-mute"
+                class="btn-chip sound-toggle"
+                aria-pressed="false"
+              >
+                <span aria-hidden="true">♪</span></button
+              ><button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
+              ><button type="button" id="btn-hud-pause" class="btn-chip">Ⅱ</button>
+            </div>
+            <canvas
+              id="hud-map"
+              class="folded-map"
+              width="276"
+              height="160"
+              role="img"
+            ></canvas>
           </div>
           <div id="hud-boss" class="boss-bar hidden" role="img">
-            <span id="hud-boss-name" class="boss-name"></span>
+            <span id="hud-boss-name" class="boss-sleeve"></span>
             <div class="boss-track"><i></i></div>
           </div>
           <div id="hud-streak" class="streak-badge hidden" aria-hidden="true">
@@ -192,42 +217,31 @@
             <div class="pleat pleat-3"><span id="boss-banner-line"></span></div>
           </div>
           <div class="hurt-vignette" aria-hidden="true"></div>
-          <div class="hud-actions">
-            <button
-              type="button"
-              id="btn-hud-mute"
-              class="btn-chip sound-toggle"
-              aria-pressed="false"
-            >
-              <span aria-hidden="true">♪</span></button
-            ><button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
-            ><button type="button" id="btn-hud-pause" class="btn-chip">
-              Ⅱ
-            </button>
-          </div>
           <div
             id="hud-notice"
             class="notice hidden"
             role="status"
             aria-live="polite"
           ></div>
-          <div class="skill-dock">
-            <button type="button" id="btn-skill" class="skill-button">
-              <canvas
-                id="hud-skill-icon"
-                width="32"
-                height="32"
-                aria-hidden="true"
-              ></canvas
-              ><span
+          <div class="seam-dock">
+            <button type="button" id="btn-skill" class="wick">
+              <canvas id="hud-wick" width="80" height="128" aria-hidden="true"></canvas
+              ><span class="wick-label"
                 ><strong id="hud-skill-name"></strong
-                ><small id="hud-dash"></small></span
-              ><kbd id="hud-skill-key"></kbd>
+                ><small id="hud-dash"></small
+                ><kbd id="hud-skill-key"></kbd></span>
             </button>
-            <p id="hud-hint" class="game-hint"></p>
+            <div class="seam-col">
+              <div id="hud-upgrades" class="seam-tags"></div>
+              <div class="seam-row">
+                <span id="hud-level" class="level-button"></span>
+                <div id="hud-xp" class="seam" role="img"></div>
+              </div>
+              <p id="hud-hint" class="game-hint"></p>
+            </div>
           </div>
         </div>
-        <section id="pause-screen" class="panel pamphlet hidden">
+        <section id="pause-screen" class="panel journal-page folded hidden">
           <p id="pause-kit" class="eyebrow"></p>
           <h2 id="pause-title"></h2>
           <p id="pause-skill" class="panel-copy"></p>
@@ -248,7 +262,10 @@
           <div class="upgrade-cards">
             <button type="button" id="upgrade-card-0" class="upgrade-card" style="--deal: 0">
               <span class="card-tag"></span>
-              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <span class="card-window" aria-hidden="true"
+                ><canvas class="card-flower" width="192" height="192"></canvas
+                ><canvas class="card-icon" width="96" height="96"></canvas
+              ></span>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>
@@ -256,7 +273,10 @@
             </button>
             <button type="button" id="upgrade-card-1" class="upgrade-card" style="--deal: 1">
               <span class="card-tag"></span>
-              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <span class="card-window" aria-hidden="true"
+                ><canvas class="card-flower" width="192" height="192"></canvas
+                ><canvas class="card-icon" width="96" height="96"></canvas
+              ></span>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>
@@ -264,7 +284,10 @@
             </button>
             <button type="button" id="upgrade-card-2" class="upgrade-card" style="--deal: 2">
               <span class="card-tag"></span>
-              <canvas width="96" height="96" aria-hidden="true"></canvas>
+              <span class="card-window" aria-hidden="true"
+                ><canvas class="card-flower" width="192" height="192"></canvas
+                ><canvas class="card-icon" width="96" height="96"></canvas
+              ></span>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>
@@ -273,19 +296,20 @@
           </div>
           <p id="upgrade-hint" class="hint"></p>
         </section>
-        <section id="result-screen" class="panel result-panel hidden">
+        <section id="result-screen" class="panel journal-page result-panel hidden">
+          <p id="result-date" class="journal-date"></p>
           <p id="result-cat" class="eyebrow"></p>
           <h2 id="result-title"></h2>
           <p id="result-text" class="panel-copy"></p>
-          <div class="ticket">
-            <div class="ticket-stub" aria-hidden="true">
-              <b>☾</b><span id="result-ticket-stub"></span>
-            </div>
-            <div class="ticket-body">
-              <span id="result-ticket" class="ticket-title"></span>
-              <div id="result-stats" class="result-stats"></div>
-            </div>
-          </div>
+          <canvas
+            id="result-paw"
+            class="paw-stamp"
+            width="144"
+            height="144"
+            role="img"
+          ></canvas>
+          <dl id="result-stats" class="result-stats"></dl>
+          <p id="result-landmarks" class="journal-landmarks"></p>
           <div class="actions">
             <button type="button" id="btn-retry" class="btn primary"></button
             ><button type="button" id="btn-result-back" class="btn"></button>

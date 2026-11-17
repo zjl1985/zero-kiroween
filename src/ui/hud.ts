@@ -5,31 +5,35 @@ import { STATS } from "../game/types.js";
 import { inkReveal } from "./ink.js";
 import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { characterCopy, paintPortrait } from "./character-panel.js";
-import { paintSkillIcon } from "../render/combat-fx.js";
 import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
+import { landmarks } from "../game/world-gen.js";
+import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./journal-geometry.js";
+import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc, paintWick } from "../render/journal-ui.js";
+
 export interface HudRefs {
   time: HTMLElement;
-  hearts: HTMLElement;
-  dash: HTMLElement;
-  pause: HTMLButtonElement;
+  phase: HTMLElement;
+  sky: HTMLCanvasElement;
+  hearts: HTMLCanvasElement;
   name: HTMLElement;
   portrait: HTMLCanvasElement;
-  phase: HTMLElement;
-  progress: HTMLElement;
   kills: HTMLElement;
   buff: HTMLElement;
+  map: HTMLCanvasElement;
+  pause: HTMLButtonElement;
   skill: HTMLButtonElement;
   skillName: HTMLElement;
   skillKey: HTMLElement;
-  skillIcon: HTMLCanvasElement;
-  notice: HTMLElement;
+  dash: HTMLElement;
+  wick: HTMLCanvasElement;
   hint: HTMLElement;
   level: HTMLElement;
   xp: HTMLElement;
   upgrades: HTMLElement;
   chest: HTMLElement;
+  notice: HTMLElement;
   boss: HTMLElement;
   bossName: HTMLElement;
   streak: HTMLElement;
@@ -37,6 +41,21 @@ export interface HudRefs {
   bannerKicker: HTMLElement;
   bannerName: HTMLElement;
   bannerLine: HTMLElement;
+}
+/** Cat accent used on the minimap marker (matches --accent in styles.css). */
+const ACCENT = { zero: "#f0b863", nicole: "#c9b2f0" } as const;
+/** Chunks each run has seen, kept outside the sim (presentation state only). */
+const explored = new WeakMap<SimState, Set<number>>();
+let motion: MediaQueryList | null = null;
+function reduced(): boolean {
+  motion ??= matchMedia("(prefers-reduced-motion: reduce)");
+  return motion.matches;
+}
+/** Repaints a canvas only when its signature changes. */
+function paintIf(canvas: HTMLCanvasElement, sig: string, paint: () => void): void {
+  if (canvas.dataset.sig === sig) return;
+  canvas.dataset.sig = sig;
+  paint();
 }
 /** Kill-chain badge: a paper tag that bumps on every kill in the chain. */
 function renderStreak(refs: HudRefs, locale: Locale, sim: SimState): void {
@@ -86,7 +105,7 @@ function renderNotice(refs: HudRefs, locale: Locale, sim: SimState): void {
     refs.notice.classList.add("pop");
   }
 }
-/** The Eraser's paper-strip HP bar, shown only while it is on the page. */
+/** The Eraser as a worn eraser strip: its paper sleeve carries the name, the rubber wears down with its HP. */
 function renderBoss(refs: HudRefs, locale: Locale, sim: SimState): void {
   const boss = bossEnemy(sim);
   refs.boss.classList.toggle("hidden", !boss);
@@ -96,57 +115,51 @@ function renderBoss(refs: HudRefs, locale: Locale, sim: SimState): void {
   text(refs.bossName, name);
   refs.boss.style.setProperty("--boss", `${(boss.hp / max) * 100}%`);
   refs.boss.classList.toggle("boss-winding", !!boss.act && boss.act.t > 0);
-  refs.boss.setAttribute(
-    "aria-label",
-    t(locale, "hud.boss", { name, hp: Math.ceil(boss.hp), max }),
-  );
+  refs.boss.setAttribute("aria-label", t(locale, "hud.boss", { name, hp: Math.ceil(boss.hp), max }));
 }
-/** One owned item (or an empty slot) as a small code-drawn emblem with its level. */
-function slotItem(locale: Locale, sim: SimState, id: UpgradeId | undefined): HTMLElement {
-  const item = document.createElement("span");
+/** One owned item (or an empty slot) as a paper tag hanging from the seam. */
+function slotTag(locale: Locale, sim: SimState, id: UpgradeId | undefined, slot: "weapon" | "passive"): HTMLElement {
+  const tag = document.createElement("span");
+  tag.className = `seam-tag ${slot}`;
   if (!id) {
-    item.className = "owned empty";
-    return item;
+    tag.classList.add("empty");
+    return tag;
   }
   const def = upgradeDef(id),
     icon = document.createElement("canvas"),
     lv = document.createElement("small"),
     level = sim.upgrades[id] ?? 0,
     evo = def?.slot === "evolution";
-  item.className = evo ? "owned evolution" : "owned";
-  item.title = upgradeName(locale, id);
+  tag.classList.toggle("evolution", evo);
+  tag.title = upgradeName(locale, id);
   icon.width = 32;
   icon.height = 32;
   icon.setAttribute("aria-hidden", "true");
   paintUpgradeIcon(icon, id, true);
   lv.textContent = evo ? "★" : def && level >= def.maxLevel ? t(locale, "upgrade.max") : String(level);
-  item.append(icon, lv);
-  return item;
+  tag.append(icon, lv);
+  return tag;
 }
-/** Weapon slots and passive slots as two rows, empty slots included. Temporary until the HUD redesign. */
+/** Weapon tags then passive tags along the seam, empty slots included. */
 function renderOwned(el: HTMLElement, locale: Locale, sim: SimState): void {
   const { weapons, passives } = sim.build,
     sig = `${locale}|${[...weapons, "|", ...passives].map((id) => `${id}:${sim.upgrades[id] ?? 0}`).join(",")}`;
   if (el.dataset.sig === sig) return;
   el.dataset.sig = sig;
-  const row = (label: MessageKey, ids: string[], slots: number) => {
-    const r = document.createElement("div"),
-      name = document.createElement("span");
-    r.className = "slot-row";
-    name.className = "slot-label";
-    name.textContent = t(locale, label);
-    r.append(
-      name,
-      ...Array.from({ length: slots }, (_, i) => slotItem(locale, sim, ids[i] as UpgradeId | undefined)),
-    );
-    return r;
+  const group = (label: MessageKey, ids: string[], slots: number, slot: "weapon" | "passive") => {
+    const g = document.createElement("span");
+    g.className = `tag-group ${slot}`;
+    g.setAttribute("role", "group");
+    g.setAttribute("aria-label", t(locale, label));
+    g.append(...Array.from({ length: slots }, (_, i) => slotTag(locale, sim, ids[i] as UpgradeId | undefined, slot)));
+    return g;
   };
   el.replaceChildren(
-    row("hud.weapons", weapons, BUILD.weaponSlots),
-    row("hud.passives", passives, BUILD.passiveSlots),
+    group("hud.weapons", weapons, BUILD.weaponSlots, "weapon"),
+    group("hud.passives", passives, BUILD.passiveSlots, "passive"),
   );
 }
-/** What the last chest gave, while state.chestReveal lasts. */
+/** What the last chest gave, while state.chestReveal lasts; an evolution gets the double-layer slip. */
 function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
   const r = sim.chestReveal;
   el.classList.toggle("hidden", !r);
@@ -155,12 +168,8 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
     return;
   }
   const lines = [
-    ...(r.evolved
-      ? [t(locale, "chest.evolved", { name: upgradeName(locale, r.evolved as UpgradeId) })]
-      : []),
-    ...r.items.map((i) =>
-      t(locale, "chest.level", { name: upgradeName(locale, i.id as UpgradeId), level: i.level }),
-    ),
+    ...(r.evolved ? [t(locale, "chest.evolved", { name: upgradeName(locale, r.evolved as UpgradeId) })] : []),
+    ...r.items.map((i) => t(locale, "chest.level", { name: upgradeName(locale, i.id as UpgradeId), level: i.level })),
   ];
   const sig = `${locale}|${r.big}|${lines.join("|")}`;
   if (el.dataset.sig === sig) return;
@@ -168,6 +177,7 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
   const title = document.createElement("strong");
   title.textContent = t(locale, r.big ? "chest.big_title" : "chest.title");
   el.classList.toggle("evolved", !!r.evolved);
+  el.classList.toggle("big", r.big);
   el.replaceChildren(
     title,
     ...lines.map((line) => {
@@ -177,56 +187,90 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
     }),
   );
 }
+/** XP as a seam sewn stitch by stitch; the level sits in a paper button. */
+function renderSeam(refs: HudRefs, locale: Locale, sim: SimState): void {
+  text(refs.level, String(sim.level));
+  refs.level.setAttribute("aria-label", t(locale, "hud.level", { level: sim.level }));
+  if (refs.xp.childElementCount !== SEAM_STITCHES)
+    refs.xp.replaceChildren(...Array.from({ length: SEAM_STITCHES }, () => document.createElement("b")));
+  const sewn = seamStitches(sim.xp, sim.xpToNext);
+  if (refs.xp.dataset.sewn !== String(sewn)) {
+    refs.xp.dataset.sewn = String(sewn);
+    Array.from(refs.xp.children).forEach((b, i) => b.classList.toggle("on", i < sewn));
+  }
+  refs.xp.setAttribute("aria-label", t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }));
+}
+/** Folded paper minimap: explored chunks, landmarks, chests and the Eraser. */
+function renderMap(refs: HudRefs, locale: Locale, sim: SimState): void {
+  const p = sim.player;
+  let seen = explored.get(sim);
+  if (!seen) explored.set(sim, (seen = new Set()));
+  for (const i of viewChunks(p.x, p.y)) seen.add(i);
+  const boss = bossEnemy(sim),
+    chests = sim.chests.filter((c) => c.alive),
+    sig = [
+      Math.round(p.x / 40),
+      Math.round(p.y / 40),
+      seen.size,
+      sim.landmarksFound.length,
+      chests.map((c) => c.id).join("."),
+      boss ? `${Math.round(boss.x / 40)},${Math.round(boss.y / 40)}` : "",
+      p.id,
+    ].join("|");
+  paintIf(refs.map, sig, () =>
+    paintMinimap(refs.map, {
+      player: p,
+      accent: ACCENT[p.id],
+      explored: seen,
+      landmarks: landmarks(sim.seed),
+      found: sim.landmarksFound,
+      chests,
+      boss: boss ? { x: boss.x, y: boss.y } : null,
+    }),
+  );
+  refs.map.setAttribute(
+    "aria-label",
+    t(locale, "hud.map", { found: sim.landmarksFound.length, total: landmarks(sim.seed).length }),
+  );
+}
 function text(el: HTMLElement, value: string) {
   if (el.textContent !== value) el.textContent = value;
 }
-function html(el: HTMLElement, value: string) {
-  if (el.innerHTML !== value) el.innerHTML = value;
-}
 export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   const p = sim.player,
-    ready = p.dashCooldown <= 0;
+    ready = p.dashCooldown <= 0,
+    still = reduced(),
+    clock = still ? 0 : sim.elapsed;
+  // Moon arc: the moon walks the dotted arc and turns into the sun at dawn.
+  const arc = moonArc(sim.elapsed, sim.sessionSeconds),
+    dawnShare = Math.min(1, STATS.dawnSeconds / sim.sessionSeconds);
   text(refs.time, formatTime(sim.timeLeft));
-  refs.time.setAttribute(
+  refs.time.setAttribute("aria-label", `${t(locale, "hud.time")} ${formatTime(sim.timeLeft)}`);
+  text(refs.phase, t(locale, arc.dawn ? "hud.dawn" : (`hud.phase${nightPhase(sim)}` as MessageKey)));
+  paintIf(refs.sky, `${arc.dawn}|${Math.round(arc.t * 480)}`, () => paintSkyArc(refs.sky, arc, dawnShare));
+  // Lantern string: one lantern per max heart, unlit when lost; shield charges as paper rings.
+  const critical = p.hp <= 1 && sim.ended !== "won",
+    lw = lanternWidth(p.maxHp, p.shield);
+  if (refs.hearts.width !== lw * 2) {
+    refs.hearts.width = lw * 2;
+    refs.hearts.height = 80;
+    refs.hearts.dataset.sig = "";
+  }
+  paintIf(
+    refs.hearts,
+    `${p.hp}|${p.maxHp}|${p.shield}|${critical}|${Math.floor(clock * 12)}`,
+    () => paintLanterns(refs.hearts, { hp: p.hp, maxHp: p.maxHp, shield: p.shield, critical, time: clock }),
+  );
+  refs.hearts.setAttribute(
     "aria-label",
-    `${t(locale, "hud.time")} ${formatTime(sim.timeLeft)}`,
+    `${t(locale, "hud.hearts")} ${p.hp}/${p.maxHp}${p.shield > 0 ? ` · ${t(locale, "hud.shield", { count: p.shield })}` : ""}`,
   );
   text(refs.name, p.id === "zero" ? "ZERO" : "NICOLE");
   if (refs.portrait.dataset.cat !== p.id) {
     paintPortrait(refs.portrait, p.id);
-    paintSkillIcon(refs.skillIcon, p.id, "active");
     refs.portrait.dataset.cat = p.id;
   }
-  html(
-    refs.hearts,
-    Array.from(
-      { length: p.maxHp },
-      (_, i) =>
-        `<span class="heart ${i < p.hp ? "on" : "off"}" aria-hidden="true">♥</span>`,
-    ).join(""),
-  );
-  refs.hearts.setAttribute(
-    "aria-label",
-    `${t(locale, "hud.hearts")} ${p.hp}/${p.maxHp}`,
-  );
-  text(refs.kills, `${t(locale, "hud.kills")}  ${sim.stats.kills}`);
-  text(refs.level, t(locale, "hud.level", { level: sim.level }));
-  refs.xp.style.setProperty(
-    "--xp",
-    `${Math.min(100, (sim.xp / sim.xpToNext) * 100)}%`,
-  );
-  refs.xp.setAttribute(
-    "aria-label",
-    t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }),
-  );
-  renderOwned(refs.upgrades, locale, sim);
-  renderChest(refs.chest, locale, sim);
-  renderBoss(refs, locale, sim);
-  text(refs.phase, t(locale, `hud.phase${nightPhase(sim)}` as MessageKey));
-  refs.progress.style.setProperty(
-    "--dawn",
-    `${(sim.elapsed / sim.sessionSeconds) * 100}%`,
-  );
+  text(refs.kills, `${t(locale, "hud.kills")} ${sim.stats.kills}`);
   const buff =
     p.shield > 0
       ? t(locale, "hud.shield", { count: p.shield })
@@ -237,22 +281,22 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
           : characterCopy(locale, p.id, "role");
   text(refs.buff, buff);
   refs.buff.classList.toggle("buff-active", p.shield > 0 || p.empowerTime > 0);
+  renderSeam(refs, locale, sim);
+  renderOwned(refs.upgrades, locale, sim);
+  renderChest(refs.chest, locale, sim);
+  renderBoss(refs, locale, sim);
+  renderMap(refs, locale, sim);
+  // Wick: the flame grows back as the signature skill recharges.
+  const charge = wickCharge(p.dashCooldown, playerStats(sim).cooldown);
+  paintIf(refs.wick, `${Math.round(charge * 40)}|${ready}|${Math.floor(clock * 10)}`, () =>
+    paintWick(refs.wick, charge, ready, clock),
+  );
   text(refs.skillName, characterCopy(locale, p.id, "active.name"));
   text(refs.skillKey, t(locale, "hud.space"));
-  text(
-    refs.dash,
-    ready ? t(locale, "hud.ready") : `${p.dashCooldown.toFixed(1)}s`,
-  );
-  refs.skill.style.setProperty(
-    "--charge",
-    `${Math.max(0, 1 - p.dashCooldown / playerStats(sim).cooldown) * 100}%`,
-  );
+  text(refs.dash, ready ? t(locale, "hud.ready") : `${p.dashCooldown.toFixed(1)}s`);
   refs.skill.classList.toggle("ready", ready);
   refs.skill.disabled = !ready;
-  refs.skill.setAttribute(
-    "aria-label",
-    `${characterCopy(locale, p.id, "active.name")} · ${refs.dash.textContent}`,
-  );
+  refs.skill.setAttribute("aria-label", `${characterCopy(locale, p.id, "active.name")} · ${refs.dash.textContent}`);
   refs.pause.setAttribute("aria-label", t(locale, "hud.pause"));
   renderNotice(refs, locale, sim);
   renderStreak(refs, locale, sim);
@@ -266,10 +310,6 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   );
   refs.hint.classList.toggle("hint-dismissed", sim.elapsed > 14);
   document.body.classList.toggle("low-health", p.hp <= 2);
-  document.body.classList.toggle("critical-health", p.hp <= 1 && sim.ended !== "won");
-  // Glowcap: the paper moon flips to a sun as dawn arrives.
-  document.body.classList.toggle(
-    "is-dawn",
-    sim.ended === "won" || nightPhase(sim) === 3,
-  );
+  document.body.classList.toggle("critical-health", critical);
+  document.body.classList.toggle("is-dawn", sim.ended === "won" || arc.dawn);
 }

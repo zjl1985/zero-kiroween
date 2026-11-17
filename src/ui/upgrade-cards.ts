@@ -10,6 +10,10 @@ import {
   type WeaponStat,
 } from "../game/upgrades.js";
 import { paintUpgradeIcon } from "../render/upgrade-icons.js";
+import { paintWindowFlower, textSeed } from "../render/journal-ui.js";
+
+/** Paper colour of each pool's window flower (matches the card --tone in styles.css). */
+const FLOWER_TONE = { zero: "#c4553f", nicole: "#7d64b8", any: "#3f7f86", evolution: "#b8433d" } as const;
 
 export function upgradeName(locale: Locale, id: UpgradeId): string {
   return t(locale, `upgrade.${id}.name` as MessageKey);
@@ -84,10 +88,17 @@ export function paintUpgradeCards(
     const desc = cardDesc(locale, id, owned);
     part<HTMLElement>(card, ".card-desc").textContent = desc;
     part<HTMLElement>(card, "kbd").textContent = String(i + 1);
-    const icon = part<HTMLCanvasElement>(card, "canvas");
+    const icon = part<HTMLCanvasElement>(card, ".card-icon"),
+      flower = part<HTMLCanvasElement>(card, ".card-flower");
     if (icon.dataset.id !== id) {
       paintUpgradeIcon(icon, id);
       icon.dataset.id = id;
+    }
+    // The paper-cut window flower: one layer, or two for an evolution.
+    const evo = def.slot === "evolution";
+    if (flower.dataset.id !== id) {
+      paintWindowFlower(flower, FLOWER_TONE[evo ? "evolution" : def.cat], textSeed(id), evo);
+      flower.dataset.id = id;
     }
     card.setAttribute("aria-label", `${i + 1}. ${upgradeName(locale, id)}: ${desc}`);
   }

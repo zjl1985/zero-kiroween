@@ -3,7 +3,6 @@ import {
   characterCopy,
   characterValues,
 } from "./ui/character-panel.js";
-import { formatTime } from "./content/i18n.js";
 import type { CatId } from "./cats/types.js";
 import { t, isLocale } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
@@ -11,7 +10,8 @@ import { createClock, FIXED_DT, tickClock } from "./game/clock.js";
 import { createInput } from "./game/input.js";
 import { chooseUpgrade, createSim, step } from "./game/sim.js";
 import { evolutionFor, playerStats } from "./game/upgrades.js";
-import { paintUpgradeCards, upgradeName } from "./ui/upgrade-cards.js";
+import { paintUpgradeCards } from "./ui/upgrade-cards.js";
+import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
 import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
@@ -102,25 +102,26 @@ function boot(): void {
   let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
   const hudRefs = {
     time: must<HTMLElement>("hud-time"),
-    hearts: must<HTMLElement>("hud-hearts"),
-    dash: must<HTMLElement>("hud-dash"),
-    pause: must<HTMLButtonElement>("btn-hud-pause"),
+    phase: must<HTMLElement>("hud-phase"),
+    sky: must<HTMLCanvasElement>("hud-sky"),
+    hearts: must<HTMLCanvasElement>("hud-hearts"),
     name: must<HTMLElement>("hud-name"),
     portrait: must<HTMLCanvasElement>("hud-portrait"),
-    phase: must<HTMLElement>("hud-phase"),
-    progress: must<HTMLElement>("hud-progress"),
     kills: must<HTMLElement>("hud-kills"),
     buff: must<HTMLElement>("hud-buff"),
+    map: must<HTMLCanvasElement>("hud-map"),
+    pause: must<HTMLButtonElement>("btn-hud-pause"),
     skill: must<HTMLButtonElement>("btn-skill"),
     skillName: must<HTMLElement>("hud-skill-name"),
     skillKey: must<HTMLElement>("hud-skill-key"),
-    skillIcon: must<HTMLCanvasElement>("hud-skill-icon"),
-    notice: must<HTMLElement>("hud-notice"),
+    dash: must<HTMLElement>("hud-dash"),
+    wick: must<HTMLCanvasElement>("hud-wick"),
     hint: must<HTMLElement>("hud-hint"),
     level: must<HTMLElement>("hud-level"),
     xp: must<HTMLElement>("hud-xp"),
     upgrades: must<HTMLElement>("hud-upgrades"),
     chest: must<HTMLElement>("hud-chest"),
+    notice: must<HTMLElement>("hud-notice"),
     boss: must<HTMLElement>("hud-boss"),
     bossName: must<HTMLElement>("hud-boss-name"),
     streak: must<HTMLElement>("hud-streak"),
@@ -242,39 +243,7 @@ function boot(): void {
         must("result-cat").textContent =
           `${id === "zero" ? "ZERO" : "NICOLE"} · ${characterCopy(locale, id, "role")}`;
         must("btn-result-back").textContent = t(locale, "result.change");
-        must("result-ticket").textContent = t(locale, "result.ticket");
-        must("result-ticket-stub").textContent = t(locale, "result.ticket_stub");
-        must("result-stats").innerHTML = [
-          [t(locale, "result.duration"), formatTime(sim.elapsed)],
-          [t(locale, "result.kills"), sim.stats.kills],
-          [t(locale, "result.skills"), sim.stats.skillUses],
-          [t(locale, "result.blocks"), sim.stats.shieldBlocks],
-          [t(locale, "result.level"), sim.level],
-          [
-            t(locale, "result.evolution"),
-            sim.upgrades[evolutionFor(id)]
-              ? upgradeName(locale, evolutionFor(id))
-              : t(locale, "result.none"),
-          ],
-          [
-            t(locale, "result.boss"),
-            t(
-              locale,
-              sim.stats.bossDefeated
-                ? "result.boss_down"
-                : sim.boss.spawned
-                  ? "result.boss_left"
-                  : "result.none",
-            ),
-          ],
-          [t(locale, "result.streak"), sim.stats.bestStreak],
-          [t(locale, "result.pumpkins"), sim.stats.pumpkinsLit],
-        ]
-          .map(
-            ([label, value]) =>
-              `<div><strong>${value}</strong><span>${label}</span></div>`,
-          )
-          .join("");
+        paintJournal(locale, sim);
       }
     }
   };
