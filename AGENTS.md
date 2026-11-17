@@ -1,19 +1,40 @@
-# Agent 工作入口
+# Agent entry point
 
-开始工作前先读 [HANDOFF.md](HANDOFF.md)，再读 [PLAN.md](PLAN.md)。这两个文件记录当前有效要求；README.md 记录运行方式。增加或修改猫、武器、被动、进化、敌人、物件、反应、地标、分区、文字或美术时，按项目技能 [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)（英文）及其 `references/` 配方操作。
+Midnight Meow (猫猫守夜) is a browser game for Kiroween 2026: a survivor-like roguelike in the Vampire Survivors genre, in a papercraft / cut-paper style drawn entirely by Canvas code.
 
-## 当前不可误读的约束
+## Read first
 
-- **只做一种纸片 / 剪纸画风，不是双画风，也不是纯像素画风。** 不增加画风切换，不恢复旧 pixel/paper 双模式。
-- 用户要求全部用代码绘制。参考图只用于美术目标，不作为背景、贴图或生成素材导入。
-- Zero（男猫）与 Nicole（女猫）开局二选一，局内只有选中的主角。未选角色不入场、不跟随。
-- 两个角色有不同技能、专属升级与进化，保留已有实现。当前目标是把游戏做到参赛级别：场景、特效、互动、进化，同时继续打磨美术。
-- 特效可参考 Snapblocks（https://www.snapblocks.site/）的思路，只按公开描述重做，不复制代码。
-- 所有用户可见文字走 i18n；英文默认之后再切换，现在保持 `zh` 默认且 `en` 包完整。
-- 验证只做 `npm run build` + `npm test`，最多一张静态截图。不做动画或录像验证，除非用户再次要求。
-- `docs/archive/` 全部是已废弃的历史记录，不是当前指令。仓库保留像素工具 / 数据 / 旧代码不意味着支持双画风。
-- 不把编译或测试通过当作用户已认可美术，不宣称整部参赛作品已经完成。
+1. [HANDOFF.md](HANDOFF.md): current state, user requirements, known issues and pending decisions.
+2. [PLAN.md](PLAN.md) (v0.12): current task order and verification rules.
+3. [README.md](README.md): how to run the game.
+4. The project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md) and its `references/` recipes. Follow it when you add or change cats, weapons, passives, evolutions, enemies, props, reactions, landmarks, districts, strings or art, and when you verify and commit.
+5. `.kiro/steering/*.md` (product, tech, structure, papercraft-art): product constraints, tech stack, layout and art direction.
 
-## 文件删除
+## Architecture: definitions + hooks + registries
 
-删除文件或目录时默认使用 `trash` 移入废纸篓。Git 历史中记录的文件、临时文件可以直接删除；用户明确要求直接删除时也可直接删除。其他文件若 `trash` 不可用，不得静默退回永久删除。
+- `src/engine/` holds content-agnostic tools (`createRegistry`, `createEventBus`, `cachedSprite`) and imports no other layer (tested).
+- `src/defs/` holds one def file (numbers + hooks) per thing, with its art file beside it (`def.ts` + `art.ts`, or `<id>.ts` + `<id>.art.ts`). Defs are registered with one line in `src/defs/index.ts` (cats, weapons, passives, evolutions, behaviours, enemies) or `src/defs/world-index.ts` (materials, reactions, props, landmarks, biomes). Art is registered only in `src/render/art-index.ts`.
+- Registration order is behaviour: weapon steps, the stat fold, the spawn table and the world-gen hash sequence depend on it. Append new entries at the end.
+- `src/game/` is the generic simulation. It looks defs up by id and calls their hooks through `SimContext`. The sim never imports render, UI or the DOM.
+- `src/game/`, non-legacy `src/render/`, `src/ui/` and `src/main.ts` never name cat ids; they go through the registries. `tests/registry.test.mjs` enforces this.
+- The sim is deterministic. The seeded RNG goes only to `WeaponDef.step` and `EnemyBehaviour.steer`. World content, fire spread and prop drops use `hash2`. Rendering reads `SimState` and never mutates it or consumes the sim RNG.
+- Gameplay numbers live in def files, not in render or UI code.
+
+## Constraints that must not be misread
+
+- **One art style only: papercraft / cut paper.** No dual style, no pixel mode, no style toggle, and do not restore the old pixel/paper switch. Pixel helpers, data and old layout code in the repo are code dependencies; do not delete them blindly.
+- Everything is drawn by code and all sound is synthesized with Web Audio. No image or audio assets. The user's reference image is an art target only, never a background, texture or generated asset. Offscreen canvases may cache procedurally drawn content.
+- The player picks one cat at the start: Zero (male) or Nicole (female). Only the chosen cat appears in a run. The other cat never enters, follows or acts as a companion.
+- The two cats keep their distinct starting weapons, actives, passives, exclusive weapons / passives and evolutions (Echo Legion and Full Moon, which trigger only when a chest is opened).
+- The goal is a competition-grade game (scenes, effects, interactions, evolutions) while the art keeps moving toward the reference. Next steps are in PLAN.md: browser playtest, balance, performance, user review.
+- Effects may borrow ideas from the public descriptions of [Snapblocks](https://www.snapblocks.site/) and the rhythm ideas of [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft), rebuilt in Canvas / CSS. Never copy their code.
+- Every user-facing string goes through `t(locale, key)`. Add new keys to `src/content/keys.ts` and to every language pack. `zh` stays the default for now and the `en` pack stays complete; the English default comes later. Ask the user before removing the Chinese pack or the language toggle.
+- Verification is `npm run build` + `npm test`, plus at most one static screenshot. No animation or recording checks unless the user asks again.
+- Everything in `docs/archive/` is obsolete history, not instructions.
+- A passing build or test run does not mean the user approved the art. Never claim the art is final or the entry is finished. Say plainly what nobody has viewed, heard or measured.
+- Random helper cats are not built. Ask the user before starting them.
+- Commit messages use gitmoji plus a type prefix, for example `✨ feat: ...` or `📝 docs: ...`. `.agents/` is local task state and is not committed.
+
+## Deleting files
+
+Delete files and directories with `trash` (moves them to the macOS Trash) by default. Files tracked in Git history and temporary files may be deleted directly, as may anything the user explicitly asks to delete directly. For other files, if `trash` is unavailable, never silently fall back to permanent deletion.
