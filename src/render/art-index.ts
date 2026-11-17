@@ -41,7 +41,27 @@ import { LANTERN_MARKET_ART } from "../defs/landmarks/lantern-market/art.js";
 import { MOON_HILL_ART } from "../defs/landmarks/moon-hill/art.js";
 import { PUMPKIN_FIELD_ART } from "../defs/landmarks/pumpkin-field/art.js";
 import { STONE_BRIDGE_ART } from "../defs/landmarks/stone-bridge/art.js";
-import { CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
+import { PAPER_LANTERNS_ART } from "../defs/props/paper-lanterns/art.js";
+import { SCARECROW_ART } from "../defs/props/scarecrow/art.js";
+import { HAYBALE_ART } from "../defs/props/haybale/art.js";
+import { PAPER_CRATE_ART } from "../defs/props/paper-crate/art.js";
+import { MAILBOX_ART } from "../defs/props/mailbox/art.js";
+import { SIGNPOST_ART } from "../defs/props/signpost/art.js";
+import { PAPER_FLOWERS_ART } from "../defs/props/paper-flowers/art.js";
+import { PAPER_REEDS_ART } from "../defs/props/paper-reeds/art.js";
+import { PAPER_MUSHROOM_ART } from "../defs/props/paper-mushroom/art.js";
+import { LAUNDRY_LINE_ART } from "../defs/props/laundry-line/art.js";
+import { PAPER_TOMBSTONE_ART } from "../defs/props/paper-tombstone/art.js";
+import { DEAD_TREE_ART } from "../defs/props/dead-tree/art.js";
+import { PAPER_WINDMILL_ART } from "../defs/landmarks/paper-windmill/art.js";
+import { PUPPET_THEATRE_ART } from "../defs/landmarks/puppet-theatre/art.js";
+import { WISHING_WELL_ART } from "../defs/landmarks/wishing-well/art.js";
+import { OLD_TOWN_ART } from "../defs/biomes/old-town.art.js";
+import { PUMPKIN_FARM_ART } from "../defs/biomes/pumpkin-farm.art.js";
+import { GRAVEYARD_WOODS_ART } from "../defs/biomes/graveyard-woods.art.js";
+import { LANTERN_CANAL_ART } from "../defs/biomes/lantern-canal.art.js";
+import { MOON_MEADOW_ART } from "../defs/biomes/moon-meadow.art.js";
+import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
 
 export * from "./art-registry.js";
 
@@ -72,6 +92,34 @@ for (const a of [
   SNACK_ART,
 ])
   PASSIVE_ART.register(a);
-for (const a of [PAPER_FENCE_ART, PAPER_BUSH_ART, PAPER_GRASS_ART]) PROP_ART.register(a);
-for (const a of [CLOCK_TOWER_ART, PUMPKIN_FIELD_ART, STONE_BRIDGE_ART, GRAVEYARD_ART, LANTERN_MARKET_ART, MOON_HILL_ART])
+for (const a of [
+  PAPER_FENCE_ART,
+  PAPER_BUSH_ART,
+  PAPER_GRASS_ART,
+  PAPER_LANTERNS_ART,
+  SCARECROW_ART,
+  HAYBALE_ART,
+  PAPER_CRATE_ART,
+  MAILBOX_ART,
+  SIGNPOST_ART,
+  PAPER_FLOWERS_ART,
+  PAPER_REEDS_ART,
+  PAPER_MUSHROOM_ART,
+  LAUNDRY_LINE_ART,
+  PAPER_TOMBSTONE_ART,
+  DEAD_TREE_ART,
+])
+  PROP_ART.register(a);
+for (const a of [
+  CLOCK_TOWER_ART,
+  PUMPKIN_FIELD_ART,
+  STONE_BRIDGE_ART,
+  GRAVEYARD_ART,
+  LANTERN_MARKET_ART,
+  MOON_HILL_ART,
+  PAPER_WINDMILL_ART,
+  PUPPET_THEATRE_ART,
+  WISHING_WELL_ART,
+])
   LANDMARK_ART.register(a);
+for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(a);

@@ -386,7 +386,13 @@ export interface PropDef {
   /** Elements it reacts to (a reaction row must exist for its material). */
   readonly accepts: readonly Element[];
   /** Seeded drop chances when it turns to scraps by tearing (not by fire). */
-  readonly drops: { readonly shard: number; readonly shardValue: number; readonly treat: number };
+  readonly drops: {
+    readonly shard: number;
+    readonly shardValue: number;
+    readonly treat: number;
+    /** Shards spilled in a ring when the shard roll hits (default 1, dropped at the prop). */
+    readonly burst?: number;
+  };
   readonly spawn: PropSpawn;
   /** Art id the renderer looks up. */
   readonly art: string;
@@ -457,4 +463,37 @@ export interface LandmarkDef {
   keepOut?(l: LandmarkPlace, x: number, y: number, pad: number): boolean;
   /** Seeded, pure layout: decor, colliders and interaction spots in call order. */
   layout(l: LandmarkPlace, b: LandmarkBuilder): void;
+}
+
+// ---------------------------------------------------------------- districts
+
+/** Generic decor tuning of one chunk: chances and [min, max] counts. */
+export interface DecorMix {
+  readonly cottageChance: number;
+  readonly trees: readonly [number, number];
+  readonly bushes: readonly [number, number];
+  readonly stones: readonly [number, number];
+  readonly lampChance: number;
+  readonly fenceChance: number;
+  readonly candlesChance: number;
+  readonly pumpkinChance: number;
+  readonly flowers: readonly [number, number];
+  readonly tufts: readonly [number, number];
+  readonly leaves: readonly [number, number];
+}
+/** A prop a district scatters; chance / count default to the PropDef's spawn. */
+export interface BiomeProp {
+  readonly prop: string;
+  readonly chance?: number;
+  readonly count?: readonly [number, number];
+  /** Placed in a band beside the roads instead of anywhere in the chunk. */
+  readonly roadside?: boolean;
+}
+/** A district of the town: its decor mix and prop mix (ground art lives in BIOME_ART). */
+export interface BiomeDef {
+  readonly id: string;
+  /** Overrides of the base decor mix (src/defs/biomes/districts.ts). */
+  readonly decor: Partial<DecorMix>;
+  /** Props in roll order (part of the world-gen hash sequence). */
+  readonly props: readonly BiomeProp[];
 }

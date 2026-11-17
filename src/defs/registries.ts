@@ -8,6 +8,7 @@ import { createEventBus } from "../engine/events.js";
 import { createRegistry } from "../engine/registry.js";
 import type { SimState } from "../game/types.js";
 import type {
+  BiomeDef,
   CharacterDef,
   EnemyBehaviour,
   EnemyDef,
@@ -36,4 +37,6 @@ export const REACTIONS = createRegistry<ReactionDef>("reaction");
 export const PROP_DEFS = createRegistry<PropDef>("prop");
 /** Landmark kinds, in the order world-gen hands them out. */
 export const LANDMARK_DEFS = createRegistry<LandmarkDef>("landmark");
+/** District biomes (src/defs/biomes): decor and prop mixes per region. */
+export const BIOME_DEFS = createRegistry<BiomeDef>("biome");
 export const SIM_EVENTS = createEventBus<SimState, SimEvents, SimContext>();

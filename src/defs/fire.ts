@@ -28,4 +28,6 @@ export const FIRE = {
 export const PROP_HITS = {
   /** Seconds a prop ignores further element hits after one lands. */
   hitInterval: 0.18,
+  /** How far a prop's shard burst (drops.burst) spills, at s = 1. */
+  burstRadius: 26,
 } as const;

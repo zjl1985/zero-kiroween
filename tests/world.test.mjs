@@ -252,3 +252,71 @@ test("the camera follows with a deadzone and never shows outside the world", () 
   }
   assert.deepEqual(clampCamera(0, 0), { x: 0, y: SCREEN.height / 2 });
 });
+
+// ---------------------------------------------------------------- districts, landmarks, props (FEAT-006)
+import { BIOME_DEFS, LANDMARK_DEFS, PROP_DEFS } from "../dist/defs/index.js";
+import { DISTRICTS } from "../dist/defs/biomes/districts.js";
+import { biomeAt, districtSites, isStartChunk } from "../dist/game/world-gen.js";
+
+function eachChunk(seed, f) {
+  for (let cy = CHUNK.minCy; cy <= CHUNK.maxCy; cy++)
+    for (let cx = CHUNK.minCx; cx <= CHUNK.maxCx; cx++) f(chunkContent(seed, cx, cy), cx, cy);
+}
+
+test("every registered biome owns chunks in the world, and the start yard is old town", () => {
+  assert.ok(BIOME_DEFS.ids().length >= 4);
+  assert.ok(DISTRICTS.cols * DISTRICTS.rows >= BIOME_DEFS.ids().length, "enough district sites for every biome");
+  for (const seed of [20261116, 1, 2, 3, 99]) {
+    const seen = new Map();
+    eachChunk(seed, (c) => seen.set(c.biome, (seen.get(c.biome) ?? 0) + 1));
+    for (const id of BIOME_DEFS.ids()) assert.ok((seen.get(id) ?? 0) >= 1, `seed ${seed} lacks ${id}`);
+    assert.equal(chunkContent(seed, 0, 0).biome, DISTRICTS.start);
+    assert.equal(chunkContent(seed, 1, 0).biome, DISTRICTS.start);
+    // Each site's own chunk belongs to it; sites never sit on the start yard.
+    for (const s of districtSites(seed)) {
+      assert.ok(!isStartChunk(s.cx, s.cy));
+      assert.equal(biomeAt(seed, s.cx, s.cy).id, s.biome);
+    }
+  }
+});
+
+test("districts change what grows: biome props stay in their biomes and differ between them", () => {
+  const seed = 20261116,
+    kindsBy = new Map();
+  eachChunk(seed, (c) => {
+    if (c.start) return;
+    const allowed = new Set([...BIOME_DEFS.get(c.biome).props.map((p) => p.prop), ...PROP_DEFS.all().filter((d) => d.spawn.from).map((d) => d.id)]);
+    for (const p of c.props) assert.ok(allowed.has(p.kind), `${p.kind} in ${c.biome}`);
+    const set = kindsBy.get(c.biome) ?? new Set();
+    for (const p of c.props) set.add(p.kind);
+    kindsBy.set(c.biome, set);
+  });
+  const signatures = new Set([...kindsBy.values()].map((s) => [...s].sort().join(",")));
+  assert.equal(signatures.size, kindsBy.size, "every biome has its own prop mix");
+});
+
+test("the new landmarks are placed for several seeds, every kind fits the super-cells", () => {
+  const cells = LANDMARK.cols * LANDMARK.rows - 1;
+  assert.ok(LANDMARK_KINDS.length <= cells, `${LANDMARK_KINDS.length} kinds fit ${cells} cells`);
+  for (const kind of ["paper-windmill", "puppet-theatre", "wishing-well"]) assert.ok(LANDMARK_DEFS.has(kind), kind);
+  assert.deepEqual([...LANDMARK_KINDS], LANDMARK_DEFS.ids());
+  for (const seed of [4, 8, 15, 16, 23, 42]) {
+    const ls = landmarks(seed);
+    for (const kind of LANDMARK_KINDS) assert.ok(ls.some((l) => l.kind === kind), `${seed} lacks ${kind}`);
+  }
+});
+
+test("chunk content with biomes and props stays pure, and props per chunk stay under the cap", () => {
+  for (const seed of [20261116, 7]) {
+    const before = [];
+    eachChunk(seed, (c) => before.push(JSON.stringify(c)));
+    clearWorldCache();
+    const after = [];
+    eachChunk(seed, (c) => after.push(JSON.stringify(c)));
+    assert.deepEqual(after, before);
+    eachChunk(seed, (c) => {
+      assert.ok(c.props.length <= DISTRICTS.propCap, `${c.key}: ${c.props.length} props`);
+      assert.equal(new Set(c.props.map((p) => p.id)).size, c.props.length);
+    });
+  }
+});

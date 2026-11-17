@@ -207,3 +207,38 @@ test("render, UI and main draw cats and enemies through registries, not literals
   assert.doesNotMatch(enemies, /switch \(/, "craft-enemies.ts has no switch over kinds");
   for (const kind of ENEMY_DEFS.ids()) assert.ok(!enemies.includes(`"${kind}"`), `craft-enemies.ts names "${kind}"`);
 });
+
+// ---------------------------------------------------------------- landmarks and biomes (FEAT-006)
+import { BIOME_DEFS, LANDMARK_DEFS, PROP_DEFS as PROPS } from "../dist/defs/index.js";
+import { BIOME_ART, LANDMARK_ART, PROP_ART, decorPiece } from "../dist/render/art-index.js";
+import { landmarkParts } from "../dist/game/world-gen.js";
+
+test("every landmark and biome has registered art, names in every pack, and no art is orphaned", () => {
+  assert.deepEqual(LANDMARK_ART.ids(), LANDMARK_DEFS.ids());
+  assert.deepEqual(BIOME_ART.ids(), BIOME_DEFS.ids());
+  const keys = [
+    ...LANDMARK_DEFS.ids().flatMap((id) => [`landmark.${id}`, `notice.found-${id}`]),
+    ...BIOME_DEFS.ids().map((id) => `biome.${id}.name`),
+  ];
+  for (const k of keys) assert.ok(MESSAGE_KEYS.includes(k), k);
+  assert.deepEqual(missingKeys("en"), []);
+  assert.deepEqual(missingKeys("zh"), []);
+});
+
+test("landmark layouts only place generic decor or pieces their art registers", () => {
+  const generic = new Set(["tree", "cottage", "bush", "fence", "stone", "lamp", "candles", "pumpkin", "flowers", "tuft", "leaves"]);
+  for (const def of LANDMARK_DEFS.all()) {
+    const parts = landmarkParts({ id: "t", kind: def.id, x: 0, y: 0, radius: def.radius, seed: 3, span: 200 });
+    for (const d of parts.decor) assert.ok(generic.has(d.kind) || decorPiece(d.kind), `${def.id}: ${d.kind}`);
+  }
+});
+
+test("biome prop mixes name registered props with art and reaction rows for what they accept", () => {
+  for (const b of BIOME_DEFS.all())
+    for (const bp of b.props) {
+      const def = PROPS.get(bp.prop);
+      assert.ok(PROP_ART.find(def.art), def.art);
+      assert.ok((bp.count ?? def.spawn.count) !== undefined, `${b.id}: ${bp.prop} has a count`);
+    }
+  assert.ok(PROPS.ids().length >= 13, "at least 10 props beyond the first three");
+});

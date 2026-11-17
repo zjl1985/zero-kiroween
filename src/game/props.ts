@@ -109,8 +109,17 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
   // Seeded drops: the same prop always gives the same thing.
   const [cx, cy] = p.id.split("#")[0]!.split(",").map(Number) as [number, number],
     index = Number(p.id.split("#")[1]);
-  if (hash2(state.seed, cx * 64 + index, cy, 71) < def.drops.shard)
-    ctx.dropShard(state, p.x, p.y, def.drops.shardValue);
+  if (hash2(state.seed, cx * 64 + index, cy, 71) < def.drops.shard) {
+    const burst = def.drops.burst ?? 1;
+    if (burst <= 1) ctx.dropShard(state, p.x, p.y, def.drops.shardValue);
+    // A burst spills shards in a seeded ring around the prop (stuffed scarecrows).
+    else
+      for (let i = 0; i < burst; i++) {
+        const a = (i / burst) * Math.PI * 2 + hash2(state.seed, cx * 64 + index, cy, 73) * Math.PI,
+          r = PROP_HITS.burstRadius * p.s;
+        ctx.dropShard(state, p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * 0.6, def.drops.shardValue);
+      }
+  }
   if (hash2(state.seed, cx * 64 + index, cy, 72) < def.drops.treat) ctx.dropTreat(state, p.x, p.y + 6);
 }
 

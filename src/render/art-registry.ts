@@ -183,6 +183,17 @@ export interface LandmarkArt {
   readonly pieces?: readonly DecorPiece[];
 }
 
+/** Ground art of one district biome, same id as its BiomeDef. */
+export interface BiomeArt {
+  readonly id: string;
+  /** Base paper, plus two accents (gallery swatch and minimap tint). */
+  readonly swatch: readonly [string, string, string];
+  /** Chance that a ground patch cell of this biome gets a patch. */
+  readonly patchChance: number;
+  /** One flat cluster of ground detail around (x, y), about r wide; baked into chunk caches. */
+  patch(ctx: Ctx, x: number, y: number, r: number, seed: number): void;
+}
+
 export const CAT_ART = createRegistry<CatArt>("cat art");
 export const ENEMY_ART = createRegistry<EnemyArt>("enemy art");
 /** Weapons and evolved weapons, same ids as WEAPON_DEFS. */
@@ -192,6 +203,7 @@ export const PASSIVE_ART = createRegistry<PassiveArt>("passive art");
 export const PROP_ART = createRegistry<PropArt>("prop art");
 
 export const LANDMARK_ART = createRegistry<LandmarkArt>("landmark art");
+export const BIOME_ART = createRegistry<BiomeArt>("biome art");
 
 const pieceMemo = { size: -1, map: new Map<string, DecorPiece>() };
 /** The landmark decor piece of a decor kind, if a landmark art registers one. */

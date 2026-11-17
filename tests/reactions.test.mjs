@@ -250,3 +250,38 @@ test("pop-up folding is a pure render function of distance", () => {
   const k = popupStep(POPUP.min, 1, 1 / 60, false);
   assert.ok(k > POPUP.min && k < 1, "otherwise it eases");
 });
+
+test("a torn scarecrow spills a ring of ink shards; the same prop always spills the same", () => {
+  const seed = 20261116;
+  const torn = () => {
+    const s = quiet(seed),
+      p = findProp("scarecrow", seed);
+    parkAway(s, p);
+    const before = s.pickups.length;
+    for (let i = 0; i < 80 && propPhase(s, p.id) < 2; i++) {
+      s.elapsed += PROP_HITS.hitInterval + 0.01;
+      applyElement(s, p.x, p.y - 2, 6, "cut", 1);
+    }
+    assert.equal(propPhase(s, p.id), 2);
+    return { s, p, drops: s.pickups.slice(before) };
+  };
+  const a = torn(),
+    b = torn(),
+    def = PROP_DEFS.get("scarecrow");
+  assert.equal(a.drops.length, def.drops.burst);
+  for (const d of a.drops) assert.ok(Math.hypot(d.x - a.p.x, d.y - a.p.y) > 5, "spread around the prop");
+  assert.deepEqual(JSON.stringify(a.drops), JSON.stringify(b.drops));
+});
+
+test("straw burns: fire lights a hay bale and spreads to it", () => {
+  const seed = 20261116,
+    s = quiet(seed),
+    p = findProp("haybale", seed);
+  parkAway(s, p);
+  applyElement(s, p.x, p.y - 2, 6, "fire", 1);
+  assert.ok(burningCount(s) > 0);
+  run(s, 300);
+  assert.ok(s.stats.cellsBurnt > 0);
+  assert.equal(propPhase(s, p.id), 2);
+  assert.ok(s.props[p.id].burnt);
+});

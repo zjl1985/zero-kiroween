@@ -7,11 +7,11 @@
  */
 import { t } from "../content/i18n.js";
 import type { Locale } from "../content/keys.js";
-import { ENEMY_DEFS, PROP_DEFS } from "../defs/index.js";
+import { BIOME_DEFS, ENEMY_DEFS, PROP_DEFS } from "../defs/index.js";
 import type { EnemyState } from "../game/types.js";
 import { ELITE } from "../game/enemies.js";
 import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryKind } from "../ui/gallery-layout.js";
-import { CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-index.js";
+import { BIOME_ART, CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-index.js";
 import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
 import { landmarkPreview, type Bounds } from "./craft-world.js";
@@ -97,6 +97,30 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     ctx.translate(f.x, f.y);
     ctx.scale(f.k, f.k);
     art.draw(ctx, 0);
+    ctx.restore();
+  },
+  biome(ctx, cell, st) {
+    const art = BIOME_ART.find(cell.id),
+      def = BIOME_DEFS.get(cell.id);
+    if (!art) return;
+    // A ground swatch with three of its patches and a few props of its mix.
+    const g = box(st.x + 4, st.y + 4, st.w - 8, st.h - 8, cell.id.length);
+    paperCut(ctx, g, { color: art.swatch[0], shadow: 1, thickness: 1, texture: 0.85, edge: art.swatch[1] });
+    ctx.save();
+    ctx.clip(g);
+    const cy = st.y + st.h * 0.58;
+    [0.22, 0.55, 0.85].forEach((fx, i) => art.patch(ctx, st.x + st.w * fx, cy + (i % 2 ? -14 : 10), Math.min(54, st.w * 0.2), 11 + i * 17));
+    const shown = def.props.map((p) => p.prop).filter((id, i, a) => a.indexOf(id) === i && id !== "paper-grass").slice(0, 3);
+    shown.forEach((id, i) => {
+      const pa = PROP_ART.find(PROP_DEFS.get(id).art);
+      if (!pa) return;
+      const k = Math.min(0.8, (st.h * 0.55) / (pa.bounds.b - pa.bounds.t));
+      ctx.save();
+      ctx.translate(st.x + st.w * (0.2 + i * 0.3), st.y + st.h * 0.82);
+      ctx.scale(k, k);
+      drawProp(ctx, pa, { id: `gallery-${id}`, kind: id, x: 0, y: 0, s: 1, seed: 3 + i }, 0, false, false, 0);
+      ctx.restore();
+    });
     ctx.restore();
   },
   weapon(ctx, cell, st) {

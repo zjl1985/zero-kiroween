@@ -1,14 +1,15 @@
 /**
  * The ?gallery=1 page contents and layout, as pure data: one section per
- * registry (cats, enemies, props, landmarks, weapons, passives), one item per
+ * registry (cats, enemies, props, landmarks, district biomes, weapons,
+ * passives), one item per
  * registered entry and state, and a grid of cells for a page width. Nothing
  * here names a single id, so new defs appear automatically. No DOM, import-safe
  * in Node (tested in tests/gallery.test.mjs).
  */
 import type { MessageKey } from "../content/keys.js";
-import { CATS, ENEMY_DEFS, LANDMARK_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
+import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
-export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "weapon" | "passive";
+export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "biome" | "weapon" | "passive";
 export type GalleryState =
   | "idle"
   | "skill"
@@ -20,10 +21,11 @@ export type GalleryState =
   | "burning"
   | "burnt"
   | "building"
+  | "ground"
   | "icon";
 export interface GalleryItem {
   readonly kind: GalleryKind;
-  /** Registry id (cat, enemy, prop, weapon or passive id, or landmark kind). */
+  /** Registry id (cat, enemy, prop, biome, weapon or passive id, or landmark kind). */
   readonly id: string;
   readonly label: MessageKey;
   readonly state: GalleryState;
@@ -43,6 +45,7 @@ export const GALLERY_CELL: Readonly<Record<GalleryKind, { readonly w: number; re
   enemy: { w: 170, h: 170 },
   prop: { w: 170, h: 140 },
   landmark: { w: 340, h: 300 },
+  biome: { w: 260, h: 170 },
   weapon: { w: 116, h: 120 },
   passive: { w: 116, h: 120 },
 };
@@ -70,6 +73,7 @@ export function gallerySections(): GallerySection[] {
     ),
     section("prop", "props", items("prop", PROP_DEFS.ids(), (id) => `prop.${id}.name`, () => PROP_STATES)),
     section("landmark", "landmarks", items("landmark", LANDMARK_DEFS.ids(), (id) => `landmark.${id}`, () => ["building"])),
+    section("biome", "biomes", items("biome", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => ["ground"])),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
     section("passive", "passives", items("passive", PASSIVE_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
   ];

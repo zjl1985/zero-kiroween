@@ -9,6 +9,7 @@ import {
   FLAT_DECOR,
   LANDMARK,
   WORLD,
+  biomeAt,
   chunkContent,
   chunkOf,
   isStartChunk,
@@ -24,7 +25,7 @@ import {
 } from "../game/world-gen.js";
 import type { SimState } from "../game/types.js";
 import { LANDMARK_DEFS } from "../defs/registries.js";
-import { LANDMARK_ART, decorPiece, landmarkReach } from "./art-registry.js";
+import { BIOME_ART, LANDMARK_ART, decorPiece, landmarkReach } from "./art-registry.js";
 import { bossEnemy } from "../game/sim.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
@@ -237,6 +238,34 @@ function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): vo
     for (let x = Math.floor(x0 / step) * step - step; x < x1 + step; x += step)
       clump(x, WORLD.maxY - 10 - hash(x) * 8, Math.floor(x / step) * 3);
 }
+/** Ground patch grid: one possible cluster per cell, its biome from the cell centre's chunk. */
+const PATCH = { cell: 150, margin: 110, r: [46, 84] } as const;
+/**
+ * District ground detail in a chunk's cache: clustered patches placed on a
+ * world grid by render hashes, so every chunk that overlaps a patch draws it
+ * the same way and district edges follow chunk ownership.
+ */
+function biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): void {
+  const c = PATCH.cell,
+    ia = Math.floor((x0 - PATCH.margin) / c),
+    ib = Math.floor((x1 + PATCH.margin) / c),
+    ja = Math.floor((y0 - PATCH.margin) / c),
+    jb = Math.floor((y1 + PATCH.margin) / c);
+  for (let j = ja; j <= jb; j++)
+    for (let i = ia; i <= ib; i++) {
+      const sd = seed * 31 + i * 7919 + j * 104729,
+        x = (i + 0.2 + hash(sd) * 0.6) * c,
+        y = (j + 0.2 + hash(sd + 1) * 0.6) * c;
+      if (y < WORLD.playTop + 10 || (y < 560 && x > -40 && x < 1000)) continue;
+      if (x < WORLD.minX + 60 || x > WORLD.maxX - 60 || y > WORLD.maxY - 50) continue;
+      const { cx, cy } = chunkOf(x, y),
+        art = BIOME_ART.find(biomeAt(seed, cx, cy).id);
+      if (!art || hash(sd + 2) > art.patchChance) continue;
+      const r = PATCH.r[0] + hash(sd + 3) * (PATCH.r[1] - PATCH.r[0]);
+      if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
+      art.patch(ctx, x, y, r, Math.floor(hash(sd + 4) * 1e5));
+    }
+}
 /** Ground-level landmark art baked into the chunk caches. */
 function landmarkGround(ctx: Ctx, l: Landmark): void {
   LANDMARK_ART.find(l.kind)?.ground(ctx, l);
@@ -319,6 +348,7 @@ function buildChunk(seed: number, cx: number, cy: number): HTMLCanvasElement {
       if (d.kind === "lamp" && d.x > x0 - 90 && d.x < x1 + 90 && d.y > y0 - 60 && d.y < y1 + 60) lamps.push(d);
   if (cy === 0) horizonHills(ctx, x0, x1);
   groundTile(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
+  biomeGround(ctx, seed, x0, y0, x1, y1);
   for (const l of landmarks(seed)) {
     const reach = landmarkReach(l);
     if (l.x + reach >= x0 && l.x - reach <= x1 && l.y + reach >= y0 && l.y - reach <= y1) landmarkGround(ctx, l);

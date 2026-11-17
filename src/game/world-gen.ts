@@ -12,8 +12,9 @@
 import { SOLID_SCENERY, type Capsule } from "./scenery.js";
 import { MOON_LANTERN, PUMPKIN_SPOTS } from "./interactions.js";
 import "../defs/world-index.js";
-import { LANDMARK_DEFS, PROP_DEFS } from "../defs/registries.js";
-import type { LandmarkBuilder, LandmarkPlace, PropSpot } from "../defs/types.js";
+import { BIOME_DEFS, LANDMARK_DEFS, PROP_DEFS } from "../defs/registries.js";
+import type { BiomeDef, DecorMix, LandmarkBuilder, LandmarkPlace, PropSpot } from "../defs/types.js";
+import { BASE_DECOR, DISTRICTS } from "../defs/biomes/districts.js";
 import { RIVER } from "../defs/landmarks/stone-bridge/def.js";
 
 /** One screen in world units; matches the 960 x 540 view without importing render code. */
@@ -129,24 +130,12 @@ export interface ChunkContent {
   spots: InteractSpot[];
   /** Tearable / burnable props (src/defs/props), ids "cx,cy#i". */
   props: PropSpot[];
+  /** District biome id (src/defs/biomes). */
+  biome: string;
 }
 
-/** Decor tuning per generic chunk: [chance or count range, clearance]. */
-const DECOR = {
-  cottageChance: 0.22,
-  trees: [1, 3],
-  bushes: [2, 4],
-  stones: [1, 3],
-  lampChance: 0.45,
-  fenceChance: 0.3,
-  candlesChance: 0.12,
-  pumpkinChance: 0.18,
-  flowers: [2, 4],
-  tufts: [4, 7],
-  leaves: [2, 4],
-  /** Clear ground kept around a road's edge. */
-  roadClear: 34,
-} as const;
+/** Clear ground kept around a road's edge. */
+const ROAD_CLEAR = 34;
 
 // ---------------------------------------------------------------- hashing
 function fmix(h: number): number {
@@ -239,6 +228,7 @@ const chunkMemo = new Map<string, ChunkContent>();
 const colliderMemo = new Map<string, Capsule[]>();
 const staticMemo = new Map<string, Capsule[]>();
 const propMemo = new Map<string, PropSpot[]>();
+const siteMemo = new Map<number, DistrictSite[]>();
 function remember<K, V>(map: Map<K, V>, key: K, make: () => V, cap = 900): V {
   let v = map.get(key);
   if (v === undefined) {
@@ -256,6 +246,58 @@ export function clearWorldCache(): void {
   colliderMemo.clear();
   staticMemo.clear();
   propMemo.clear();
+  siteMemo.clear();
+}
+
+// ---------------------------------------------------------------- districts
+export interface DistrictSite {
+  /** Chunk the site sits on (its centre). */
+  cx: number;
+  cy: number;
+  biome: string;
+}
+/** District sites of a seed: one per DISTRICTS grid cell, each biome at least once. */
+export function districtSites(seed: number): readonly DistrictSite[] {
+  return remember(siteMemo, seed, () => {
+    const cols = DISTRICTS.cols,
+      rows = DISTRICTS.rows,
+      biomes = BIOME_DEFS.ids(),
+      sites: { cx: number; cy: number; order: number; col: number; row: number }[] = [];
+    for (let row = 0; row < rows; row++)
+      for (let col = 0; col < cols; col++) {
+        // Each grid cell owns a disjoint block of chunks; the site is one of them.
+        const c0 = CHUNK.minCx + Math.floor((col * CHUNK_COLS) / cols),
+          c1 = CHUNK.minCx + Math.floor(((col + 1) * CHUNK_COLS) / cols),
+          r0 = Math.floor((row * (CHUNK.maxCy + 1)) / rows),
+          r1 = Math.floor(((row + 1) * (CHUNK.maxCy + 1)) / rows),
+          cx = c0 + Math.floor(hash2(seed, col, row, 41) * (c1 - c0));
+        let cy = r0 + Math.floor(hash2(seed, col, row, 42) * (r1 - r0));
+        if (isStartChunk(cx, cy)) cy = Math.min(r1 - 1, cy + 1);
+        sites.push({ cx, cy, order: hash2(seed, col, row, 43), col, row });
+      }
+    const ordered = [...sites].sort((a, b) => a.order - b.order);
+    return ordered.map((site, i) => ({
+      cx: site.cx,
+      cy: site.cy,
+      biome:
+        i < biomes.length ? biomes[i]! : biomes[Math.floor(hash2(seed, site.col, site.row, 44) * biomes.length)]!,
+    }));
+  });
+}
+/** The district biome of chunk (cx, cy): its nearest site; the start yard is DISTRICTS.start. */
+export function biomeAt(seed: number, cx: number, cy: number): BiomeDef {
+  if (isStartChunk(cx, cy) || !inChunkRange(cx, cy)) return BIOME_DEFS.get(DISTRICTS.start);
+  let best = "",
+    bestD = Infinity;
+  for (const s of districtSites(seed)) {
+    // Chunks are taller than wide; distances are measured in world units.
+    const d = Math.hypot((s.cx - cx) * CHUNK.width, (s.cy - cy) * CHUNK.height);
+    if (d < bestD) {
+      bestD = d;
+      best = s.biome;
+    }
+  }
+  return BIOME_DEFS.get(best);
 }
 
 // ---------------------------------------------------------------- landmarks
@@ -361,6 +403,23 @@ function nearRoad(seed: number, x: number, y: number, clear: number): boolean {
   }
   return false;
 }
+/** Points along the roads inside one chunk, with the road normal, every 40 units. */
+function roadSlots(seed: number, x0: number, y0: number): { x: number; y: number; nx: number; ny: number; width: number }[] {
+  const out: { x: number; y: number; nx: number; ny: number; width: number }[] = [];
+  for (const r of roads(seed))
+    for (let i = 0; i < r.points.length - 1; i++) {
+      const a = r.points[i]!,
+        b = r.points[i + 1]!,
+        len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      for (let k = 20; k < len; k += 40) {
+        const x = a.x + ((b.x - a.x) * k) / len,
+          y = a.y + ((b.y - a.y) * k) / len;
+        if (x >= x0 && x < x0 + CHUNK.width && y >= y0 && y < y0 + CHUNK.height)
+          out.push({ x, y, nx: -(b.y - a.y) / len, ny: (b.x - a.x) / len, width: r.width });
+      }
+    }
+  return out;
+}
 function inLandmark(seed: number, x: number, y: number, pad: number): boolean {
   for (const l of landmarks(seed)) {
     if (Math.hypot(x - l.x, y - l.y) < l.radius + pad) return true;
@@ -411,13 +470,14 @@ function startParts(cx: number): Pick<ChunkContent, "decor" | "colliders" | "spo
     spots,
   };
 }
-/** Deterministic generic decor of one chunk. */
-function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, "decor" | "colliders" | "props"> {
+/** Deterministic generic decor and props of one chunk, mixed by its district biome. */
+function genericDecor(seed: number, cx: number, cy: number, biome: BiomeDef): Pick<ChunkContent, "decor" | "colliders" | "props"> {
   const x0 = cx * CHUNK.width,
     y0 = cy * CHUNK.height,
     placed: Placed[] = [],
     colliders: Capsule[] = [],
-    tall: { x: number; y: number; r: number }[] = [];
+    tall: { x: number; y: number; r: number }[] = [],
+    mix: DecorMix = { ...BASE_DECOR, ...biome.decor };
   let salt = 100;
   const h = () => hash2(seed, cx, cy, salt++);
   const range = (r: readonly [number, number]) => r[0] + Math.floor(h() * (r[1] - r[0] + 1));
@@ -429,16 +489,28 @@ function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, 
     s1: number,
     yMin: number,
     flat = FLAT_DECOR.has(kind as DecorKind),
+    roadside = false,
   ) => {
+    const slots = roadside ? roadSlots(seed, x0, y0) : null;
+    if (slots && !slots.length) return;
     for (let n = 0, tries = 0; n < count && tries < count * 8; tries++) {
-      const x = x0 + 30 + h() * (CHUNK.width - 60),
-        y = y0 + 30 + h() * (CHUNK.height - 60),
-        s = s0 + h() * (s1 - s0),
+      let x = x0 + 30 + h() * (CHUNK.width - 60),
+        y = y0 + 30 + h() * (CHUNK.height - 60);
+      const s = s0 + h() * (s1 - s0),
         seedN = Math.floor(h() * 1e6);
+      if (slots) {
+        // Roadside pieces stand just beyond the road's clear ground, on either side.
+        const slot = slots[Math.floor(((x - x0 - 30) / (CHUNK.width - 60)) * slots.length)]!,
+          side = y - y0 < CHUNK.height / 2 ? 1 : -1,
+          off = slot.width + ROAD_CLEAR + clear * 0.5 + 4 + (h() * DISTRICTS.roadsideBand) / 2;
+        x = slot.x + slot.nx * off * side;
+        y = slot.y + slot.ny * off * side;
+        if (x < x0 || x >= x0 + CHUNK.width || y < y0 || y >= y0 + CHUNK.height) continue;
+      }
       if (y < yMin) continue;
       if (x < WORLD.minX + 90 || x > WORLD.maxX - 90 || y > WORLD.maxY - 90) continue;
       if (y < SCREEN.height + clear && x > -clear && x < SCREEN.width + clear) continue;
-      if (nearRoad(seed, x, y, DECOR.roadClear + clear * 0.5)) continue;
+      if (nearRoad(seed, x, y, ROAD_CLEAR + clear * 0.5)) continue;
       if (inLandmark(seed, x, y, clear)) continue;
       if (!flat && tall.some((t) => Math.hypot(t.x - x, t.y - y) < t.r + clear)) continue;
       placed.push({ kind, x: Math.round(x), y: Math.round(y), s: Math.round(s * 100) / 100, seed: seedN });
@@ -449,23 +521,25 @@ function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, 
   // Trees and cottages may stand in the horizon band (as the yard's do); the rest stay on the ground.
   const back = WORLD.playTop - 40,
     ground = WORLD.playTop + 20;
-  if (h() < DECOR.cottageChance) place("cottage", 1, 130, 0.72, 0.95, back);
-  place("tree", range(DECOR.trees), 60, 0.82, 1.15, back);
-  if (h() < DECOR.lampChance) place("lamp", 1, 40, 0.85, 1.05, ground);
-  if (h() < DECOR.fenceChance) place("fence", 1 + Math.floor(h() * 2), 52, 0.9, 1.15, ground);
-  place("stone", range(DECOR.stones), 26, 0.55, 1.3, ground);
-  place("bush", range(DECOR.bushes), 36, 0.7, 1.2, ground);
-  if (h() < DECOR.candlesChance) place("candles", 1, 26, 0.7, 0.85, ground);
-  if (h() < DECOR.pumpkinChance) place("pumpkin", 1 + Math.floor(h() * 2), 22, 0.45, 0.8, ground);
-  place("flowers", range(DECOR.flowers), 30, 0.9, 1.1, ground);
-  place("tuft", range(DECOR.tufts), 14, 0.7, 1.1, ground);
-  place("leaves", range(DECOR.leaves), 30, 0.9, 1.1, ground);
-  // Scattered props come after every decor roll, so the decor hash sequence is unchanged.
-  for (const def of PROP_DEFS.all()) {
-    const sp = def.spawn;
-    if (!sp.count || h() >= (sp.chance ?? 1)) continue;
+  if (h() < mix.cottageChance) place("cottage", 1, 130, 0.72, 0.95, back);
+  place("tree", range(mix.trees), 60, 0.82, 1.15, back);
+  if (h() < mix.lampChance) place("lamp", 1, 40, 0.85, 1.05, ground);
+  if (h() < mix.fenceChance) place("fence", 1 + Math.floor(h() * 2), 52, 0.9, 1.15, ground);
+  place("stone", range(mix.stones), 26, 0.55, 1.3, ground);
+  place("bush", range(mix.bushes), 36, 0.7, 1.2, ground);
+  if (h() < mix.candlesChance) place("candles", 1, 26, 0.7, 0.85, ground);
+  if (h() < mix.pumpkinChance) place("pumpkin", 1 + Math.floor(h() * 2), 22, 0.45, 0.8, ground);
+  place("flowers", range(mix.flowers), 30, 0.9, 1.1, ground);
+  place("tuft", range(mix.tufts), 14, 0.7, 1.1, ground);
+  place("leaves", range(mix.leaves), 30, 0.9, 1.1, ground);
+  // The district's props roll after every decor roll.
+  for (const bp of biome.props) {
+    const def = PROP_DEFS.get(bp.prop),
+      sp = def.spawn,
+      count = bp.count ?? sp.count;
+    if (!count || h() >= (bp.chance ?? sp.chance ?? 1)) continue;
     const [s0, s1] = sp.scale ?? [1, 1];
-    place(def.id, range(sp.count), sp.clear ?? 30, s0, s1, ground, !!sp.flat);
+    place(def.id, range(count), sp.clear ?? 30, s0, s1, ground, !!sp.flat, !!bp.roadside);
   }
   // Decor kinds a prop takes over (fences, bushes) become that prop in place.
   const from = new Map(PROP_DEFS.all().filter((d) => d.spawn.from).map((d) => [d.spawn.from!, d.id]));
@@ -473,8 +547,10 @@ function genericDecor(seed: number, cx: number, cy: number): Pick<ChunkContent, 
     props: PropSpot[] = [];
   for (const d of placed) {
     const kind = from.get(d.kind) ?? (PROP_DEFS.has(d.kind) ? d.kind : null);
-    if (kind) props.push({ id: `${cx},${cy}#${props.length}`, kind, x: d.x, y: d.y, s: d.s, seed: d.seed });
-    else decor.push(d as Decor);
+    if (!kind) decor.push(d as Decor);
+    // Past the cap, extra props are simply not made (decor is unaffected).
+    else if (props.length < DISTRICTS.propCap)
+      props.push({ id: `${cx},${cy}#${props.length}`, kind, x: d.x, y: d.y, s: d.s, seed: d.seed });
   }
   for (const d of decor) {
     const s = d.s;
@@ -499,14 +575,15 @@ export function chunkContent(seed: number, cx: number, cy: number): ChunkContent
       w: CHUNK.width,
       h: CHUNK.height,
     };
-    if (!inChunkRange(cx, cy)) return { ...base, start: false, landmark: null, ...EMPTY, props: [] };
-    if (isStartChunk(cx, cy)) return { ...base, start: true, landmark: null, ...startParts(cx), props: [] };
+    const biome = biomeAt(seed, cx, cy);
+    if (!inChunkRange(cx, cy)) return { ...base, start: false, landmark: null, ...EMPTY, props: [], biome: biome.id };
+    if (isStartChunk(cx, cy)) return { ...base, start: true, landmark: null, ...startParts(cx), props: [], biome: biome.id };
     const landmark =
       landmarks(seed).find((l) => {
         const c = chunkOf(l.x, l.y);
         return c.cx === cx && c.cy === cy;
       }) ?? null;
-    const generic = genericDecor(seed, cx, cy),
+    const generic = genericDecor(seed, cx, cy, biome),
       parts = landmark ? landmarkParts(landmark) : EMPTY;
     return {
       ...base,
@@ -516,6 +593,7 @@ export function chunkContent(seed: number, cx: number, cy: number): ChunkContent
       colliders: [...generic.colliders, ...parts.colliders],
       spots: [...parts.spots],
       props: generic.props,
+      biome: biome.id,
     };
   });
 }

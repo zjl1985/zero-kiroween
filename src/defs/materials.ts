@@ -6,3 +6,5 @@ export const CARD: MaterialDef = { id: "card", durability: 1.2, flammability: 0,
 export const INK: MaterialDef = { id: "ink", durability: 1, flammability: 0, tearability: 0.3 };
 export const CLOTH: MaterialDef = { id: "cloth", durability: 1.5, flammability: 0, tearability: 0.4 };
 export const WAX: MaterialDef = { id: "wax", durability: 0.8, flammability: 0.5, tearability: 0.5 };
+/** Hay and dry stalks: tears easily and catches fire faster than paper. */
+export const STRAW: MaterialDef = { id: "straw", durability: 1.3, flammability: 1.2, tearability: 0.8 };

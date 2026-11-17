@@ -317,6 +317,9 @@ export type Notice =
   | "found-graveyard"
   | "found-lantern-market"
   | "found-moon-hill"
+  | "found-paper-windmill"
+  | "found-puppet-theatre"
+  | "found-wishing-well"
   | "elite"
   | "chest";
 export interface UpgradeChoice {

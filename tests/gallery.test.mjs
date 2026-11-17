@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CATS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../dist/defs/index.js";
+import { BIOME_DEFS, CATS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { LANDMARK_KINDS } from "../dist/game/world-gen.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
 import { GALLERY_GRID, galleryLayout, gallerySections, PROP_STATES, stateLabel } from "../dist/ui/gallery-layout.js";
@@ -11,16 +11,17 @@ import { tornEdge as legacyTornEdge } from "../dist/render/paper-scraps.js";
 
 const idsOf = (layout, kind) => new Set(layout.cells.filter((c) => c.kind === kind).map((c) => c.id));
 
-test("every registered cat, enemy, prop, landmark, weapon and passive gets a gallery cell", () => {
+test("every registered cat, enemy, prop, landmark, biome, weapon and passive gets a gallery cell", () => {
   for (const width of [320, 760, 1240]) {
     const layout = galleryLayout(gallerySections(), width);
     assert.deepEqual([...idsOf(layout, "cat")], CATS.ids());
     assert.deepEqual([...idsOf(layout, "enemy")], ENEMY_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "prop")], PROP_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "landmark")], [...LANDMARK_KINDS]);
+    assert.deepEqual([...idsOf(layout, "biome")], BIOME_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "weapon")], WEAPON_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "passive")], PASSIVE_DEFS.ids());
-    assert.equal(layout.headers.length, 6);
+    assert.equal(layout.headers.length, 7);
   }
 });
 

@@ -48,8 +48,11 @@ test("interactive objects sit on the drawn pumpkins and lamps, in the yard and a
   const yard = (o) => o.x >= 0 && o.x <= 960 && o.y <= 540;
   assert.equal(s.interactables.filter((o) => o.kind === "pumpkin" && yard(o)).length, PUMPKIN_SPOTS.length);
   assert.equal(s.interactables.filter((o) => o.kind === "lantern" && yard(o)).length, 1);
-  // Away from the yard, pumpkins come from pumpkin fields and lanterns from
-  // moon hills and lantern markets, each drawn by a matching decor prop.
+  // Away from the yard, pumpkins come from pumpkin fields and windmills and
+  // lanterns from moon hills, lantern markets, puppet theatres and wells,
+  // each drawn by a matching decor prop.
+  const pumpkinKinds = ["pumpkin-field", "paper-windmill"],
+    lanternKinds = ["moon-hill", "lantern-market", "puppet-theatre", "wishing-well"];
   for (const seed of [1, 7, 20261116]) {
     let pumpkins = 0,
       lanterns = 0;
@@ -62,10 +65,10 @@ test("interactive objects sit on the drawn pumpkins and lamps, in the yard and a
         assert.ok(c.decor.some((d) => d.kind === prop && d.x === spot.x && d.y === spot.y && d.s === spot.s));
         if (spot.kind === "pumpkin") {
           pumpkins++;
-          assert.equal(l.kind, "pumpkin-field");
+          assert.ok(pumpkinKinds.includes(l.kind), l.kind);
         } else {
           lanterns++;
-          assert.ok(l.kind === "moon-hill" || l.kind === "lantern-market");
+          assert.ok(lanternKinds.includes(l.kind), l.kind);
         }
       }
     }
