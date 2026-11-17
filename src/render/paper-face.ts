@@ -1,8 +1,9 @@
 import { officialVariant, officialRects, MASCOT_VIEWBOX_WIDTH, MASCOT_VIEWBOX_HEIGHT, type MascotRect } from "../cats/official.js";
+import type { MascotPalette } from "../cats/meow-wall-art.js";
 import type { CatId } from "../cats/types.js";
 import { cachedSprite } from "../engine/sprite.js";
 import type { CatPose } from "./layout.js";
-import { grain, mix, stroke, type Ctx, type Point } from "./paper-material.js";
+import { mix, stroke, type Ctx, type Point } from "./paper-material.js";
 
 import { paperCut } from "./paper-kit.js";
 import { catArt, type CatArt } from "./art-registry.js";
@@ -13,6 +14,19 @@ export const PAPER_FACE_SIZE = {
   w: Math.ceil(MASCOT_VIEWBOX_WIDTH * PAPER_FACE_SCALE + 8),
   h: Math.ceil(MASCOT_VIEWBOX_HEIGHT * PAPER_FACE_SCALE + 8),
 } as const;
+const FACE_CACHE_SCALE = 3;
+const FACE_CENTER = 34.8;
+
+/** The reference's short ear crowns, full cheeks and broad chin, cut from one card. */
+export const PAPER_FACE_OUTLINE = `
+  M 11 21.8 L 10.9 17.1 Q 10.9 15 13.4 13.5 L 13.8 8.4
+  Q 14 7.2 15.2 7.2 L 18.3 7.2 Q 19.8 7.2 20.9 8.5 L 29.2 19.5
+  Q 34.9 18.9 40.6 19.5 L 48.6 8.6 Q 49.6 7.2 51 7.2 L 54.4 7.2
+  Q 55.6 7.3 55.7 8.7 L 56.2 13.6 Q 58.5 15 58.5 17.1 L 58.3 21.7
+  Q 58.1 23.1 55.4 24 Q 58 28 58.7 32.6 L 59.2 38.6 Q 59.4 41.7 55.9 43
+  L 52.9 46.8 Q 51.1 48.8 48.6 48.8 L 21.1 48.8 Q 18.5 48.8 16.9 46.7
+  L 13.9 43 Q 10.5 41.6 10.4 38.6 L 10.8 32.8 Q 11.8 27.9 14 24 Q 11.2 23.3 11 21.8 Z`;
+
 export interface FaceLayer {
   readonly color: string;
   /** Visible, non-overlapping official regions, before the subpixel cut-edge rounding. */
@@ -140,65 +154,120 @@ function facePaths(id: CatId) {
   return result;
 }
 
-/** Authored paper cuts retain original palette and accessories without the pixel grid. */
+const FACE_STOCK = `
+  M 16 22.7 Q 21.5 19.1 29.3 20.1 Q 35 19.4 40.6 20.1 Q 48.5 19 53.4 23
+  L 51.6 25.5 Q 54.9 30.8 55.2 37.2 Q 55.4 40.1 52.8 42.1
+  L 49.6 44.8 Q 47.8 46.2 44.6 46.2 L 25 46.2 Q 21.5 46.2 19.7 44.8
+  L 16.7 42 Q 14.5 40 14.5 37.2 Q 14.8 30.8 17.9 25.5 Z`;
+const MUZZLE = `
+  M 25.1 37 Q 27.2 34.8 30.8 35.4 Q 32 33.8 34.4 34 Q 37.1 33.8 38.3 35.4
+  Q 42.2 34.8 44.4 37 Q 44.1 40.2 40.2 41.1 Q 38 42.7 34.4 42.5
+  Q 31 42.7 28.7 41.1 Q 25.4 40.2 25.1 37 Z`;
+
+function fill(ctx: Ctx, shape: Path2D, color: string): void {
+  ctx.fillStyle = color;
+  ctx.fill(shape);
+}
+
+/** Three strips of dark cardstock, tucked under each cheek. */
+function paintWhiskers(ctx: Ctx, p: MascotPalette): void {
+  const strips = new Path2D(`
+    M -20 30.8 Q -24.6 30.2 -29.1 30.4 L -29.1 31.6 Q -24.8 31.5 -20 32.3 Z
+    M -20 33.8 Q -25.2 33.5 -30.6 33.8 L -30.6 35.1 Q -25.2 35 -20 35.2 Z
+    M -20 36.7 Q -24.6 37.1 -29.1 37.5 L -29.1 38.7 Q -24.8 38.3 -20 38.1 Z`);
+  for (const side of [1, -1]) {
+    ctx.save();
+    ctx.translate(FACE_CENTER, 0);
+    ctx.scale(side, 1);
+    paperCut(ctx, strips, { color: p.ink, edge: mix(p.ink, p.head, 0.2), thickness: 0.32, shadow: 0.3, texture: 0.18 });
+    ctx.restore();
+  }
+}
+
+function paintEars(ctx: Ctx, p: MascotPalette): void {
+  const liner = new Path2D(`
+    M -21.4 20.3 L -20.4 15.7 Q -18.8 14.5 -18.2 11.9
+    Q -15.6 11.5 -13.8 14.8 L -9.9 19.6 L -12.9 21 L -14.4 22.7
+    Q -18.6 23.2 -21.4 20.3 Z`);
+  const facet = new Path2D("M -21.1 20.4 L -17.4 21.2 L -15.3 15.6 L -13.8 14.8 L -9.9 19.6 L -14.4 22.7 Q -18.6 23.2 -21.1 20.4 Z");
+  for (const side of [1, -1]) {
+    ctx.save();
+    ctx.translate(FACE_CENTER, 0);
+    ctx.scale(side, 1);
+    paperCut(ctx, liner, { color: p.earInner, edge: mix(p.earInner, p.headLight, 0.35), thickness: 0.48, shadow: 0.4, texture: 0.3 });
+    fill(ctx, facet, mix(p.earInner, p.headDark, 0.22));
+    ctx.restore();
+  }
+}
+
+/** Keep the low, widely spaced boxes and the tiny highlights from the reference. */
+function paintEyes(ctx: Ctx, p: MascotPalette, glasses: boolean, sunglasses: boolean): void {
+  const outer = `M -4.15 -4.25 L 4.05 -4.25 Q 4.85 -4.25 4.85 -3.5 L 4.85 3.45
+    Q 4.85 4.25 4.05 4.25 L -4.1 4.25 Q -4.95 4.25 -4.95 3.45 L -4.95 -3.45 Q -4.95 -4.25 -4.15 -4.25 Z`;
+  // The opposite winding cuts a window into the frame. A small sliver of fur shows beside the eye.
+  const frame = new Path2D(glasses && !sunglasses
+    ? `${outer} M -3.7 -3.05 L -3.7 3.15 Q -3.7 3.3 -3.45 3.3 L 3.5 3.3 L 3.5 -3.05 Z`
+    : outer);
+  const pupil = new Path2D("M -2.15 -2.9 L 3.1 -2.9 L 3.1 3.6 L -1.95 3.6 Q -2.35 3.6 -2.35 3.15 Z");
+  const shine = sunglasses
+    ? new Path2D("M -3.4 -2.75 L -1.15 -2.75 L -1.15 -1 L -3.4 -1 Z")
+    : new Path2D("M 0.15 -2.55 L 2.65 -2.55 L 2.65 -0.05 L 0.15 -0.05 Z");
+  if (glasses || sunglasses) {
+    stroke(ctx, new Path2D("M 27.4 32.15 L 42.2 32.15"), p.ink, sunglasses ? 1.85 : 1.25);
+  }
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(FACE_CENTER + side * 11.76, 32.65);
+    if (sunglasses) {
+      ctx.scale(1, 0.9);
+    } else {
+      ctx.scale(-side, 1);
+      fill(ctx, pupil, p.ink);
+    }
+    if (glasses || sunglasses) {
+      // Draw the frame as one ink cut, without an extra outline around the pupil.
+      fill(ctx, frame, p.ink);
+    }
+    fill(ctx, shine, p.white);
+    ctx.restore();
+  }
+}
+
+function paintChain(ctx: Ctx, color: string): void {
+  stroke(ctx, new Path2D("M 27.1 44 Q 33.5 47 41.9 45.4"), color, 0.75);
+  for (const [x, y] of [[28.4, 44], [32.4, 45.5], [36.4, 44.3], [40.4, 45.5]]) {
+    paperCut(ctx, [[x - 1.2, y - 0.6], [x + 0.7, y - 0.9], [x + 1.2, y + 0.6], [x - 0.7, y + 0.9]],
+      { color, edge: mix(color, "#fff0d4", 0.45), thickness: 0.27, shadow: 0.3, texture: 0.18 });
+  }
+}
+
+/** Reserve the visible depth for a few broad paper layers. Ink stays crisp at play scale. */
 export function paperFace(id: CatId) {
-  return cachedSprite(`paper-face:${id}`, PAPER_FACE_SIZE.w, PAPER_FACE_SIZE.h, 2, (ctx) => {
-    const face = facePaths(id), original = officialVariant(id), p = original.palette;
-    const cut = (shape: Path2D, color: string, thickness = 0.4) =>
-      paperCut(ctx, shape, { color, edge: mix(color, "#fff0d4", 0.25), thickness, shadow: 0.22, texture: 0.16 });
-    cut(face.outline, p.head, 0.65);
-    stroke(ctx, face.outline, p.ink, 1.2, 0.9);
-    ctx.save(); ctx.clip(face.outline);
-    cut(new Path2D("M 11 30 L 16 40 L 19 44 L 51 44 L 57 39 L 52 48 L 18 48 L 11 41 Z"), mix(p.head, p.headDark, 0.16), 0.2);
-    for (const layer of face.layers) cut(layer.path, p[layer.color] ?? p.head);
-    for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(34.8, 0); ctx.scale(side, 1);
-      cut(new Path2D("M 12 21.6 L 18.5 12.5 L 20.8 20.8 L 18 22.2 Z"), p.earInner, 0.35);
-      stroke(ctx, new Path2D("M 17 20.8 L 18.5 16"), mix(p.earInner, p.headLight, 0.55), 0.65, 0.7);
-      ctx.restore();
+  return cachedSprite(`paper-face:${id}`, PAPER_FACE_SIZE.w, PAPER_FACE_SIZE.h, FACE_CACHE_SCALE, (ctx) => {
+    const face = facePaths(id), { palette: p, accessories = [] } = officialVariant(id);
+    paintWhiskers(ctx, p);
+    paperCut(ctx, face.outline, { color: p.headDark, edge: mix(p.headDark, p.head, 0.13), thickness: 0.5, shadow: 0.45, texture: 0.42 });
+    ctx.save();
+    ctx.clip(face.outline);
+    paintEars(ctx, p);
+    paperCut(ctx, new Path2D(FACE_STOCK), { color: p.head, edge: mix(p.head, p.headLight, 0.3), thickness: 0.48, shadow: 0.7, texture: 0.34 });
+    for (const layer of face.layers) {
+      const color = p[layer.color] ?? p.head;
+      paperCut(ctx, layer.path, { color, edge: mix(color, p.head, 0.17), thickness: 0.3, shadow: 0.42, texture: 0.27 });
     }
-    for (const x of [22, 47]) {
-      const blush = new Path2D(); blush.ellipse(x, 37.8, 2.8, 1.2, x < 35 ? 0.12 : -0.12, 0, Math.PI * 2);
-      ctx.save(); ctx.globalAlpha *= 0.65; cut(blush, p.blush, 0.2); ctx.restore();
-    }
-    const glasses = original.accessories?.includes("glasses"), sunglasses = original.accessories?.includes("sunglasses");
-    for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(34.8 + side * 11.76, 32.72);
-      if (sunglasses) {
-        cut(new Path2D("M -4.4 -3.92 L 4.4 -3.92 Q 4.96 -3.92 4.96 -3.3 L 4.96 3.2 Q 4.96 3.76 4.4 3.76 L -4.4 3.76 Q -4.96 3.76 -4.96 3.2 L -4.96 -3.3 Q -4.96 -3.92 -4.4 -3.92 Z"), p.ink, 0.55);
-        cut(new Path2D("M -3.5 -3 L -1.2 -3 L -1.2 -1.4 L -3.5 -1.4 Z"), p.white, 0.15);
-        stroke(ctx, new Path2D("M 1.5 -3 L 3.5 -3"), p.headLight, 0.45, 0.55);
-      } else {
-        const eye = new Path2D("M -2.5 -2.8 L 2.4 -2.8 L 2.7 2.8 Q 0.2 3.8 -2.5 2.8 Z"); cut(eye, p.ink, 0.25);
-        const glint = new Path2D("M -1.9 -2.6 L 0.5 -2.6 L 0.5 -0.2 L -1.9 -0.2 Z"); cut(glint, p.white, 0.1);
-        stroke(ctx, new Path2D("M -2.6 -3.1 L 2.6 -3.1"), p.headDark, 0.55);
-        if (glasses) {
-          const frame = new Path2D("M -4.3 -4.4 L 4.3 -4.4 Q 4.96 -4.4 4.96 -3.7 L 4.96 3.7 Q 4.96 4.4 4.3 4.4 L -4.3 4.4 Q -4.96 4.4 -4.96 3.7 L -4.96 -3.7 Q -4.96 -4.4 -4.3 -4.4 Z"); stroke(ctx, frame, p.ink, 1.15);
-          stroke(ctx, new Path2D("M -3.5 -4 L 1 -4"), p.headLight, 0.5, 0.9);
-        }
-      }
-      ctx.restore();
-    }
-    if (glasses || sunglasses) stroke(ctx, new Path2D("M 28 32.2 L 41.6 32.2 M 18 30.8 L 15.5 29.8 M 51.6 30.8 L 54 29.8"), p.ink, 1.1);
-    cut(new Path2D("M 32 34.4 L 36.8 34.4 L 35 36 L 33.8 36 Z"), p.nose, 0.25);
-    stroke(ctx, new Path2D("M 34.4 36 L 34.4 37 L 31.2 38.4 M 34.4 37 L 37.6 38.4"), p.ink, 0.65);
-    if (original.accessories?.includes("gold-chain")) {
-      stroke(ctx, new Path2D("M 27.2 44.2 L 32 46 L 36.8 44.2 L 41.6 46"), p.mark ?? p.headLight, 0.6);
-      for (const [x, y] of [[28.4, 44.2], [32.4, 45.8], [36.4, 44.2], [40.4, 45.8]]) {
-        const link = new Path2D(); link.rect(x - 1.2, y - 0.85, 2.4, 1.7);
-        cut(link, p.mark ?? p.headLight, 0.3);
-      }
-    }
-    grain(ctx, face.outline, 0.08); ctx.restore();
-    for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(35, 0); ctx.scale(side, 1);
-      const whiskers = new Path2D("M 20 31.2 L 29.4 30.8 M 20 34.4 L 31 34.4 M 20 37.6 L 29.4 38");
-      stroke(ctx, whiskers, p.headDark, 1.1, 0.9); stroke(ctx, whiskers, p.headLight, 0.35, 0.75); ctx.restore();
-    }
+    paperCut(ctx, new Path2D(MUZZLE), { color: p.headLight, edge: mix(p.headLight, p.head, 0.23), thickness: 0.34, shadow: 0.22, texture: 0.24 });
+    fill(ctx, new Path2D(`
+      M 18.8 36.2 Q 21.7 35.2 25.1 36.5 Q 25.8 38.1 23.6 38.9 Q 20.4 39 18.8 36.2 Z
+      M 44.5 36.5 Q 47.8 35.2 50.8 36.2 Q 49.2 39 46 38.9 Q 43.8 38.1 44.5 36.5 Z`), p.blush);
+    paintEyes(ctx, p, accessories.includes("glasses"), accessories.includes("sunglasses"));
+    fill(ctx, new Path2D("M 32.1 34.55 Q 34.4 34.1 36.7 34.55 L 35.3 36 L 33.5 36 Z"), p.nose);
+    stroke(ctx, new Path2D("M 34.4 35.75 L 34.4 37.05 M 31.6 38.8 L 34.4 37.05 L 37.2 38.8"), p.ink, 0.95);
+    if (accessories.includes("gold-chain")) paintChain(ctx, p.mark ?? p.headLight);
+    ctx.restore();
   });
 }
 export function paperFaceEdge(id: CatId, rim: string) {
-  return cachedSprite(`paper-face-edge:${id}:${rim}`, PAPER_FACE_SIZE.w + 4, PAPER_FACE_SIZE.h + 4, 2, (ctx) => {
+  return cachedSprite(`paper-face-edge:${id}:${rim}`, PAPER_FACE_SIZE.w + 4, PAPER_FACE_SIZE.h + 4, FACE_CACHE_SCALE, (ctx) => {
     const { outline } = facePaths(id);
     ctx.translate(2, 2);
     ctx.save();
@@ -212,6 +281,7 @@ export function paperFaceEdge(id: CatId, rim: string) {
     ctx.strokeStyle = rim;
     ctx.fillStyle = rim;
     ctx.fill(outline);
+    ctx.globalAlpha *= 0.78;
     ctx.stroke(outline);
   });
 }

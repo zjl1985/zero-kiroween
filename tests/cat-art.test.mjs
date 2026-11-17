@@ -174,12 +174,13 @@ test("paper colour contours preserve official source coverage, palette, markings
 test("layered face cuts retain a narrow rim, old head placement and shared paper portraits", (t) => {
   environment(t);
   for (const art of CAT_ART.all()) {
-    const ctx = draw(art), [edge, head] = images(ctx).slice(-2), face = officialFaceContours(art.id);
+    const ctx = draw(art), [edge, head] = images(ctx).slice(-2);
     assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55]);
     assert.deepEqual(edge.args.slice(1), [-37, -73, 74, 59]);
     const palette = officialVariant(art.id).palette;
     for (const role of ["head", "headDark", "headLight", "earInner", "ink", "blush", "nose", "white"])
       assert.ok(fills(paint(head), palette[role]).length, `original identity colour: ${role}`);
+    assert.equal(fills(paint(head), palette.white).length, 2, "pure white is reserved for the two reference eye glints");
     assert.ok(paint(head).some(c => c.op === "fill" && c.args[0]?.ops.some(op => op[0] === "path" && op[1] === art.face.outline)), "renderer uses the authored silhouette");
     assert.ok(!paint(head).some((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-over"), "no raw rectangle print");
     assert.ok(paint(head).some((c) => c.op === "stroke"), "clipped sheet lips and thickness");

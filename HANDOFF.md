@@ -2,7 +2,7 @@
 
 **Latest user restriction: local commits are allowed; PUSH AND DEPLOYMENT ARE FORBIDDEN.** The user corrected the previous premature deployment. Do not interpret finishing a polish pass as permission to publish. Continue character, detail and effects work locally. This overrides older publication authorizations below.
 
-Latest checkpoint (2026-11-17): English-first polish and resource cleanup, build + 243 tests passing. One static art sheet viewed; 18 bilingual menu fixture layouts checked across 320×568, 390×844 and 844×390 with no horizontal/text overflow. User authorized commit, push and deployment; older deployment deferrals below are historical. Full live balance, audio, heap/GPU memory and FPS remain unmeasured.
+Latest checkpoint (2026-11-18). The user preferred the original pixel heads to the first reference-based paper redraw. The revised paper heads use a broad face cut, a single dark frame around each lens, short ear folds, and fewer bright edges. World and portrait art share the same cached drawings. `npm run build` and all 246 tests passed. One Chrome still shows the original references, the previous and current paper heads, and each cat in the starting yard at 1× (`output/playwright/paper-head-comparison-2026-11-18.png`). The user has yet to review this revision.
 
 Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. The current local commits are `7a3102b` (paper ecology / cohesive art) and `d5d6025` (character / scenery refinement); both are committed but not pushed to `origin/main` or deployed. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
 
@@ -203,18 +203,14 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Still open
 
-1. Real browser playtest and balance: difficulty curve, weapon / passive strength, chest pacing, Boss HP, volume, plus props, fire, districts, landmarks and the gallery.
-2. Real browser performance (**explicitly deferred by the user; do not run without a renewed request**): about 100 enemies with fire, hitches when entering unbuilt chunks, sprite caches for props and fire.
-3. User review of art and UI: map, landmarks, district ground (whether the cat and ink stay readable on the darker graveyard woods, patch density, chunk-aligned district edges), prop phases, fire, pop-up folding, journal UI, gallery, cat head edge.
-4. Result layout now uses the full device overlay, scrollable panels, one column on narrow phones and wrapping labels/values. Current code renders 13 rows (older notes said 14). One 390 × 844 English fixture screenshot was viewed; all rows and buttons fit. Final date/stamp spacing was adjusted afterwards without another screenshot. Full mobile flows, upgrade choices and landscape browser layout remain unreviewed.
-5. Paper-ecology features are now implemented, not deferred: playtest their balance, feedback, safe access to water, folded-route readability and renewal pacing. Only renewable flora regrows, not handcrafted buildings/props; temporary actor wetness is not a new damage immunity to enemies.
-6. Legacy leftovers: the unused `drawMascot` in `src/render/layout.ts` has a `pose.id === "nicole"` branch, and `craft-juice.ts` has two `"eraser-boss"` presentation checks. Kept under "do not delete blindly".
-7. Gallery skill poses / landmark markers and the new art paths have command-recording coverage. The static sheet showed a subset of art, not a review of the full gallery or its mobile layout.
-8. English default is implemented: shared DEFAULT_LOCALE, static HTML, localized document title and English subtitle. Both complete packs and saved preferences are retained.
-9. Deployment and Devpost submission, due **2026-12-05 06:00 Beijing time**. The user has deployed the previous version to Vercel and confirmed it works. Publish the latest refinement after commit / push authorization; Devpost materials remain pending. See README for settings. Record a video only with the user's consent.
-10. **Kiro ghost integrated (2026-11-17).** The user asked to finish the interrupted implementation. Completed it as an enemy, following the existing enemy/art directory: code-drawn white paper with a violet backing, two dark eyes and folding tails. The actor-clock glide periodically varies approach speed and pauses under stun; shared collision, water and fire rules apply. Registered sim/art and zh/en gallery names. Regular spawning includes ghosts from phase 0 onward (opening weight 1 against 4 blobs), capped at 8; no elite or extra wave. Roster is now five common kinds plus the Eraser. Spawn outcomes intentionally differ from earlier versions for the same seed. No browser, motion, audio or performance review of this addition yet.
+1. Review the revised cat heads with the user. In combat, check how enemies and warnings read against the graveyard ground, whether buildings hide the player, and whether skill effects compete with danger cues.
+2. Play full ten-minute runs for both cats. Assess enemy pacing, upgrades and chest timing, Boss pressure, access to shallow water, and the value of the four landmark activities. The sim tests exercise these systems and the win conditions.
+3. Check touch controls end to end, including skill use, pause, card selection, and retry. The bilingual pause, upgrade, and 13-stat result layouts have static checks at three phone sizes. Audio mixing and cue clarity still need a listening pass.
+4. Check browser memory and frame rate near the 100-enemy cap, including fire and chunk loading, when the user asks to resume profiling. The run cache and audio cleanup paths are implemented and tested.
+5. Neutral town NPCs and random helper cats have not been implemented. Ask before starting helper cats.
+6. Devpost copy and media remain pending. The documented deadline is **2026-12-05 06:00 Beijing time**. Record a video or publish a new version only on explicit user instruction.
 
-Smaller items: foreground leaves and the torn frame remain screen space; zh / en card text length on small screens is unchecked. Road/water crossings now have matching visible dry decks and tested swept passage.
+English default, Allo, the English README, Kiro Ghosts, paper-material reactions, and the four landmark activities are implemented. Kiro Ghosts use the shared fire and water rules and have a limit of eight simultaneous ghosts.
 
 ## Run and verify
 
@@ -231,7 +227,11 @@ npm test        # production build + node --test tests/*.test.mjs (237 tests)
 - Screenshots and probes in `output/playwright/` exist only on this machine and are git-ignored.
 - SSH push succeeded for `5b67387` to `origin/main`; the old blanket claim that pushing is blocked is obsolete. Only commit / push when the user authorizes it; never include `.agents/`, `output/`, `dist/` or `site/`.
 
-Kiro continuation verification: `npm run build` and `npm test` passed, 238/238 tests. No new screenshot, animation, recording, audio or FPS checks. Changes are saved in the Kiro continuation commit; not pushed. Existing historical probe references were not regenerated; same-seed snapshot tests pass, while spawn outcomes intentionally change.
+## Kiro Ghost integration (2026-11-17)
+
+The ghost is a common enemy with a white paper body, a violet backing, and a folding tail. The fold and approach speed share an actor clock that pauses under stun. Ghosts can spawn from phase 0 onward with a limit of eight. The first phase has one ghost weight for every four blob weights. Ghosts use the shared collision, water, and fire rules and are registered in the bilingual gallery. The addition changes spawn results for the same seed.
+
+This checkpoint passed build and 238 tests. Same-seed snapshot tests passed with the new roster. Historical probe reference files were kept.
 
 ## Menu and phase fixes (2026-11-17)
 

@@ -2,7 +2,7 @@
 import type { CatArt } from "../../../render/art-registry.js";
 import { drawOrbitStar, drawSkillEffect, ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
-import { drawPaperPortrait } from "../../../render/paper-face.js";
+import { drawPaperPortrait, PAPER_FACE_OUTLINE } from "../../../render/paper-face.js";
 import { glow as light } from "../../../render/paper-material.js";
 import { ellipse, line, polygon, rect } from "../../../render/pixel-art.js";
 import { NICOLE_STATS } from "./stats.js";
@@ -10,12 +10,17 @@ import { NICOLE_STATS } from "./stats.js";
 export const NICOLE_ART: CatArt = {
   id: "nicole",
   face: {
-    outline: "M 13.6 13.6 L 13.6 8 Q 13.6 7.2 14.5 7.2 L 19 7.2 L 29.6 20 L 42.4 20 L 49.6 7.2 L 54.4 7.2 Q 55.2 7.2 55.2 8 L 55.2 13.6 L 58.4 16 L 57.6 22 L 54.4 24 L 57.8 30 L 58.4 40.5 L 51.6 48 Q 35 49.5 17.5 48 L 11 41 L 11 30 L 14.4 24 L 11.2 21.6 L 11.2 15.5 Z",
+    outline: PAPER_FACE_OUTLINE,
     patches: [
-      { color: "headDark", path: "M 11 15 L 16 8 L 29 21 L 25 24 L 21 26 L 20 30 L 17 30 L 17 41 L 19 46 L 14 44 L 11 40 Z" },
-      { color: "headDark", path: "M 40.8 20 L 53 8 L 58 16 L 55.5 25 L 58 34 L 56 45 L 51 49 L 47 47 L 49 40 L 46 31 L 43 27 L 43 22 Z" },
-      { color: "headLight", path: "M 28 34.4 L 40 34.4 L 43 38 L 42 40.8 L 27.2 40.8 L 26.5 37.5 Z" },
-      { color: "white", path: "M 26 43.5 L 31 43.5 L 29 46.5 L 34 48 L 23 48 L 24 45 Z" },
+      { color: "headDark", path: `M 15 16.4 Q 19.9 15.1 24.3 17.1 L 29.5 19.3 Q 31.8 20.7 31.3 24.5
+        L 29.7 25.4 Q 28.6 22.2 26.6 22.6 Q 23.4 22.7 21.4 26.1 L 18.9 25.5
+        L 17.5 27.5 L 15 23.1 L 16.3 20.3 Z` },
+      { color: "headDark", path: "M 34 19.1 Q 35.6 18.8 37 19.4 L 36.4 24.7 L 34.6 25 Z" },
+      // A heavier temple lock on one side, with the pale cheek still showing below it.
+      { color: "headDark", path: `M 40 19.7 Q 43.1 17 48.6 16.2 L 53.4 18.1 L 54.8 22.7 L 53 25.1
+        Q 56.2 31.5 54 36.8 L 51.4 40 Q 52.4 35.5 48.9 31.8 Q 47.5 27.7 43.2 27.2
+        Q 40.3 25.6 40 19.7 Z` },
+      { color: "headLight", path: "M 20.4 25.7 Q 22 24.4 23.5 22.7 L 25.1 23.2 L 24 24.7 L 26.3 25.9 Q 23.3 26.5 20.4 25.7 Z" },
     ],
   },
   body: {

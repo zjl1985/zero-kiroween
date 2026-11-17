@@ -2,7 +2,7 @@
 import type { CatArt } from "../../../render/art-registry.js";
 import { ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
-import { drawPaperPortrait } from "../../../render/paper-face.js";
+import { drawPaperPortrait, PAPER_FACE_OUTLINE } from "../../../render/paper-face.js";
 import { glow as light } from "../../../render/paper-material.js";
 import { line, rect } from "../../../render/pixel-art.js";
 import { ZERO_STATS } from "./stats.js";
@@ -10,14 +10,19 @@ import { ZERO_STATS } from "./stats.js";
 export const ZERO_ART: CatArt = {
   id: "zero",
   face: {
-    outline: "M 13.6 13.6 L 13.6 8 Q 13.6 7.2 14.5 7.2 L 19 7.2 L 29.6 20 L 40.8 20 L 49.6 7.2 L 54.4 7.2 Q 55.2 7.2 55.2 8 L 55.2 13.6 L 58.4 16 L 57.6 22 L 54.4 24 L 57.8 30 L 58.4 40.5 L 51.6 48 Q 35 49.5 17.5 48 L 11 41 L 11 30 L 14.4 24 L 11.2 21.6 L 11.2 15.5 Z",
+    outline: PAPER_FACE_OUTLINE,
     patches: [
-      { color: "headDark", path: "M 11 15 L 16 8 L 29 21 L 25 24 L 18 21 L 17 40 L 14 44 L 11 40 Z" },
-      { color: "headDark", path: "M 41 20 L 53 8 L 58 17 L 55 25 L 57 39 L 53 44 L 51 23 Z" },
-      { color: "headLight", path: "M 28 34.4 L 40 34.4 L 43 38 L 42 40.8 L 27.2 40.8 L 26.5 37.5 Z" },
-      { color: "headDark", path: "M 20 21 L 26 17.5 L 35 19 L 44 21 L 43 24 L 36 22 L 30 25 L 25 22 Z" },
-      { color: "mark", path: "M 19.5 21 L 25 18 L 34 18.8 L 43 21 L 40 23 L 36.5 21.5 L 32 26.4 L 29 23 L 24.5 24 L 26 20.5 Z" },
-      { color: "headDark", path: "M 17 44.2 Q 34 46 53 44.2 L 52 49.5 L 17 49.5 Z" },
+      // Fur at the roots of the gold locks, kept clear of the eyes.
+      { color: "headDark", path: `M 21 21.4 Q 25.3 18.3 29.2 19.5 L 32.7 19.8 L 31.8 23.1
+        Q 30.1 24.2 28.5 22.6 L 26.8 24.5 L 25 22.2 Q 23.3 22.8 21 21.4 Z` },
+      { color: "headDark", path: `M 34.1 19.2 L 37.2 19.4 L 36.7 24.3 Q 35.3 26 34.3 24.3 Z
+        M 40.2 19.8 Q 43.9 17.6 47.8 19.9 L 49.8 23.7 L 46.5 23 L 43.7 21.5 L 41.7 24.7 Z` },
+      // Three separate sweeps echo the asymmetric gold marks in the source.
+      { color: "mark", path: `M 16 18.2 Q 18.8 15.9 21.6 17.1 Q 24.5 18 25.9 20.4
+        Q 23 19.2 21 19.8 L 18.6 22.1 L 19 19.3 Q 17.7 19.5 16 18.2 Z` },
+      { color: "mark", path: `M 23 20.1 Q 25.9 17.8 29.8 18.9 Q 33.3 20 34.5 22.5
+        Q 31.5 22.1 30.2 24.9 L 28.1 25.9 L 28.6 23.2 Q 25.9 23.5 23 20.1 Z` },
+      { color: "mark", path: "M 38.1 20.7 Q 39.7 17.7 43.9 17.4 L 45.9 18.1 Q 43.7 20.6 39 22.1 Z" },
     ],
   },
   body: {

@@ -4,7 +4,7 @@ A papercraft survivor roguelike built for Kiroween 2026. Choose one cat, explore
 
 Characters, scenery, textures, lighting, and effects are drawn entirely with TypeScript and Canvas. Sound is synthesized with Web Audio. There are no image or audio assets; offscreen canvases cache procedural drawings. Allo is bundled separately as a licensed font.
 
-**Work in progress.** The latest cat-head redesign was rejected by the author. The required direction is to use the original pixel cats as references for face shape, proportions, expression, markings, and accessories, then draw those identities in papercraft. Neither a different face nor a direct switch back to pixel rendering satisfies that requirement. A new local revision now follows those reference proportions and rectangular eyewear; it still needs author review.
+**Work in progress.** The cat heads use the original Meow Wall proportions, markings, and eyewear as the starting point for layered paper portraits. The current revision is awaiting visual review by the author.
 
 ## Run locally
 
@@ -118,7 +118,7 @@ The latest recorded code verification passed **246 tests**. Tests cover simulati
 
 Static menu fixtures in both languages were checked at 320 × 568, 390 × 844, and 844 × 390. Allo loaded, and the tested pause, upgrade, and result layouts had no horizontal or text overflow. This is not evidence of complete touch-flow or gameplay acceptance.
 
-The author rejected the earlier round-faced redesign. The current local correction uses the original pixel heads as visual references for broad cheeks, a flatter chin, compact eyes, rectangular eyewear, a small muzzle, and three whiskers on each side. One static comparison sheet was captured and viewed successfully, showing the original reference, revised paper head, and existing body side by side. This is visual review evidence, not author approval or a complete playtest.
+The latest cat-head sheet compares each original reference with the previous and revised paper heads. The revision keeps the compact eyes and rectangular frames, simplifies the fur and cheek shapes, and gives the ears a single fold. The sheet also shows both cats in the starting yard at normal game scale. The author has yet to review this revision.
 
 Full-run balance, audio quality, live memory usage, and frame rate near the enemy cap remain unverified. Neutral town NPCs and random helper cats are not implemented; helper cats require explicit approval. Passing tests does not mean the art is approved or the competition entry is complete.
 
