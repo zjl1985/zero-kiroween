@@ -112,11 +112,11 @@ main.ts cueState (diff of sim counters) ─► audio/sfx.ts and timeline.ts cues
 
 - **Ruleset.** `src/render/paper-rules.ts` holds one moon light (top-right), one hard down-right shadow, 1 to 3 flat layers and `PAPER_VALUE`; flat helpers live in `paper-kit.ts`. `paper-value.ts` grades baked ground/decor and adds a lit rim to enemy parts and the live cat. Gallery check views `?gallery=1&check=value|gloss`.
 - **Wash-out.** `src/defs/wash.ts` (numbers), `src/game/wash.ts` (sparse 32-unit grid in `SimState.wash`, sources, slow/fire/tear effects, sketch wakes, restoration, `colourKept`), `SimContext.wash` / `paint`. Render: `wash-art.ts` masks per chunk (null frame when empty), pencil chunk tiles in the shared 14-tile budget, `pencil.ts`, `sprite-sketch.ts`. Full contract in `.kiro/skills/midnight-meow-dev/references/paper-ecology.md`.
-- **Paper verbs.** `weapons/paper-cut.ts` (Zero) and `weapons/page-fold.ts` (Nicole) with `game/paper-geometry.ts`; `SimState.cut`, `fold`, `walls`; `ctx.elementHit(..., within)` polygon filter. Cat wear in `cat-detail.ts`; snip/fold cues from sim counters.
+- **Paper verbs.** `weapons/paper-cut.ts` (Zero) and `weapons/page-fold.ts` (Nicole) with `defs/weapons/paper-geometry.ts`; `SimState.cut`, `fold`, `walls`; `ctx.elementHit(..., within)` polygon filter. Cat wear in `cat-detail.ts`; snip/fold cues from sim counters.
 
 ## Testing
 
-Latest verification: **`npm run build && npm test` passed 293 tests**. `npm test` builds `dist/` plus isolated `site/` and runs `node:test` suites. New in the wash-out round: `paper-rules`, `wash`, `paper-verbs`, `paper-value`.
+Latest verification: **`npm run build && npm test` passed 295 tests**. `npm test` builds `dist/` plus isolated `site/` and runs `node:test` suites. New in the wash-out round: `paper-rules`, `wash`, `paper-verbs`, `paper-value`.
 
 - `registry.test.mjs`: pools, exclusives, evolution pairs, spawn tables, i18n keys for every def, duplicate / unknown ids, event bus order, engine isolation, no cat literals in game / render / UI / main, art registries match defs, icons, cached sprites, landmark and biome art, layouts and biome prop mixes.
 - `reactions.test.mjs`: tearing and scraps colliders, fire spread, cap and enemy damage, non-flammable materials, determinism with props and fire, persistence across chunk reloads, migrated props, reaction table integrity, pop-up fold, scarecrow burst, straw fire.

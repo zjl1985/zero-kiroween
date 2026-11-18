@@ -39,7 +39,8 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
   landmark-activities.ts   four activity definitions, shared court anchors and reward/rotor tuning
   cats/<id>/          stats.ts, def.ts, art.ts (zero, nicole)
   weapons/<id>.ts     + <id>.art.ts; steps.ts, timers.ts helpers (11 weapons incl. 2 evolved; the
-                      common watercolour-brush, Zero's paper-cut and Nicole's page-fold come last)
+                      common watercolour-brush, Zero's paper-cut and Nicole's page-fold come last);
+                      paper-geometry.ts pure loop closing / polygon tests for Paper Cut and the crease
   passives/<id>.ts    + <id>.art.ts (11 incl. the snack filler)
   evolutions/<id>.ts  echo-legion, full-moon
   enemies/<id>/       def.ts, art.ts (ink-blob, paper-bat, crumple, smudge, eraser-boss, kiro-ghost,
@@ -61,7 +62,6 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
   wash.ts             sparse wash-out colour grid: water lifts colour, Eraser blanks, pigment / lanterns /
                       pumpkins / brush / dawn repaint; paper rain, sketch wakes, colourKept; pure readers
                       (washLevelAt, washCellAt, isColourless, washEmpty ...)
-  paper-geometry.ts   pure loop closing / polygon tests for Paper Cut and the Page Fold crease
   stats.ts            playerStats fold from the registries
   world-gen.ts        bounded seeded world: SCREEN, WORLD (10 x 10 screens), CHUNK, LANDMARK, landmarks,
                       roads, districtSites, biomeAt, chunkContent (pure hash), nearColliders, nearProps;
@@ -83,7 +83,7 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   paper-rules.ts      ruleset data: PAPER_LIGHT (top-right), PAPER_SHADOW (down-right), PAPER_EDGE,
                       PAPER_LAYERS 1..3, PAPER_VALUE, probeGloss for the gallery gloss check
   paper-value.ts      bake-time value grade for ground/decor tiles, lit cut rim for enemy parts and the cat
-  wash-art.ts         wash-out masks per chunk, tide lines, wet film, blank, fold cover, cut holes, blooms,
+  wash-art.ts         wash-out masks per chunk, tide lines, wet film, blank, cut-hole blots, blooms,
                       splash / pigment / rain effects (no work when the grid is empty)
   pencil.ts           pencil primitives (raw paper, gapped lines, construction lines, hatching)
   sprite-sketch.ts    cached sketched sprite variants and pooled scratch canvases for live actors
@@ -126,7 +126,7 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,
                       world); ecology suites: environment-integration, fire-water, landmark-actions,
                       paper-elements, paper-visuals, water; wash-out round: paper-rules, wash,
-                      paper-verbs, paper-value (latest verification: 293 passing tests)
+                      paper-verbs, paper-value (latest verification: 295 passing tests)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
 docs/archive/         obsolete history, not instructions
 output/playwright/    local screenshots/probes, git-ignored, not game assets; the wash-out round's

@@ -24,7 +24,7 @@ src/defs/      content. types.ts (all def interfaces), registries.ts (empty regi
                Art files (art.ts / <id>.art.ts) sit beside their defs, import render helpers and may
                read pure helpers from game/sim.ts or the facades (enemyRadius, playerStats).
 src/game/      generic DOM-free simulation: sim.ts (createSim, step, snapshot), props.ts (reactions,
-               fire/lifecycle), paper-status.ts, water.ts, wash.ts, paper-geometry.ts, landmark-actions.ts,
+               fire/lifecycle), paper-status.ts, water.ts, wash.ts, landmark-actions.ts,
                stats.ts (playerStats fold), world-gen.ts (pure seeded world), interactions.ts,
                types.ts (SimState, STATS, EFFECT_LIFE, FX_CAP, EffectKind, Notice). Facades
                characters.ts, upgrades.ts, enemies.ts keep the old export names. No per-cat literals.
@@ -66,7 +66,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first) with system Chrome headless. If an authorized attempt fails, report the actual error without expanding verification.
 4. No animation or video-recording checks unless the user asks.
 
-Latest verification: build + **293 passing tests** after the wash-out round. The one allowed `?gallery=1` screenshot failed: the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. No animation, recording, audio or FPS checks; balance of wash-out and the paper verbs, full gameplay-screen/mobile review and user approval remain open.
+Latest verification: build + **295 passing tests** after the wash-out round. The one allowed `?gallery=1` screenshot failed: the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. No animation, recording, audio or FPS checks; balance of wash-out and the paper verbs, full gameplay-screen/mobile review and user approval remain open.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).
 

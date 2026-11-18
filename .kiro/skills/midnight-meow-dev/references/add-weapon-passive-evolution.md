@@ -89,7 +89,7 @@ Reference: `src/defs/weapons/star-fall.ts` (timed area hits) or `paper-crane.ts`
 References: `paper-cut.ts` (Zero, `timing: "move"`), `page-fold.ts` (Nicole, `timing: "auto"`) and `watercolour-brush.ts` (pool `any`). They were appended after Pumpkin Seed in this order: watercolour-brush, paper-cut, page-fold. Appending them changed no seeded card-roll test.
 
 - An exclusive card needs `pool: "<cat-id>"` **and** the id in that cat's `CharacterDef.exclusives`; never name the cat in `src/game`.
-- Geometry belongs in pure helpers (`src/game/paper-geometry.ts`: loop closing, polygon tests, crease reflection). Store live state in `SimState` (`cut`, `fold`, `walls`) and set it up in `init(state)`.
+- Geometry belongs in pure helpers (`src/defs/weapons/paper-geometry.ts`: loop closing, polygon tests, crease reflection). Store live state in `SimState` (`cut`, `fold`, `walls`) and set it up in `init(state)`.
 - `ctx.elementHit(state, x, y, r, element, power, within?)` accepts an optional polygon: props are filtered by centre and wash cells by cell centre, so only what lies inside the loop tears or turns into white cut cells.
 - Temporary walls go in `SimState.walls` (capsules with a life); `safePosition` treats them like scenery for the cat and ink. Water crossings cannot be created at runtime (shared water contract).
 - Wash-aware weapons call `ctx.paint(state, x, y, r, amount, hint?)` to repaint (hint = pigment colour) and `ctx.wash(state, x, y, r, amount, soak?)` to spill. Cut or fold hits only mark the wash grid when their radius is at least `WASH.cut.minRadius` / `WASH.fold.minRadius` (10).

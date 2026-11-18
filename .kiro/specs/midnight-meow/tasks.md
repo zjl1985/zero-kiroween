@@ -2,7 +2,7 @@
 
 Checked items record implementation, not user approval. Original task numbers/history are retained below; superseded rules and gaps are explicitly labeled rather than silently erased. The user's latest request includes all remaining art/interaction gaps and paper actors igniting with water extinguishing them. This overrides the old harmless-to-cat fire rule and deferral of ecology.
 
-Latest verification: **`npm run build && npm test` passed 293 tests** after the paper wash-out round (tasks 78 to 85). Its one allowed `?gallery=1` screenshot failed: the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. Full gameplay-screen/mobile review, balance and user art acceptance remain open; no animation, recording, audio or FPS checks were performed. The user viewed the older deployed version and asked for refinement; neither older approval nor a static image accepts the latest game.
+Latest verification: **`npm run build && npm test` passed 295 tests** after the paper wash-out round (tasks 78 to 85). Its one allowed `?gallery=1` screenshot failed: the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. Full gameplay-screen/mobile review, balance and user art acceptance remain open; no animation, recording, audio or FPS checks were performed. The user viewed the older deployed version and asked for refinement; neither older approval nor a static image accepts the latest game.
 
 ## Foundation
 

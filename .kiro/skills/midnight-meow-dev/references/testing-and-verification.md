@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 293 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 295 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -91,4 +91,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 293 passing tests, plus the one `?gallery=1` still described in `HANDOFF.md`, and a Node step probe (0.453 / 0.426 ms per step for Zero / Nicole at 100 enemies with fire and water, against 0.386 / 0.352 at e85365d). State what is still unreviewed: full gameplay screen/mobile, motion, audio (including snip/fold), balance of wash-out and the paper verbs, and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 295 passing tests, plus the one `?gallery=1` still described in `HANDOFF.md`, and a Node step probe (0.453 / 0.426 ms per step for Zero / Nicole at 100 enemies with fire and water, against 0.386 / 0.352 at e85365d). State what is still unreviewed: full gameplay screen/mobile, motion, audio (including snip/fold), balance of wash-out and the paper verbs, and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.

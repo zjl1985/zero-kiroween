@@ -48,7 +48,7 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 
 ## Washed paper (wash-out)
 
-- Three page states read from `SimState.wash`: painted (normal art), colourless (raw cream paper with a graphite pencil underdrawing of the same scene) and blank (clean paper, rubbed halo, no pencil). Washed edges get a watercolour tide line; fresh changes bloom for `WASH.bloom`. Wet cells show a wet film, fold-protected cells a translucent fold cover, Zero's cut cells white cut holes with a lifted shadow.
+- Three page states read from `SimState.wash`: painted (normal art), colourless (raw cream paper with a graphite pencil underdrawing of the same scene) and blank (clean paper, rubbed halo, no pencil). Washed edges get a watercolour tide line; fresh changes bloom for `WASH.bloom`. Wet cells show a wet film. Cut hits through colourless paper show white cut-hole blots with a lifted shadow (a live Paper Cut piece keeps only its own polygon hole). Fold protection draws nothing on the grid; the fold field and flap art already show it. Painted, never-washed ground stores no cells, so Nicole's skill, Paper Crane and the mirror dash add no wash visuals there.
 - Pencil art uses `pencil.ts` primitives and `sprite-sketch.ts` (blend modes only, no pixel reads or filters). Keep eyes readable on sketched actors. Lamps stay painted. The cat head is never redrawn; the sketch overlay sits on top.
 - An unwashed run must look and cost exactly as before: `washFrame` returns null after one empty check.
 - The gallery has a "Washed paper" section (painted, colourless, blank, tide line per district).
@@ -60,5 +60,5 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 ## Review
 
 - At most one static screenshot for authorized art verification; no animation or recording checks. For the wash-out round the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists; nobody has viewed its art in a browser. Full gameplay screen/mobile remain unreviewed.
-- Latest verification: build and 293 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
+- Latest verification: build and 295 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
 - Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.
