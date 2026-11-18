@@ -59,6 +59,8 @@ import { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
 import { catWear } from "./cat-detail.js";
+import { drawWithLitRim } from "./paper-value.js";
+import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
@@ -159,8 +161,6 @@ export function drawWorld(
   for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s);
   for (const p of YARD_PROPS) {
     if (!inView(near, p.x, p.y)) continue;
-    if (p.kind === "pumpkin" || p.kind === "candles")
-      drawGroundLight(ctx, p.x, p.y, view.time, p.s * 0.6);
     sprites.push({
       y: p.y,
       draw: () => {
@@ -209,7 +209,10 @@ export function drawWorld(
       draw: () => {
         drawFootDust(ctx, pose);
         // On colourless paper the cat is drawn over in pencil; its head art itself is untouched.
-        drawSketched(ctx, wash && sim ? sketchAmount(sim, pose.x, pose.y) : 0, pose.x, pose.y, CAT_BOX, (ctx) => catArt(pose.id).draw(ctx, pose));
+        // The live cat gets the moon-side cut rim from its finished pose (parts flip with facing).
+        const paintCat = (c: Ctx) => catArt(pose.id).draw(c, pose);
+        drawSketched(ctx, wash && sim ? sketchAmount(sim, pose.x, pose.y) : 0, pose.x, pose.y, CAT_BOX, (ctx) =>
+          pose.decoy ? paintCat(ctx) : drawWithLitRim(ctx, pose.x, pose.y, CAT_BOX, paintCat));
         if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },
     });

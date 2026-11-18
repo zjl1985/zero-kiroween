@@ -2,7 +2,7 @@
 import type { WeaponArt } from "../../render/art-registry.js";
 import { piece, oval, line, glow } from "../../render/paper-material.js";
 import { ring, paperTrail } from "../../render/combat-fx.js";
-import { combatPart, paperFleck } from "../../render/craft-combat.js";
+import { combatPart, paperFleck, shotCut } from "../../render/craft-combat.js";
 import { paperEmblem } from "../../render/paper-kit.js";
 import { ellipse } from "../../render/pixel-art.js";
 
@@ -46,10 +46,9 @@ export const PUMPKIN_SEED_ART: WeaponArt = {
     ctx.translate(x, y);
     ctx.rotate(angle + Math.PI / 2);
     combatPart("pumpkin-seed", 34, 34, (c) => {
-      glow(c, 0, 0, 12, "#ffb45c", 0.25, 0.8);
-      piece(c, oval(0, 0, 3, 4.5, 2, 0.06), "#f0dfb4", { shadow: 0.6, texture: 0.3, thickness: 0.6, edge: "#e7a35a" });
-      line(c, 0, -3, -0.5, 3, "#a8824a", 0.6);
-      line(c, 0.8, -2.5, 0.5, 2, "#fff4d0", 0.7);
+      shotCut(c, oval(0, 0, 3.3, 4.9, 2, 0.06), "#f3dca6");
+      line(c, 0, -3, -0.5, 3, "#a8824a", 0.7);
+      line(c, 0.9, -2.6, 0.6, 2, "#fff6dc", 0.7);
     }).draw(ctx, { x: 0, y: 0 });
     ctx.restore();
   },

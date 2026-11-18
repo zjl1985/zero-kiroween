@@ -44,6 +44,8 @@ import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
 import { constructionLine, hatch, pencilFootprint, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
 import { flatCut, fringeStrip, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
+import { PAPER_VALUE } from "./paper-rules.js";
+import { gradeCanvas } from "./paper-value.js";
 import {
   bush,
   candles,
@@ -77,6 +79,7 @@ import {
   stitch,
   stroke,
   surface,
+  withFlatShadows,
   type Ctx,
   type Point,
 } from "./paper-material.js";
@@ -137,7 +140,11 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
       w,
       h,
       2,
-      (c) => paint(c, ax, ay, s, v),
+      (c, canvas) => {
+        withFlatShadows(() => paint(c, ax, ay, s, v));
+        // Plain decor sits a step below the actors; landmark pieces keep their full value.
+        if (own) gradeCanvas(canvas, PAPER_VALUE.decor);
+      },
       { x: ax / w, y: ay / h },
     );
   // Pieces standing on colourless paper show their pencil version (cached per sprite and step).
@@ -148,6 +155,9 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
 
 // ---------------------------------------------------------------- flat art baked in chunks
 function flatDecor(ctx: Ctx, d: Decor): void {
+  withFlatShadows(() => flatDecorPieces(ctx, d));
+}
+function flatDecorPieces(ctx: Ctx, d: Decor): void {
   const { x, y, s, seed } = d;
   if (d.kind === "flowers") {
     for (let i = 0; i < 4; i++) flower(ctx, x + (i - 1.5) * 6 * s, y + Math.sin(i + seed) * 4, 0.6 * s, seed + i);
@@ -316,8 +326,10 @@ function* biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number
 /** Ground-level landmark art baked into the chunk caches. */
 function landmarkGround(ctx: Ctx, l: Landmark): void {
   const art = LANDMARK_ART.find(l.kind);
-  art?.base(ctx, l);
-  art?.ground(ctx, l);
+  withFlatShadows(() => {
+    art?.base(ctx, l);
+    art?.ground(ctx, l);
+  });
 }
 /** Span of the river band in a stand-alone landmark preview. */
 const PREVIEW_SPAN = 260;
@@ -423,6 +435,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   ctx.translate(-c.x, -c.y);
   if (c.start) {
     ctx.drawImage(startYard(), 0, 0, 960, 540);
+    gradeCanvas(canvas, PAPER_VALUE.ground);
     return;
   }
   const x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
@@ -465,8 +478,9 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
       flatDecor(ctx, d);
       yield;
     }
-  for (const l of lamps) glow(ctx, l.x, l.y, 55, "#eab563", 0.13, 0.55);
   drawHedge(ctx, x0, y0, x1, y1);
+  // The whole baked ground steps down in value; lamp pools are laid per frame (world.ts).
+  gradeCanvas(canvas, PAPER_VALUE.ground);
 }
 /** Drain the same painter on the worker, or copy an already cached start yard. */
 export function buildChunk(seed: number, cx: number, cy: number, layer: ChunkLayer = "paint"): CanvasSurface {

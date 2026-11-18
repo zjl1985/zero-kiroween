@@ -22,7 +22,7 @@ export const BASE_DECOR: DecorMix = {
   trees: [1, 3],
   bushes: [2, 4],
   stones: [1, 3],
-  lampChance: 0.45,
+  lampChance: 0.22,
   fenceChance: 0.3,
   candlesChance: 0.12,
   pumpkinChance: 0.18,

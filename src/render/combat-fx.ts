@@ -15,7 +15,7 @@ import {
 } from "./art-registry.js";
 import { orbitPositions } from "../game/sim.js";
 import { rect, type Ctx } from "./pixel-art.js";
-import { combatPart, paperFleck } from "./craft-combat.js";
+import { combatPart, paperFleck, shotCut } from "./craft-combat.js";
 import { foldLine } from "./paper-kit.js";
 import { stroke } from "./paper-material.js";
 
@@ -57,7 +57,8 @@ export function star(
       const a = i * Math.PI / 4, rr = i % 2 ? 2.56 : 8;
       points.push([Math.cos(a) * rr, Math.sin(a) * rr]);
     }
-    paperPiece(c, paperPath(points), color, { shadow: 0.6, texture: 0.35, thickness: 0.65 });
+    // Solid colour on a dark paper outline (the shot rule), with one flat lit facet.
+    shotCut(c, paperPath(points), color);
     c.fillStyle = "#fff3d155";
     c.fill(paperPath([[0, -8], [0, 0], [-2.56, -2.56]]));
     foldLine(c, 0, -6, 0, 6, 0.45);
@@ -77,7 +78,6 @@ export function drawOrbitStar(
   index: number,
   full = false,
 ): void {
-  light(ctx, x, y - 12, full ? 22 : 17, full ? "#f1dca6" : "#c2a6ee", 0.24, 1);
   paperTrail(ctx, x, y - 12, time * 1.2 + index, 18, full ? "#c5b58d" : "#9b84bf", 0.65);
   star(ctx, x, y - 12, full ? 8.5 : 7, full ? "#efe2bd" : "#d7c8f6", time * 1.2 + index);
   star(ctx, x, y - 12, full ? 4 : 3, "#fff1ce", time * 1.2 + index);

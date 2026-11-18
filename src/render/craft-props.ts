@@ -15,7 +15,9 @@ import { inFootprint } from "../game/props.js";
 import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
-import { glow, hash, mix, path, stroke, type Ctx } from "./paper-material.js";
+import { glow, hash, mix, path, stroke, withFlatShadows, type Ctx } from "./paper-material.js";
+import { PAPER_VALUE } from "./paper-rules.js";
+import { gradeCanvas } from "./paper-value.js";
 import { foldLine } from "./paper-kit.js";
 import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
@@ -39,7 +41,11 @@ function propSprite(art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burnt: boolean)
     w,
     h,
     2,
-    (c) => art.paint(c, ax, ay, s, v, name, burnt),
+    (c, canvas) => {
+      withFlatShadows(() => art.paint(c, ax, ay, s, v, name, burnt));
+      // Props sit with the scenery, a value step below cats, ink and shots.
+      gradeCanvas(canvas, PAPER_VALUE.decor);
+    },
     { x: ax / w, y: ay / h },
   );
 }

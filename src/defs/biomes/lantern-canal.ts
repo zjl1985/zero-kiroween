@@ -4,7 +4,7 @@ import { WATER, waterOval } from "../water.js";
 /** Real canal pockets, shallow banks, reeds and lantern strings along the towpaths. */
 export const LANTERN_CANAL: BiomeDef = {
   id: "lantern-canal",
-  decor: { cottageChance: 0.12, trees: [1, 2], stones: [2, 4], lampChance: 0.8, fenceChance: 0.1, flowers: [1, 2] },
+  decor: { cottageChance: 0.12, trees: [1, 2], stones: [2, 4], lampChance: 0.4, fenceChance: 0.1, flowers: [1, 2] },
   water(a) {
     const { rx, ry, jitter } = WATER.canal;
     return [0, 1].map((i) => {

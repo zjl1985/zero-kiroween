@@ -17,6 +17,7 @@ import {
 } from "./paper-material.js";
 import { cachedSprite } from "../engine/sprite.js";
 import { flatLayer, flatShadow } from "./paper-kit.js";
+import { addLitRim } from "./paper-value.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
@@ -27,18 +28,25 @@ export interface Look {
   x: number;
   y: number;
 }
-/** Finite static cuts only: callers hinge/scale them without time or actor-id cache keys. */
-export function enemyPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void) {
-  return cachedSprite(`enemy-part:${key}`, w, h, 2, (ctx) => {
+/**
+ * Finite static cuts only: callers hinge/scale them without time or actor-id cache keys.
+ * Body cuts get the moon-side cut rim baked once per part (PAPER_VALUE.rim) so ink
+ * reads against the ground; ground marks, eyes and rosettes pass `rim = false`.
+ */
+export function enemyPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void, rim = true) {
+  return cachedSprite(`enemy-part:${key}`, w, h, 2, (ctx, canvas) => {
+    ctx.save();
     ctx.translate(w / 2, h / 2);
     paint(ctx);
+    ctx.restore();
+    if (rim) addLitRim(canvas, 2);
   }, { x: 0.5, y: 0.5 });
 }
 export function enemyShadow(ctx: Ctx, x: number, y: number, rx: number, ry: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(rx / 16, ry / 5);
-  enemyPart("contact", 48, 24, (c) => flatShadow(c, 0, 0, 16, 5, 1.15)).draw(ctx, { x: 0, y: 0 });
+  enemyPart("contact", 48, 24, (c) => flatShadow(c, 0, 0, 16, 5, 1.15), false).draw(ctx, { x: 0, y: 0 });
   ctx.restore();
 }
 /**
@@ -65,7 +73,7 @@ export function googly(
     blink = beat < 0.13;
   enemyPart("eye", 16, 18, (c) => {
     flatLayer(c, { shape: oval(0, 0, 4, 4.2, 3, 0.05), color: "#f6efe0", lift: 0.55, rim: "#ffffff", texture: 0.2, thickness: 0.6 });
-  }).draw(ctx, { x, y, scale: r / 4 });
+  }, false).draw(ctx, { x, y, scale: r / 4 });
   if (blink) {
     line(ctx, x - r * 0.8, y, x + r * 0.8, y, "#2a2033", 1.1);
     return;
@@ -131,7 +139,7 @@ function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void 
     }
     c.globalAlpha = 0.72;
     flatLayer(c, { shape: path(pts), color: "#c99a45", lift: 0.5, rim: "#ffe7a6", texture: 0.3 });
-  }).draw(ctx, { x: e.x, y: e.y + 1, scale: base / 12 });
+  }, false).draw(ctx, { x: e.x, y: e.y + 1, scale: base / 12 });
   art.draw(ctx, { ...e, radius: base }, time, look);
   ctx.restore();
   if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y + (art.crownY ?? -base * 2.05) * k, radius / 14, e.id, time);
@@ -182,7 +190,7 @@ export function drawEnemyGround(ctx: Ctx, state: SimState): void {
       flatLayer(c, { shape: oval(0, 0, 20, 12.4, v, 0.28), color: "#33263f", lift: 0, rim: "#6c5486", texture: 0.45 });
       c.fillStyle = "#8a74a855";
       c.fill(oval(-6, -3.6, 5.6, 2.4, v + 2));
-    }).draw(ctx, { x: h.x, y: h.y, scale: h.radius / 20 });
+    }, false).draw(ctx, { x: h.x, y: h.y, scale: h.radius / 20 });
     ctx.restore();
   }
   for (const s of state.enemyShots) {

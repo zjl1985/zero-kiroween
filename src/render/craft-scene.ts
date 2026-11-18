@@ -14,9 +14,12 @@ import {
   mix,
   hash,
   surface,
+  withFlatShadows,
   type Ctx,
   type Point,
 } from "./paper-material.js";
+import { PAPER_VALUE } from "./paper-rules.js";
+import { gradeCanvas } from "./paper-value.js";
 import {
   LAMPS,
   YARD_PROPS,
@@ -191,6 +194,7 @@ export function pine(ctx: Ctx, x: number, y: number, s: number, c: string): void
 export interface GroundLamp {
   x: number;
   y: number;
+  s?: number;
 }
 /** The ground sheet silhouette of a tile (the wavy horizon edge in the top row). */
 export function groundOutline(x0: number, y0: number, w: number, h: number, top: boolean): Path2D {
@@ -512,7 +516,12 @@ function windowArt(ctx: Ctx, x: number, y: number, w: number, h: number, style =
     ? path([[x - pad, y + h + pad], [x - pad, y + 1 - pad], [x + w + pad, y + 1 - pad], [x + w + pad, y + h + pad]])
     : new Path2D(`M ${x - pad} ${y + h + pad} L ${x - pad} ${y + 7} Q ${x + w / 2} ${y - 7 - pad * 2} ${x + w + pad} ${y + 7} L ${x + w + pad} ${y + h + pad} Z`);
   const p = arch(0);
-  glow(ctx, x + w / 2, y + h * 0.6, w * 1.25, "#ffc065", 0.23);
+  // Window light stays flat and modest (a pale sill wash, no gradient halo).
+  ctx.save();
+  ctx.fillStyle = "#ffc065";
+  ctx.globalAlpha *= 0.09;
+  ctx.fill(oval(x + w / 2, y + h * 0.6, w * 0.95, h * 0.75, 3, 0.05));
+  ctx.restore();
   paperCut(ctx, arch(3), { color: "#948069", shadow: 0.6, thickness: 0.8, texture: 0.65, edge: "#e0c7a0" });
   paperCut(ctx, arch(1.7), { color: "#493f3c", shadow: 0, thickness: 0.7, texture: 0.5 });
   piece(ctx, p, "#edbb64", {
@@ -820,7 +829,14 @@ export function lantern(ctx: Ctx, x: number, y: number, s: number, post = true):
     `M -4 ${top - 1} C -6 ${top - 14} 7 ${top - 13} 5 ${top - 1}`,
   );
   stroke(ctx, handle, "#b28d54", 1.1);
-  glow(ctx, 0, top + 12, 31, "#ffc15b", 0.28);
+  // A dim flat halo: plain lamps stay below the interactive lanterns and pumpkins.
+  ctx.save();
+  ctx.fillStyle = "#ffc15b";
+  ctx.globalAlpha *= 0.07;
+  ctx.fill(oval(0, top + 13, 22, 20, 5, 0.05));
+  ctx.globalAlpha *= 1.4;
+  ctx.fill(oval(0, top + 13, 13, 13, 6, 0.05));
+  ctx.restore();
   piece(
     ctx,
     path([
@@ -842,17 +858,22 @@ export function lantern(ctx: Ctx, x: number, y: number, s: number, post = true):
     "#e2a956",
     { shadow: 1.7, edge: "#664a35", texture: 0.45, thickness: 1.1 },
   );
-  const g = ctx.createLinearGradient(-7, top + 8, 7, top + 20);
-  g.addColorStop(0, "#efb95e");
-  g.addColorStop(0.5, "#fff0b1");
-  g.addColorStop(1, "#efbb69");
-  ctx.fillStyle = g;
+  ctx.fillStyle = "#e9b663";
   ctx.fill(
     path([
       [-6, top + 6],
       [6, top + 6],
       [5, top + 21],
       [-5, top + 21],
+    ]),
+  );
+  ctx.fillStyle = "#f6d68c";
+  ctx.fill(
+    path([
+      [-3, top + 8],
+      [3, top + 8],
+      [2.5, top + 19],
+      [-2.5, top + 19],
     ]),
   );
   for (const dx of [-8, 0, 8])
@@ -937,7 +958,7 @@ export function pumpkin(
     { shadow: 0.6, edge: "#a38c50", texture: 0.8, thickness: 0.6 },
   );
   if (seed % 4 !== 0) {
-    glow(ctx, 0, -8, 19, "#f9c264", 0.15);
+    // Decor pumpkins keep an unlit carved face; only interactive pumpkins glow.
     for (const p of [
       path([
         [-11, -12],
@@ -962,9 +983,9 @@ export function pumpkin(
         [-6, -1],
       ]),
     ]) {
-      piece(ctx, p, "#ffe4a0", {
+      piece(ctx, p, "#5a3220", {
         shadow: 0,
-        edge: "#9c541f",
+        edge: "#c9864a",
         texture: 0.35,
         thickness: 0.65,
       });
@@ -1081,11 +1102,10 @@ export function candles(ctx: Ctx, x: number, y: number, s: number): void {
     const p = new Path2D(
       `M ${dx! - 2} ${-h! - 1} Q ${dx! - 4} ${-h! - 5} ${dx!} ${-h! - 10} Q ${dx! + 5} ${-h! - 4} ${dx! + 2} ${-h! - 1} Z`,
     );
-    glow(ctx, dx!, -h! - 4, 13, "#f4bf65", 0.17);
-    piece(ctx, p, "#f7ca76", {
+    piece(ctx, p, "#e7bd78", {
       shadow: 0,
       texture: 0.25,
-      edge: "#ffdca1",
+      edge: "#f6d39a",
       thickness: 0.3,
     });
   }
@@ -1330,7 +1350,7 @@ function buildStartYard(): CanvasSurface {
 }
 /** The start yard below the sky (hills, ground, road, cottages, garden), at 2x, world 0..960 x 0..540. */
 export function startYard(): CanvasSurface {
-  return (background ??= buildStartYard());
+  return (background ??= withFlatShadows(buildStartYard));
 }
 let skyCanvas: CanvasSurface | undefined;
 /** Screen-space sky; the world's ground covers it once the camera leaves the north edge. */
@@ -1353,12 +1373,15 @@ export function drawProp(ctx: Ctx, p: SceneProp): void {
     target.scale(2, 2);
     const x = 90,
       y = 148;
-    if (p.kind === "tree") tree(target, x, y, p.s, p.seed);
-    if (p.kind === "bush") bush(target, x, y, p.s, p.seed);
-    if (p.kind === "pumpkin") pumpkin(target, x, y, p.s, p.seed);
-    if (p.kind === "fence") fence(target, x, y, p.s);
-    if (p.kind === "stone") stone(target, x, y, p.s, p.seed);
-    if (p.kind === "candles") candles(target, x, y, p.s);
+    withFlatShadows(() => {
+      if (p.kind === "tree") tree(target, x, y, p.s, p.seed);
+      if (p.kind === "bush") bush(target, x, y, p.s, p.seed);
+      if (p.kind === "pumpkin") pumpkin(target, x, y, p.s, p.seed);
+      if (p.kind === "fence") fence(target, x, y, p.s);
+      if (p.kind === "stone") stone(target, x, y, p.s, p.seed);
+      if (p.kind === "candles") candles(target, x, y, p.s);
+    });
+    gradeCanvas(c, PAPER_VALUE.decor);
     propCache.set(key, c);
   }
   ctx.drawImage(c, p.x - 90, p.y - 148, 180, 180);
@@ -1374,7 +1397,8 @@ export function drawLamp(
     c = surface(140, 190);
     const target = c.getContext("2d")!;
     target.scale(2, 2);
-    lantern(target, 35, 85, l.s);
+    withFlatShadows(() => lantern(target, 35, 85, l.s));
+    gradeCanvas(c, PAPER_VALUE.decor);
     lamps.set(l.s, c);
   }
   ctx.drawImage(c, l.x - 35, l.y - 85, 70, 95);
@@ -1386,7 +1410,17 @@ export function drawGroundLight(
   _time: number,
   s = 1,
 ): void {
-  glow(ctx, x, y, 55 * s, "#eab563", 0.13, 0.55);
+  lampPool(ctx, x, y, s);
+}
+/** A plain light's pool on the ground: two flat warm ovals, no gradient, kept dim. */
+export function lampPool(ctx: Ctx, x: number, y: number, s = 1): void {
+  const { color, alpha, rx, ry } = PAPER_VALUE.lampPool;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha *= alpha;
+  ctx.fill(oval(x + 3, y + 2, rx * s, ry * s, 31, 0.08));
+  ctx.fill(oval(x + 2, y + 1, rx * 0.55 * s, ry * 0.55 * s, 37, 0.08));
+  ctx.restore();
 }
 export function drawWind(_ctx: Ctx, _time: number): void {}
 export function drawAtmosphere(
@@ -1404,7 +1438,7 @@ export function drawAtmosphere(
       l.y - 38 * l.s,
       25 * l.s,
       "#f5bd5f",
-      (0.14 + 0.01 * Math.sin(time * 5 + l.x)) * dim,
+      (0.07 + 0.01 * Math.sin(time * 5 + l.x)) * dim,
     );
   // A few suspended details complete the still composition; they never resemble enemies.
   for (let i = 0; i < 10; i++) {

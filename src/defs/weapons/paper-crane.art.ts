@@ -2,7 +2,7 @@
 import type { WeaponArt } from "../../render/art-registry.js";
 import { piece, path, line } from "../../render/paper-material.js";
 import { ellipse } from "../../render/pixel-art.js";
-import { combatPart } from "../../render/craft-combat.js";
+import { combatPart, shotCut } from "../../render/craft-combat.js";
 import { paperTrail } from "../../render/combat-fx.js";
 import { paperEmblem, foldLine } from "../../render/paper-kit.js";
 
@@ -34,7 +34,7 @@ export const PAPER_CRANE_ART: WeaponArt = {
       ctx.save();
       ctx.scale(1, side * (0.8 + flap * 0.25));
       combatPart("crane-wing", 30, 30, (c) => {
-        piece(c, path([[4, 0], [-4, -10], [-8, -3], [-3, 1]]), "#efe6d2", { shadow: 0.7, edge: "#fff3d5", texture: 0.4, thickness: 0.65 });
+        shotCut(c, path([[4, 0], [-4, -10], [-8, -3], [-3, 1]]), "#f1e8d4");
         c.fillStyle = "#b9b5a4";
         c.fill(path([[4, 0], [-4, -10], [-2, -2]]));
         foldLine(c, -4, -9, 3, 0, 0.5);
@@ -42,7 +42,7 @@ export const PAPER_CRANE_ART: WeaponArt = {
       ctx.restore();
     }
     combatPart("crane-keel", 32, 20, (c) => {
-      piece(c, path([[-10, 3], [-6, -1], [5, -1], [8, -6], [11, -3], [8, -2], [7, 2], [-3, 3]]), "#e4d7b9", { shadow: 0.7, edge: "#fff4db", texture: 0.35, thickness: 0.6 });
+      shotCut(c, path([[-10, 3], [-6, -1], [5, -1], [8, -6], [11, -3], [8, -2], [7, 2], [-3, 3]]), "#e6d9bb");
       line(c, -7, 1, 5, 1, "#a99b80", 0.6);
     }).draw(ctx, { x: 0, y: 0 });
     ctx.restore();

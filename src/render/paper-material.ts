@@ -1,5 +1,6 @@
 import type { CanvasSurface } from "../engine/surface.js";
 import { hash, mix, surface, type Ctx, type Point } from "./pixel-art.js";
+import { PAPER_SHADOW } from "./paper-rules.js";
 export { mix, hash, surface };
 export type { Ctx, Point };
 
@@ -155,6 +156,21 @@ export interface PaperOptions {
   texture?: number;
   thickness?: number;
 }
+let flatDepth = 0;
+/**
+ * Runs `paint` with every `piece` (and so every `paperCut`) casting the
+ * ruleset's hard down-right shadow instead of a blurred one. Used where
+ * scenery, props and lamps are baked into cached sprites; the approved cat
+ * heads and anything outside the call keep the default soft shadow.
+ */
+export function withFlatShadows<T>(paint: () => T): T {
+  flatDepth++;
+  try {
+    return paint();
+  } finally {
+    flatDepth--;
+  }
+}
 export function piece(
   ctx: Ctx,
   p: Path2D,
@@ -165,11 +181,19 @@ export function piece(
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  if ((options.shadow ?? 2) > 0) {
+  const lift = options.shadow ?? 2;
+  if (lift > 0 && flatDepth > 0) {
+    ctx.save();
+    ctx.translate(PAPER_SHADOW.dx * lift * 0.75, PAPER_SHADOW.dy * lift * 0.75);
+    ctx.globalAlpha *= PAPER_SHADOW.alpha * 0.85;
+    ctx.fillStyle = PAPER_SHADOW.color;
+    ctx.fill(p);
+    ctx.restore();
+  } else if (lift > 0) {
     ctx.shadowColor = "rgba(15,10,25,.62)";
-    ctx.shadowBlur = (options.shadow ?? 2) * 2.5;
+    ctx.shadowBlur = lift * 2.5;
     ctx.shadowOffsetX = -0.9;
-    ctx.shadowOffsetY = (options.shadow ?? 2) * 1.8;
+    ctx.shadowOffsetY = lift * 1.8;
   }
   ctx.fillStyle = color;
   ctx.fill(p);
@@ -262,9 +286,15 @@ export function shadow(
   rx: number,
   ry: number,
 ): void {
+  // Hard two-step paper contact shadow pushed down-right (the ruleset's one light), no blur.
+  const k = Math.hypot(PAPER_SHADOW.dx, PAPER_SHADOW.dy) || 1,
+    ox = (PAPER_SHADOW.dx / k) * (1.2 + ry * 0.3),
+    oy = (PAPER_SHADOW.dy / k) * (0.6 + ry * 0.2);
   ctx.save();
-  ctx.filter = "blur(2px)";
-  ctx.fillStyle = "rgba(15,13,23,.32)";
-  ctx.fill(oval(x - 2, y + 2, rx, ry));
+  ctx.fillStyle = PAPER_SHADOW.color;
+  ctx.globalAlpha *= 0.15;
+  ctx.fill(oval(x + ox, y + oy, rx * 1.06, ry * 1.12));
+  ctx.globalAlpha *= 1.75;
+  ctx.fill(oval(x + ox * 0.55, y + oy * 0.55, rx * 0.86, ry * 0.8));
   ctx.restore();
 }

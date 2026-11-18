@@ -39,6 +39,24 @@ export const PAPER_FIBER = 0.42;
 /** Allowed number of flat layers per asset. */
 export const PAPER_LAYERS = Object.freeze({ min: 1, max: 3 });
 
+/**
+ * Value hierarchy of the combat screen: the ground and plain decor sit
+ * lower and greyer than the actors, so cats, ink, shots and the interactive
+ * warm lights read first. Applied once when a tile or sprite is baked.
+ */
+export const PAPER_VALUE = Object.freeze({
+  /** Baked ground tiles (district sheets, roads, landmark ground, flat decor). */
+  ground: Object.freeze({ desaturate: 0.36, multiply: "#c3bfcf" }),
+  /** Plain decor sprites (trees, cottages, bushes, fences, stones, decor pumpkins, candles, lamps). */
+  decor: Object.freeze({ desaturate: 0.24, multiply: "#dcd8e3" }),
+  /** Light cut-edge rim on the moon side of actors (cats and ink), in drawing units. */
+  rim: Object.freeze({ width: 1.15, color: "#fff1cf", alpha: 0.78 }),
+  /** Dark paper outline under every player shot. */
+  shotOutline: Object.freeze({ color: "#1c142b", width: 1.7, alpha: 0.9 }),
+  /** Warm light pool of a non-interactive lamp on the ground (flat, no gradient). */
+  lampPool: Object.freeze({ color: "#e9b768", alpha: 0.075, rx: 46, ry: 20 }),
+});
+
 /** Canvas features that read as gloss rather than paper. */
 export const PAPER_GLOSS = Object.freeze({
   calls: Object.freeze(["createLinearGradient", "createRadialGradient", "createConicGradient"]),

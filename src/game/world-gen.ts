@@ -625,7 +625,8 @@ function genericDecor(seed: number, cx: number, cy: number, biome: BiomeDef): Pi
     ground = WORLD.playTop + 20;
   if (h() < mix.cottageChance) place("cottage", 1, 130, 0.72, 0.95, back);
   place("tree", range(mix.trees), 60, 0.82, 1.15, back);
-  if (h() < mix.lampChance) place("lamp", 1, 40, 0.85, 1.05, ground);
+  // Lamps stand only beside roads (light where paths meet, not scattered in the fields).
+  if (h() < mix.lampChance) place("lamp", 1, 40, 0.85, 1.05, ground, false, true);
   if (h() < mix.fenceChance) place("fence", 1 + Math.floor(h() * 2), 52, 0.9, 1.15, ground);
   place("stone", range(mix.stones), 26, 0.55, 1.3, ground);
   place("bush", range(mix.bushes), 36, 0.7, 1.2, ground);

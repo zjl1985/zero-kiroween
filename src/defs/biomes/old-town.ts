@@ -3,7 +3,7 @@ import type { BiomeDef } from "../types.js";
 /** Cottages, fences and lamps; lantern strings, mailboxes and washing by the roads. */
 export const OLD_TOWN: BiomeDef = {
   id: "old-town",
-  decor: { cottageChance: 0.55, trees: [1, 2], lampChance: 0.75, fenceChance: 0.5, pumpkinChance: 0.12 },
+  decor: { cottageChance: 0.55, trees: [1, 2], lampChance: 0.38, fenceChance: 0.5, pumpkinChance: 0.12 },
   props: [
     { prop: "paper-lanterns", chance: 0.55, count: [1, 1], roadside: true },
     { prop: "mailbox", chance: 0.5, count: [1, 1], roadside: true },

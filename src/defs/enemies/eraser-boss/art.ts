@@ -207,7 +207,7 @@ export const ERASER_BOSS_ART: EnemyArt = {
         flatLayer(c, { shape: new Path2D("M -40 -6 Q -10 -11 22 -8 Q 40 -6 46 -1 Q 38 6 18 8 Q -12 10 -38 6 Q -46 0 -40 -6 Z"), color: "#efe5d0", rim: "#fffaf0", lift: 0, texture: 0.3 });
         c.globalAlpha = 0.45;
         for (const [y, l] of [[-4, 30], [0, 40], [4, 26]] as const) line(c, -30, y, -30 + l, y + 0.5, "#fffaf0", 1.6);
-      }).draw(ctx, { x: 0, y: 0, scale: R / 26 });
+      }, false).draw(ctx, { x: 0, y: 0, scale: R / 26 });
       ctx.restore();
     }
     const a = e.act;

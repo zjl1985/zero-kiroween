@@ -67,8 +67,11 @@ const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
 /** Gloss anywhere in a painted command stream, including cached sprite canvases it drew. */
 const gloss = (calls) => calls.filter((c) => /Gradient$/.test(c.op) || c.op === "shadowBlur" ||
   c.op === "filter" && /blur/.test(String(c.args[0])) || c.globalCompositeOperation === "lighter").map((c) => c.op);
-function allPaint(ctx) {
-  return ctx.calls.flatMap((c) => c.op === "drawImage" ? [c, ...allPaint(c.args[0].getContext("2d"))] : [c]);
+function allPaint(ctx, seen = new Set()) {
+  // Bake passes (value grade, lit rim) read a canvas back through a scratch canvas; visit each once.
+  if (seen.has(ctx)) return [];
+  seen.add(ctx);
+  return ctx.calls.flatMap((c) => c.op === "drawImage" ? [c, ...allPaint(c.args[0].getContext("2d"), seen)] : [c]);
 }
 function restored(ctx) {
   assert.equal(ctx.depth, 0);
@@ -225,7 +228,7 @@ test("tall registered buildings yield by their bounds, not a historical landmark
 
 test("world status hooks follow actual actor art and exclude decoys; props follow deferred lifecycle", () => {
   const world = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
-  assert.match(world, /catArt\(pose\.id\)\.draw\(ctx, pose\)\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
+  assert.match(world, /drawWithLitRim\(ctx, pose\.x, pose\.y, CAT_BOX, paintCat\)\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
   assert.match(world, /drawCraftEnemy\(ctx, e,[\s\S]*?if \(e\.spawnTime <= 0\) drawActorPaperStatus/);
   assert.match(world, /drawPaperStatusEffect\(ctx, effect\)/);
   const props = readFileSync(new URL("../src/render/craft-props.ts", import.meta.url), "utf8");
@@ -384,8 +387,11 @@ import { CHUNK, chunkOf, landmarks } from "../dist/game/world-gen.js";
 import { BIOME_ART } from "../dist/render/art-index.js";
 
 /** A JSON-safe command stream: nested sprite/noise canvases are expanded, paths become their ops. */
-function stream(ctx) {
-  const value = (a) => a?.getContext ? stream(a.getContext("2d")) : a instanceof Path ? a.ops : a?.data ? a.data.length : a;
+function stream(ctx, seen = new Set()) {
+  // Bake passes (value grade, lit rim) read a canvas back through a scratch canvas; expand each once.
+  if (seen.has(ctx)) return "self";
+  seen.add(ctx);
+  const value = (a) => a?.getContext ? stream(a.getContext("2d"), seen) : a instanceof Path ? a.ops : a?.data ? a.data.length : a;
   return ctx.calls.map((c) => ({
     op: c.op, args: (c.args ?? []).map(value), alpha: c.globalAlpha, composite: c.globalCompositeOperation,
     fill: typeof c.fillStyle === "object" ? "pattern" : c.fillStyle, stroke: typeof c.strokeStyle === "object" ? "pattern" : c.strokeStyle,

@@ -6,9 +6,11 @@ import {
   line,
   glow,
   hash,
+  mix,
   type Ctx,
   type Point,
 } from "./paper-material.js";
+import { PAPER_VALUE } from "./paper-rules.js";
 import { cachedSprite } from "../engine/sprite.js";
 import { crease, flatLayer, foldLine } from "./paper-kit.js";
 import { enemyPart, enemyShadow } from "./craft-enemies.js";
@@ -19,6 +21,22 @@ export function combatPart(key: string, w: number, h: number, paint: (ctx: Ctx) 
     ctx.translate(w / 2, h / 2);
     paint(ctx);
   }, { x: 0.5, y: 0.5 });
+}
+/**
+ * A player shot cut: a dark paper outline, then one solid flat colour (no
+ * glow, no translucency), so shots read against ground, decor and ink.
+ */
+export function shotCut(ctx: Ctx, p: Path2D, color: string): void {
+  const o = PAPER_VALUE.shotOutline;
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.globalAlpha *= o.alpha;
+  ctx.strokeStyle = o.color;
+  ctx.lineWidth = o.width * 1.6;
+  ctx.stroke(p);
+  ctx.restore();
+  ctx.fillStyle = color;
+  ctx.fill(p);
 }
 export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: string, angle = 0): void {
   ctx.save();
@@ -84,7 +102,7 @@ function inkBlobSheet(v: number) {
 function inkSpot(v: number) {
   return enemyPart(`ink-spot:${v}`, 22, 14, (c) => {
     flatLayer(c, { shape: oval(0, 0, 5 + v, 2.6, v + 41, 0.4), color: "#241d36", rim: "#5d4f80", lift: 0, texture: 0.3 });
-  });
+  }, false);
 }
 export function drawCraftBlob(
   ctx: Ctx,
@@ -139,17 +157,15 @@ export function drawCraftShot(
   ctx.translate(x, y);
   ctx.rotate(Math.atan2(vy, vx));
   combatPart(`meowline:${echo ? 1 : 0}:${empowered ? 1 : 0}`, 64, 28, (c) => {
-    const color = echo ? "#a9d4e4" : "#efc37a", core = echo ? "#edf8f3" : "#fff0bd";
-    glow(c, 0, 0, empowered ? 13 : 9, color, 0.2);
-    c.save(); c.globalAlpha = 0.4;
-    piece(c, path([[-26, -1.8], [-9, -3], [3, 0], [-11, 2]]), color, { shadow: 0, texture: 0.2, thickness: 0.4 });
-    c.restore();
-    piece(c, path([[-15, 0], [-5, -2.4], [4, 0], [-5, 2.4]]), color, { shadow: 0.5, edge: core, texture: 0.3, thickness: 0.65 });
-    line(c, -10, -0.5, 2, 0, core, 0.8);
+    // One solid colour per shot on a dark paper outline, so it separates from any ground.
+    const color = echo ? "#9fd3e6" : "#f2bf62", core = echo ? "#effbf6" : "#fff2c4";
     if (empowered) {
-      line(c, -19, -5, -6, -4, color, 0.8, 0.65);
-      line(c, -23, 4, -10, 3, core, 0.65, 0.55);
+      shotCut(c, path([[-21, -5.6], [-7, -4.6], [-6, -3.2], [-20, -3.8]]), color);
+      shotCut(c, path([[-24, 3.4], [-10, 2.6], [-9, 4.2], [-23, 5]]), color);
     }
+    shotCut(c, path([[-24, -1.2], [-9, -2.2], [-9, 2.2], [-24, 1.2]]), mix(color, "#1c142b", 0.22));
+    shotCut(c, path([[-15, 0], [-5, -2.8], [5, 0], [-5, 2.8]]), color);
+    line(c, -10, -0.6, 2, -0.1, core, 0.9);
   }).draw(ctx, { x: 0, y: 0 });
   ctx.restore();
 }
