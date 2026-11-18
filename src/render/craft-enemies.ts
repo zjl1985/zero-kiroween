@@ -6,19 +6,17 @@
  * Render only: reads SimState, never mutates it or uses the RNG.
  */
 import {
-  piece,
   path,
   oval,
   stroke,
   stitch,
   line,
-  glow,
-  shadow,
   hash,
   type Ctx,
   type Point,
 } from "./paper-material.js";
 import { cachedSprite } from "../engine/sprite.js";
+import { flatLayer, flatShadow } from "./paper-kit.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
@@ -39,7 +37,7 @@ export function enemyShadow(ctx: Ctx, x: number, y: number, rx: number, ry: numb
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(rx / 16, ry / 5);
-  enemyPart("contact", 48, 24, (c) => shadow(c, 0, 0, 16, 5)).draw(ctx, { x: 0, y: 0 });
+  enemyPart("contact", 48, 24, (c) => flatShadow(c, 0, 0, 16, 5, 1.15)).draw(ctx, { x: 0, y: 0 });
   ctx.restore();
 }
 /**
@@ -65,9 +63,7 @@ export function googly(
     beat = (time * 0.55 + hash(id * 7 + 1) * 4) % 4,
     blink = beat < 0.13;
   enemyPart("eye", 16, 18, (c) => {
-    piece(c, oval(0, 0, 4, 4.2, 3, 0.05), "#f6efe0", {
-      shadow: 0.6, edge: "#ffffff", texture: 0.25, thickness: 0.45,
-    });
+    flatLayer(c, { shape: oval(0, 0, 4, 4.2, 3, 0.05), color: "#f6efe0", lift: 0.55, rim: "#ffffff", texture: 0.2, thickness: 0.6 });
   }).draw(ctx, { x, y, scale: r / 4 });
   if (blink) {
     line(ctx, x - r * 0.8, y, x + r * 0.8, y, "#2a2033", 1.1);
@@ -125,8 +121,16 @@ function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void 
   ctx.translate(e.x, e.y);
   ctx.scale(k, k);
   ctx.translate(-e.x, -e.y);
-  // The body is drawn at its base size inside the scale, with a gold rim glow.
-  glow(ctx, e.x, e.y - base, base * 2.4, "#f2c46a", 0.22);
+  // The body is drawn at its base size inside the scale, on a flat gold paper rosette.
+  enemyPart("elite-rosette", 72, 36, (c) => {
+    const pts: Point[] = [];
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2, rr = i % 2 ? 0.86 : 1;
+      pts.push([Math.cos(a) * 30 * rr, Math.sin(a) * 11 * rr]);
+    }
+    c.globalAlpha = 0.72;
+    flatLayer(c, { shape: path(pts), color: "#c99a45", lift: 0.5, rim: "#ffe7a6", texture: 0.3 });
+  }).draw(ctx, { x: e.x, y: e.y + 1, scale: base / 12 });
   art.draw(ctx, { ...e, radius: base }, time, look);
   ctx.restore();
   if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y + (art.crownY ?? -base * 2.05) * k, radius / 14, e.id, time);
@@ -136,7 +140,7 @@ function drawEliteCrown(ctx: Ctx, x: number, y: number, s: number, seed: number,
   const bob = Math.sin(time * 2.6 + seed) * 1.2;
   enemyPart("elite-crown", 42, 32, (c) => {
     const crown = path([[-13, 3.2], [-12.35, -5.6], [-5.85, -0.4], [0, -8.4], [5.85, -0.4], [12.35, -5.6], [13, 3.2]]);
-    piece(c, crown, "#e5bd62", { shadow: 1.2, edge: "#fff0c4", texture: 0.5, thickness: 0.9 });
+    flatLayer(c, { shape: crown, color: "#e5bd62", lift: 1.1, rim: "#fff0c4", texture: 0.4, thickness: 1.2 });
     c.fillStyle = "#ac7f45";
     c.fill(path([[0, -8.4], [0, 3], [5.85, -0.4]]));
     stitch(c, path([[-11.7, 1.2], [11.7, 1.2]]), "#9c7434", 0.8);
@@ -174,7 +178,7 @@ export function drawEnemyGround(ctx: Ctx, state: SimState): void {
     ctx.save();
     ctx.globalAlpha *= Math.min(1, k * 3) * 0.85;
     enemyPart(`ink-puddle:${v}`, 58, 40, (c) => {
-      piece(c, oval(0, 0, 20, 12.4, v, 0.28), "#33263f", { shadow: 0, edge: "#6c5486", texture: 0.5, thickness: 0.8 });
+      flatLayer(c, { shape: oval(0, 0, 20, 12.4, v, 0.28), color: "#33263f", lift: 0, rim: "#6c5486", texture: 0.45 });
       c.fillStyle = "#8a74a855";
       c.fill(oval(-6, -3.6, 5.6, 2.4, v + 2));
     }).draw(ctx, { x: h.x, y: h.y, scale: h.radius / 20 });
@@ -185,7 +189,7 @@ export function drawEnemyGround(ctx: Ctx, state: SimState): void {
     const k = Math.min(1, s.t / s.flight);
     dangerRing(ctx, s.tx, s.ty, SMUDGE.splashRadius, k);
   }
-  for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e);
+  for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e, state.player);
 }
 /** A slow ink drop arcing toward its locked landing spot. */
 export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {
@@ -195,8 +199,7 @@ export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {
     lift = 32 + Math.sin(k * Math.PI) * 46 - k * 18;
   enemyShadow(ctx, x, gy, 4, 1.5);
   enemyPart("ink-drop", 24, 28, (c) => {
-    piece(c, new Path2D("M 0 -8 Q 5 -1 4 4 Q 0 10 -4 4 Q -5 -1 0 -8 Z"), "#3a2c4b",
-      { shadow: 1, edge: "#8a6fa3", texture: 0.4, thickness: 0.7 });
+    flatLayer(c, { shape: new Path2D("M 0 -8 Q 5 -1 4 4 Q 0 10 -4 4 Q -5 -1 0 -8 Z"), color: "#3a2c4b", rim: "#8a6fa3", texture: 0.35 });
     line(c, -2, -1, -2, 3, "#b5a0bd", 0.9, 0.7);
   }).draw(ctx, { x, y: gy - lift });
 }

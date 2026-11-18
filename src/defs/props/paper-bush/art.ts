@@ -1,6 +1,6 @@
 import type { PropArt } from "../../../render/art-registry.js";
 import { bush, leaf } from "../../../render/craft-scene.js";
-import { paperCut, stitchAlong, tornEdge } from "../../../render/paper-kit.js";
+import { flatShadow, paperCut, stitchAlong, tornEdge } from "../../../render/paper-kit.js";
 import { hash, oval, path, shadow } from "../../../render/paper-material.js";
 import { ashPatch, scrapPieces } from "../../../render/paper-scraps.js";
 import { variant } from "../../../render/variants.js";
@@ -25,15 +25,13 @@ export const PAPER_BUSH_ART: PropArt = {
     if (phase === "scraps") {
       if (burnt) ashPatch(ctx, x, y, 30 * s, 8 * s, v + 4);
       else {
-        shadow(ctx, x, y + 2, 26 * s, 5 * s);
+        flatShadow(ctx, x, y + 2, 26 * s, 5 * s);
         scrapPieces(ctx, x, y + 2, 26 * s, GREENS, v * 17 + 3, 12);
-        for (let j = 0; j < 5; j++)
-          leaf(ctx, x + (hash(v + j * 3) - 0.5) * 40 * s, y + 3, 5 * s, 2 * s, 1.2 + j, "#737c51", j);
       }
       return;
     }
     // Damaged: three lobes left, each with a bite torn out of its edge.
-    shadow(ctx, x, y + 2, 27 * s, 6 * s);
+    flatShadow(ctx, x, y + 2, 27 * s, 6 * s);
     for (let i = 0; i < 3; i++) {
       const xx = x + (i - 1) * 15 * s,
         yy = y - 7 * s - Math.sin(i + 1) * 5 * s,

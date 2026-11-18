@@ -1,5 +1,5 @@
 import type { PropArt } from "../../../render/art-registry.js";
-import { foldLine, paperCut } from "../../../render/paper-kit.js";
+import { flatCut, flatShadow, foldLine, paperCut } from "../../../render/paper-kit.js";
 import { line, mix, oval, shadow, type Ctx } from "../../../render/paper-material.js";
 import { phasedPaint } from "../../../render/prop-kit.js";
 import { variant } from "../../../render/variants.js";
@@ -39,11 +39,11 @@ export const WAX_CANDLE_ART: PropArt = {
     if (phase !== "scraps" || !burnt) return paintWax(ctx, x, y, s, v, phase, burnt);
     // Heat consumes wax into a folded puddle, not the black ash used for paper flora.
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    shadow(ctx, 1, 2, 19, 5);
-    paperCut(ctx, oval(0, 0, 18, 7, v), { color: "#8b826e", thickness: 1, shadow: 1.2 });
+    flatShadow(ctx, 1, 2, 19, 5);
+    flatCut(ctx, oval(0, 0, 18, 7, v), { color: "#8b826e", thickness: 1, shadow: 1.2 });
     const look = variant(v, { palette: WAX });
-    paperCut(ctx, oval(-2, 1, 17, 5, v + 3, 0.2), { color: look.color, thickness: 1.1, layers: 1, shadow: 0.8 });
-    paperCut(ctx, oval(1, -1, 10, 3, v + 5, 0.15), { color: "#f0dfb3", thickness: 0.6, shadow: 0.4 });
+    flatCut(ctx, oval(-2, 1, 17, 5, v + 3, 0.2), { color: look.color, thickness: 1.1, layers: 1, shadow: 0.8 });
+    flatCut(ctx, oval(1, -1, 10, 3, v + 5, 0.15), { color: "#f0dfb3", thickness: 0.6, shadow: 0.4 });
     foldLine(ctx, -9, 0, 8, 2, 0.2);
     line(ctx, -2, -2, 5, -4, "#473d3e", 1.6);
     ctx.restore();

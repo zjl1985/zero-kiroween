@@ -1,7 +1,7 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
 import { dangerRing, enemyPart, enemyShadow, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
-import { glow, hash, line, oval, path, piece, type Ctx, type Point } from "../../../render/paper-material.js";
-import { foldLine } from "../../../render/paper-kit.js";
+import { hash, line, oval, path, type Ctx, type Point } from "../../../render/paper-material.js";
+import { crease, flatLayer } from "../../../render/paper-kit.js";
 import type { EnemyState } from "../../../game/types.js";
 import { SMUDGE } from "../../../game/enemies.js";
 
@@ -21,14 +21,30 @@ function drawSmudge(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     torn.push([11, 0]);
     for (let i = 0; i <= 6; i++) torn.push([11 - i * 3.6, 11 + (hash(v * 5 + i) - 0.5) * 4]);
     torn.push([-11, 0]);
-    piece(c, path(torn), "#ddd0b6", { shadow: 1.4, edge: "#fbf1da", texture: 0.65, thickness: 1 });
+    const sheet = flatLayer(c, { shape: path(torn), color: "#ddd0b6", rim: "#fff6e2", texture: 0.5, lift: 1.2, thickness: 1.2 });
+    c.save();
+    c.clip(sheet);
+    // The fold away from the moon sits in shadow.
     c.fillStyle = "#b6a38f";
-    c.fill(path([[-11, -9], [0, -5], [11, 10], [-2, 7]]));
-    foldLine(c, -10, -8, 9, 10, 0.65);
-    piece(c, oval(0, 1, 8.5, 7.5, v + 9, 0.32), "#3a2c4b", { shadow: 0.4, edge: "#7d6493", texture: 0.4, thickness: 0.75 });
-    c.fillStyle = "#655077";
-    c.fill(path([[-7, 0], [-4, -5], [3, -6], [0, -2]]));
-    piece(c, path([[5, -12], [11, -10], [11, -5], [7, -7]]), "#f1e3c8", { shadow: 0.5, edge: "#fff0da", texture: 0.4, thickness: 0.5 });
+    c.fill(path([[-14, -12], [-10, -8], [9, 10], [-14, 14]]));
+    c.restore();
+    crease(c, -10, -8, 9, 10, 0.7);
+    // The ink pool bleeds into the fibres: a feathered translucent ring, then the stain.
+    const bleed: Point[] = [];
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * Math.PI * 2, rr = (i % 2 ? 10.4 + hash(v * 17 + i) * 1.6 : 9.4);
+      bleed.push([Math.cos(a) * rr, 1 + Math.sin(a) * rr * 0.88]);
+    }
+    c.save();
+    c.clip(sheet);
+    c.globalAlpha = 0.45;
+    c.fillStyle = "#5d4c78";
+    c.fill(path(bleed));
+    c.restore();
+    flatLayer(c, { shape: oval(0, 1, 8.5, 7.5, v + 9, 0.32), color: "#33284a", rim: "#7d6493", texture: 0.3, lift: 0 });
+    c.fillStyle = "#1d1729";
+    c.fill(oval(-1.5, 2.5, 4.6, 3.8, v + 4, 0.25));
+    flatLayer(c, { shape: path([[5, -12], [11, -10], [11, -5], [7, -7]]), color: "#f1e3c8", rim: "#fff8e6", texture: 0.3, lift: 0.5, thickness: 0.6 });
     line(c, -7, 8, -3, 9, "#968277", 0.6);
   }).draw(ctx, { x: 0, y: 0 });
   ctx.save();
@@ -40,14 +56,18 @@ function drawSmudge(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
   googly(ctx, x - 3, y - 1, 2.3, look, time, e.id, wind > 0);
   googly(ctx, x + 3.4, y - 1.5, 2.1, look, time, e.id + 1, wind > 0);
   if (wind > 0) {
-    glow(ctx, x, y - 18, 10, "#9d7ca9", 0.25 * wind);
+    ctx.save();
+    ctx.globalAlpha *= 0.3 * wind;
+    ctx.fillStyle = "#9d7ca9";
+    ctx.fill(oval(x, y - 18, 7 + wind * 3, 7 + wind * 3, 2, 0.1));
+    ctx.restore();
     inkDrop().draw(ctx, { x, y: y - 18, scale: 0.4 + wind * 0.7 });
   }
   hpStrip(ctx, e, e.y + 5, 18);
 }
 function inkDrop() {
   return enemyPart("smudge-drop", 22, 26, (c) => {
-    piece(c, new Path2D("M 0 -7 Q 7 1 4 5 Q 0 9 -4 5 Q -7 1 0 -7 Z"), "#3a2c4b", { shadow: 0.6, edge: "#9a83ad", texture: 0.3, thickness: 0.6 });
+    flatLayer(c, { shape: new Path2D("M 0 -7 Q 7 1 4 5 Q 0 9 -4 5 Q -7 1 0 -7 Z"), color: "#3a2c4b", rim: "#9a83ad", texture: 0.25, lift: 0.6 });
     line(c, -2, 0, -2, 3, "#beacc8", 0.7);
   });
 }

@@ -1,6 +1,6 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
 import { enemyPart, enemyShadow, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
-import { foldLine, paperCut } from "../../../render/paper-kit.js";
+import { flatLayer, foldLine, PAPER_SHADOW } from "../../../render/paper-kit.js";
 import { path, type Ctx } from "../../../render/paper-material.js";
 import type { EnemyState } from "../../../game/types.js";
 import { kiroGhostMotion } from "./def.js";
@@ -26,11 +26,12 @@ function ghostCut(): Path2D {
 /** Both slices share the same cut, so their hinge has no extra outlined cross-seam. */
 function paintSheet(ctx: Ctx): void {
   const cut = ghostCut();
+  // A violet backing sheet peeks out down-right, under the white stock: two flat layers, one shadow direction.
   ctx.save();
-  ctx.translate(0.8, 1.2);
-  paperCut(ctx, cut, { color: VIOLET, edge: "#c9a7ff", thickness: 0.7, texture: 0.16, shadow: 1.1 });
+  ctx.translate(PAPER_SHADOW.dx * 0.8, PAPER_SHADOW.dy * 0.8);
+  flatLayer(ctx, { shape: cut, color: VIOLET, rim: "#c9a7ff", thickness: 0.9, texture: 0.14, lift: 1.1 });
   ctx.restore();
-  paperCut(ctx, cut, { color: STOCK, edge: "#ffffff", thickness: 0.6, texture: 0.16, shadow: 0.35 });
+  flatLayer(ctx, { shape: cut, color: STOCK, rim: "#ffffff", thickness: 0.7, texture: 0.14, lift: 0 });
   ctx.save();
   ctx.clip(cut);
   ctx.fillStyle = "#e8e1ee";
@@ -60,7 +61,7 @@ function bodyPart() {
     for (const x of [1.8, 8.6]) {
       const eye = new Path2D();
       eye.ellipse(x, -5.7, 1.6, 3.1, 0, 0, Math.PI * 2);
-      paperCut(ctx, eye, { color: INK, edge: "#292031", thickness: 0.3, texture: 0.05, shadow: 0.15 });
+      flatLayer(ctx, { shape: eye, color: INK, rim: "#3a3045", thickness: 0.4, texture: 0.05, lift: 0.15 });
     }
     ctx.restore();
   });

@@ -6,9 +6,9 @@
  * code with render hashes only, so the results can be cached per variant.
  */
 import type { ArtBounds, PropArt } from "./art-registry.js";
-import { paperCut, tornEdge } from "./paper-kit.js";
-import { hash, mix, shadow, type Ctx, type Point } from "./paper-material.js";
-import { ashPatch, scrapPieces, tornStub } from "./paper-scraps.js";
+import { flatShadow, paperCut, tornEdge } from "./paper-kit.js";
+import { hash, type Ctx, type Point } from "./paper-material.js";
+import { ashPatch, backSide, curledFlap, scrapPieces, tornStub } from "./paper-scraps.js";
 
 export interface PhasedLook {
   readonly bounds: ArtBounds;
@@ -56,20 +56,28 @@ export function phasedPaint(look: PhasedLook): PropArt["paint"] {
       ctx.clip(clip);
       look.intact(ctx, v);
       ctx.restore();
-      // Pale fibre where the paper ripped.
+      // A wide band of pale fibre where the paper ripped, readable at gameplay zoom.
+      // Both the band and the curled flap paint only over the prop's own paper (source-atop).
       ctx.save();
-      ctx.clip(clip);
-      ctx.strokeStyle = mix(look.stub, "#f3e2b8", 0.6);
-      ctx.lineWidth = 1.3;
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = backSide(look.stub);
+      ctx.lineWidth = 2.4;
       ctx.beginPath();
-      line.forEach(([px, py], i) => (i ? ctx.lineTo(px, py + 0.8) : ctx.moveTo(px, py + 0.8)));
+      line.forEach(([px, py], i) => (i ? ctx.lineTo(px, py + 1.1) : ctx.moveTo(px, py + 1.1)));
       ctx.stroke();
+      // The torn-off top still hangs from part of the tear, curled over to show its back.
+      curledFlap(ctx, line.filter(([px]) => px > b.l + 2 && px < b.r - 2), look.stub, v * 11 + 2, Math.min(18, (b.b - b.t) * 0.24));
       ctx.restore();
       scrapPieces(ctx, (hash(v) - 0.5) * sx * 0.6, 4, sx * 0.7, look.scraps, v * 19 + 4, 6);
-    } else if (burnt) ashPatch(ctx, 0, 2, sx, sy, v + 11);
-    else {
-      shadow(ctx, 0, 3, sx * 0.9, sy * 0.7);
-      look.stubs.forEach(([dx, h], i) => tornStub(ctx, dx, 2, Math.max(4, h * 0.45), h * (0.7 + hash(v + i) * 0.5), look.stub, v * 5 + i));
+    } else if (burnt) {
+      ashPatch(ctx, 0, 2, sx, sy, v + 11);
+      // Charred stubs still stand in the ash, with an ember line on their burnt tops.
+      look.stubs.slice(0, 2).forEach(([dx, h], i) => tornStub(ctx, dx * 0.8, 1, Math.max(6, h * 0.55), h * 0.42 * (0.7 + hash(v + i) * 0.5), look.stub, v * 5 + i, true));
+    } else {
+      flatShadow(ctx, 0, 3, sx * 0.9, sy * 0.7);
+      look.stubs.forEach(([dx, h], i) => tornStub(ctx, dx, 2, Math.max(6, h * 0.6), h * (0.7 + hash(v + i) * 0.5), look.stub, v * 5 + i));
       scrapPieces(ctx, 0, 5, sx, look.scraps, v * 23 + 7, 11);
     }
     ctx.restore();

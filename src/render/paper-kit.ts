@@ -329,6 +329,149 @@ export function paperEmblem(ctx: Ctx, layers: readonly FlatLayer[]): Path2D[] {
   return layers.map((l) => flatLayer(ctx, l));
 }
 
+/**
+ * A hard paper contact shadow on the ground: two flat ovals (umbra and a
+ * lighter penumbra step) pushed down-right along PAPER_SHADOW. No blur.
+ */
+export function flatShadow(ctx: Ctx, x: number, y: number, rx: number, ry: number, strength = 1): void {
+  const k = Math.hypot(PAPER_SHADOW.dx, PAPER_SHADOW.dy) || 1,
+    ox = (PAPER_SHADOW.dx / k) * ry * 0.35,
+    oy = (PAPER_SHADOW.dy / k) * ry * 0.35;
+  ctx.save();
+  ctx.fillStyle = PAPER_SHADOW.color;
+  ctx.globalAlpha *= 0.16 * strength;
+  const outer = new Path2D();
+  outer.ellipse(x + ox, y + oy, rx * 1.08, ry * 1.1, 0, 0, Math.PI * 2);
+  ctx.fill(outer);
+  ctx.globalAlpha *= 1.9;
+  const inner = new Path2D();
+  inner.ellipse(x + ox * 0.6, y + oy * 0.6, rx * 0.86, ry * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill(inner);
+  ctx.restore();
+}
+
+/** Options of a flat ground- or prop-scale cut (the paperCut options, drawn by the ruleset). */
+export interface FlatCutOptions extends PaperCutOptions {
+  /** Cast shadow length multiplier (default: the `shadow` option, else 1). */
+  readonly lift?: number;
+  /** Rim / lip width in local units (default 0.9 * thickness). */
+  readonly rim?: number;
+}
+
+/**
+ * The paper ruleset at prop and ground scale: a hard cast shadow down-right,
+ * stacked darker sheets, the card side, flat fill and fibre, a lit rim toward
+ * the moon, a dark lip away from it, a thin cut line, then wear, creases and
+ * stitches. Takes paperCut options, so it drops in where blurred shadows read
+ * as gloss. No gradients, no shadowBlur, no filters.
+ */
+export function flatCut(ctx: Ctx, shape: PaperShape, o: FlatCutOptions): Path2D {
+  const p = toPath(shape),
+    th = o.thickness ?? 1,
+    lift = o.lift ?? (o.shadow === undefined ? 1 : o.shadow / 1.6),
+    rim = o.rim ?? 0.9 * th,
+    { dirX, dirY } = PAPER_LIGHT,
+    k = Math.hypot(PAPER_SHADOW.dx, PAPER_SHADOW.dy) || 1,
+    sx = PAPER_SHADOW.dx / k,
+    sy = PAPER_SHADOW.dy / k,
+    layers = Math.max(0, Math.floor(o.layers ?? 0));
+  if (o.ground) flatShadow(ctx, o.ground.x, o.ground.y, o.ground.rx, o.ground.ry);
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (lift > 0) {
+    ctx.save();
+    ctx.translate(PAPER_SHADOW.dx * 1.4 * lift + sx * th * layers, PAPER_SHADOW.dy * 1.4 * lift + sy * th * layers);
+    ctx.globalAlpha *= PAPER_SHADOW.alpha * 0.8;
+    ctx.fillStyle = PAPER_SHADOW.color;
+    ctx.fill(p);
+    ctx.restore();
+  }
+  for (let i = layers; i >= 1; i--) {
+    ctx.save();
+    ctx.translate(sx * th * i * 1.3, sy * th * i * 1.3);
+    const under = mix(o.color, "#1c142b", 0.3 + 0.12 * i);
+    ctx.fillStyle = under;
+    ctx.fill(p);
+    ctx.globalAlpha *= 0.6;
+    ctx.strokeStyle = mix(under, "#ffdfaa", 0.22);
+    ctx.lineWidth = 0.6;
+    ctx.stroke(p);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.translate(sx * th * 0.9, sy * th * 0.9);
+  ctx.fillStyle = mix(o.color, "#1c142b", 0.48);
+  ctx.fill(p);
+  ctx.restore();
+  ctx.fillStyle = o.color;
+  ctx.fill(p);
+  grain(ctx, p, (o.texture ?? 0.7) * 0.75);
+  ctx.save();
+  ctx.clip(p);
+  ctx.save();
+  ctx.translate(-dirX * rim, -dirY * rim);
+  ctx.globalAlpha *= 0.66;
+  ctx.strokeStyle = o.edge ?? mix(o.color, PAPER_LIGHT.rim, 0.5);
+  ctx.lineWidth = rim * 1.6;
+  ctx.stroke(p);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(dirX * rim, dirY * rim);
+  ctx.globalAlpha *= 0.3;
+  ctx.strokeStyle = PAPER_EDGE.lip;
+  ctx.lineWidth = rim * 1.4;
+  ctx.stroke(p);
+  ctx.restore();
+  ctx.restore();
+  ctx.globalAlpha *= PAPER_EDGE.cutAlpha;
+  ctx.strokeStyle = mix(o.color, "#1c142b", 0.6);
+  ctx.lineWidth = 0.55;
+  ctx.stroke(p);
+  ctx.restore();
+  if (o.wear && o.wear > 0) wearEdge(ctx, p, o.color, o.wear, o.seed ?? 1);
+  if (o.fold)
+    for (const f of Array.isArray(o.fold) ? o.fold : [o.fold as PaperFold]) {
+      shadeAcross(ctx, p, f);
+      ctx.save();
+      ctx.clip(p);
+      crease(ctx, f.from[0], f.from[1], f.to[0], f.to[1], 0.75);
+      ctx.restore();
+    }
+  if (o.stitch) {
+    const color = typeof o.stitch === "string" ? o.stitch : mix(o.color, "#f2d9a4", 0.55);
+    if (isPoints(shape)) stitchAlong(ctx, shape, color, 0.75, o.stitchInset ?? 3);
+    else stitchAlong(ctx, p, color, 0.75);
+  }
+  return p;
+}
+
+/**
+ * A fringe-cut paper strip: one sheet whose top edge is snipped into blades,
+ * laid along a baseline from (x0, y0) to (x1, y1). Blade heights and lean
+ * come from the seed. Drawn flat by the ruleset.
+ */
+export function fringeStrip(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, height: number, color: string, seed: number, blade = 4.5): Path2D {
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1,
+    ux = (x1 - x0) / len,
+    uy = (y1 - y0) / len,
+    n = Math.max(2, Math.round(len / blade)),
+    base = height * 0.28,
+    pts: Point[] = [[x0, y0 + 1.5]];
+  for (let i = 0; i < n; i++) {
+    const t = i / n,
+      bx = x0 + (x1 - x0) * t,
+      by = y0 + (y1 - y0) * t,
+      h = height * (0.55 + hash(seed + i * 7) * 0.45),
+      lean = (hash(seed + i * 13) - 0.5) * blade * 0.9;
+    // A notch at the base of each blade, then the blade tip (blades stand up the screen).
+    pts.push([bx, by - base]);
+    pts.push([bx + ux * blade * 0.5 + lean, by + uy * blade * 0.5 - h]);
+  }
+  pts.push([x1, y1 - base], [x1, y1 + 1.5]);
+  return flatCut(ctx, pts, { color, thickness: 0.6, lift: 0.55, rim: 0.45, texture: 0.5 });
+}
+
 /** Points rotated by `angle`, scaled by `k` and moved to (x, y); the light never rotates with them. */
 export function placePoints(points: readonly Point[], x: number, y: number, angle = 0, k = 1): Point[] {
   const c = Math.cos(angle),

@@ -37,12 +37,17 @@ function canvas() {
     getTransform() { return new Matrix(); },
     createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
     createPattern() { return { kind: "paper", setTransform() {} }; },
-    createLinearGradient() { return { addColorStop() {} }; },
-    createRadialGradient() { return { addColorStop() {} }; },
+    createLinearGradient() { record("createLinearGradient", []); return { addColorStop() {} }; },
+    createRadialGradient() { record("createRadialGradient", []); return { addColorStop() {} }; },
   };
   const ctx = new Proxy({}, {
     get: (_, key) => key === "canvas" ? c : key === "calls" ? calls : key === "depth" ? stack.length : key in state ? state[key] : methods[key] ?? ((...args) => record(key, args)),
-    set: (_, key, value) => { state[key] = value; if (key === "filter") record("filter", [value]); return true; },
+    set: (_, key, value) => {
+      state[key] = value;
+      if (key === "filter") record("filter", [value]);
+      if (key === "shadowBlur" && value > 0) record("shadowBlur", [value]);
+      return true;
+    },
   });
   c.getContext = () => ctx;
   return c;
@@ -59,6 +64,9 @@ function environment(t) {
   t.after(clearSpriteCache);
 }
 const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
+/** Gloss anywhere in a painted command stream, including cached sprite canvases it drew. */
+const gloss = (calls) => calls.filter((c) => /Gradient$/.test(c.op) || c.op === "shadowBlur" ||
+  c.op === "filter" && /blur/.test(String(c.args[0])) || c.globalCompositeOperation === "lighter").map((c) => c.op);
 function allPaint(ctx) {
   return ctx.calls.flatMap((c) => c.op === "drawImage" ? [c, ...allPaint(c.args[0].getContext("2d"))] : [c]);
 }
@@ -307,4 +315,66 @@ test("enemy recoil and directional dash marks are read-only and reuse finite cut
   drawSkillEffect(ctx, {...effect, life: 0.1});
   assert.equal(spriteCacheSize(), count);
   restored(ctx);
+});
+
+// ---------------------------------------------------------------- paper washout (FEAT-003)
+import { PROP_ART } from "../dist/render/art-index.js";
+import { ashPatch, backSide, curledFlap, scrapPieces, tornStub } from "../dist/render/paper-scraps.js";
+import { ENEMIES } from "../dist/game/enemies.js";
+
+function pathBox(p) {
+  const pts = p.ops.flatMap(([, ...args]) => Array.from({ length: Math.floor(args.length / 2) }, (_, i) => [args[i * 2], args[i * 2 + 1]]))
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  const xs = pts.map(([x]) => x), ys = pts.map(([, y]) => y);
+  return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+}
+
+test("redrawn enemy bodies, elites and trail marks are flat paper: no gradients, shadowBlur or blur filters", (t) => {
+  environment(t);
+  const look = { x: 200, y: -20 };
+  for (const art of ENEMY_ART.all()) for (const elite of [false, true]) for (const time of [0, 3.7]) {
+    const ctx = canvas().getContext("2d"),
+      e = Object.freeze({ id: 3, kind: art.id, x: 0, y: 0, hp: 1, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0, windup: 0, elite,
+        radius: ENEMIES[art.id].radius * (elite ? 1.5 : 1) });
+    drawCraftEnemy(ctx, e, time, look);
+    art.ground?.(ctx, e, look);
+    assert.deepEqual(gloss(allPaint(ctx)), [], `${art.id}${elite ? " elite" : ""} stays flat paper`);
+    restored(ctx);
+  }
+});
+
+test("enemy redraws keep their kind's collision radius and the eraser reads as a three-face block with a sleeve", (t) => {
+  environment(t);
+  assert.deepEqual(Object.fromEntries(Object.entries(ENEMIES).map(([id, d]) => [id, d.radius])),
+    { "ink-blob": 10, "paper-bat": 8, crumple: 14, smudge: 11, "kiro-ghost": 12, "eraser-boss": 26 });
+  const ctx = canvas().getContext("2d"), art = ENEMY_ART.get("eraser-boss");
+  art.draw(ctx, Object.freeze({ id: 1, kind: art.id, x: 0, y: 0, hp: 420, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0 }), 0, { x: 100, y: 0 });
+  const fills = new Set(allPaint(ctx).filter((c) => c.op === "fill").map((c) => c.fillStyle));
+  for (const color of ["#ec9aaa", "#ffd0d7", "#f7b6c2", "#f9dfe0", "#41639a", "#7f9fd0"]) assert.ok(fills.has(color), `eraser face ${color}`);
+  restored(ctx);
+});
+
+test("prop scraps and ash are a few large flat pieces, and damaged tears curl over to show the paper back", (t) => {
+  environment(t);
+  const ctx = canvas().getContext("2d");
+  scrapPieces(ctx, 0, 0, 30, ["#c9a46a", "#8a6a45"], 7, 11);
+  const fills = ctx.calls.filter((c) => c.op === "fill" && c.fillStyle !== "#120d1c" && c.globalCompositeOperation === "source-over");
+  // Each large scrap is one body plus one curled corner, each with its card side.
+  const bodies = fills.filter((c) => c.fillStyle === "#c9a46a" || c.fillStyle === "#8a6a45");
+  assert.ok(bodies.length >= 2 && bodies.length <= 5, `few scraps: ${bodies.length}`);
+  for (const b of bodies) assert.ok(pathBox(b.args[0]).w >= 9, "scraps are big enough to read at gameplay zoom");
+  ashPatch(ctx, 0, 0, 30, 9, 3);
+  tornStub(ctx, 0, 0, 8, 12, "#c9a46a", 2, true);
+  curledFlap(ctx, [[30, -20], [20, -22], [10, -19], [0, -21], [-10, -18], [-20, -20]], "#c9a46a", 4, 12);
+  assert.ok(ctx.calls.some((c) => c.op === "fill" && c.fillStyle === backSide("#c9a46a")), "a paler back side shows");
+  assert.deepEqual(gloss(ctx.calls), []);
+  assert.equal(ctx.depth, 0);
+  // Every registered prop's scraps and burnt states are flat: no blurred shadows or gradients.
+  for (const art of PROP_ART.all()) for (const burnt of [false, true]) {
+    const c = canvas().getContext("2d");
+    art.paint(c, 0, 0, 1, 0, "scraps", burnt);
+    assert.deepEqual(gloss(allPaint(c)), [], `${art.id} ${burnt ? "ash" : "scraps"} stay flat`);
+    assert.equal(c.depth, 0);
+    assert.equal(c.globalCompositeOperation, "source-over");
+  }
 });

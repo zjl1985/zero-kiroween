@@ -108,8 +108,8 @@ export interface EnemyArt {
   readonly id: EnemyKind;
   /** The body at its base size; elites are scaled and crowned by the caller. */
   draw(ctx: Ctx, e: EnemyState, time: number, look: EnemyLook): void;
-  /** Flat telegraphs on the yard for this enemy. */
-  ground?(ctx: Ctx, e: EnemyState): void;
+  /** Flat telegraphs and trail marks on the yard for this enemy (`look` is the cat it tracks). */
+  ground?(ctx: Ctx, e: EnemyState, look?: EnemyLook): void;
   /** Extra culling margin for large bodies. */
   readonly cullMargin?: number;
   /** Bounds of the unscaled illustration in the workshop, relative to its ground point. */

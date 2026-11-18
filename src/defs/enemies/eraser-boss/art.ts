@@ -1,17 +1,96 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
 import { dashed, enemyPart, enemyShadow, googly, type Look } from "../../../render/craft-enemies.js";
-import { glow, hash, line, oval, path, piece, stitch, stroke, type Ctx } from "../../../render/paper-material.js";
+import { glow, hash, line, oval, path, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 import type { BossAct, EnemyState } from "../../../game/types.js";
 import { BOSS, ENEMIES } from "../../../game/enemies.js";
 import { enemyRadius } from "../../../game/sim.js";
 
-import { foldLine } from "../../../render/paper-kit.js";
+import { addPoints, crease, flatLayer, flatShadow, PAPER_SHADOW } from "../../../render/paper-kit.js";
 import { paperFleck } from "../../../render/craft-combat.js";
 
+/** The rubber block seen from the front, with its top and moon-side faces receding up-right. */
+const DEPTH = { x: 9, y: -7 } as const;
+const RUBBER = { front: "#ec9aaa", top: "#ffd0d7", side: "#f7b6c2", worn: "#f9dfe0" } as const;
+const SLEEVE = { front: "#41639a", top: "#7f9fd0", side: "#5b7fb8", label: "#efe5cf" } as const;
+
+/** A box face from four corners, drawn as one flat paper layer. */
+function face(c: Ctx, pts: readonly Point[], color: string, rim: string, lift = 0): void {
+  flatLayer(c, { shape: path(pts), color, rim, lift, texture: 0.5, thickness: 0.9 });
+}
+
 /**
- * The Eraser: a big pink paper eraser in a stitched paper sleeve, worn at
- * the leading corner, with googly eyes tracking the cat.
+ * The Eraser: a real pink rubber block, its working end rubbed into a round
+ * worn bevel, its back half wrapped in a printed card sleeve. Two cached cuts
+ * (one per facing); the light stays top-right whichever way it faces.
  */
+function paintEraser(c: Ctx, dir: number): void {
+  const w = 60, h = 32, x0 = -w / 2, x1 = w / 2, y1 = 0, y0 = -h, dx = DEPTH.x, dy = DEPTH.y,
+    bevel = 9,
+    // The worn end faces the cat; the sleeve covers the other half.
+    wornLeft = dir < 0;
+  flatShadow(c, 4, 3, w * 0.62, 7, 1.2);
+  const front: Point[] = wornLeft
+    ? [[x0 + bevel, y0], [x1, y0], [x1, y1], [x0 + 2, y1], [x0, y1 - 3], [x0, y0 + bevel], [x0 + bevel * 0.3, y0 + bevel * 0.3]]
+    : [[x0, y0], [x1 - bevel, y0], [x1 - bevel * 0.3, y0 + bevel * 0.3], [x1, y0 + bevel], [x1, y1 - 3], [x1 - 2, y1], [x0, y1]];
+  const top: Point[] = wornLeft
+    ? [[x0 + bevel, y0], [x0 + bevel + dx * 0.9, y0 + dy], [x1 + dx, y0 + dy], [x1, y0]]
+    : [[x0, y0], [x0 + dx, y0 + dy], [x1 - bevel + dx * 0.7, y0 + dy], [x1 - bevel, y0]];
+  const side: Point[] = wornLeft
+    ? [[x1, y0], [x1 + dx, y0 + dy], [x1 + dx, y1 + dy], [x1, y1]]
+    : [[x1, y0 + bevel], [x1 + dx * 0.6, y0 + bevel + dy * 0.8], [x1 + dx, y1 + dy], [x1, y1 - 3]];
+  const bev: Point[] = wornLeft
+    ? [[x0, y0 + bevel], [x0 + bevel * 0.3, y0 + bevel * 0.3], [x0 + bevel, y0], [x0 + bevel + dx * 0.9, y0 + dy], [x0 + dx * 0.5, y0 + bevel * 0.4 + dy * 0.6]]
+    : [[x1 - bevel, y0], [x1 - bevel + dx * 0.7, y0 + dy], [x1 + dx * 0.6, y0 + bevel + dy * 0.8], [x1, y0 + bevel], [x1 - bevel * 0.3, y0 + bevel * 0.3]];
+  // The whole block casts one hard shadow down-right (one union path, no doubled alpha).
+  const block = new Path2D();
+  for (const poly of [front, top, side, bev]) addPoints(block, poly);
+  c.save();
+  c.translate(PAPER_SHADOW.dx * 2.2, PAPER_SHADOW.dy * 2.2);
+  c.globalAlpha *= PAPER_SHADOW.alpha;
+  c.fillStyle = PAPER_SHADOW.color;
+  c.fill(block);
+  c.restore();
+  face(c, front, RUBBER.front, "#ffe3e7");
+  face(c, top, RUBBER.top, "#fff3f4");
+  face(c, side, RUBBER.side, "#ffe3e7");
+  // The rubbed-round corner: a pale worn bevel with graphite smudges.
+  face(c, bev, RUBBER.worn, "#ffffff");
+  const end = wornLeft ? x0 + 6 : x1 - 6, s = wornLeft ? 1 : -1;
+  for (let i = 0; i < 3; i++) line(c, end + s * i * 2.5, y0 + 10 + i * 6, end + s * (i * 2.5 + 7), y0 + 12 + i * 6, "#7b6474", 1.2, 0.45);
+  // The card sleeve wraps the back half: front band, top band and side band.
+  const sx0 = wornLeft ? -4 : x0 - 1, sx1 = wornLeft ? x1 + 1 : 4;
+  face(c, [[sx0, y0 - 1.5], [sx1, y0 - 1.5], [sx1, y1 + 1.5], [sx0, y1 + 1.5]], SLEEVE.front, "#a9c1e6", 0.8);
+  face(c, [[sx0, y0 - 1.5], [sx0 + dx, y0 + dy - 1.5], [sx1 + dx, y0 + dy - 1.5], [sx1, y0 - 1.5]], SLEEVE.top, "#d3e0f4");
+  if (sx1 > x1) face(c, [[sx1, y0 - 1.5], [sx1 + dx, y0 + dy - 1.5], [sx1 + dx, y1 + dy + 1.5], [sx1, y1 + 1.5]], SLEEVE.side, "#b8cdeb");
+  // A printed paper label band with two ink bars instead of text.
+  face(c, [[sx0 + 3, y0 + h * 0.36], [sx1 - 3, y0 + h * 0.34], [sx1 - 3, y0 + h * 0.62], [sx0 + 3, y0 + h * 0.64]], SLEEVE.label, "#ffffff", 0.3);
+  const lw = sx1 - sx0;
+  line(c, sx0 + lw * 0.2, y0 + h * 0.49, sx0 + lw * 0.58, y0 + h * 0.49, "#41639a", 1.6);
+  line(c, sx0 + lw * 0.64, y0 + h * 0.49, sx0 + lw * 0.8, y0 + h * 0.49, "#b2404f", 1.6);
+  stitch(c, path([[sx0 + 2, y0 + 1], [sx1 - 2, y0 + 1]]), "#c8d8ea", 0.8);
+  crease(c, sx0 + 1, y1 - 4, sx1 - 1, y1 - 4, 0.6);
+  // The sleeve's tucked seam lifts a little at one corner.
+  face(c, wornLeft ? [[sx1 - 7, y1 + 1.5], [sx1, y1 + 1.5], [sx1 + 1, y1 - 6]] : [[sx0, y1 - 6], [sx0 + 1, y1 + 1.5], [sx0 + 8, y1 + 1.5]], "#9fb3cf", "#e3ebf5", 0.5);
+}
+function eraserCut(dir: number) {
+  return enemyPart(`eraser-cut:${dir}`, 104, 80, (c) => {
+    c.translate(-4, 18);
+    paintEraser(c, dir);
+  });
+}
+/** A rolled rubber crumb (finite variants). */
+function crumb(v: number) {
+  return enemyPart(`eraser-crumb:${v}`, 14, 12, (c) => {
+    const pts: Point[] = [];
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2, rr = (i % 2 ? 1.6 : 2.4) + hash(v * 9 + i) * 0.8;
+      pts.push([Math.cos(a) * rr * 1.4, Math.sin(a) * rr * 0.8]);
+    }
+    flatLayer(c, { shape: path(pts), color: v % 2 ? "#e48c9d" : "#f1b3bf", rim: "#ffe3e7", lift: 0.6, texture: 0.3 });
+    crease(c, -2, 0.4, 2, -0.4, 0.4);
+  });
+}
+
 function drawEraser(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
   const R = enemyRadius(e),
     a = e.act,
@@ -32,7 +111,26 @@ function drawEraser(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     return;
   }
   enemyShadow(ctx, e.x, e.y, R * 1.55, R * 0.42);
-  if (windup > 0) glow(ctx, e.x, e.y - R, R * 2.4, "#ff9fb0", 0.18 + windup * 0.2, 0.7);
+  if (windup > 0) {
+    // A flat pink warning sheet under the block grows with the windup.
+    ctx.save();
+    ctx.globalAlpha *= 0.2 + windup * 0.35;
+    ctx.fillStyle = "#ff9fb0";
+    ctx.fill(oval(e.x, e.y, R * (1.7 + windup * 0.5), R * (0.55 + windup * 0.15), 3, 0.08));
+    ctx.restore();
+    dashed(ctx, oval(e.x, e.y, R * (1.7 + windup * 0.5), R * (0.55 + windup * 0.15), 3, 0.08), "#ffd3da", 0.5 + windup * 0.5, 1.4);
+  }
+  // Crumbs shed from the trailing end roll off and settle (positions from view time only).
+  const back = look.x < e.x ? 1 : -1;
+  for (let i = 0; i < 4; i++) {
+    const k = (time * 0.7 + i / 4 + hash(e.id + i) * 0.2) % 1,
+      cx = e.x + back * (R * 1.1 + k * 22 + hash(e.id * 3 + i) * 6),
+      cy = e.y - 6 + Math.min(1, k * 2.2) * 8 + (hash(e.id * 5 + i) - 0.5) * 8;
+    ctx.save();
+    ctx.globalAlpha *= 1 - k * k;
+    crumb(i % 3).draw(ctx, { x: cx, y: cy });
+    ctx.restore();
+  }
   drawEraserBody(ctx, e, R, windup, charging, time, look);
 }
 function drawEraserBody(
@@ -44,7 +142,7 @@ function drawEraserBody(
   time: number,
   look: Look,
 ): void {
-  const face = look.x < e.x ? -1 : 1,
+  const dir = look.x < e.x ? -1 : 1,
     squash = 1 - windup * 0.12,
     bob = charging ? 0 : Math.sin(time * 2.2) * 1.5,
     w = R * 2.5,
@@ -52,7 +150,7 @@ function drawEraserBody(
     x0 = e.x - w / 2,
     y1 = e.y - 4 + bob,
     y0 = y1 - h,
-    lean = charging ? face * 6 : 0;
+    lean = charging ? dir * 6 : 0;
   ctx.save();
   ctx.translate(e.x, y1);
   ctx.transform(1, 0, -lean / h, 1, 0, 0);
@@ -60,73 +158,11 @@ function drawEraserBody(
   ctx.save();
   ctx.translate(e.x, y1);
   ctx.scale(1, squash);
-  enemyPart(`eraser-cut:${face}`, 96, 96, (ctx) => {
-  const R = 24, w = R * 2.5, h = R * 1.35, x0 = -w / 2, y1 = 0, y0 = -h, side = R * 0.38;
-  // Visible paper thickness: the darker side face under the top face.
-  piece(
-    ctx,
-    path([
-      [x0 + 3, y1 - 2],
-      [x0 + w - 2, y1 - 2],
-      [x0 + w - 2, y1 + side * 0.45],
-      [x0 + 3, y1 + side * 0.45],
-    ]),
-    "#b96878",
-    { shadow: 2.5, edge: "#d78494", texture: 0.6, thickness: 1 },
-  );
-  // Pink rubber with a worn, rounded leading corner.
-  const worn = face > 0 ? [0.1, 0.42] : [0.42, 0.1];
-  const rubber = new Path2D();
-  rubber.moveTo(x0 + R * worn[0]!, y0);
-  rubber.lineTo(x0 + w - R * worn[1]!, y0);
-  rubber.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + R * worn[1]!);
-  rubber.lineTo(x0 + w, y1);
-  rubber.lineTo(x0, y1);
-  rubber.lineTo(x0, y0 + R * worn[0]!);
-  rubber.quadraticCurveTo(x0, y0, x0 + R * worn[0]!, y0);
-  rubber.closePath();
-  piece(ctx, rubber, "#f0a3b1", { shadow: 2, edge: "#ffd3da", texture: 0.85, thickness: 1.2 });
-  // Rubbed crumbs and graphite smears on the working end.
-  const end = face > 0 ? x0 + w - 8 : x0 + 8;
-  for (let i = 0; i < 4; i++)
-    line(ctx, end - face * i * 3, y0 + 5 + i * 4, end - face * (i * 3 + 6), y0 + 7 + i * 4, "#8d6f82", 0.8, 0.5);
-  // The paper sleeve wrapped around the back half, with stitching.
-  const sx = face > 0 ? x0 - 1.5 : x0 + w * 0.48,
-    sw = w * 0.53 + 1.5,
-    sleeve = path([
-      [sx, y0 - 2.5],
-      [sx + sw * 0.5, y0 - 3.2],
-      [sx + sw, y0 - 2.5],
-      [sx + sw + 0.5, y1 + 2],
-      [sx + sw * 0.45, y1 + 2.8],
-      [sx - 0.5, y1 + 2],
-    ]);
-  piece(ctx, sleeve, "#4f6f9c", { shadow: 1.5, edge: "#8eaed2", texture: 0.8, thickness: 1 });
-  piece(ctx, path([
-    [sx + 2, y0 + h * 0.36],
-    [sx + sw - 2, y0 + h * 0.34],
-    [sx + sw - 2, y0 + h * 0.58],
-    [sx + 2, y0 + h * 0.6],
-  ]), "#e9dcc2", { shadow: 0.6, edge: "#fff6e2", texture: 0.5, thickness: 0.5 });
-  stitch(ctx, path([
-    [sx + 3, y0 + 1.5],
-    [sx + sw - 3, y0 + 1.5],
-    [sx + sw - 3, y1 - 1],
-    [sx + 3, y1 - 1],
-  ]), "#c8d8ea", 0.85);
-  // Two short ink bars on the label, in place of printed text.
-  line(ctx, sx + sw * 0.25, y0 + h * 0.47, sx + sw * 0.6, y0 + h * 0.47, "#4f6f9c", 1.2);
-  line(ctx, sx + sw * 0.66, y0 + h * 0.47, sx + sw * 0.78, y0 + h * 0.47, "#b2404f", 1.2);
-  ctx.fillStyle = "#385375";
-  ctx.fill(path([[sx, y1 - 5], [sx + sw, y1 - 5], [sx + sw + 0.5, y1 + 2], [sx, y1 + 2]]));
-  foldLine(ctx, sx + 1, y1 - 5, sx + sw - 1, y1 - 5, 0.75);
-  foldLine(ctx, sx + 3, y0 - 1, sx + sw - 2, y0 - 1, 0.55);
-  // Small delaminated corners show the sleeve is folded card, not a coloured box.
-  piece(ctx, path([[sx + sw - 8, y0 - 2], [sx + sw, y0 - 2], [sx + sw + 1, y0 + 6]]), "#b9c5d3", { shadow: 0.6, edge: "#edf0e6", texture: 0.4, thickness: 0.6 });
-  }).draw(ctx, { x: 0, y: 0, scale: R / 24 });
+  // The cut is painted 4 left / 18 down of its sprite centre; put the block base on the ground point.
+  eraserCut(dir).draw(ctx, { x: 4 * (R / 24), y: -18 * (R / 24), scale: R / 24 });
   ctx.restore();
   // Eyes on the exposed rubber.
-  const ex = face > 0 ? x0 + w * 0.73 : x0 + w * 0.27,
+  const ex = dir > 0 ? x0 + w * 0.73 : x0 + w * 0.27,
     ey = y0 + h * 0.42,
     angry = windup > 0 || charging;
   googly(ctx, ex - 7, ey, 5, look, time, e.id, angry);
@@ -159,7 +195,21 @@ export const ERASER_BOSS_ART: EnemyArt = {
   draw: drawEraser,
   cullMargin: 80,
   /** Sweep lane, charge lane and summon ring while an attack winds up. */
-  ground(ctx, e) {
+  ground(ctx, e, look) {
+    // Behind the block the page is rubbed back to blank paper: a pale smear with rubbed streaks.
+    if (e.spawnTime <= 0) {
+      const back = look && look.x < e.x ? 1 : -1, R = enemyRadius(e);
+      ctx.save();
+      ctx.translate(e.x + back * R * 1.5, e.y + 1);
+      ctx.scale(back, 1);
+      enemyPart("eraser-smear", 120, 40, (c) => {
+        c.globalAlpha = 0.55;
+        flatLayer(c, { shape: new Path2D("M -40 -6 Q -10 -11 22 -8 Q 40 -6 46 -1 Q 38 6 18 8 Q -12 10 -38 6 Q -46 0 -40 -6 Z"), color: "#efe5d0", rim: "#fffaf0", lift: 0, texture: 0.3 });
+        c.globalAlpha = 0.45;
+        for (const [y, l] of [[-4, 30], [0, 40], [4, 26]] as const) line(c, -30, y, -30 + l, y + 0.5, "#fffaf0", 1.6);
+      }).draw(ctx, { x: 0, y: 0, scale: R / 26 });
+      ctx.restore();
+    }
     const a = e.act;
     if (!a || a.t <= 0) return;
     const k = 1 - a.t / BOSS[a.kind].telegraph;
@@ -172,9 +222,8 @@ export const ERASER_BOSS_ART: EnemyArt = {
       ctx.restore();
       dashed(ctx, r, "#ffd3da", 0.6 + k * 0.4, 1.8);
       const arrow = enemyPart("eraser-sweep-paper-arrow", 28, 26, (c) => {
-        piece(c, path([[-7, -8], [8, 0], [-7, 8], [-2, 0]]), "#f3bac2",
-          { shadow: 0.35, edge: "#ffe3d1", thickness: 0.75, texture: 0.32 });
-        foldLine(c, -2, 0, 7, 0, 0.65);
+        flatLayer(c, { shape: path([[-7, -8], [8, 0], [-7, 8], [-2, 0]]), color: "#f3bac2", rim: "#ffe3d1", lift: 0.4, texture: 0.3 });
+        crease(c, -2, 0, 7, 0, 0.65);
       });
       ctx.save();
       ctx.globalAlpha *= 0.67 + k * 0.25;

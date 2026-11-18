@@ -219,7 +219,8 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
     ctx.restore();
     return true;
   }
-  const count = e.kind === "prop-tear" ? 5 : 12,
+  // A few large fluttering pieces read better at gameplay zoom than a cloud of specks.
+  const count = e.kind === "prop-tear" ? 4 : 7,
     spread = e.kind === "prop-tear" ? 22 : 38;
   for (let i = 0; i < count; i++) {
     const sd = (e.seed ?? 0) * 17 + i,
@@ -228,7 +229,7 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
       // Out and up, then a slow swaying fall like paper.
       x = e.x + dir * spread * t + Math.sin(t * 9 + i) * 3 * t,
       y = e.y - up * 30 * t + 44 * t * t + (burnt ? -30 * t : 0),
-      w = 2.4 + hash(sd + 5) * 3,
+      w = 4 + hash(sd + 5) * 3.5,
       a = t * (4 + hash(sd + 7) * 6) * (i % 2 ? 1 : -1),
       c = colors[i % colors.length]!;
     ctx.save();
@@ -237,11 +238,23 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
     ctx.rotate(a);
     // Flutter: the fleck turns edge-on and back.
     ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(t * 10 + i)));
-    ctx.fillStyle = c;
-    ctx.fill(path([[-w, -w * 0.5], [w * 0.8, -w * 0.7], [w, w * 0.4], [-w * 0.6, w * 0.6]]));
+    const flip = Math.cos(t * 10 + i) < 0,
+      scrap = path([[-w, -w * 0.5], [w * 0.8, -w * 0.7], [w, w * 0.4], [-w * 0.6, w * 0.6]]);
+    // A hard shadow down-right, then the face or the paler back as the piece turns over.
+    ctx.save();
+    ctx.translate(1.2, 1.6);
+    ctx.fillStyle = "#120d1c";
+    ctx.globalAlpha *= 0.35;
+    ctx.fill(scrap);
+    ctx.restore();
+    ctx.fillStyle = flip && !burnt ? mix(c, "#f6e8c8", 0.55) : c;
+    ctx.fill(scrap);
     ctx.strokeStyle = mix(c, "#f1dcb0", 0.5);
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.7;
     ctx.stroke(path([[-w, -w * 0.5], [w * 0.8, -w * 0.7]]));
+    ctx.strokeStyle = mix(c, "#1c142b", 0.5);
+    ctx.lineWidth = 0.5;
+    ctx.stroke(path([[w, w * 0.4], [-w * 0.6, w * 0.6]]));
     ctx.restore();
   }
   ctx.restore();

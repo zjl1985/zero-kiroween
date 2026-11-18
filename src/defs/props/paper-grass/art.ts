@@ -1,5 +1,5 @@
 import type { PropArt } from "../../../render/art-registry.js";
-import { paperCut } from "../../../render/paper-kit.js";
+import { flatShadow, fringeStrip, paperCut } from "../../../render/paper-kit.js";
 import { hash, mix, shadow, type Ctx } from "../../../render/paper-material.js";
 import { variant } from "../../../render/variants.js";
 import { ashPatch, scrapPieces } from "../../../render/paper-scraps.js";
@@ -57,7 +57,12 @@ export const PAPER_GRASS_ART: PropArt = {
       ashPatch(ctx, x - 14 * s, y - 6 * s, 30 * s, 10 * s, v + 1);
       ashPatch(ctx, x + 20 * s, y - 2 * s, 26 * s, 9 * s, v + 6);
     } else {
-      patch(ctx, x, y, s, v, 0.2, 3);
+      // Cut stubble: short fringe-cut strips where the blades were snipped off.
+      flatShadow(ctx, x, y - 2 * s, 46 * s, 9 * s, 0.7);
+      for (let c = 0; c < 3; c++) {
+        const cx = x + (c - 1) * 30 * s, cy = y - 6 * s + (c % 2) * 7 * s;
+        fringeStrip(ctx, cx - 13 * s, cy, cx + 13 * s, cy, 7 * s, BLADES[(v + c) % BLADES.length]!, v * 13 + c, 4 * s);
+      }
       scrapPieces(ctx, x, y, 42 * s, BLADES, v * 11 + 4, 12);
     }
   },

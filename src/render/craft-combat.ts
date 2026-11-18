@@ -5,11 +5,12 @@ import {
   stroke,
   line,
   glow,
-
+  hash,
   type Ctx,
+  type Point,
 } from "./paper-material.js";
 import { cachedSprite } from "../engine/sprite.js";
-import { foldLine } from "./paper-kit.js";
+import { crease, flatLayer, foldLine } from "./paper-kit.js";
 import { enemyPart, enemyShadow } from "./craft-enemies.js";
 
 /** Static weapon cuts: placement, rotation and flight never participate in the key. */
@@ -29,6 +30,62 @@ export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: 
   }).draw(ctx, { x: 0, y: 0, scale: size / 4 });
   ctx.restore();
 }
+/** The soaked paper sheet of an ink blob, its feathered bleed, the stain and its wet core (finite variants). */
+function inkBlobSheet(v: number) {
+  return enemyPart(`ink-soak:${v}`, 56, 52, (c) => {
+    // Paper slumped under the ink: a torn foot spreads on the ground.
+    const sheet: Point[] = [];
+    for (let i = 0; i < 18; i++) {
+      const a = Math.PI + (i / 17) * Math.PI,
+        rr = 15.5 + (hash(v * 31 + i) - 0.5) * 2.4;
+      sheet.push([Math.cos(a) * rr * 1.08, -2 + Math.sin(a) * rr * (0.92 + v * 0.04)]);
+    }
+    for (let i = 0; i <= 8; i++) sheet.push([17.5 - i * 4.4, 9 + (i % 2 ? 2.4 : -0.2) + (hash(v * 7 + i) - 0.5) * 1.6]);
+    flatLayer(c, { shape: path(sheet), color: "#d9ccb2", rim: "#fff3dc", texture: 0.55, lift: 1.1, thickness: 1.1 });
+    const cut = path(sheet);
+    c.save();
+    c.clip(cut);
+    // Capillary bleed: a translucent fringe of fine ink spikes soaking outward.
+    const bleed: Point[] = [], stain: Point[] = [];
+    for (let i = 0; i < 44; i++) {
+      const a = (i / 44) * Math.PI * 2,
+        wob = 1 + Math.sin(a * 3 + v * 2) * 0.08 + (hash(v * 97 + i) - 0.5) * 0.1,
+        spike = i % 2 ? 1 + hash(v * 13 + i) * 0.22 : 0.94;
+      bleed.push([Math.cos(a) * 15.6 * wob * spike, -3 + Math.sin(a) * 14.4 * wob * spike]);
+      stain.push([Math.cos(a) * 13.4 * wob, -3.6 + Math.sin(a) * 12.2 * wob]);
+    }
+    c.globalAlpha = 0.55;
+    c.fillStyle = "#5a4c78";
+    c.fill(path(bleed));
+    c.globalAlpha = 1;
+    c.fillStyle = "#2b2442";
+    c.fill(path(stain, true));
+    // The wettest ink pools low and toward the shadow side.
+    c.fillStyle = "#17121f";
+    c.fill(oval(-2.4, 0.5, 8.6, 7.4, v + 3, 0.22));
+    // Drips running down the sheet and off its foot.
+    for (const [dx, len] of [[-9 + v, 9], [4 - v, 7], [11, 5]] as const) {
+      c.fill(new Path2D(`M ${dx - 1.4} 2 L ${dx - 1} ${2 + len} Q ${dx} ${4 + len} ${dx + 1} ${2 + len} L ${dx + 1.4} 2 Z`));
+    }
+    // Damp paper sheen: the moon catches the swollen top-right of the soaked sheet.
+    c.globalAlpha = 0.5;
+    c.strokeStyle = "#8f80b3";
+    c.lineWidth = 1.1;
+    c.stroke(new Path2D("M 2 -14 Q 9 -13 12 -6"));
+    c.globalAlpha = 1;
+    c.restore();
+    // One crease where the wet sheet buckled, lit from the moon.
+    crease(c, -11, 6, -3, -11, 0.5);
+    for (const dx of [-5, 5]) flatLayer(c, { shape: oval(dx, -3.5, 1.9, 2.3), color: "#f0c16d", rim: "#ffe1a0", lift: 0.3, texture: 0.1 });
+    stroke(c, new Path2D(v === 2 ? "M -3 2 Q 0 -1 3 2" : "M -3.5 1 L -1.5 2.6 L 0 1.2 L 1.5 2.6 L 3.5 1"), "#d6c8e6", 0.7, 0.85);
+  });
+}
+/** A separate ink splash on the ground beside the blob (finite variants). */
+function inkSpot(v: number) {
+  return enemyPart(`ink-spot:${v}`, 22, 14, (c) => {
+    flatLayer(c, { shape: oval(0, 0, 5 + v, 2.6, v + 41, 0.4), color: "#241d36", rim: "#5d4f80", lift: 0, texture: 0.3 });
+  });
+}
 export function drawCraftBlob(
   ctx: Ctx,
   x: number,
@@ -46,42 +103,17 @@ export function drawCraftBlob(
     ctx.restore();
     return;
   }
-  enemyShadow(ctx, x, y, 14, 4);
-  const cy = y - 9 + Math.sin(time * 3 + id), v = Math.abs(id) % 3;
-  for (const side of [-1, 1]) {
-    ctx.save();
-    ctx.globalAlpha *= 0.42;
-    ctx.translate(x + side * 6, cy - 13);
-    ctx.rotate(side * 0.12 + Math.sin(time * 2 + id) * 0.08);
-    enemyPart("ink-ribbon", 24, 42, (c) => {
-      piece(c, new Path2D("M -3 12 Q -10 1 -2 -6 Q 4 -12 0 -18 Q 12 -10 5 -1 Q -1 4 4 12 Z"), "#806b96", { shadow: 0, edge: "#b29bc5", texture: 0.45, thickness: 0.6 });
-      foldLine(c, 0, 7, 2, -6, 0.4);
-    }).draw(ctx, { x: 0, y: 0 });
-    ctx.restore();
-  }
-  enemyPart(`ink-body:${v}`, 52, 44, (c) => {
-    const cut = new Path2D([
-      "M -16 9 L -12 2 Q -13 -8 -6 -12 L 1 -14 Q 12 -15 13 2 L 18 10 L 8 7 L 2 10 L -5 7 Z",
-      "M -17 8 L -12 0 L -10 -9 L -3 -15 L 4 -12 Q 12 -10 13 2 L 17 9 L 7 6 L 0 11 L -6 7 Z",
-      "M -16 10 L -13 1 Q -14 -6 -8 -9 L -2 -16 L 3 -12 L 10 -8 L 13 2 L 17 10 L 5 8 L 0 10 L -7 6 Z",
-    ][v]!);
-    piece(c, cut, "#3b2d49", { shadow: 1.5, edge: "#a38ab1", texture: 0.55, thickness: 1.1 });
-    c.save(); c.clip(cut);
-    c.fillStyle = "#745b81";
-    c.fill(path([[-12, 3], [-6, -12], [1, -14], [1 + v, -3], [-5, 7]]));
-    c.fillStyle = "#281e36";
-    c.fill(path([[1, -14], [9, -8], [13, 2], [18, 10], [3, 5]]));
-    foldLine(c, -6, -10, -2 + v, 3, 0.78);
-    c.restore();
-    for (const dx of [-5, 5]) {
-      piece(c, oval(dx, -1, 1.6, 2), "#f0c16d", { shadow: 0, texture: 0.15, edge: "#ffe1a0", thickness: 0.4 });
-    }
-    if (v === 1) {
-      line(c, -7, -5, -3, -3, "#d6b1bf", 0.65);
-      line(c, 3, -3, 7, -5, "#d6b1bf", 0.65);
-    }
-    stroke(c, new Path2D(v === 2 ? "M -3 4 Q 0 1 3 4" : "M -3 3 Q 0 6 3 3"), "#b595ad", 0.65);
-  }).draw(ctx, { x, y: cy });
+  enemyShadow(ctx, x + 1, y, 15, 4.2);
+  const v = Math.abs(id) % 3, beat = Math.sin(time * 3 + id),
+    cy = y - 9 + beat * 0.8;
+  inkSpot(v).draw(ctx, { x: x + (v - 1) * 9 + 11, y: y + 2 });
+  // The soaked sheet sags and swells; feet stay on the ground.
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1 + beat * 0.035, 1 - beat * 0.045);
+  ctx.translate(-x, -y);
+  inkBlobSheet(v).draw(ctx, { x, y: cy });
+  ctx.restore();
   if (slowed)
     stroke(
       ctx,
