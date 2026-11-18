@@ -5,7 +5,7 @@
  * hatching only on the shadow side (down-left of the moon light). Everything
  * is placed by world coordinates and render hashes, so neighbouring chunk
  * tiles, the terrain worker and the fallback paint the same strokes.
- * Flat strokes only: no gradients, no filters, no blur, never Math.random.
+ * Flat strokes only: no gradients, no filters, no blur, no random numbers.
  */
 import { visHash } from "./hash.js";
 import { PAPER_LIGHT } from "./paper-rules.js";

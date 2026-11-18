@@ -9,7 +9,7 @@
 import type { MessageKey } from "../content/keys.js";
 import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
-export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "biome" | "weapon" | "passive";
+export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "biome" | "wash" | "weapon" | "passive";
 export type GalleryState =
   | "idle"
   | "skill"
@@ -22,6 +22,10 @@ export type GalleryState =
   | "burnt"
   | "building"
   | "ground"
+  | "painted"
+  | "colourless"
+  | "blank"
+  | "tide"
   | "icon";
 export interface GalleryItem {
   readonly kind: GalleryKind;
@@ -46,10 +50,13 @@ export const GALLERY_CELL: Readonly<Record<GalleryKind, { readonly w: number; re
   prop: { w: 170, h: 140 },
   landmark: { w: 340, h: 300 },
   biome: { w: 260, h: 170 },
+  wash: { w: 220, h: 160 },
   weapon: { w: 116, h: 120 },
   passive: { w: 116, h: 120 },
 };
 export const PROP_STATES: readonly GalleryState[] = ["intact", "damaged", "scraps", "burning", "burnt"];
+/** Washed-paper swatches per district: painted, colourless pencil, erased blank and a mid-transition tide line. */
+export const WASH_STATES: readonly GalleryState[] = ["painted", "colourless", "blank", "tide"];
 
 const items = (kind: GalleryKind, ids: readonly string[], label: (id: string) => string, states: (id: string) => readonly GalleryState[]) =>
   ids.flatMap((id) => states(id).map((state) => ({ kind, id, label: label(id) as MessageKey, state })));
@@ -78,6 +85,7 @@ export function gallerySections(): GallerySection[] {
     })),
     section("landmark", "landmarks", items("landmark", LANDMARK_DEFS.ids(), (id) => `landmark.${id}`, () => ["building"])),
     section("biome", "biomes", items("biome", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => ["ground"])),
+    section("wash", "wash", items("wash", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => WASH_STATES)),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
     section("passive", "passives", items("passive", PASSIVE_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
   ];

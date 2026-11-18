@@ -18,9 +18,12 @@ import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
 import { landmarkPreview, type Bounds } from "./craft-world.js";
 import { visHash } from "./hash.js";
-import { paintSheet } from "./paper-ground.js";
+import { paintSheet, sheetOutline } from "./paper-ground.js";
 import { paperCut } from "./paper-kit.js";
-import { box, glow, type Ctx } from "./paper-material.js";
+import { box, glow, stroke, type Ctx, type Point } from "./paper-material.js";
+import { pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
+import { WASH_LOOK, washBloom } from "./timeline.js";
+import { swatchBlot, washLook } from "./wash-art.js";
 
 /** Height of the cream label tag at the bottom of a card. */
 const TAG = 38;
@@ -111,31 +114,39 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     ctx.restore();
   },
   biome(ctx, cell, st) {
-    const art = BIOME_ART.find(cell.id),
-      def = BIOME_DEFS.get(cell.id);
+    biomeSwatch(ctx, cell, st, false);
+  },
+  wash(ctx, cell, st) {
+    const art = BIOME_ART.find(cell.id);
     if (!art) return;
-    // A ground swatch laid from two of its district sheets, with three of its patches and a few props of its mix.
-    const g = box(st.x + 4, st.y + 4, st.w - 8, st.h - 8, cell.id.length);
-    ctx.save();
-    ctx.clip(g);
-    ctx.fillStyle = art.swatch[0];
-    ctx.fillRect(st.x, st.y, st.w, st.h);
-    paintSheet(ctx, [[st.x + st.w * 0.46, st.y - 14], [st.x + st.w + 14, st.y - 10], [st.x + st.w + 14, st.y + st.h + 14], [st.x + st.w * 0.5, st.y + st.h + 12]], art.sheet, 9);
-    paintSheet(ctx, [[st.x - 14, st.y - 12], [st.x + st.w * 0.6, st.y - 8], [st.x + st.w * 0.56, st.y + st.h * 0.7], [st.x - 14, st.y + st.h * 0.74]], art.sheet, 3);
-    const cy = st.y + st.h * 0.58;
-    [0.22, 0.55, 0.85].forEach((fx, i) => art.patch(ctx, st.x + st.w * fx, cy + (i % 2 ? -14 : 10), Math.min(54, st.w * 0.2), 11 + i * 17));
-    const shown = def.props.map((p) => p.prop).filter((id, i, a) => a.indexOf(id) === i && id !== "paper-grass").slice(0, 3);
-    shown.forEach((id, i) => {
-      const pa = PROP_ART.find(PROP_DEFS.get(id).art);
-      if (!pa) return;
-      const k = Math.min(0.8, (st.h * 0.55) / (pa.bounds.b - pa.bounds.t));
+    biomeSwatch(ctx, cell, st, cell.state === "colourless");
+    if (cell.state !== "blank" && cell.state !== "tide") return;
+    // One stain in the middle of the swatch: rubbed blank, or washed mid-transition.
+    const x = st.x + st.w * 0.55, y = st.y + st.h * 0.52, r = Math.min(st.w, st.h) * 0.32, sd = cell.id.length * 7 + 3,
+      stain = swatchBlot(x, y, r, sd),
+      look = washLook(art);
+    if (cell.state === "blank") {
+      stroke(ctx, stain, PENCIL.soft, 6, 0.1);
       ctx.save();
-      ctx.translate(st.x + st.w * (0.2 + i * 0.3), st.y + st.h * 0.82);
-      ctx.scale(k, k);
-      drawProp(ctx, pa, { id: `gallery-${id}`, kind: id, x: 0, y: 0, s: 1, seed: 3 + i }, 0, false, false, 0);
+      ctx.fillStyle = PENCIL.blank;
+      ctx.fill(stain);
       ctx.restore();
-    });
+      stroke(ctx, stain, PENCIL.blank, 2.4, 0.9);
+      return;
+    }
+    stroke(ctx, stain, look.tide, 4.2, WASH_LOOK.tideAlpha);
+    stroke(ctx, stain, look.tide, 1.1, 0.5);
+    ctx.save();
+    ctx.clip(stain);
+    biomeSwatch(ctx, cell, st, true);
     ctx.restore();
+    const b = washBloom(WASH_LOOK.seconds * 0.3), bloom = swatchBlot(x, y, r, sd, 0.86 + b.spread * 0.3);
+    ctx.save();
+    ctx.globalAlpha *= b.pigment;
+    ctx.fillStyle = look.pigment;
+    ctx.fill(bloom);
+    ctx.restore();
+    stroke(ctx, bloom, look.tide, 1.8, b.tide);
   },
   weapon(ctx, cell, st) {
     icon(ctx, st, WEAPON_ART.find(cell.id)?.icon);
@@ -144,6 +155,51 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     icon(ctx, st, PASSIVE_ART.find(cell.id)?.icon);
   },
 };
+/**
+ * A district ground swatch laid from two of its sheets, with three of its
+ * patches and a few props of its mix. `pencil` shows the same swatch as its
+ * washed pencil underdrawing: raw cream paper, the sheet seams and patches in
+ * graphite, and the props in their pencil variants.
+ */
+function biomeSwatch(ctx: Ctx, cell: GalleryCell, st: { x: number; y: number; w: number; h: number }, pencil: boolean): void {
+  const art = BIOME_ART.find(cell.id),
+    def = BIOME_DEFS.get(cell.id);
+  if (!art) return;
+  const g = box(st.x + 4, st.y + 4, st.w - 8, st.h - 8, cell.id.length),
+    sheets: [Point[], number][] = [
+      [[[st.x + st.w * 0.46, st.y - 14], [st.x + st.w + 14, st.y - 10], [st.x + st.w + 14, st.y + st.h + 14], [st.x + st.w * 0.5, st.y + st.h + 12]], 9],
+      [[[st.x - 14, st.y - 12], [st.x + st.w * 0.6, st.y - 8], [st.x + st.w * 0.56, st.y + st.h * 0.7], [st.x - 14, st.y + st.h * 0.74]], 3],
+    ],
+    cy = st.y + st.h * 0.58,
+    patches = [0.22, 0.55, 0.85].map((fx, i) => [st.x + st.w * fx, cy + (i % 2 ? -14 : 10), Math.min(54, st.w * 0.2), 11 + i * 17] as const);
+  ctx.save();
+  ctx.clip(g);
+  if (pencil) {
+    rawPaper(ctx, st.x, st.y, st.w, st.h);
+    for (const [corners, sd] of sheets) {
+      pencilLine(ctx, sheetOutline(corners, art.sheet, sd), sd, { weight: 0.6, alpha: 0.32, closed: true, color: PENCIL.soft });
+      shadeAlong(ctx, subdivide([corners[3]!, corners[2]!], 30), 0.5, 6, 0.18, sd);
+    }
+    for (const [x, y, r, sd] of patches) pencilPatch(ctx, x, y, r, sd);
+  } else {
+    ctx.fillStyle = art.swatch[0];
+    ctx.fillRect(st.x, st.y, st.w, st.h);
+    for (const [corners, sd] of sheets) paintSheet(ctx, corners, art.sheet, sd);
+    for (const [x, y, r, sd] of patches) art.patch(ctx, x, y, r, sd);
+  }
+  const shown = def.props.map((p) => p.prop).filter((id, i, a) => a.indexOf(id) === i && id !== "paper-grass").slice(0, 3);
+  shown.forEach((id, i) => {
+    const pa = PROP_ART.find(PROP_DEFS.get(id).art);
+    if (!pa) return;
+    const k = Math.min(0.8, (st.h * 0.55) / (pa.bounds.b - pa.bounds.t));
+    ctx.save();
+    ctx.translate(st.x + st.w * (0.2 + i * 0.3), st.y + st.h * 0.82);
+    ctx.scale(k, k);
+    drawProp(ctx, pa, { id: `gallery-${id}`, kind: id, x: 0, y: 0, s: 1, seed: 3 + i }, 0, false, false, 0, pencil ? { sketch: 1 } : {});
+    ctx.restore();
+  });
+  ctx.restore();
+}
 function icon(ctx: Ctx, st: { x: number; y: number; w: number; h: number }, paint?: (ctx: Ctx, ink: string) => void): void {
   if (!paint) return;
   const k = Math.min(2, (st.h - 8) / 32);

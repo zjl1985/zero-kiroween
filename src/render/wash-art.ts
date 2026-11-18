@@ -12,7 +12,7 @@
  * confetti are small flat paper cuts.
  *
  * With no stored wash cells nothing here runs past one check. No per-frame
- * ctx.filter or getImageData, no gradients, no Math.random. Render only:
+ * canvas filters or pixel reads, no gradients, no random numbers. Render only:
  * reads SimState, never mutates it.
  */
 import { CATS, ENEMY_DEFS } from "../defs/registries.js";
@@ -21,7 +21,7 @@ import { cachedSprite } from "../engine/sprite.js";
 import { EFFECT_LIFE, type Impact, type SimState, type WashCell } from "../game/types.js";
 import { washEmpty } from "../game/wash.js";
 import { CHUNK, biomeAt } from "../game/world-gen.js";
-import { BIOME_ART } from "./art-registry.js";
+import { BIOME_ART, type BiomeArt } from "./art-registry.js";
 import { viewRect, type Camera, type ViewRect } from "./camera.js";
 import { sketchTile } from "./craft-world.js";
 import { visHash } from "./hash.js";
@@ -214,9 +214,43 @@ function blot(p: Path2D, ix: number, iy: number, scale = 1): void {
   p.closePath();
 }
 function chunkLook(seed: number, cx: number, cy: number): { tide: string; pigment: string } {
-  const art = BIOME_ART.find(biomeAt(seed, cx, cy).id),
-    base = art?.sheet.colors[2] ?? "#6f6a5a";
+  return washLook(BIOME_ART.find(biomeAt(seed, cx, cy).id));
+}
+/** Tide-line and bloom pigment colours of a district (also used by the gallery swatches). */
+export function washLook(art: BiomeArt | undefined): { tide: string; pigment: string } {
+  const base = art?.sheet.colors[2] ?? "#6f6a5a";
   return { tide: mix(base, COLORS.tideInk, 0.35), pigment: art?.swatch[1] ?? "#7a8f6a" };
+}
+/** A free-standing watercolour stain of a few merged blots around (x, y) (gallery swatches). */
+export function swatchBlot(x: number, y: number, r: number, seed: number, scale = 1): Path2D {
+  const p = new Path2D(), cell = WASH.cell * BLOT;
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + visHash(seed + i) * 0.8, d = i === 0 ? 0 : r * (0.45 + visHash(seed * 3 + i) * 0.25),
+      bx = x + Math.cos(a) * d, by = y + Math.sin(a) * d * 0.7,
+      // Reuse the cell blot shape, scaled so one blot spans about half the stain.
+      k = ((r * 0.62) / cell) * scale;
+    appendBlot(p, bx, by, k, seed + i * 17);
+  }
+  return p;
+}
+function appendBlot(p: Path2D, x: number, y: number, k: number, salt: number): void {
+  const n = 10, pts: Point[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + visHash(salt) * 0.6,
+      rr = (0.86 + visHash(salt * 131 + i * 97) * 0.24) * WASH.cell * BLOT * k;
+    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.92]);
+  }
+  const mid = (i: number): Point => {
+    const u = pts[i % n]!, v = pts[(i + 1) % n]!;
+    return [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2];
+  };
+  const start = mid(0);
+  p.moveTo(start[0], start[1]);
+  for (let i = 1; i <= n; i++) {
+    const c = pts[i % n]!, e = mid(i);
+    p.quadraticCurveTo(c[0], c[1], e[0], e[1]);
+  }
+  p.closePath();
 }
 function buildMask(seed: number, key: string, bucket: Bucket): Mask {
   const [cx, cy] = key.split(",").map(Number) as [number, number],

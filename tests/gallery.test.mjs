@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { BIOME_DEFS, CATS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { LANDMARK_KINDS } from "../dist/game/world-gen.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
-import { GALLERY_GRID, galleryLayout, gallerySections, PROP_STATES, stateLabel } from "../dist/ui/gallery-layout.js";
+import { GALLERY_GRID, galleryLayout, gallerySections, PROP_STATES, stateLabel, WASH_STATES } from "../dist/ui/gallery-layout.js";
 import { variant } from "../dist/render/variants.js";
 import "../dist/render/art-index.js";
 import { tornEdge } from "../dist/render/paper-kit.js";
@@ -21,8 +21,16 @@ test("every registered cat, enemy, prop, landmark, biome, weapon and passive get
     assert.deepEqual([...idsOf(layout, "biome")], BIOME_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "weapon")], WEAPON_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "passive")], PASSIVE_DEFS.ids());
-    assert.equal(layout.headers.length, 7);
+    assert.deepEqual([...idsOf(layout, "wash")], BIOME_DEFS.ids());
+    assert.equal(layout.headers.length, 8);
   }
+});
+
+test("every district shows a washed-paper swatch: painted, colourless, blank and a mid tide line", () => {
+  const cells = galleryLayout(gallerySections(), 1000).cells;
+  for (const id of BIOME_DEFS.ids())
+    assert.deepEqual(cells.filter((c) => c.kind === "wash" && c.id === id).map((c) => c.state), [...WASH_STATES]);
+  assert.deepEqual([...WASH_STATES], ["painted", "colourless", "blank", "tide"]);
 });
 
 test("gallery states match cat poses, elite eligibility and the prop's fire rules", () => {

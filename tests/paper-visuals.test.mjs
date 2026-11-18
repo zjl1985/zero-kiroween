@@ -20,7 +20,7 @@ import { paperOccludesActor } from "../dist/render/world.js";
 class Path {
   constructor(source) { this.ops = source instanceof Path ? [...source.ops] : source ? [["path", source]] : []; }
 }
-for (const name of ["moveTo", "lineTo", "quadraticCurveTo", "bezierCurveTo", "closePath", "rect", "arc", "ellipse"])
+for (const name of ["moveTo", "lineTo", "quadraticCurveTo", "bezierCurveTo", "closePath", "rect", "arc", "ellipse", "addPath", "roundRect"])
   Path.prototype[name] = function (...args) { this.ops.push([name, ...args]); };
 class Matrix {
   scale() { return this; }
@@ -573,4 +573,95 @@ test("pieces and actors on colourless paper use finite pencil variants; painted 
   assert.notEqual(direct, ctx, "a colourless actor is composed on a scratch canvas");
   assert.ok(images(ctx).length >= 6, "outline, cut, pencil body and hatching");
   restored(ctx);
+});
+
+import { drawPaperRain, drawWashEffect, rainAmount } from "../dist/render/wash-art.js";
+import { paintGallery } from "../dist/render/gallery.js";
+import { CATS } from "../dist/defs/registries.js";
+
+test("splashes, pigment confetti and paper rain are flat cut paper from finite cached pieces", (t) => {
+  const sim = createSim({ cat: "zero", seed: 7 });
+  environment(t);
+  for (const kind of ["splash", "pigment"]) {
+    const ctx = canvas().getContext("2d"), e = Object.freeze({ kind, x: 10, y: 20, life: EFFECT_LIFE[kind] * 0.6, seed: 5, radius: 40, src: "ink-blob" });
+    assert.equal(drawWashEffect(ctx, e, sim), true);
+    assert.ok(images(ctx).length >= 8, `${kind} throws several paper pieces`);
+    assert.deepEqual(gloss(allPaint(ctx)), []);
+    restored(ctx);
+  }
+  const count = spriteCacheSize();
+  for (const f of [0.05, 0.3, 0.55, 0.95]) for (const kind of ["splash", "pigment"])
+    drawWashEffect(canvas().getContext("2d"), { kind, x: -50, y: 9, life: EFFECT_LIFE[kind] * f, seed: 5, radius: 60, src: "ink-blob" }, sim);
+  assert.ok(spriteCacheSize() <= count + 18, "confetti turns and drop sizes are a small finite set");
+  assert.equal(drawWashEffect(canvas().getContext("2d"), { kind: "hit", x: 0, y: 0, life: 0.1 }, sim), false);
+  const dry = canvas().getContext("2d");
+  drawPaperRain(dry, sim, { x: 480, y: 270 }, 3, false);
+  assert.equal(dry.calls.length, 0, "no rain outside the spell");
+  const wet = { ...sim, elapsed: (WASH.rain.at + WASH.rain.until) / 2 * sim.sessionSeconds };
+  assert.ok(rainAmount(wet) > 0);
+  const rain = canvas().getContext("2d");
+  drawPaperRain(rain, wet, { x: 480, y: 270 }, 3, false);
+  assert.ok(images(rain).length > 10);
+  const rainCount = spriteCacheSize();
+  for (const time of [0.1, 7, 900]) drawPaperRain(canvas().getContext("2d"), wet, { x: 480, y: 270 }, time, false);
+  assert.equal(spriteCacheSize(), rainCount, "falling drops reuse two cached cuts");
+  restored(rain);
+});
+
+test("the watercolour brush trails a painted paper ribbon in the cat's colour, read-only", (t) => {
+  const sim = createSim({ cat: "nicole", seed: 7 });
+  environment(t);
+  const art = WEAPON_ART.get("watercolour-brush"), ctx = canvas().getContext("2d");
+  assert.equal(typeof art.ground, "function");
+  for (let i = 0; i < 8; i++) {
+    sim.player.x += 9;
+    sim.elapsed += 0.05;
+    const before = structuredClone(sim);
+    art.ground(ctx, sim);
+    assert.deepEqual(sim, before, "the ribbon never mutates SimState");
+  }
+  assert.ok(ctx.calls.some((c) => c.op === "fill" && c.fillStyle === CATS.get(sim.player.id).stats.accent), "pigment ribbon in the cat accent");
+  assert.ok(ctx.calls.some((c) => c.op === "translate" && c.args[0] > 0 && c.args[1] > 0), "hard shadow down-right");
+  assert.deepEqual(gloss(ctx.calls), []);
+  restored(ctx);
+});
+
+test("the gallery washed-paper swatches show pencil on cream, clean blank paper and a tide line", (t) => {
+  environment(t);
+  const page = canvas();
+  page.style = {};
+  assert.ok(paintGallery(page, "en", 1240, 1) > 0);
+  const calls = allPaint(page.getContext("2d"));
+  assert.ok(calls.some((c) => c.op === "fillRect" && c.fillStyle === "#eee4cf"), "raw cream paper");
+  assert.ok(calls.some((c) => c.op === "fill" && c.fillStyle === "#fbf8f0"), "clean erased paper");
+  assert.ok(calls.some((c) => c.op === "stroke" && c.strokeStyle === "#45434f"), "graphite");
+  assert.ok(calls.some((c) => c.globalCompositeOperation === "saturation"), "props in their pencil variant");
+});
+
+import { drawWorld } from "../dist/render/world.js";
+
+test("a whole world frame over washed, cut and folded paper leaves SimState untouched", (t) => {
+  const sim = washedSim();
+  spillWater(sim, sim.player.x, sim.player.y, 90, 1, false);
+  const near = Object.entries(sim.wash.cells)[0][1];
+  near.cutUntil = sim.elapsed + 2;
+  near.foldUntil = sim.elapsed + 2;
+  const before = structuredClone(sim);
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  for (const at of [sim.player, WASH_AT]) {
+    const ctx = canvas().getContext("2d");
+    drawWorld(ctx, sim, { time: 1.5, camera: { x: at.x, y: at.y } });
+    assert.ok(ctx.calls.length > 50);
+  }
+  assert.deepEqual(sim, before, "rendering never mutates SimState");
+});
+
+test("washed-paper painters never read pixels or set a live filter", () => {
+  for (const file of ["wash-art.ts", "pencil.ts", "sprite-sketch.ts", "craft-world.ts", "world.ts"]) {
+    const text = readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(text, /getImageData|\.filter\s*=|shadowBlur|create(Linear|Radial|Conic)Gradient|Math\.random/, file);
+  }
 });

@@ -9,7 +9,7 @@
  * sprite and quantised amount (SKETCH_STEPS), so keys stay finite. Live
  * actors are composed through a small pool of reused scratch canvases, only
  * while they stand on colourless cells. Composition uses blend modes on
- * offscreen canvases: no ctx.filter, no getImageData, no gradients.
+ * offscreen canvases: no canvas filters, no pixel reads, no gradients.
  * Render only: reads SimState, never mutates it; no randomness.
  */
 import { WASH } from "../defs/wash.js";
