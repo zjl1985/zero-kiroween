@@ -8,6 +8,8 @@
  * No gradients, no shadowBlur, no filters; never the sim RNG.
  */
 import { CHUNK, WORLD, biomeAt } from "../game/world-gen.js";
+import { waterRegionsNear } from "../game/water.js";
+import { touchesWaterShore } from "../defs/water.js";
 import { BIOME_ART, type SheetLook } from "./art-registry.js";
 import { crease, fringeStrip, insetPoints, PAPER_EDGE, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import { grain, hash, mix, path, stitch, type Ctx, type Point } from "./paper-material.js";
@@ -121,7 +123,7 @@ export function groundSheet(ctx: Ctx, pts: readonly Point[], color: string, look
 }
 
 /** The grid sheet (i, j): corners, district look and colour, all from render hashes of the run seed. */
-function sheetAt(seed: number, i: number, j: number) {
+export function sheetAt(seed: number, i: number, j: number) {
   const sd = seed * 131 + i * 7919 + j * 104729,
     { w, h, overlap: o, jitter: q } = SHEET,
     x0 = i * w - o, y0 = j * h - o, x1 = (i + 1) * w + o, y1 = (j + 1) * h + o,
@@ -162,12 +164,8 @@ export function paintSheet(ctx: Ctx, corners: readonly Point[], look: SheetLook,
   });
 }
 
-/**
- * The sheets overlapping a tile, in one global order (bottom-right first),
- * so sheets above and to the left lie on top and cast their shadow down-right
- * onto the ones under them. Yields between sheets for the budgeted fallback.
- */
-export function* sheetGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): Generator<void> {
+/** Sheets overlapping a box, in the same global order as sheetGround (painted and pencil layers agree). */
+export function* sheetsIn(seed: number, x0: number, y0: number, x1: number, y1: number) {
   const { w, h, overlap: o, jitter: q } = SHEET,
     pad = o + q + 16,
     ia = Math.floor((Math.max(x0, WORLD.minX) - pad) / w), ib = Math.floor((x1 + pad) / w),
@@ -176,7 +174,53 @@ export function* sheetGround(ctx: Ctx, seed: number, x0: number, y0: number, x1:
     for (let i = ib; i >= ia; i--) {
       const s = sheetAt(seed, i, j), [bx0, by0, bx1, by1] = s.bounds;
       if (!s.art || bx1 < x0 || bx0 > x1 || by1 < y0 || by0 > y1) continue;
-      paintSheet(ctx, s.corners, s.art.sheet, s.sd);
-      yield;
+      yield { ...s, art: s.art };
     }
+}
+/** Ground patch grid: one possible cluster per cell, its biome from the cell centre's chunk. */
+export const PATCH = { cell: 210, margin: 110, r: [46, 84] } as const;
+/**
+ * District ground patches overlapping a box: placed on a world grid by render
+ * hashes, so every chunk that overlaps a patch places it the same way. A
+ * seeded blend of neighbouring districts avoids hard chunk seams. Shared by
+ * the painted ground and its pencil underdrawing.
+ */
+export function* patchSpots(seed: number, x0: number, y0: number, x1: number, y1: number) {
+  const c = PATCH.cell,
+    ia = Math.floor((x0 - PATCH.margin) / c),
+    ib = Math.floor((x1 + PATCH.margin) / c),
+    ja = Math.floor((y0 - PATCH.margin) / c),
+    jb = Math.floor((y1 + PATCH.margin) / c);
+  for (let j = ja; j <= jb; j++)
+    for (let i = ia; i <= ib; i++) {
+      const sd = seed * 31 + i * 7919 + j * 104729,
+        x = (i + 0.2 + hash(sd) * 0.6) * c,
+        y = (j + 0.2 + hash(sd + 1) * 0.6) * c;
+      if (y < WORLD.playTop + 10 || (y < 560 && x > -40 && x < 1000)) continue;
+      if (x < WORLD.minX + 60 || x > WORLD.maxX - 60 || y > WORLD.maxY - 50) continue;
+      const gx = x / CHUNK.width - 0.5, gy = y / CHUNK.height - 0.5,
+        cx = Math.floor(gx), cy = Math.floor(gy),
+        fx = gx - cx, fy = gy - cy,
+        // Stochastic motif mixing, not translucent rectangular biome overlays.
+        bx = cx + (hash(sd + 11) < fx * fx * (3 - 2 * fx) ? 1 : 0),
+        by = cy + (hash(sd + 12) < fy * fy * (3 - 2 * fy) ? 1 : 0),
+        art = BIOME_ART.find(biomeAt(seed, bx, by).id);
+      if (!art || hash(sd + 2) > art.patchChance) continue;
+      const r = PATCH.r[0] + hash(sd + 3) * (PATCH.r[1] - PATCH.r[0]);
+      if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
+      if (waterRegionsNear(seed, x, y, r + 8).some((water) => touchesWaterShore(water, x, y, r + 8))) continue;
+      yield { x, y, r, art, seed: Math.floor(hash(sd + 4) * 1e5) };
+    }
+}
+
+/**
+ * The sheets overlapping a tile, in one global order (bottom-right first),
+ * so sheets above and to the left lie on top and cast their shadow down-right
+ * onto the ones under them. Yields between sheets for the budgeted fallback.
+ */
+export function* sheetGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): Generator<void> {
+  for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
+    paintSheet(ctx, s.corners, s.art.sheet, s.sd);
+    yield;
+  }
 }

@@ -8,10 +8,10 @@ interface TerrainWorkerScope {
 }
 const scope = self as unknown as TerrainWorkerScope;
 
-scope.onmessage = ({ data: { id, seed, cx, cy } }) => {
+scope.onmessage = ({ data: { id, seed, cx, cy, layer } }) => {
   let bitmap: ImageBitmap | undefined;
   try {
-    const canvas = buildChunk(seed, cx, cy);
+    const canvas = buildChunk(seed, cx, cy, layer);
     if (!(canvas instanceof OffscreenCanvas)) throw new Error("Expected a worker canvas");
     bitmap = canvas.transferToImageBitmap();
     scope.postMessage({ id, bitmap }, [bitmap]);

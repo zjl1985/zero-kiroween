@@ -40,7 +40,9 @@ import { viewRect } from "./camera.js";
 import { popupStep, popupTarget } from "./timeline.js";
 import { drawInteractable } from "./craft-juice.js";
 import { tintedSprite } from "./sprite-tint.js";
-import { sheetGround } from "./paper-ground.js";
+import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
+import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
+import { constructionLine, hatch, pencilFootprint, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
 import { flatCut, fringeStrip, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import {
   bush,
@@ -114,7 +116,7 @@ function decorBounds(d: Decor): Bounds | null {
   const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
-function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Readonly<SimState["landmarkEvents"][string]>): void {
+function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Readonly<SimState["landmarkEvents"][string]>, pencil = 0): void {
   if (d.kind === "lamp") {
     drawLamp(ctx, { x: d.x, y: d.y, s: Math.round(d.s * 20) / 20 }, time);
     return;
@@ -138,8 +140,10 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
       (c) => paint(c, ax, ay, s, v),
       { x: ax / w, y: ay / h },
     );
-  tintedSprite(sprite, "#000000", 0.28 * shade).draw(ctx, { x: d.x, y: d.y });
-  extra?.live?.(ctx, d.x, d.y, s, v, time, activity);
+  // Pieces standing on colourless paper show their pencil version (cached per sprite and step).
+  sketchedSprite(tintedSprite(sprite, "#000000", 0.28 * shade), pencil).draw(ctx, { x: d.x, y: d.y });
+  const live = extra?.live;
+  if (live) drawSketched(ctx, pencil, d.x, d.y, { l: b.l * s, r: b.r * s, t: b.t * s, b: b.b * s }, (c) => live(c, d.x, d.y, s, v, time, activity));
 }
 
 // ---------------------------------------------------------------- flat art baked in chunks
@@ -298,40 +302,16 @@ function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): vo
     for (let x = Math.floor(x0 / step) * step - step; x < x1 + step; x += step)
       clump(x, WORLD.maxY - 10 - hash(x) * 8, Math.floor(x / step) * 3);
 }
-/** Ground patch grid: one possible cluster per cell, its biome from the cell centre's chunk. */
-const PATCH = { cell: 210, margin: 110, r: [46, 84] } as const;
 /**
  * District ground detail in a chunk's cache: clustered patches placed on a
- * world grid by render hashes, so every chunk that overlaps a patch draws it
- * the same way. A seeded blend of neighbouring districts avoids hard chunk seams.
+ * world grid by render hashes (patchSpots), so every chunk that overlaps a
+ * patch draws it the same way.
  */
 function* biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): Generator<void> {
-  const c = PATCH.cell,
-    ia = Math.floor((x0 - PATCH.margin) / c),
-    ib = Math.floor((x1 + PATCH.margin) / c),
-    ja = Math.floor((y0 - PATCH.margin) / c),
-    jb = Math.floor((y1 + PATCH.margin) / c);
-  for (let j = ja; j <= jb; j++)
-    for (let i = ia; i <= ib; i++) {
-      const sd = seed * 31 + i * 7919 + j * 104729,
-        x = (i + 0.2 + hash(sd) * 0.6) * c,
-        y = (j + 0.2 + hash(sd + 1) * 0.6) * c;
-      if (y < WORLD.playTop + 10 || (y < 560 && x > -40 && x < 1000)) continue;
-      if (x < WORLD.minX + 60 || x > WORLD.maxX - 60 || y > WORLD.maxY - 50) continue;
-      const gx = x / CHUNK.width - 0.5, gy = y / CHUNK.height - 0.5,
-        cx = Math.floor(gx), cy = Math.floor(gy),
-        fx = gx - cx, fy = gy - cy,
-        // Stochastic motif mixing, not translucent rectangular biome overlays.
-        bx = cx + (hash(sd + 11) < fx * fx * (3 - 2 * fx) ? 1 : 0),
-        by = cy + (hash(sd + 12) < fy * fy * (3 - 2 * fy) ? 1 : 0),
-        art = BIOME_ART.find(biomeAt(seed, bx, by).id);
-      if (!art || hash(sd + 2) > art.patchChance) continue;
-      const r = PATCH.r[0] + hash(sd + 3) * (PATCH.r[1] - PATCH.r[0]);
-      if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
-      if (waterRegionsNear(seed, x, y, r + 8).some((water) => touchesWaterShore(water, x, y, r + 8))) continue;
-      art.patch(ctx, x, y, r, Math.floor(hash(sd + 4) * 1e5));
-      yield;
-    }
+  for (const s of patchSpots(seed, x0, y0, x1, y1)) {
+    s.art.patch(ctx, s.x, s.y, s.r, s.seed);
+    yield;
+  }
 }
 /** Ground-level landmark art baked into the chunk caches. */
 function landmarkGround(ctx: Ctx, l: Landmark): void {
@@ -395,16 +375,21 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
 
 // ---------------------------------------------------------------- chunk caches
 type ChunkImage = CanvasSurface | ImageBitmap;
+/** A chunk tile bake: the painted ground, or the pencil underdrawing that washed paper reveals. */
+export type ChunkLayer = "paint" | "sketch";
 interface ChunkTile {
   key: string;
   cx: number;
   cy: number;
+  layer?: ChunkLayer;
 }
 export interface TerrainRequest {
   id: number;
   seed: number;
   cx: number;
   cy: number;
+  /** Which bake: the painted ground (default) or its pencil underdrawing. */
+  layer?: ChunkLayer;
 }
 export interface TerrainReply {
   id: number;
@@ -484,10 +469,138 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   drawHedge(ctx, x0, y0, x1, y1);
 }
 /** Drain the same painter on the worker, or copy an already cached start yard. */
-export function buildChunk(seed: number, cx: number, cy: number): CanvasSurface {
+export function buildChunk(seed: number, cx: number, cy: number, layer: ChunkLayer = "paint"): CanvasSurface {
   const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
-  for (const _ of paintChunk(canvas, seed, cx, cy)) { /* finish the tile */ }
+  for (const _ of paintLayer(canvas, seed, cx, cy, layer)) { /* finish the tile */ }
   return canvas;
+}
+function paintLayer(canvas: CanvasSurface, seed: number, cx: number, cy: number, layer: ChunkLayer): Generator<void> {
+  return layer === "sketch" ? paintSketchChunk(canvas, seed, cx, cy) : paintChunk(canvas, seed, cx, cy);
+}
+/** Run segments of a polyline that come near a box (keeps long roads cheap to sketch). */
+function runsNear(points: readonly { x: number; y: number }[], pad: number, x0: number, y0: number, x1: number, y1: number): Point[][] {
+  const runs: Point[][] = [];
+  let run: Point[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]!, b = points[i + 1]!,
+      near = Math.max(a.x, b.x) + pad >= x0 && Math.min(a.x, b.x) - pad <= x1 && Math.max(a.y, b.y) + pad >= y0 && Math.min(a.y, b.y) - pad <= y1;
+    if (near) {
+      if (!run.length) run.push([a.x, a.y]);
+      run.push([b.x, b.y]);
+    } else if (run.length) {
+      runs.push(run);
+      run = [];
+    }
+  }
+  if (run.length) runs.push(run);
+  return runs;
+}
+/** A polyline moved `off` units along its normals (the road edge in pencil). */
+function offsetRun(pts: readonly Point[], off: number): Point[] {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)]!, b = pts[Math.min(pts.length - 1, i + 1)]!,
+      len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [p[0] + (-(b[1] - a[1]) / len) * off, p[1] + ((b[0] - a[0]) / len) * off] as Point;
+  });
+}
+/**
+ * The pencil underdrawing of a chunk, in the same world coordinates as the
+ * painted tile: raw cream paper and fibre, faint district sheet seams with a
+ * hatched shadow strip, loose patch rings, water shores, landmark footprints
+ * with construction axes, both road edges plus a construction centreline
+ * and shadow-side hatching, flat decor marks and hatched footings under tall
+ * pieces. Baked only for chunks that have washed cells (worker or budgeted
+ * fallback, same generator), at the painted tile's resolution.
+ */
+function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number): Generator<void> {
+  const c = chunkContent(seed, cx, cy),
+    ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!,
+    x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
+  ctx.scale(2, 2);
+  ctx.translate(-x0, -y0);
+  rawPaper(ctx, x0, y0, c.w, c.h);
+  yield;
+  for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
+    const pts = sheetOutline(s.corners, s.art.sheet, s.sd);
+    pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26, closed: true, color: PENCIL.soft });
+    const [, , br, bl] = s.corners as [Point, Point, Point, Point];
+    shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16, s.sd);
+  }
+  yield;
+  for (const p of patchSpots(seed, x0, y0, x1, y1)) pencilPatch(ctx, p.x, p.y, p.r, p.seed);
+  yield;
+  const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
+  for (const water of waters) {
+    const shore = water.shore.map((v) => [v.x, v.y] as Point);
+    pencilLine(ctx, subdivide(shore, 16, true), water.seed, { weight: 0.95, alpha: 0.62, closed: true });
+    if (water.core.length) {
+      const core = water.core.map((v) => [v.x, v.y] as Point), corePath = path(core);
+      pencilLine(ctx, subdivide(core, 16, true), water.seed + 5, { weight: 0.7, alpha: 0.48, closed: true });
+      const { minX, minY, maxX, maxY } = water.bounds;
+      hatch(ctx, corePath, minX, minY, maxX, maxY, 4.2, 0.22, water.seed);
+    }
+    for (const crossing of water.crossings) {
+      const deck = crossing.polygon.map((v) => [v.x, v.y] as Point);
+      pencilLine(ctx, subdivide(deck, 14, true), water.seed + 9, { weight: 0.8, alpha: 0.55, closed: true, gaps: false });
+    }
+    yield;
+  }
+  for (const l of landmarks(seed)) {
+    const reach = landmarkReach(l);
+    if (l.x + reach < x0 || l.x - reach > x1 || l.y + reach < y0 || l.y - reach > y1) continue;
+    const rx = l.radius * 0.92, ry = l.radius * 0.5;
+    constructionLine(ctx, l.x - rx, l.y, l.x + rx, l.y, 22, 0.18);
+    constructionLine(ctx, l.x, l.y - ry * 1.3, l.x, l.y + ry * 1.3, 18, 0.16);
+    pencilFootprint(ctx, l.x, l.y, rx, ry, l.seed, 0.46);
+    yield;
+  }
+  roads(seed).forEach((r, ri) => {
+    if (!roadHits(r, x0, y0, x1, y1)) return;
+    for (const run of runsNear(r.points, r.width + 30, x0, y0, x1, y1)) {
+      for (let i = 0; i < run.length - 1; i++)
+        constructionLine(ctx, run[i]![0], run[i]![1], run[i + 1]![0], run[i + 1]![1], 9, 0.14);
+      for (const side of [-1, 1]) pencilLine(ctx, subdivide(offsetRun(run, side * r.width), 16), ri * 13 + side, { weight: 0.95, alpha: 0.6, overshoot: 5 });
+      shadeAlong(ctx, run, r.width + 0.8, r.width + 7, 0.28, ri);
+    }
+  });
+  yield;
+  const marks = new Path2D();
+  for (const n of contentAround(seed, cx, cy))
+    for (const d of n.decor) {
+      if (d.x <= x0 - 60 || d.x >= x1 + 60 || d.y <= y0 - 40 || d.y >= y1 + 40) continue;
+      if (FLAT_DECOR.has(d.kind)) {
+        // Flowers as tiny rings, tufts and leaf piles as quick ticks.
+        for (let i = 0; i < 3; i++) {
+          const tx = d.x + (i - 1) * 7 * d.s, ty = d.y + (hash(d.seed + i) - 0.5) * 4;
+          if (d.kind === "flowers") { marks.moveTo(tx + 2, ty - 3); marks.arc(tx, ty - 3, 2, 0, Math.PI * 2); }
+          else { marks.moveTo(tx - 2, ty); marks.lineTo(tx, ty - 5 * d.s); marks.lineTo(tx + 2.2, ty - 0.5); }
+        }
+        continue;
+      }
+      const bd = decorBounds(d);
+      if (!bd) continue;
+      const rx = Math.max(6, (bd.r - bd.l) * 0.3);
+      pencilFootprint(ctx, d.x, d.y + 1, rx, Math.max(2.5, rx * 0.28), d.seed, 0.32);
+    }
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = PENCIL.graphite;
+  ctx.lineWidth = 0.6;
+  ctx.lineCap = "round";
+  ctx.stroke(marks);
+  ctx.restore();
+  // The map hedge as a loose scalloped pencil line.
+  const scallops = (a: Point, b: Point, sd: number) => {
+    const pts: Point[] = [], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 12));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      pts.push([a[0] + (b[0] - a[0]) * t + (i % 2 ? 3 : 0), a[1] + (b[1] - a[1]) * t + (i % 2 ? -3 : 0)]);
+    }
+    pencilLine(ctx, pts, sd, { weight: 0.8, alpha: 0.5 });
+  };
+  if (x0 < WORLD.minX + 80) scallops([WORLD.minX + 16, Math.max(190, y0)], [WORLD.minX + 16, y1], 1);
+  if (x1 > WORLD.maxX - 80) scallops([WORLD.maxX - 16, Math.max(190, y0)], [WORLD.maxX - 16, y1], 2);
+  if (y1 > WORLD.maxY - 80) scallops([x0, WORLD.maxY - 14], [x1, WORLD.maxY - 14], 3);
 }
 function releaseChunk(image: ChunkImage): void {
   if ("close" in image) image.close();
@@ -500,7 +613,19 @@ function keepChunk(key: string, image: ChunkImage): void {
     if (wantedChunks.has(old)) continue;
     releaseChunk(oldImage);
     chunkCache.delete(old);
+    // A pencil layer is released with its painted chunk.
+    const sketch = chunkCache.get(old + SKETCH_KEY);
+    if (sketch && !wantedChunks.has(old + SKETCH_KEY)) {
+      releaseChunk(sketch);
+      chunkCache.delete(old + SKETCH_KEY);
+    }
   }
+}
+/** Cache key suffix of a chunk's pencil layer (shares the ready-tile budget with painted tiles). */
+const SKETCH_KEY = ":sketch";
+/** The baked pencil layer of a chunk, when it is ready. */
+export function sketchTile(seed: number, cx: number, cy: number): ChunkImage | undefined {
+  return chunkCache.get(cacheKey(seed, cx, cy) + SKETCH_KEY);
 }
 function disableTerrainWorker(worker: Worker): void {
   if (chunkWorker !== worker) return;
@@ -547,7 +672,7 @@ function warmChunk(seed: number, tile: ChunkTile | undefined): void {
   if (worker) {
     const id = ++requestId;
     inFlight = { id, key: tile.key };
-    const request: TerrainRequest = { id, seed, cx: tile.cx, cy: tile.cy };
+    const request: TerrainRequest = { id, seed, cx: tile.cx, cy: tile.cy, ...(tile.layer === "sketch" ? { layer: "sketch" as const } : {}) };
     try {
       worker.postMessage(request);
       return;
@@ -558,7 +683,7 @@ function warmChunk(seed: number, tile: ChunkTile | undefined): void {
   const deadline = performance.now() + LOCAL_PAINT_BUDGET_MS;
   if (!localPaint) {
     const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
-    localPaint = { key: tile.key, canvas, steps: paintChunk(canvas, seed, tile.cx, tile.cy) };
+    localPaint = { key: tile.key, canvas, steps: paintLayer(canvas, seed, tile.cx, tile.cy, tile.layer ?? "paint") };
   }
   do {
     if (!localPaint.steps.next().done) continue;
@@ -591,19 +716,31 @@ function drawMissingGround(ctx: Ctx, cx: number, cy: number): void {
 /**
  * Paint ready tiles and warm the closest missing tile. Rank only as many
  * tiles as can fit, so a full cache cannot repaint the same margin forever.
+ * `washed` names visible chunks ("cx,cy") with washed cells: only those get a
+ * pencil layer baked, inside the same ready-tile budget. Without washed
+ * chunks nothing about the pencil layer runs.
  */
-export function drawChunks(ctx: Ctx, seed: number, cam: Camera, prefetch = true): void {
+export function drawChunks(ctx: Ctx, seed: number, cam: Camera, prefetch = true, washed?: ReadonlySet<string>): void {
   const visible = tilesIn(seed, viewRect(cam));
   const keys = new Set(visible.map((tile) => tile.key));
   const distance = ({ cx, cy }: ChunkTile) =>
     ((cx + 0.5) * CHUNK.width - cam.x) ** 2 + ((cy + 0.5) * CHUNK.height - cam.y) ** 2;
+  const sketches: ChunkTile[] = washed?.size
+    ? visible.filter((t) => washed.has(t.cx + "," + t.cy)).map((t) => ({ ...t, key: t.key + SKETCH_KEY, layer: "sketch" as const }))
+    : [];
   const ahead = prefetch
     ? tilesIn(seed, viewRect(cam, PREFETCH))
       .filter((tile) => !keys.has(tile.key) && !isStartChunk(tile.cx, tile.cy))
       .sort((a, b) => distance(a) - distance(b))
     : [];
-  const wanted = [...visible, ...ahead.slice(0, MAX_CHUNK_CANVASES - visible.length)];
+  const wanted = [...visible, ...sketches, ...ahead.slice(0, Math.max(0, MAX_CHUNK_CANVASES - visible.length - sketches.length))];
   wantedChunks = new Set(wanted.map((tile) => tile.key));
+  for (const s of sketches) {
+    const image = chunkCache.get(s.key);
+    if (!image) continue;
+    chunkCache.delete(s.key);
+    chunkCache.set(s.key, image);
+  }
 
   for (const { key, cx, cy } of visible) {
     let image = chunkCache.get(key);
@@ -658,6 +795,8 @@ export interface PopupView {
   cat: { x: number; y: number } | null;
   reduced: boolean;
   activities?: Readonly<SimState["landmarkEvents"]>;
+  /** Pencil amount (0 painted .. 1 colourless) at a piece's base, when the page has washed cells. */
+  sketch?: (x: number, y: number) => number;
 }
 /** Current fold (0..1) of a piece, eased toward its distance target. */
 function foldOf(d: Decor, pop: PopupView, dt: number): number {
@@ -719,7 +858,8 @@ export function worldSprites(
         // Cull by the sprite's own bounds.
         if (d.x + bd.r < view.x0 || d.x + bd.l > view.x1 || d.y + bd.b < view.y0 || d.y + bd.t > view.y1) continue;
         if (d.kind === "lamp") lamps.push(d);
-        const f = pop && pops(d.kind) ? foldOf(d, pop, dt) : 1;
+        const f = pop && pops(d.kind) ? foldOf(d, pop, dt) : 1,
+          pencil = pop?.sketch?.(d.x, d.y) ?? 0;
         sprites.push({
           y: d.y,
           draw: () =>
@@ -727,9 +867,9 @@ export function worldSprites(
               if (fade?.(d)) {
                 ctx.save();
                 ctx.globalAlpha = 0.32;
-                drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);
+                drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil);
                 ctx.restore();
-              } else drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity);
+              } else drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil);
             }),
         });
       }

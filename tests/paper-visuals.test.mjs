@@ -225,7 +225,7 @@ test("tall registered buildings yield by their bounds, not a historical landmark
 
 test("world status hooks follow actual actor art and exclude decoys; props follow deferred lifecycle", () => {
   const world = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
-  assert.match(world, /catArt\(pose\.id\)\.draw\(ctx, pose\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
+  assert.match(world, /catArt\(pose\.id\)\.draw\(ctx, pose\)\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
   assert.match(world, /drawCraftEnemy\(ctx, e,[\s\S]*?if \(e\.spawnTime <= 0\) drawActorPaperStatus/);
   assert.match(world, /drawPaperStatusEffect\(ctx, effect\)/);
   const props = readFileSync(new URL("../src/render/craft-props.ts", import.meta.url), "utf8");
@@ -436,4 +436,141 @@ test("chunk ground baking is deterministic and the budgeted fallback bakes the s
   assert.ok(image, "the fallback finished the tile");
   assert.deepEqual(stream(image.getContext("2d")), a, "fallback and full build paint identically");
   clearWorldRenderCache();
+});
+
+// ---------------------------------------------------------------- washed paper rendering (FEAT-005)
+import { createSim, spillWater, paintColour } from "../dist/game/sim.js";
+import { WASH } from "../dist/defs/wash.js";
+import { sketchTile } from "../dist/render/craft-world.js";
+import { cellCode, clearWashRender, drawWashGround, washFrame, washMaskRevision, washStep } from "../dist/render/wash-art.js";
+import { drawSketched, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
+import { cachedSprite } from "../dist/engine/sprite.js";
+import { WASH_LOOK, washBloom } from "../dist/render/timeline.js";
+
+const WASH_AT = { x: 2180, y: 2150 };
+function washedSim() {
+  const sim = createSim({ cat: "nicole", seed: 7 });
+  spillWater(sim, WASH_AT.x, WASH_AT.y, 70, 1, false);
+  return sim;
+}
+/** Bakes visible tiles (and pencil layers for `washed`) through the budgeted fallback until the chunk's tiles are ready. */
+function bake(seed, cam, washed, cx, cy) {
+  for (let i = 0; i < 40000; i++) {
+    drawChunks(canvas().getContext("2d"), seed, cam, false, washed);
+    if (!washed || sketchTile(seed, cx, cy)) return;
+  }
+}
+
+test("an unwashed page does no mask work and never bakes a pencil layer", (t) => {
+  const sim = createSim({ cat: "zero", seed: 7 });
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  assert.equal(washFrame(sim), null, "no stored cells: one check, no frame");
+  const ctx = canvas().getContext("2d"), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
+  drawWashGround(ctx, WASH_AT, null);
+  assert.equal(ctx.calls.length, 0);
+  bake(7, WASH_AT, undefined, cx, cy);
+  for (let i = 0; i < 400; i++) drawChunks(canvas().getContext("2d"), 7, WASH_AT, false);
+  assert.equal(sketchTile(7, cx, cy), undefined, "pencil layers are only baked for washed chunks");
+});
+
+test("a washed chunk draws painted ground, its pencil layer through the mask and a tide line", (t) => {
+  const sim = washedSim(), before = structuredClone(sim);
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  const frame = washFrame(sim), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
+  assert.ok(frame.chunks.has(`${cx},${cy}`), "the washed chunk asks for its pencil layer");
+  bake(sim.seed, WASH_AT, frame.chunks, cx, cy);
+  const tile = sketchTile(sim.seed, cx, cy);
+  assert.ok(tile, "the fallback baked the pencil layer");
+  const ground = canvas().getContext("2d"), ctx = canvas().getContext("2d");
+  drawChunks(ground, sim.seed, WASH_AT, false, frame.chunks);
+  drawWashGround(ctx, WASH_AT, washFrame(sim));
+  assert.ok(images(ground).some((c) => c.args[0] !== tile && c.args[1] === cx * CHUNK.width), "painted tile first");
+  assert.ok(!images(ground).some((c) => c.args[0] === tile), "drawChunks itself never draws the pencil layer");
+  const draws = images(ctx);
+  const sketchDraw = draws.findIndex((c) => c.args[0] === tile);
+  assert.ok(sketchDraw >= 0, "pencil layer drawn through the mask");
+  const tide = ctx.calls.findIndex((c) => c.op === "stroke" && c.lineWidth === 4.2 && Math.abs(c.globalAlpha - WASH_LOOK.tideAlpha) < 1e-9);
+  assert.ok(tide >= 0, "a darker tide line dries along the wash edge");
+  assert.ok(ctx.calls.indexOf(draws[sketchDraw]) > tide, "the tide ring lies under the pencil layer, so only its outer half shows");
+  assert.ok(ctx.calls.some((c) => c.op === "clip"), "the pencil layer is clipped to the wash blots");
+  assert.deepEqual(gloss(allPaint(ctx)), []);
+  assert.ok(!allPaint(ctx).some((c) => c.op === "filter" || c.op === "getImageData"));
+  restored(ctx);
+  assert.deepEqual(sim, before, "rendering never mutates SimState");
+});
+
+test("the pencil layer is flat graphite on cream: no gradients, filters or pixel reads, and the worker bake matches the fallback", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  const sim = washedSim(), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
+  const full = stream(buildChunk(sim.seed, cx, cy, "sketch").getContext("2d"));
+  assert.ok(full.length > 100, `a real pencil tile (${full.length} commands)`);
+  assert.deepEqual(full, stream(buildChunk(sim.seed, cx, cy, "sketch").getContext("2d")), "deterministic");
+  assert.ok(full.some((c) => c.op === "fillRect" && c.fill === "#eee4cf"), "raw cream paper");
+  assert.ok(full.some((c) => c.op === "stroke" && c.stroke === "#45434f"), "graphite lines");
+  assert.ok(!full.some((c) => /Gradient$/.test(c.op) || c.op === "filter" || c.op === "getImageData" || c.op === "shadowBlur"));
+  assert.notDeepEqual(full, stream(buildChunk(sim.seed, cx, cy).getContext("2d")), "a separate layer from the painted tile");
+  bake(sim.seed, WASH_AT, washFrame(sim).chunks, cx, cy);
+  assert.deepEqual(stream(sketchTile(sim.seed, cx, cy).getContext("2d")), full, "budgeted fallback and full (worker) bake paint identically");
+});
+
+test("wash masks are quantised, rebuilt only when a chunk's cells change, and bloom timing settles", (t) => {
+  const sim = washedSim();
+  environment(t);
+  clearWashRender();
+  const steps = new Set();
+  for (let i = 0; i <= 100; i++) steps.add(washStep(i / 100));
+  assert.deepEqual([...steps].sort(), [0, 1, 2, 3, 4], "five quantised levels");
+  const codes = new Set();
+  for (let i = 0; i <= 50; i++) codes.add(cellCode({ level: i / 50, changedAt: 0, wetUntil: i % 2 ? 9 : 0, cutUntil: i % 3 ? 9 : 0, blank: i % 5 === 0 }, 1));
+  assert.ok([...codes].every((c) => Number.isInteger(c) && c >= 0 && c < 128));
+  const { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y), draw = () => drawWashGround(canvas().getContext("2d"), WASH_AT, washFrame(sim));
+  draw();
+  const rev = washMaskRevision(cx, cy);
+  assert.ok(rev > 0);
+  draw();
+  const cell = Object.values(sim.wash.cells).find((c) => c.level >= 1);
+  cell.level = 0.99;
+  draw();
+  assert.equal(washMaskRevision(cx, cy), rev, "same quantised look: no rebuild");
+  paintColour(sim, WASH_AT.x, WASH_AT.y, 30, 0.7);
+  draw();
+  assert.equal(washMaskRevision(cx, cy), rev + 1, "a real change rebuilds once");
+  assert.deepEqual(SKETCH_STEPS, [0, 0.5, 1]);
+  for (let i = 0; i <= 20; i++) assert.ok(SKETCH_STEPS.includes(sketchStep(i / 20)));
+  const b0 = washBloom(0.05), b1 = washBloom(WASH_LOOK.seconds * 0.4), done = washBloom(WASH_LOOK.seconds + 0.01);
+  assert.ok(b0.pigment > 0 && b1.tide > b0.tide);
+  assert.equal(done.pigment, 0);
+  assert.equal(done.tide, 0);
+});
+
+test("pieces and actors on colourless paper use finite pencil variants; painted ones are untouched", (t) => {
+  environment(t);
+  const base = cachedSprite("visual-sketch-base", 20, 30, 2, (c) => c.fillRect(2, 2, 16, 26), { x: 0.5, y: 1 });
+  assert.equal(sketchedSprite(base, 0), base);
+  const a = sketchedSprite(base, 1);
+  assert.notEqual(a, base);
+  const count = spriteCacheSize();
+  for (const amount of [0.8, 0.95, 1, 0.6, 0.5, 0.74]) sketchedSprite(base, amount);
+  assert.ok(spriteCacheSize() <= count + 1, "only one more step (0.5) is ever cached");
+  const ops = allPaint(a.canvas.getContext("2d"));
+  for (const op of ["saturation", "multiply", "destination-in", "destination-out"])
+    assert.ok(ops.some((c) => c.globalCompositeOperation === op), `pencil composition uses ${op}`);
+  assert.deepEqual(gloss(ops), []);
+  let direct = null;
+  const ctx = canvas().getContext("2d");
+  drawSketched(ctx, 0, 10, 20, { l: -20, r: 20, t: -40, b: 8 }, (c) => { direct = c; });
+  assert.equal(direct, ctx, "painted actors draw straight onto the page");
+  drawSketched(ctx, 1, 10, 20, { l: -20, r: 20, t: -40, b: 8 }, (c) => { direct = c; c.fillRect(0, 0, 4, 4); });
+  assert.notEqual(direct, ctx, "a colourless actor is composed on a scratch canvas");
+  assert.ok(images(ctx).length >= 6, "outline, cut, pencil body and hatching");
+  restored(ctx);
 });

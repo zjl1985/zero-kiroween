@@ -38,7 +38,9 @@ import {
 } from "./craft-scene.js";
 import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
-import { drawWashEffect, drawWashGround } from "./wash-art.js";
+import { drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
+import { beginSketchFrame, drawSketched, sketchAmount } from "./sprite-sketch.js";
+import { ENEMY_DEFS } from "../defs/registries.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
 import {
@@ -77,6 +79,8 @@ export function paperOccludesActor(x: number, y: number, s: number, bounds: ArtB
   return actor.y <= y + 5 && actor.x + 20 > x + bounds.l * s && actor.x - 20 < x + bounds.r * s &&
     actor.y > y + bounds.t * s && actor.y - 65 < y + bounds.b * s;
 }
+/** Box around the cat's base point that holds its body, head, tail and lantern. */
+const CAT_BOX = { l: -48, r: 48, t: -100, b: 18 } as const;
 const COMMON_BOUNDS: Readonly<Record<string, ArtBounds>> = {
   tree: { l: -82, r: 82, t: -158, b: 16 },
   cottage: { l: -120, r: 100, t: -144, b: 16 },
@@ -120,11 +124,14 @@ export function drawWorld(
     Math.round((VIEW_WIDTH / 2 - cam.x) * 2) / 2,
     Math.round((VIEW_HEIGHT / 2 - cam.y) * 2) / 2,
   );
-  drawChunks(ctx, seed, cam, sim !== null);
+  // Washed paper: chunks with lifted colour get their pencil layer (nothing runs when nothing was washed).
+  const wash = sim ? washFrame(sim) : null;
+  beginSketchFrame();
+  drawChunks(ctx, seed, cam, sim !== null, wash?.chunks);
+  drawWashGround(ctx, cam, wash);
   if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
   drawWind(ctx, view.time);
   if (sim) {
-    drawWashGround(ctx, sim, cam);
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
     drawInteractGround(ctx, sim, view.time);
@@ -135,7 +142,8 @@ export function drawWorld(
   const town = worldSprites(ctx, seed, cam, view.time, (d) =>
     !!sim && paperOccludesActor(d.x, d.y, d.s,
       decorPiece(d.kind)?.bounds ?? COMMON_BOUNDS[d.kind] ?? { l: -36, r: 36, t: -28, b: 5 }, sim.player),
-    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced, activities: sim?.landmarkEvents },
+    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced, activities: sim?.landmarkEvents,
+      ...(wash && sim ? { sketch: (x: number, y: number) => sketchAmount(sim, x, y) } : {}) },
   );
   const sprites: Sprite[] = [...town.sprites];
   const addSprite = (y: number, draw: () => void) => sprites.push({ y, draw });
@@ -199,7 +207,8 @@ export function drawWorld(
       y: pose.y,
       draw: () => {
         drawFootDust(ctx, pose);
-        catArt(pose.id).draw(ctx, pose);
+        // On colourless paper the cat is drawn over in pencil; its head art itself is untouched.
+        drawSketched(ctx, wash && sim ? sketchAmount(sim, pose.x, pose.y) : 0, pose.x, pose.y, CAT_BOX, (ctx) => catArt(pose.id).draw(ctx, pose));
         if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },
     });
@@ -275,7 +284,9 @@ export function drawWorld(
         sprites.push({
           y: e.y,
           draw: () => {
-            drawCraftEnemy(ctx, e, view.time, look);
+            const r = enemyRadius(e), reach = r * 3 + 24;
+            drawSketched(ctx, wash && ENEMY_DEFS.find(e.kind)?.wakesOn !== "colourless" ? sketchAmount(sim, e.x, e.y) : 0, e.x, e.y,
+              { l: -reach, r: reach, t: -(r * 4.6 + 40), b: r + 16 }, (ctx) => drawCraftEnemy(ctx, e, view.time, look));
             drawHitFlash(ctx, e);
             if (e.spawnTime <= 0) drawActorPaperStatus(ctx, e, view.time, enemyRadius(e));
             drawStun(ctx, e, view.time);
@@ -303,6 +314,7 @@ export function drawWorld(
   }
   sprites.sort((a, b) => a.y - b.y);
   for (const sprite of sprites) sprite.draw();
+  if (sim) drawPaperRain(ctx, sim, cam, view.time, reduced);
   if (sim) {
     for (const s of sim.shots)
       if (s.alive && inView(near, s.x, s.y)) {

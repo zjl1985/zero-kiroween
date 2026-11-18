@@ -20,6 +20,7 @@ import { foldLine } from "./paper-kit.js";
 import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
 import { tintedSprite } from "./sprite-tint.js";
+import { sketchAmount, sketchedSprite } from "./sprite-sketch.js";
 
 const PAD = 8;
 type Add = (y: number, draw: () => void) => void;
@@ -67,6 +68,8 @@ export interface PropVisualState {
   readonly folded?: boolean;
   readonly inked?: boolean;
   readonly regrow?: number;
+  /** Pencil amount (0 painted .. 1 colourless) of the paper under the prop. */
+  readonly sketch?: number;
 }
 const flicker = (time: number, seed: number) => 0.5 + 0.5 * Math.sin(time * (8 + hash(seed) * 5) + seed);
 
@@ -94,7 +97,8 @@ export function drawProp(
   const folded = state.folded && phase < 2;
   ctx.save();
   if (folded) ctx.transform(1, 0, -0.2, 0.2, 0, 0);
-  const paper = state.inked && phase < 2 ? inkCoating(sprite) : sprite;
+  const inked = state.inked && phase < 2 ? inkCoating(sprite) : sprite,
+    paper = state.sketch ? sketchedSprite(inked, state.sketch) : inked;
   if (burning) {
     // Charring stays inside the cached paper silhouette; flames remain live.
     tintedSprite(paper, "#362417", 0.5).draw(ctx, { x: 0, y: 0 });
@@ -137,6 +141,7 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
           folded: m?.foldedUntil !== undefined,
           inked: (m?.inkedUntil ?? 0) > elapsed,
           regrow,
+          sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
         }));
       }
 }

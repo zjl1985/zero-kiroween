@@ -211,3 +211,34 @@ export function popupStep(fold: number, target: number, dt: number, reduced: boo
   const step = POPUP.rate * Math.max(0, dt);
   return Math.abs(target - fold) <= step ? target : fold + Math.sign(target - fold) * step;
 }
+
+/**
+ * Watercolour wash transitions (render only; the sim stamps WashCell.changedAt
+ * and the renderer notices quantised changes). A cell that loses its colour
+ * first blooms with lifted pigment, pushes a darker tide line out to its edge,
+ * then settles to raw paper; repainted cells bloom with the new pigment and
+ * dry into the painted ground. `seconds` is the whole transition, `bloomPeak`
+ * and `tidePeak` the fractions where pigment and tide line are strongest;
+ * `maxBlooms` caps live blooms per frame; `tideAlpha` is the dried tide line
+ * that stays along every wash edge.
+ */
+export const WASH_LOOK = { seconds: 1.2, bloomPeak: 0.16, tidePeak: 0.42, maxBlooms: 48, tideAlpha: 0.34 } as const;
+export interface WashBloom {
+  /** Progress 0..1. */
+  readonly t: number;
+  /** How far the bloom has spread, 0..1 (ease out). */
+  readonly spread: number;
+  /** Pigment opacity, 0 when settled. */
+  readonly pigment: number;
+  /** Extra tide-line opacity, 0 when settled. */
+  readonly tide: number;
+}
+/** Bloom envelope `age` seconds after a change; all zero once settled (and before it starts). */
+export function washBloom(age: number): WashBloom {
+  if (!(age >= 0) || age >= WASH_LOOK.seconds) return { t: age > 0 ? 1 : 0, spread: age > 0 ? 1 : 0, pigment: 0, tide: 0 };
+  const t = clamp01(age / WASH_LOOK.seconds),
+    { bloomPeak: b, tidePeak: p } = WASH_LOOK,
+    pigment = t < b ? (t / b) * 0.55 : 0.55 * (1 - (t - b) / (1 - b)) ** 1.6,
+    tide = 0.62 * (t < p ? t / p : 1 - (t - p) / (1 - p));
+  return { t, spread: easeOutCubic(t), pigment, tide };
+}

@@ -23,6 +23,7 @@ import { drawWorld, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
 import { viewport } from "./render/viewport.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
+import { clearWashRender } from "./render/wash-art.js";
 import { createCamera, followCamera, type Camera } from "./render/camera.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
@@ -411,6 +412,7 @@ function boot(): void {
     lastBoss = null;
     motionCues = [];
     clearWorldRenderCache();
+    clearWashRender();
     clearWorldCache();
   };
   const start = () => {
