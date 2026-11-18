@@ -59,6 +59,6 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 
 ## Review
 
-- At most one static screenshot for authorized art verification; no animation or recording checks. The wash-out round's one still is `output/playwright/paper-washout-review.png` (the `?gallery=1` workshop page); what it shows is recorded in `HANDOFF.md`. Full gameplay screen/mobile remain unreviewed.
+- At most one static screenshot for authorized art verification; no animation or recording checks. For the wash-out round the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists; nobody has viewed its art in a browser. Full gameplay screen/mobile remain unreviewed.
 - Latest verification: build and 293 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
 - Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.

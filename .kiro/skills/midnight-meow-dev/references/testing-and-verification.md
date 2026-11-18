@@ -64,9 +64,9 @@ When adding content, the generic registry, reactions and gallery tests usually c
 2. `npm run build && npm start`.
 3. Open `http://localhost:4173/?start=1` (straight into a run with the saved cat), add `&seed=N` to pin the world, or `/?gallery=1` for the art gallery.
 
-Current evidence: the wash-out round has one static still, `output/playwright/paper-washout-review.png`, of the `?gallery=1` workshop page taken with system Chrome headless; `HANDOFF.md` records what it shows and any failure. It shows no live wash, gameplay screen or mobile layout. No animation, recording, audio or FPS checks were performed; no user art approval is recorded. Older stills (`paper-ecology-review.png`, `papercraft-polish-2026-11-18.png`) predate this round.
+Current evidence: for the wash-out round the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. Nobody has viewed that round in a browser. No animation, recording, audio or FPS checks were performed; no user art approval is recorded. Older stills (`paper-ecology-review.png`, `papercraft-polish-2026-11-18.png`) predate this round.
 
-Headless capture used: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1600,3000 --virtual-time-budget=8000 --screenshot=<png> "http://localhost:4173/?gallery=1"`.
+Headless command attempted (it aborted with exit 134 inside the sandbox; it may work outside it): `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1600,3000 --virtual-time-budget=8000 --screenshot=<png> "http://localhost:4173/?gallery=1"`.
 
 For a future authorized attempt, report the actual browser/executable and scope. If it fails, skip it and report the error; do not install browsers or expand verification merely to obtain more evidence. Never describe unviewed art or infer motion/performance from one still.
 

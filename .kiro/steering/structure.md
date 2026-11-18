@@ -129,6 +129,6 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       paper-verbs, paper-value (latest verification: 293 passing tests)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
 docs/archive/         obsolete history, not instructions
-output/playwright/    local screenshots/probes, git-ignored, not game assets; paper-washout-review.png
-                      is the one static ?gallery=1 still of the wash-out round (see HANDOFF.md)
+output/playwright/    local screenshots/probes, git-ignored, not game assets; the wash-out round's
+                      ?gallery=1 still was never produced (Chrome headless exit 134 in the sandbox)
 ```
