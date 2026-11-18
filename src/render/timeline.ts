@@ -242,3 +242,27 @@ export function washBloom(age: number): WashBloom {
     tide = 0.62 * (t < p ? t / p : 1 - (t - p) / (1 - p));
   return { t, spread: easeOutCubic(t), pigment, tide };
 }
+
+/**
+ * Paper verbs. `foldTurn`: seconds the page-fold flap takes to turn over the
+ * crease (then it lies flat and fades). `foldLift`: how far up the screen the
+ * turning flap rises per unit of depth (fake perspective). `wallRise` /
+ * `wallSink`: seconds a paper wall takes to stand up and to fold away.
+ */
+export const PAPER_VERB_LOOK = { foldTurn: 0.34, foldLift: 0.55, wallRise: 0.22, wallSink: 0.35, wallHeight: 30 } as const;
+/** Turn of the fold flap `age` seconds after the fold: 0 flat before, 1 turned over. */
+export function foldTurn(age: number): number {
+  return easeInOut(clamp01(age / PAPER_VERB_LOOK.foldTurn));
+}
+/** Standing height share of a paper wall with `life` of `maxLife` seconds left. */
+export function wallStand(life: number, maxLife: number): number {
+  const up = clamp01((maxLife - life) / PAPER_VERB_LOOK.wallRise),
+    down = clamp01(life / PAPER_VERB_LOOK.wallSink);
+  return easeOutBack(Math.min(up, 1), 1.2) * easeInOut(down);
+}
+/**
+ * Cat wear: hp shares below which the body shows a crease, a first tear and a
+ * second tear, and the seconds tape patches stay after a heal (the last
+ * `tapeFade` seconds fading).
+ */
+export const CAT_WEAR = { crease: 0.8, tear: 0.55, tear2: 0.3, tapeSeconds: 3.2, tapeFade: 0.8 } as const;

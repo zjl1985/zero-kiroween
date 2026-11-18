@@ -249,6 +249,10 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     fire: { cells: {}, ash: {}, clock: 0, ticks: 0 },
     wash: createWash(),
     landmarkEvents: {},
+    cut: { points: [], outs: [], cuts: 0, nextId: 1, close: 0 },
+    fold: { flaps: [], folds: 0, nextId: 1 },
+    walls: [],
+    nextWallId: 1,
   };
   for (const w of WEAPON_DEFS.all()) w.init?.(state);
   syncChunks(state);
@@ -532,6 +536,8 @@ function safePosition(state: SimState, x: number, y: number, radius: number) {
   // Props add their colliders until they are torn to scraps (the path opens).
   for (const c of nearPropColliders(state.seed, a.x, a.y))
     if (propBlocks(state, c.id)) b = avoidScenery(b.x, b.y, radius, c.caps);
+  // Standing paper walls (page fold) block like scenery while they last.
+  if (state.walls.length) b = avoidScenery(b.x, b.y, radius, state.walls);
   const shore = avoidDeepWater(state.seed, b.x, b.y, radius);
   return clampToWorld(shore.x, shore.y, radius);
 }
@@ -626,6 +632,10 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   state.fields = state.fields.filter((f) => f.life > 0);
   for (const h of state.hazards) h.life -= dt;
   state.hazards = state.hazards.filter((h) => h.life > 0);
+  if (state.walls.length) {
+    for (const w of state.walls) w.life -= dt;
+    state.walls = state.walls.filter((w) => w.life > 0);
+  }
   if (state.notice) {
     state.notice.life -= dt;
     if (state.notice.life <= 0) state.notice = null;
@@ -965,6 +975,7 @@ function stepTreats(state: SimState, dt: number): void {
     if (Math.hypot(p.x - t.x, p.y - t.y) > FISH.radius + STATS.playerRadius) continue;
     t.alive = false;
     p.hp = Math.min(p.maxHp, p.hp + FISH.heal);
+    p.healAt = state.elapsed;
     state.stats.treatsEaten++;
     effect(state, t.x, t.y, "treat", EFFECT_LIFE.treat);
   }
@@ -1349,9 +1360,10 @@ export function applyElement(
   radius: number,
   element: Element,
   power: number,
+  within?: (x: number, y: number) => boolean,
 ): void {
-  elementHit(state, x, y, radius, element, power, ctx);
-  washElement(state, x, y, radius, element, power);
+  elementHit(state, x, y, radius, element, power, ctx, within);
+  washElement(state, x, y, radius, element, power, within);
   hitLandmarkActions(state, x, y, radius, element, power, ctx);
 }
 /** Sets flammable cells around (x, y) alight with the sim's own context (tools and tests). */

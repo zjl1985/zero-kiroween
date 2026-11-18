@@ -273,7 +273,9 @@ test("pencil sketches wake only on colourless, unblank cells near the cat and re
 test("the watercolour brush, offered to both cats, paints a trail and rubs out sketches", () => {
   const brush = WEAPON_DEFS.get("watercolour-brush");
   assert.equal(brush.pool, "any");
-  assert.equal(WEAPON_DEFS.ids().at(-1), "watercolour-brush", "appended to the weapon list");
+  // Appended after the earlier weapons; the paper verbs (paper-cut, page-fold) come after it.
+  const ids = WEAPON_DEFS.ids();
+  assert.ok(ids.indexOf("watercolour-brush") > ids.indexOf("pumpkin-seed"), "appended to the weapon list");
   for (const cat of ["zero", "nicole"]) {
     const s = quiet(cat);
     s.upgrades["watercolour-brush"] = 1;

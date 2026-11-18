@@ -2,6 +2,7 @@
 import { cachedSprite } from "../engine/sprite.js";
 import type { CatBodyPalette } from "./art-registry.js";
 import type { CatPose } from "./layout.js";
+import { CAT_WEAR } from "./timeline.js";
 import { foldLine, paperCut } from "./paper-kit.js";
 import { box, glow, line, mix, oval, path, shadow, stitch, stroke, type Ctx } from "./paper-material.js";
 
@@ -263,4 +264,112 @@ export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose)
   glow(ctx, 3, 10, 14, "#f9c46d", pose.light);
   ctx.restore();
   ctx.restore();
+}
+
+/**
+ * Paper wear read from the run (never stored): `marks` 0..3 (a crease, then
+ * a tear, then a second tear as hp drops) and `tape` 0..1 (tape patches
+ * pressed on after a heal, fading out).
+ */
+export interface CatWear {
+  readonly marks: number;
+  readonly tape: number;
+}
+export function catWear(hpShare: number, healAt: number | undefined, elapsed: number): CatWear {
+  const marks = hpShare < CAT_WEAR.tear2 ? 3 : hpShare < CAT_WEAR.tear ? 2 : hpShare < CAT_WEAR.crease ? 1 : 0;
+  const since = healAt === undefined ? Infinity : elapsed - healAt;
+  const left = CAT_WEAR.tapeSeconds - since;
+  const tape = since < 0 || left <= 0 ? 0 : Math.min(1, left / CAT_WEAR.tapeFade);
+  return { marks, tape };
+}
+
+type WearPart = "crease" | "tear" | "tear-cape" | "tape" | "tape-x";
+/** Local box of each wear piece (contact shadows included) and where it sits on the body. */
+const WEAR: Record<WearPart, { box: Box; at: readonly [number, number, number] }> = {
+  crease: { box: [-5, -5, 5, 5], at: [-7, -11, 0.5] },
+  tear: { box: [-5, -5, 5, 5], at: [6.5, -12.5, -0.3] },
+  "tear-cape": { box: [-5, -5, 5, 5], at: [-15, -6, 0.2] },
+  tape: { box: [-7, -3, 7, 3], at: [-7, -11, -0.35] },
+  "tape-x": { box: [-7, -7, 7, 7], at: [6.5, -12.5, 0] },
+};
+
+/** A crease pressed into the coat: shaded valley, lit ridge, a tiny dog-ear at one end. */
+function paintCrease(ctx: Ctx, look: CatBodyPalette): void {
+  ctx.fillStyle = mix(look.body, "#1c142b", 0.35);
+  ctx.globalAlpha = 0.45;
+  ctx.fill(path([[-3.6, -3], [3.4, 2.8], [2.2, 3.4], [-4, -2]]));
+  ctx.globalAlpha = 1;
+  foldLine(ctx, -3.6, -3, 3.4, 2.8, 0.9);
+  cut(ctx, path([[2.2, 1.6], [4, 3.6], [1.4, 3.4]]), mix(look.body, "#fff1cf", 0.25), look.bodyEdge, 0.3, 0.45);
+}
+/** A torn notch: the dark gap of the under-sheet, a jagged lit edge and a lifted flap of the coat. */
+function paintTear(ctx: Ctx, color: string, edge: string): void {
+  const gap = path([[-3.4, -3.2], [-1.6, -1.2], [-2.4, 0.2], [0.2, 1.4], [-0.4, 2.6], [2.8, 3.4], [0.6, 0.6], [1.2, -0.6], [-1.2, -1.8]]);
+  ctx.fillStyle = "#140d1c";
+  ctx.fill(gap);
+  stroke(ctx, gap, "#fff1cf", 0.35, 0.55);
+  // The torn flap curls up off the coat and casts a hard little shadow.
+  cut(ctx, path([[0.6, 0.6], [2.8, 3.4], [4.2, 0.4], [1.6, -0.6]]), mix(color, "#fff1cf", 0.18), edge, 0.35, 0.8);
+  line(ctx, 1.1, 0, 3.6, 0.6, "#f7e6c1", 0.3, 0.5);
+}
+/** One strip of translucent paper tape with torn serrated ends and a faint grain line. */
+function paintTape(ctx: Ctx, w: number): void {
+  const pts: [number, number][] = [];
+  const teeth = 4;
+  for (let i = 0; i <= teeth; i++) pts.push([-w + (i % 2 ? 0.6 : 0), -1.7 + (3.4 * i) / teeth]);
+  for (let i = teeth; i >= 0; i--) pts.push([w - (i % 2 ? 0.6 : 0), -1.7 + (3.4 * i) / teeth]);
+  const strip = path(pts);
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = "#120d1c";
+  ctx.translate(0.5, 0.7);
+  ctx.fill(strip);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.78;
+  ctx.fillStyle = "#efe0b6";
+  ctx.fill(strip);
+  ctx.restore();
+  line(ctx, -w + 0.8, -1.2, w - 0.8, -1.2, "#fff6dc", 0.4, 0.7);
+  line(ctx, -w + 1, 0.4, w - 1, 0.4, "#c9b483", 0.25, 0.5);
+}
+
+/**
+ * Tears and creases on the body as hp drops, tape over them after a heal.
+ * Finite cached pieces (per look and part) stamped at fixed body spots below
+ * the head, so the approved head geometry is never touched.
+ */
+export function drawCatWear(ctx: Ctx, look: CatBodyPalette, wear: CatWear, bob: number): void {
+  if (wear.marks <= 0 && wear.tape <= 0) return;
+  const key = `${look.body}|${look.bodyEdge}|${look.cape}|${look.capeEdge}`;
+  const stamp = (name: WearPart, alpha = 1) => {
+    const { box, at } = WEAR[name], [l, t, r, b] = box;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.translate(at[0], at[1] + bob);
+    ctx.rotate(at[2]);
+    cachedSprite(`cat-wear:${key}:${name}`, r - l, b - t, 3, (c) => {
+      c.translate(-l, -t);
+      switch (name) {
+        case "crease": paintCrease(c, look); break;
+        case "tear": paintTear(c, look.body, look.bodyEdge); break;
+        case "tear-cape": paintTear(c, look.cape, look.capeEdge); break;
+        case "tape": paintTape(c, 5.6); break;
+        case "tape-x":
+          c.rotate(0.6);
+          paintTape(c, 5);
+          c.rotate(-1.2);
+          paintTape(c, 5);
+          break;
+      }
+    }, { x: -l / (r - l), y: -t / (b - t) }).draw(ctx, { x: 0, y: 0 });
+    ctx.restore();
+  };
+  if (wear.marks >= 1) stamp("crease");
+  if (wear.marks >= 2) stamp("tear");
+  if (wear.marks >= 3) stamp("tear-cape");
+  if (wear.tape > 0) {
+    stamp("tape", wear.tape);
+    stamp("tape-x", wear.tape);
+  }
 }

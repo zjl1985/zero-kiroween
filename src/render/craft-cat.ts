@@ -1,6 +1,6 @@
 import type { CatPose } from "./layout.js";
 import type { CatBodyPalette } from "./art-registry.js";
-import { catDetailPose, drawCatDetails } from "./cat-detail.js";
+import { catDetailPose, drawCatDetails, drawCatWear } from "./cat-detail.js";
 import type { Ctx } from "./paper-material.js";
 import { paperFace, paperFaceEdge, PAPER_FACE_SCALE, PAPER_FACE_SIZE } from "./paper-face.js";
 
@@ -13,6 +13,7 @@ export function drawCraftCat(ctx: Ctx, pose: CatPose, look: CatBodyPalette): voi
   ctx.translate(pose.x, pose.y);
   ctx.scale(k * pose.facing, k);
   drawCatDetails(ctx, look, detail);
+  if (pose.wear && !pose.decoy) drawCatWear(ctx, look, pose.wear, detail.bob);
   ctx.translate(0, detail.bob);
   ctx.translate(0, -38);
   ctx.rotate(detail.headTilt);

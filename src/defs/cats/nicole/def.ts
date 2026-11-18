@@ -25,7 +25,7 @@ export const NICOLE: CharacterDef<typeof N> = {
   gender: "female",
   stats: N,
   startWeapon: "moon-stars",
-  exclusives: ["moon-stars", "star-fall", "deep-fold", "moon-shield", "full-moon"],
+  exclusives: ["moon-stars", "star-fall", "deep-fold", "moon-shield", "full-moon", "page-fold"],
   evolutions: ["full-moon"],
   i18n: "nicole",
   art: "nicole",

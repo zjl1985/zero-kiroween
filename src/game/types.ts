@@ -33,6 +33,8 @@ export interface PlayerState extends PaperStatus {
   shield: number;
   shieldTime: number;
   rescueUsed: boolean;
+  /** state.elapsed of the last time hp went back up (render: tape patches). */
+  healAt?: number;
 }
 export interface DecoyState {
   live: boolean;
@@ -193,6 +195,59 @@ export interface StrokeZone {
   ink: number;
   blankTime: number;
 }
+/** One sample of a cut line, stamped with state.elapsed. */
+export interface CutPoint {
+  x: number;
+  y: number;
+  t: number;
+}
+/** A piece of the page cut out by a closed cut line (render: the hole and the lifted piece). */
+export interface CutOut {
+  id: number;
+  points: StrokePoint[];
+  at: number;
+}
+/** The live cut line a weapon slits through the page as the cat moves. */
+export interface CutLineState {
+  points: CutPoint[];
+  /** Pieces cut out lately (capped by the weapon def). */
+  outs: CutOut[];
+  /** Loops closed so far (the audio layer diffs it). */
+  cuts: number;
+  nextId: number;
+  /** Closing distance in use (render: the guide toward a closable point). */
+  close: number;
+}
+/** One page fold: a flap of the page folded over the crease through (x, y). */
+export interface FoldFlap {
+  id: number;
+  x: number;
+  y: number;
+  /** Unit normal toward the side that was folded over. */
+  nx: number;
+  ny: number;
+  /** Flap depth across the crease and half length along it. */
+  band: number;
+  half: number;
+  at: number;
+}
+export interface PageFoldState {
+  flaps: FoldFlap[];
+  /** Folds made so far (the audio layer diffs it). */
+  folds: number;
+  nextId: number;
+}
+/** A temporary standing paper wall: a solid capsule until its life runs out. */
+export interface PaperWall {
+  id: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  radius: number;
+  life: number;
+  maxLife: number;
+}
 export interface WorldBounds {
   width: number;
   height: number;
@@ -234,7 +289,9 @@ export type EffectKind =
   | "ink-wash"
   | "landmark-reward"
   | "splash"
-  | "pigment";
+  | "pigment"
+  | "paper-cut"
+  | "page-fold";
 export interface Impact {
   x: number;
   y: number;
@@ -291,6 +348,10 @@ export const EFFECT_LIFE = {
   splash: 0.6,
   /** Pigment splashes back onto washed paper. */
   pigment: 0.7,
+  /** A closed cut line drops its piece out of the page. */
+  "paper-cut": 0.9,
+  /** A page flap folds over the crease. */
+  "page-fold": 0.8,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -520,6 +581,13 @@ export interface SimState {
   fire: FireState;
   wash: WashState;
   landmarkEvents: Record<string, LandmarkEventState>;
+  /** Cut line and cut-out pieces (paper cut weapon). */
+  cut: CutLineState;
+  /** Recent page folds (page fold weapon). */
+  fold: PageFoldState;
+  /** Temporary paper walls; they block like scenery while they stand. */
+  walls: PaperWall[];
+  nextWallId: number;
 }
 export interface SimConfig {
   cat: CatId;

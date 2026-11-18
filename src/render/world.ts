@@ -58,6 +58,7 @@ import {
 import { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
+import { catWear } from "./cat-detail.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
@@ -310,6 +311,7 @@ export function drawWorld(
         sim.player.dashTime <= 0 &&
         Math.floor(view.time * 16) % 2 === 0,
       time: view.time,
+      wear: catWear(sim.player.hp / Math.max(1, sim.player.maxHp), sim.player.healAt, sim.elapsed),
     });
   }
   sprites.sort((a, b) => a.y - b.y);

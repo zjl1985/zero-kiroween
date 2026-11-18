@@ -22,7 +22,7 @@ export const ZERO: CharacterDef<typeof Z> = {
   gender: "male",
   stats: Z,
   startWeapon: "meow-bolt",
-  exclusives: ["meow-bolt", "night-claw", "long-shadow", "echo-legion"],
+  exclusives: ["meow-bolt", "night-claw", "long-shadow", "echo-legion", "paper-cut"],
   evolutions: ["echo-legion"],
   i18n: "zero",
   art: "zero",

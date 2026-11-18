@@ -36,6 +36,8 @@ import { PAPER_CRANE_ART } from "../defs/weapons/paper-crane.art.js";
 import { PUMPKIN_SEED_ART } from "../defs/weapons/pumpkin-seed.art.js";
 import { STAR_FALL_ART } from "../defs/weapons/star-fall.art.js";
 import { WATERCOLOUR_BRUSH_ART } from "../defs/weapons/watercolour-brush.art.js";
+import { PAPER_CUT_ART } from "../defs/weapons/paper-cut.art.js";
+import { PAGE_FOLD_ART } from "../defs/weapons/page-fold.art.js";
 import { PAPER_BUSH_ART } from "../defs/props/paper-bush/art.js";
 import { PAPER_FENCE_ART } from "../defs/props/paper-fence/art.js";
 import { PAPER_GRASS_ART } from "../defs/props/paper-grass/art.js";
@@ -88,6 +90,8 @@ for (const a of [
   PAPER_CRANE_ART,
   PUMPKIN_SEED_ART,
   WATERCOLOUR_BRUSH_ART,
+  PAPER_CUT_ART,
+  PAGE_FOLD_ART,
 ])
   WEAPON_ART.register(a);
 for (const a of [

@@ -297,6 +297,10 @@ export const MESSAGE_KEYS = [
   "result.colour_kept",
   "result.colour_value",
   "hint.washed",
+  "upgrade.paper-cut.name",
+  "upgrade.paper-cut.desc",
+  "upgrade.page-fold.name",
+  "upgrade.page-fold.desc",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

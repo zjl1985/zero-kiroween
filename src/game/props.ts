@@ -92,9 +92,11 @@ export function elementHit(
   element: Element,
   power: number,
   ctx: SimContext,
+  within?: (x: number, y: number) => boolean,
 ): void {
   if (state.ended !== "playing" || power <= 0) return;
   for (const p of nearProps(state.seed, x, y)) {
+    if (within && !within(p.x, p.y)) continue;
     const def = propDef(p.kind);
     if (!def.accepts.includes(element)) continue;
     const known = state.props[p.id];

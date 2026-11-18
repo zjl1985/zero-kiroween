@@ -114,7 +114,16 @@ export interface SimContext {
    * Applies `element` with `power` to every prop whose footprint overlaps the
    * circle (x, y, radius); the reaction table decides what happens.
    */
-  elementHit(state: SimState, x: number, y: number, radius: number, element: Element, power: number): void;
+  elementHit(
+    state: SimState,
+    x: number,
+    y: number,
+    radius: number,
+    element: Element,
+    power: number,
+    /** Only props and wash cells whose centre passes this test (a cut-out polygon). */
+    within?: (x: number, y: number) => boolean,
+  ): void;
   /** Takes durability off a prop; at 0 it turns to scraps (burnt: to ash). */
   damageProp(state: SimState, prop: PropSpot, amount: number, burnt?: boolean): void;
   /** Sets flammable fire cells inside the circle alight (up to the fire cap). */

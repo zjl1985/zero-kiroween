@@ -206,13 +206,22 @@ export function washBlocksFire(state: SimState, ix: number, iy: number): boolean
  * moment; a large fold protects the painted page from water. Small shots
  * (bolts, cranes in flight) never mark the grid.
  */
-export function washElement(state: SimState, x: number, y: number, radius: number, element: Element, power: number): void {
+export function washElement(
+  state: SimState,
+  x: number,
+  y: number,
+  radius: number,
+  element: Element,
+  power: number,
+  within?: (x: number, y: number) => boolean,
+): void {
   if (state.ended !== "playing" || !(power > 0)) return;
   const mark = element === "cut" ? WASH.cut : element === "fold" ? WASH.fold : undefined;
   if (!mark || radius < mark.minRadius) return;
   const cells = state.wash.cells,
     until = state.elapsed + mark.seconds;
-  forCells(x, y, radius, (key) => {
+  forCells(x, y, radius, (key, cx, cy) => {
+    if (within && !within(cx, cy)) return;
     const c = cells[key] ?? blankCell(state);
     if (element === "cut") {
       c.cutUntil = Math.max(c.cutUntil ?? 0, until);

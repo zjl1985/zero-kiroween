@@ -52,6 +52,8 @@ import { PAPER_CRANE } from "./weapons/paper-crane.js";
 import { PUMPKIN_SEED } from "./weapons/pumpkin-seed.js";
 import { STAR_FALL } from "./weapons/star-fall.js";
 import { WATERCOLOUR_BRUSH } from "./weapons/watercolour-brush.js";
+import { PAPER_CUT_WEAPON } from "./weapons/paper-cut.js";
+import { PAGE_FOLD_WEAPON } from "./weapons/page-fold.js";
 // Materials, reactions and props (also imported by world-gen).
 import "./world-index.js";
 
@@ -69,6 +71,8 @@ for (const w of [
   PAPER_CRANE,
   PUMPKIN_SEED,
   WATERCOLOUR_BRUSH,
+  PAPER_CUT_WEAPON,
+  PAGE_FOLD_WEAPON,
 ])
   WEAPON_DEFS.register(w);
 for (const p of [

@@ -18,5 +18,6 @@ export const VITALITY: PassiveDef = {
     const p = state.player;
     p.maxHp += VALUES.maxHp;
     p.hp = Math.min(p.maxHp, p.hp + VALUES.heal);
+    p.healAt = state.elapsed;
   },
 };

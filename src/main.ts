@@ -108,6 +108,8 @@ function cueState(s: SimState) {
     splashes: s.wash.splashes,
     pigments: s.wash.pigments,
     rain: s.wash.rainPulses,
+    snips: s.cut.cuts,
+    folds: s.fold.folds,
     ended: s.ended,
   };
 }
@@ -285,6 +287,8 @@ function boot(): void {
     if (now.rain > p.rain) sfx.play("rain");
     else if (now.splashes > p.splashes) sfx.play("splash");
     if (now.pigments > p.pigments) sfx.play("pigment", now.pigments - p.pigments);
+    if (now.snips > p.snips) sfx.play("snip");
+    if (now.folds > p.folds) sfx.play("fold");
   };
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;

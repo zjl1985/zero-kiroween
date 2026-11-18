@@ -25,7 +25,9 @@ export type Cue =
   | "crackle"
   | "splash"
   | "pigment"
-  | "rain";
+  | "rain"
+  | "snip"
+  | "fold";
 
 /** Minimum seconds between repeats of the busiest cues. */
 const THROTTLE: Partial<Record<Cue, number>> = {
@@ -39,6 +41,8 @@ const THROTTLE: Partial<Record<Cue, number>> = {
   splash: 0.12,
   pigment: 0.08,
   rain: 0.6,
+  snip: 0.1,
+  fold: 0.2,
 };
 
 export interface Sfx {
@@ -290,6 +294,19 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     pigment: (k) => {
       tone(620 + Math.min(k, 6) * 50, 0.1, { type: "triangle", gain: 0.035, to: 880 });
       noise(0.05, { freq: 1800, q: 1.2, gain: 0.025, delay: 0.02 });
+    },
+    // Scissors: two bright blade clicks with a dry paper shear between them.
+    snip: () => {
+      noise(0.025, { type: "highpass", freq: 5200, gain: 0.07 });
+      noise(0.12, { freq: 3600, to: 2200, q: 3, gain: 0.06, delay: 0.02 });
+      noise(0.02, { type: "highpass", freq: 6000, gain: 0.06, delay: 0.13 });
+      tone(1900, 0.05, { type: "triangle", gain: 0.02, delay: 0.13, to: 1500 });
+    },
+    // A page turning over: a soft rising air whoosh, then a low flat slap and a crease rub.
+    fold: () => {
+      noise(0.26, { type: "lowpass", freq: 600, to: 1800, gain: 0.05 });
+      noise(0.06, { type: "lowpass", freq: 420, gain: 0.07, delay: 0.24 });
+      noise(0.09, { freq: 2600, q: 2, gain: 0.025, delay: 0.27 });
     },
     // Paper rain: a patter of tiny ticks over a soft hiss.
     rain: () => {

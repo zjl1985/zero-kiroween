@@ -37,6 +37,7 @@ export const TEAHOUSE_ACTIVITY: LandmarkActivity = {
   radius: TEA.radius, seconds: TEA.seconds, cooldown: TEA.cooldown, notice: "landmark-tea",
   activate(state, l, ctx) {
     state.player.hp = Math.min(state.player.maxHp, state.player.hp + TEA.heal);
+    state.player.healAt = state.elapsed;
     const p = landmarkActivityPoint(l);
     ctx.effect(state, p.x, p.y, "steam", EFFECT_LIFE.steam, { radius: TEA.radius });
     ctx.effect(state, state.player.x, state.player.y, "treat", EFFECT_LIFE.treat);

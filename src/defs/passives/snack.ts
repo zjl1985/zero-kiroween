@@ -18,5 +18,6 @@ export const SNACK: PassiveDef = {
   onLevel(state) {
     const p = state.player;
     p.hp = Math.min(p.maxHp, p.hp + VALUES.heal);
+    p.healAt = state.elapsed;
   },
 };
