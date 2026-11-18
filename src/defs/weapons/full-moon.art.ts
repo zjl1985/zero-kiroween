@@ -1,22 +1,42 @@
 /** Card art for full-moon. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { piece, oval, glow } from "../../render/paper-material.js";
-import { ring, star } from "../../render/combat-fx.js";
+import { piece, oval, glow, stitch } from "../../render/paper-material.js";
+import { ring } from "../../render/combat-fx.js";
 import { combatPart } from "../../render/craft-combat.js";
-import { foldLine } from "../../render/paper-kit.js";
+import { foldLine, paperEmblem, starPoints } from "../../render/paper-kit.js";
 import { playerStats, UPGRADE_VALUES } from "../../game/upgrades.js";
 import { ellipse } from "../../render/pixel-art.js";
 import { NICOLE_STATS } from "../cats/nicole/stats.js";
 
 export const FULL_MOON_ART: WeaponArt = {
   id: "full-moon",
+  /** A full paper moon with cut crater patches, set on a five-ray star burst. */
   icon(ctx, ink) {
-    glow(ctx, 16, 16, 16, "#f3dfa6", 0.6);
-    piece(ctx, oval(16, 16, 9, 9, 7, 0.06), "#efe0b4", { shadow: 1.4, thickness: 0.6, edge: "#fff6d8" });
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 - 0.4;
-      star(ctx, 16 + Math.cos(a) * 13, 16 + Math.sin(a) * 13, 2.5, ink, a);
-    }
+    paperEmblem(ctx, [
+      { shape: starPoints(16, 16, 15.5, 5, 0.68, -Math.PI / 2), color: ink, lift: 0.7, fold: { from: [16, 1], to: [16, 31], depth: 0.14, side: 1 } },
+      {
+        shape: (p) => {
+          p.moveTo(26, 16);
+          p.ellipse(16, 16, 10, 10, 0, 0, Math.PI * 2);
+          p.closePath();
+        },
+        color: "#efe0b4",
+        rim: "#fff6d8",
+        lift: 1.2,
+      },
+      {
+        shape: (p) => {
+          for (const [x, y, r] of [[12.6, 13.4, 2.4], [19, 19.2, 1.8], [18.6, 11.6, 1.2]] as const) {
+            p.moveTo(x + r, y);
+            p.ellipse(x, y, r, r * 0.9, 0, 0, Math.PI * 2);
+            p.closePath();
+          }
+        },
+        color: "#cdbd90",
+        lift: 0,
+      },
+    ]);
+    stitch(ctx, oval(16, 16, 8.2, 8.2, 7, 0.02), "#c3ae7c", 0.7);
   },
   effects: {
     "moon-pulse"(ctx, e, { fade, ease }, state) {

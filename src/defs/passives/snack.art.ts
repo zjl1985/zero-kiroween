@@ -1,13 +1,16 @@
 /** Card art for snack. */
 import type { PassiveArt } from "../../render/art-registry.js";
-import { piece, path, box } from "../../render/paper-material.js";
-import { heart } from "../../render/upgrade-icons.js";
+import { paperEmblem } from "../../render/paper-kit.js";
+import { heartPath } from "../../render/upgrade-icons.js";
 
 export const SNACK_ART: PassiveArt = {
   id: "snack",
+  /** A folded paper treat pail: stitched body, creased lid flaps and a pink heart seal. */
   icon(ctx, ink) {
-    piece(ctx, box(10, 11, 12, 13, 3), "#efe6d2", { shadow: 1, thickness: 0.6 });
-    piece(ctx, path([[10, 11], [13, 6], [19, 6], [22, 11]]), "#d8cdb5", { shadow: 0, thickness: 0.6 });
-    heart(ctx, 16, 18, 3, "#e59a8a");
+    paperEmblem(ctx, [
+      { shape: [[7.5, 12], [24.5, 12], [22.4, 28], [9.6, 28]], color: "#efe6d2", stitch: "#b9ab8f", fold: { from: [16, 12], to: [16, 28], depth: 0.12, side: 1 } },
+      { shape: [[7, 12.6], [10.4, 5.6], [16, 9.2], [21.6, 5.6], [25, 12.6]], color: "#d8cdb5", lift: 0.7, fold: { from: [16, 9.2], to: [16, 12.6], depth: 0.14, side: 1 } },
+      { shape: heartPath(16, 19.6, 3.8), color: "#e59a8a", lift: 0.8 },
+    ]);
   },
 };

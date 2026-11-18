@@ -1,17 +1,27 @@
 /** Card art for star-fall. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { oval, line, glow, stitch } from "../../render/paper-material.js";
+import { oval, glow, stitch } from "../../render/paper-material.js";
 import { ring, star, paperTrail } from "../../render/combat-fx.js";
 import { paperFleck } from "../../render/craft-combat.js";
+import { addPoints, paperEmblem, starPoints } from "../../render/paper-kit.js";
 
 
 export const STAR_FALL_ART: WeaponArt = {
   id: "star-fall",
+  /** A paper star falling on two lilac streamers, over a stitched landing mark. */
   icon(ctx, ink) {
-    for (let i = 0; i < 3; i++) line(ctx, 25 - i * 2, 3 + i, 15 - i * 2, 15 + i, "#cdb8f2", 1.2 - i * 0.3);
-    glow(ctx, 13, 19, 10, "#fff1ce", 0.5);
-    star(ctx, 13, 19, 7, ink);
-    stitch(ctx, oval(13, 26, 9, 3, 6), "#9f8fc4", 0.6);
+    stitch(ctx, oval(13, 27, 9, 2.6, 6), "#9f8fc4", 0.65);
+    paperEmblem(ctx, [
+      {
+        shape: (p) => {
+          addPoints(p, [[29, 1.5], [31, 4.5], [18.5, 16.5], [15, 14]]);
+          addPoints(p, [[23, 0.8], [24.6, 2.6], [14.5, 12], [12.8, 10.6]]);
+        },
+        color: "#cdb8f2",
+        lift: 0.6,
+      },
+      { shape: starPoints(13, 19, 9, 5, 0.46, -Math.PI / 2 + 0.25), color: ink, fold: { from: [15.2, 10.2], to: [11.6, 27.6], depth: 0.2, side: 1 } },
+    ]);
   },
   effects: {
     // A paper star drops from above, then lands in a soft ring.

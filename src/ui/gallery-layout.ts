@@ -102,6 +102,20 @@ export interface GalleryLayout {
   readonly headers: readonly GalleryHeader[];
   readonly cells: readonly GalleryCell[];
 }
+/**
+ * Developer check views of the gallery, chosen only by the page URL
+ * (`?gallery=1&check=value|gloss`); never reachable from the game UI.
+ * `value` shows luminance only, `gloss` outlines cells that used gradients,
+ * blurred shadows or additive light.
+ */
+export type GalleryCheck = "none" | "value" | "gloss";
+export const GALLERY_CHECKS: readonly GalleryCheck[] = ["none", "value", "gloss"];
+/** The check view named by a location.search string; anything else is "none". */
+export function galleryCheck(search: string): GalleryCheck {
+  const v = new URLSearchParams(search).get("check");
+  return v === "value" || v === "gloss" ? v : "none";
+}
+
 export const GALLERY_GRID = { pad: 24, gap: 14, header: 46, sectionGap: 22 } as const;
 
 /** Cells for a page `width` (CSS px): sections stacked, each a left-aligned grid. */

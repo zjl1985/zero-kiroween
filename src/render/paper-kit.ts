@@ -7,7 +7,8 @@
  *
  * Usage: the FEAT-004 prop art (src/defs/props/<id>/art.ts) is the reference.
  */
-import { glow, hash, line, mix, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
+import { glow, grain, hash, line, mix, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
+import { PAPER_EDGE, PAPER_FIBER, PAPER_LAYERS, PAPER_LIGHT, PAPER_SHADOW } from "./paper-rules.js";
 
 /** A shape: a Path2D, a polygon of points, or a builder that draws into a Path2D. */
 export type PaperShape = Path2D | readonly Point[] | ((p: Path2D) => void);
@@ -126,6 +127,14 @@ export function foldLine(ctx: Ctx, x0: number, y0: number, x1: number, y1: numbe
   line(ctx, x0 - 0.4, y0 - 0.7, x1 - 0.4, y1 - 0.7, "#f3dcaa", 0.7, 0.55 * strength);
 }
 function foldAcross(ctx: Ctx, p: Path2D, f: PaperFold): void {
+  shadeAcross(ctx, p, f);
+  ctx.save();
+  ctx.clip(p);
+  foldLine(ctx, f.from[0], f.from[1], f.to[0], f.to[1], 0.8);
+  ctx.restore();
+}
+/** Shades one side of a crease inside a cut (no crease line). */
+function shadeAcross(ctx: Ctx, p: Path2D, f: PaperFold): void {
   const [ax, ay] = f.from,
     [bx, by] = f.to,
     dx = bx - ax,
@@ -148,10 +157,6 @@ function foldAcross(ctx: Ctx, p: Path2D, f: PaperFold): void {
       [ax - (dx / len) * far + nx * far, ay - (dy / len) * far + ny * far],
     ]),
   );
-  ctx.restore();
-  ctx.save();
-  ctx.clip(p);
-  foldLine(ctx, ax, ay, bx, by, 0.8);
   ctx.restore();
 }
 /**
@@ -214,4 +219,142 @@ export function tornEdge(ax: number, ay: number, bx: number, by: number, teeth: 
 export function warmGlow(ctx: Ctx, x: number, y: number, r: number, strength = 0.35, color = "#ffc065"): void {
   glow(ctx, x, y, r, color, strength);
   glow(ctx, x, y, r * 0.4, "#ffe4a8", strength * 0.8);
+}
+
+// ---------------------------------------------------------------------------
+// Flat paper layers: the paper ruleset (paper-rules.ts) as drawing helpers.
+// No gradients, no shadowBlur, no additive light; one shadow direction.
+
+export { PAPER_EDGE, PAPER_FIBER, PAPER_LAYERS, PAPER_LIGHT, PAPER_SHADOW } from "./paper-rules.js";
+
+/** One flat paper layer of an emblem: one colour, one or more cuts in `shape`. */
+export interface FlatLayer {
+  readonly shape: PaperShape;
+  /** Fill colour as #rrggbb. */
+  readonly color: string;
+  /** Cast shadow height multiplier (default 1; 0 = glued flat, no shadow). */
+  readonly lift?: number;
+  /** Lit rim colour (default the moon rim mixed into the fill). */
+  readonly rim?: string;
+  /** Fibre strength (default PAPER_FIBER). */
+  readonly texture?: number;
+  /** Creases: the shaded side plus a crease line lit from the moon. */
+  readonly fold?: PaperFold | readonly PaperFold[];
+  /** Dashed thread inside the edge. */
+  readonly stitch?: boolean | string;
+  /** Card thickness multiplier (default 1). */
+  readonly thickness?: number;
+}
+
+/** A crease lit by the moon: dark valley with the pale lip toward the top-right. */
+export function crease(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, strength = 0.6): void {
+  line(ctx, x0, y0, x1, y1, PAPER_EDGE.lip, 0.9, 0.55 * strength);
+  line(ctx, x0 + PAPER_LIGHT.dirX * 0.6, y0 + PAPER_LIGHT.dirY * 0.6, x1 + PAPER_LIGHT.dirX * 0.6, y1 + PAPER_LIGHT.dirY * 0.6, PAPER_LIGHT.rim, 0.6, 0.6 * strength);
+}
+
+/**
+ * One flat paper layer: hard cast shadow down-right, the darker card side,
+ * the flat fill, fibre, a lit rim on the top-right inner edge, a dark lip on
+ * the bottom-left, a thin cut line, then creases and stitches.
+ */
+export function flatLayer(ctx: Ctx, l: FlatLayer): Path2D {
+  const p = toPath(l.shape),
+    lift = l.lift ?? 1,
+    th = PAPER_EDGE.thickness * (l.thickness ?? 1),
+    { dirX, dirY } = PAPER_LIGHT,
+    shadowLen = Math.hypot(PAPER_SHADOW.dx, PAPER_SHADOW.dy) || 1;
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (lift > 0) {
+    ctx.save();
+    ctx.translate(PAPER_SHADOW.dx * lift, PAPER_SHADOW.dy * lift);
+    ctx.globalAlpha *= PAPER_SHADOW.alpha;
+    ctx.fillStyle = PAPER_SHADOW.color;
+    ctx.fill(p);
+    ctx.restore();
+  }
+  // The cut side of the card shows on the shadow side.
+  ctx.save();
+  ctx.translate((PAPER_SHADOW.dx / shadowLen) * th, (PAPER_SHADOW.dy / shadowLen) * th);
+  ctx.fillStyle = mix(l.color, "#1c142b", 0.5);
+  ctx.fill(p);
+  ctx.restore();
+  ctx.fillStyle = l.color;
+  ctx.fill(p);
+  grain(ctx, p, l.texture ?? PAPER_FIBER);
+  ctx.save();
+  ctx.clip(p);
+  // Shifting the outline away from the light leaves a band on the lit inner edge.
+  ctx.save();
+  ctx.translate(-dirX * PAPER_EDGE.rim, -dirY * PAPER_EDGE.rim);
+  ctx.globalAlpha *= PAPER_EDGE.rimAlpha;
+  ctx.strokeStyle = l.rim ?? mix(l.color, PAPER_LIGHT.rim, 0.55);
+  ctx.lineWidth = PAPER_EDGE.rim * 1.5;
+  ctx.stroke(p);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(dirX * PAPER_EDGE.rim, dirY * PAPER_EDGE.rim);
+  ctx.globalAlpha *= PAPER_EDGE.lipAlpha;
+  ctx.strokeStyle = PAPER_EDGE.lip;
+  ctx.lineWidth = PAPER_EDGE.rim * 1.3;
+  ctx.stroke(p);
+  ctx.restore();
+  ctx.restore();
+  ctx.globalAlpha *= PAPER_EDGE.cutAlpha;
+  ctx.strokeStyle = mix(l.color, "#1c142b", 0.62);
+  ctx.lineWidth = 0.5;
+  ctx.stroke(p);
+  ctx.restore();
+  if (l.fold)
+    for (const f of Array.isArray(l.fold) ? l.fold : [l.fold as PaperFold]) {
+      shadeAcross(ctx, p, f);
+      ctx.save();
+      ctx.clip(p);
+      crease(ctx, f.from[0], f.from[1], f.to[0], f.to[1], 0.75);
+      ctx.restore();
+    }
+  if (l.stitch) {
+    const color = typeof l.stitch === "string" ? l.stitch : mix(l.color, "#f2d9a4", 0.55);
+    if (isPoints(l.shape)) stitch(ctx, path(insetPoints(l.shape, 2.2)), color, 0.7);
+    else stitchAlong(ctx, p, color, 0.7);
+  }
+  return p;
+}
+
+/** An emblem of 1 to 3 flat layers glued back to front; returns their paths. */
+export function paperEmblem(ctx: Ctx, layers: readonly FlatLayer[]): Path2D[] {
+  if (layers.length < PAPER_LAYERS.min || layers.length > PAPER_LAYERS.max)
+    throw new RangeError(`paper emblem needs ${PAPER_LAYERS.min} to ${PAPER_LAYERS.max} layers, got ${layers.length}`);
+  return layers.map((l) => flatLayer(ctx, l));
+}
+
+/** Points rotated by `angle`, scaled by `k` and moved to (x, y); the light never rotates with them. */
+export function placePoints(points: readonly Point[], x: number, y: number, angle = 0, k = 1): Point[] {
+  const c = Math.cos(angle),
+    s = Math.sin(angle);
+  return points.map(([px, py]) => [x + (px * c - py * s) * k, y + (px * s + py * c) * k] as Point);
+}
+/** An n-point star outline (outer radius r, inner radius r * inner), first tip at `angle`. */
+export function starPoints(x: number, y: number, r: number, n = 5, inner = 0.45, angle = -Math.PI / 2): Point[] {
+  const out: Point[] = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = angle + (i * Math.PI) / n,
+      rr = i % 2 ? r * inner : r;
+    out.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+  }
+  return out;
+}
+/** Adds a polygon to a path builder. */
+export function addPoints(p: Path2D, points: readonly Point[]): void {
+  if (!points.length) return;
+  p.moveTo(points[0]![0], points[0]![1]);
+  for (const q of points.slice(1)) p.lineTo(q[0], q[1]);
+  p.closePath();
+}
+/** Cuts an oval hole in a path whose outline runs clockwise on screen (nonzero rule). */
+export function cutHole(p: Path2D, x: number, y: number, rx: number, ry: number): void {
+  p.moveTo(x + rx, y);
+  p.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2, true);
+  p.closePath();
 }

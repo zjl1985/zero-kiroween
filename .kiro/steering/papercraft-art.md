@@ -24,6 +24,13 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 - The `?gallery=1` page shows every registered cat, enemy, prop (five base preview states), landmark, biome, weapon and passive. Runtime ink/fold/regrowth and actor statuses are not automatically all covered by those previews; never treat gallery coverage as gameplay review.
 - Recipes: `.kiro/skills/midnight-meow-dev/references/paper-kit-and-gallery.md`.
 
+## Paper ruleset (emblems and icons)
+
+- Defined in `src/render/paper-rules.ts`, drawn with `flatLayer` / `paperEmblem` / `crease` from `paper-kit.ts`: one moon light from the top-right (`PAPER_LIGHT`), one hard cast shadow down-right with a fixed offset (`PAPER_SHADOW`), 1 to 3 flat paper layers per asset, a light cut-edge rim on the lit side and a dark lip bottom-left per layer, a subtle fibre overlay.
+- No gradients, `shadowBlur`, blur filters, `lighter` compositing or specular highlights in emblems. Rotate points (`placePoints`), not the context, so the shadow keeps its direction.
+- Applies to every weapon/passive icon, the upgrade card emblem mount and HUD slot tags (tested in `tests/paper-rules.test.mjs`). `piece`/`paperCut` defaults stay unchanged because the approved cat heads use them.
+- Developer check views: `/?gallery=1&check=value` (luminance only) and `/?gallery=1&check=gloss` (red outline on cells whose painter used gradients, blurred shadows or additive light). URL only, never linked from the game UI, not a style toggle.
+
 ## Ecology and combat presentation
 
 - The user required the remaining art/interactions and paper actors burning/water extinguishing. Do not restore the old harmless-fire presentation. `paper-status-art.ts` draws distinct carried flame/char and damp drop/ripple overlays after actual actor art, never on decoys or over identifying eyes; steam, ink-wash, regrow and reward cues are distinct.

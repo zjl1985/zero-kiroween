@@ -233,6 +233,8 @@ export const EN: Messages = {
   "enemy.kiro-ghost.name": "Kiro Ghost",
   "gallery.title": "Paper Workshop Gallery",
   "gallery.subtitle": "Every registered cat, enemy, prop, landmark and icon, drawn by code",
+  "gallery.check.value": "Developer check: value. Luminance only, to compare actors against their backgrounds",
+  "gallery.check.gloss": "Developer check: gloss. Red outlines mark cells that used gradients, blurred shadows or additive light",
   "gallery.section.cats": "Cats",
   "gallery.section.enemies": "Enemies",
   "gallery.section.props": "Props",

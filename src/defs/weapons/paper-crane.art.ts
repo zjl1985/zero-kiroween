@@ -4,14 +4,21 @@ import { piece, path, line } from "../../render/paper-material.js";
 import { ellipse } from "../../render/pixel-art.js";
 import { combatPart } from "../../render/craft-combat.js";
 import { paperTrail } from "../../render/combat-fx.js";
-import { foldLine } from "../../render/paper-kit.js";
+import { paperEmblem, foldLine } from "../../render/paper-kit.js";
 
 export const PAPER_CRANE_ART: WeaponArt = {
   id: "paper-crane",
+  /** An origami crane: the folded body, a near wing in the back-side shade, and an ink tail tip. */
   icon(ctx, ink) {
-    piece(ctx, path([[4, 19], [16, 15], [28, 8], [19, 20], [14, 26]]), "#efe6d2", { shadow: 1.2, thickness: 0.6 });
-    piece(ctx, path([[16, 15], [28, 8], [19, 20]]), "#d8cdb5", { shadow: 0, thickness: 0.4 });
-    piece(ctx, path([[4, 19], [8, 13], [10, 18]]), ink, { shadow: 0, thickness: 0.4 });
+    paperEmblem(ctx, [
+      {
+        shape: [[3, 9], [11.5, 17.5], [15, 15.5], [18.5, 2.5], [20.5, 16], [24, 16.5], [27.5, 6.5], [31, 8.8], [28.2, 9.6], [26.5, 19], [17, 25.5], [9, 21.5]],
+        color: "#efe6d2",
+        fold: { from: [11.5, 17.5], to: [24, 16.5], depth: 0.16, side: 1 },
+      },
+      { shape: [[13.5, 19.5], [24.5, 5], [21, 20.5]], color: "#d8cdb5", fold: { from: [13.5, 19.5], to: [24.5, 5], depth: 0.16, side: 1 } },
+      { shape: [[3, 9], [9.4, 15.5], [7, 17.4]], color: ink, lift: 0.5 },
+    ]);
   },
   shotTag: "crane",
   /** A folded paper crane flying nose first. */

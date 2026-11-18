@@ -10,7 +10,9 @@ import type { Locale } from "../content/keys.js";
 import { BIOME_DEFS, ENEMY_DEFS, PROP_DEFS } from "../defs/index.js";
 import type { EnemyState } from "../game/types.js";
 import { ELITE } from "../game/enemies.js";
-import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryKind } from "../ui/gallery-layout.js";
+import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryCheck, type GalleryKind } from "../ui/gallery-layout.js";
+import { clearSpriteCache } from "../engine/sprite.js";
+import { glossy, probeGloss } from "./paper-rules.js";
 import { BIOME_ART, CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-index.js";
 import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
@@ -148,7 +150,7 @@ function icon(ctx: Ctx, st: { x: number; y: number; w: number; h: number }, pain
   ctx.restore();
 }
 
-function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number): void {
+function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number, check: GalleryCheck): void {
   const { x, y, w, h } = cell;
   paperCut(ctx, box(x, y, w, h, seed), {
     color: CARD,
@@ -167,7 +169,12 @@ function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number): void {
   ctx.beginPath();
   ctx.rect(x + 2, y + 2, w - 4, h - TAG - 2);
   ctx.clip();
-  PAINTERS[cell.kind](ctx, cell, stage);
+  let gloss = false;
+  if (check === "gloss") {
+    // Repaint cached parts inside the probe so their own painters are seen too.
+    clearSpriteCache();
+    gloss = glossy(probeGloss(contextPrototypes(), () => PAINTERS[cell.kind](ctx, cell, stage)));
+  } else PAINTERS[cell.kind](ctx, cell, stage);
   ctx.restore();
   // Cream label tag pinned at the bottom.
   const ty = y + h - TAG + 2;
@@ -190,13 +197,43 @@ function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number): void {
   ctx.font = `10px Allo, "Songti SC", sans-serif`;
   ctx.fillText(t(locale, stateLabel(cell.state)), x + w / 2, ty + 24, w - 22);
   ctx.restore();
+  if (gloss) {
+    ctx.save();
+    ctx.strokeStyle = GLOSS_MARK;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([7, 4]);
+    ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.restore();
+  }
+}
+/** Outline colour of a cell that broke the paper ruleset in the gloss check. */
+const GLOSS_MARK = "#e0402f";
+/** 2D context prototypes present in this runtime (page and offscreen canvases). */
+function contextPrototypes(): object[] {
+  const g = globalThis as { CanvasRenderingContext2D?: { prototype: object }; OffscreenCanvasRenderingContext2D?: { prototype: object } };
+  return [g.CanvasRenderingContext2D?.prototype, g.OffscreenCanvasRenderingContext2D?.prototype].filter((p): p is object => !!p);
+}
+/** Value check: the painted page reduced to luminance only (greyscale), so value contrast is visible. */
+function toLuminance(canvas: HTMLCanvasElement): void {
+  const copy = document.createElement("canvas");
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  copy.getContext("2d")!.drawImage(canvas, 0, 0);
+  const ctx = canvas.getContext("2d")!;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.filter = "grayscale(1)";
+  ctx.drawImage(copy, 0, 0);
+  ctx.restore();
 }
 
 /**
  * Sizes `canvas` to the layout for a page `width` (CSS px) and paints every
- * section header and card. Returns the CSS height.
+ * section header and card. Returns the CSS height. `check` selects a
+ * developer check view (luminance or gloss outlines); the layout is the same.
  */
-export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: number, dpr: number): number {
+export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: number, dpr: number, check: GalleryCheck = "none"): number {
   const layout = galleryLayout(gallerySections(), width),
     // Keep the backing store under common browser canvas limits.
     scale = Math.max(1, Math.min(dpr, Math.floor(16000 / layout.height)));
@@ -226,6 +263,7 @@ export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: n
     ctx.fillText(t(locale, hd.title), hd.x + 16, hd.y + 20, 230);
     ctx.restore();
   }
-  layout.cells.forEach((c, i) => card(ctx, c, locale, i * 7 + 1));
+  layout.cells.forEach((c, i) => card(ctx, c, locale, i * 7 + 1, check));
+  if (check === "value") toLuminance(canvas);
   return layout.height;
 }

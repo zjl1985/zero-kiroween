@@ -1,19 +1,33 @@
 /** Card art for night-claw. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { piece, path, line } from "../../render/paper-material.js";
+import { piece, line } from "../../render/paper-material.js";
 import { combatPart } from "../../render/craft-combat.js";
+import { crease, paperEmblem, tornEdge } from "../../render/paper-kit.js";
 
+/** One claw blade as a curved paper sliver, base at (x, y). */
+function blade(p: Path2D, x: number, y: number): void {
+  p.moveTo(x, y + 24);
+  p.quadraticCurveTo(x + 1.6, y + 14, x + 8.6, y + 3.4);
+  p.lineTo(x + 13, y);
+  p.quadraticCurveTo(x + 7.4, y + 11, x + 6.2, y + 19);
+  p.lineTo(x + 6.6, y + 22);
+  p.lineTo(x + 2.8, y + 25.4);
+  p.closePath();
+}
 export const NIGHT_CLAW_ART: WeaponArt = {
   id: "night-claw",
+  /** Three paper claw slivers torn through a scrap of night paper. */
   icon(ctx, ink) {
-    for (let i = 0; i < 3; i++) {
-      ctx.save();
-      ctx.translate(5 + i * 7.5, 1 + i * 1.7);
-      piece(ctx, new Path2D("M 0 25 Q 2 16 8 6 L 13 2 Q 7 12 6 19 L 7 22 L 3 24 L 3 26 Z"), ink,
-        { shadow: 1.2, thickness: 0.85, edge: "#fff1c6", texture: 0.46 });
-      line(ctx, 2, 24, 8, 10, "#866549", 1.1);
-      ctx.restore();
-    }
+    const offsets = [[3, 2], [10.5, 3.2], [18, 4.6]] as const;
+    paperEmblem(ctx, [
+      {
+        shape: [[4, 9], [27, 6], [29, 17], ...tornEdge(28, 26, 3, 27, 7, 1.6, 5)],
+        color: "#3f3752",
+        lift: 0.7,
+      },
+      { shape: (p) => offsets.forEach(([x, y]) => blade(p, x, y)), color: ink, rim: "#fff1c6" },
+    ]);
+    for (const [x, y] of offsets) crease(ctx, x + 2.6, y + 23, x + 9.4, y + 5.4, 0.55);
   },
   effects: {
     // Three cut-paper slashes sweeping across the arc toward the target.

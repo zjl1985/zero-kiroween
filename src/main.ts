@@ -29,6 +29,7 @@ import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
 import { createSfx } from "./audio/sfx.js";
 import { paintGallery } from "./render/gallery.js";
+import { galleryCheck } from "./ui/gallery-layout.js";
 import { moonArc } from "./ui/journal-geometry.js";
 import {
   advanceCues,
@@ -120,6 +121,8 @@ function bootGallery(): void {
   document.body.dataset.screen = "gallery";
   document.body.dataset.cat = prefs.cat;
   let painted = "";
+  // Developer-only check views, selected by the URL alone (?gallery=1&check=value|gloss).
+  const check = galleryCheck(location.search);
   const paint = () => {
     const width = Math.max(280, Math.floor(canvas.parentElement!.clientWidth)),
       dpr = Math.min(2, window.devicePixelRatio || 1),
@@ -129,10 +132,10 @@ function bootGallery(): void {
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
     document.title = t(locale, "gallery.title");
     must("gallery-title").textContent = t(locale, "gallery.title");
-    must("gallery-sub").textContent = t(locale, "gallery.subtitle");
+    must("gallery-sub").textContent = t(locale, check === "none" ? "gallery.subtitle" : `gallery.check.${check}`);
     must("btn-gallery-lang").textContent = t(locale, "title.language");
     canvas.setAttribute("aria-label", t(locale, "gallery.title"));
-    paintGallery(canvas, locale, width, dpr);
+    paintGallery(canvas, locale, width, dpr, check);
   };
   must("btn-gallery-lang").addEventListener("click", () => {
     locale = locale === "zh" ? "en" : "zh";

@@ -65,6 +65,40 @@ function signBoard(ctx: Ctx, v: number): void {
 }
 ```
 
+## Paper ruleset
+
+Emblems, upgrade icons and their mounts follow one shared ruleset, defined as data in `src/render/paper-rules.ts` and drawn by the flat helpers in `src/render/paper-kit.ts` (which re-exports the constants):
+
+- **One light.** `PAPER_LIGHT` is the moon, from the top-right (`dirX 0.6, dirY -0.8`). Every layer gets a pale cut-edge rim on its top-right inner edge and a dark lip (`PAPER_EDGE.lip`) on the bottom-left.
+- **One shadow.** `PAPER_SHADOW` is a hard cast shadow with a fixed offset down-right (`dx 1.1, dy 1.5` local units, `alpha 0.46`). Each layer casts it on the layers below; `lift` scales it (0 = glued flat). A thin darker card side (`PAPER_EDGE.thickness`) peeks out on the same side.
+- **1 to 3 flat layers** per asset (`PAPER_LAYERS`). A layer is one colour and may hold several separate cuts (two eyes, three claws). Holes are anticlockwise subpaths (`cutHole`) inside a clockwise outline.
+- **Paper fibre** overlay (`PAPER_FIBER`, multiply, clipped to the cut).
+- **No gloss.** No gradients, no `shadowBlur`, no `filter: blur`, no `lighter` compositing and no specular highlight dots. Fold creases (`fold` on a layer, or `crease()`) and stitches are the allowed surface detail.
+
+Helpers: `flatLayer(ctx, layer)`, `paperEmblem(ctx, layers)` (throws outside 1 to 3 layers), `crease(...)` (pale lip toward the moon), `placePoints(points, x, y, angle, k)` (rotate points, never the context, so the shadow keeps its direction), `starPoints`, `addPoints`, `cutHole`. Shared emblem shapes live in `src/render/upgrade-icons.ts` (`heartPath`, `boltPoints`, `CAT_HEAD`, a generic emblem head, not a character face).
+
+```ts
+icon(ctx, ink) {
+  paperEmblem(ctx, [
+    { shape: starPoints(22, 10, 8.5, 8, 0.52), color: "#e2a35a", lift: 0.8 },        // back burst
+    { shape: boltPoints(14, 18, -0.72, 12), color: ink,                                // main cut
+      fold: { from: [5, 25], to: [23, 9], depth: 0.22, side: 1 } },
+    { shape: starPoints(23, 9, 4, 4, 0.42, 0), color: "#fff1c6", lift: 1.2 },         // detail
+  ]);
+}
+```
+
+Scope: all registered weapon and passive icons (8 weapons including the 2 evolved ones, 11 passives), the upgrade card emblem mount (`paintCardEmblem`, also used for the evolution seal in the chest reveal) and the HUD slot tag (`paintUpgradeIcon`). `piece` and `paperCut` keep their older soft drop shadow because the approved cat heads (`paper-face.ts`) are built from `paperCut`; do not change their defaults without the user's approval of the heads. Warm lamp/window light (`warmGlow`, `glow`) is scene lighting and stays outside emblems.
+
+### Gallery check views (developer only)
+
+Selected only by the URL; no button or game screen links to them, and they are not a style toggle:
+
+- `/?gallery=1&check=value`: the finished page reduced to luminance (`grayscale(1)`), to compare actor against background value contrast.
+- `/?gallery=1&check=gloss`: each cell's painter runs inside `probeGloss`, which wraps the 2D context prototypes (page and offscreen sprite canvases, with the sprite cache cleared per cell) and counts gradients, `shadowBlur > 0` and `lighter` compositing. Offending cells get a dashed red outline. Cats, enemies, props and landmarks that still use `piece`/`glow` are expected to show red until later paperization passes.
+
+`galleryCheck(location.search)` in `src/ui/gallery-layout.ts` parses the mode (default `none`); the subtitle shows the localized `gallery.check.<mode>` text. The layout is identical in every mode. `tests/paper-rules.test.mjs` asserts the ruleset directions, the 1 to 3 layer limit, that every weapon/passive icon and mount paints without gradients, `shadowBlur`, blur filters or `lighter`, the query parsing and the probe. These are Canvas-command checks, not browser-pixel or art approval.
+
 ## The gallery page (`?gallery=1`)
 
 `http://localhost:4173/?gallery=1` shows every registered entry on night-paper cards, without a sim, audio or game loop. It repaints on resize and on the language button.

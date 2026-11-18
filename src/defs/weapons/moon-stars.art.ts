@@ -1,18 +1,37 @@
 /** Card art for moon-stars. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { oval, stitch } from "../../render/paper-material.js";
-import { drawOrbitStar, ring, star } from "../../render/combat-fx.js";
+import { drawOrbitStar, ring } from "../../render/combat-fx.js";
+import { addPoints, paperEmblem, starPoints } from "../../render/paper-kit.js";
 import { orbitPositions } from "../../game/sim.js";
 import { playerStats } from "../../game/upgrades.js";
 
 export const MOON_STARS_ART: WeaponArt = {
   id: "moon-stars",
+  /** A cut lilac orbit band behind a folded paper star, with two small stars riding the orbit. */
   icon(ctx, ink) {
-    star(ctx, 15, 18, 8.5, "#8576ac", 0.12);
-    star(ctx, 14, 16, 7.8, ink, 0.12);
-    stitch(ctx, oval(16, 17, 13, 8, 2), "#c7b7e7", 0.72);
-    star(ctx, 25, 9, 4.5, "#fff1ce", 0.24);
-    star(ctx, 5, 23, 3.6, "#c7b7e7", -0.22);
+    paperEmblem(ctx, [
+      {
+        shape: (p) => {
+          p.moveTo(16 + 14 * Math.cos(-0.25), 17 + 14 * Math.sin(-0.25));
+          p.ellipse(16, 17, 14, 8, -0.25, 0, Math.PI * 2);
+          p.closePath();
+          p.moveTo(16 + 11.4 * Math.cos(-0.25), 17 + 11.4 * Math.sin(-0.25));
+          p.ellipse(16, 17, 11.4, 5.6, -0.25, 0, Math.PI * 2, true);
+          p.closePath();
+        },
+        color: "#8576ac",
+        lift: 0.6,
+      },
+      { shape: starPoints(15, 17, 10, 5, 0.46), color: ink, fold: { from: [15, 7], to: [15, 27], depth: 0.2, side: 1 } },
+      {
+        shape: (p) => {
+          addPoints(p, starPoints(27, 9, 4.2, 4, 0.42, 0.2));
+          addPoints(p, starPoints(4.5, 23.5, 3.2, 4, 0.42, -0.2));
+        },
+        color: "#fff1ce",
+        lift: 1.1,
+      },
+    ]);
   },
   /** The faint orbit track, gold once the Full Moon is out. */
   ground(ctx, state) {

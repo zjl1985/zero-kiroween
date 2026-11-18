@@ -213,6 +213,8 @@ export const MESSAGE_KEYS = [
   "enemy.kiro-ghost.name",
   "gallery.title",
   "gallery.subtitle",
+  "gallery.check.value",
+  "gallery.check.gloss",
   "gallery.section.cats",
   "gallery.section.enemies",
   "gallery.section.props",
