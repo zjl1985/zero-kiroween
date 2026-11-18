@@ -1,73 +1,45 @@
 # Midnight Meow handoff
 
-The current game code is the paper wash-out round on top of e85365d (local commits 6931574 through b92920e, plus the docs commit that records them). Midnight Meow is a code-drawn papercraft survival game for Kiroween 2026. Start with [AGENTS.md](AGENTS.md) and the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md). The [plan](PLAN.md) holds the remaining work. Earlier rounds are in Git history, including the prior handoffs at e7bc669 and e85365d.
+Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
-## Paper wash-out round (local only, not pushed, not viewed in a browser)
+## Checkpoint
 
-The user asked for this round with the words "try it; my P0 is still that it must look good". Everything below is implemented and tested by command recording and simulation tests. None of it has been seen in a browser, heard, or approved by the user.
+- Code checkpoint: `12576a4` on `main`, 12 local commits ahead of `origin/main` (the paper wash-out round, 6931574..12576a4). Not pushed, not deployed. AGENTS.md forbids push and deploy without explicit user authorization.
+- `npm run build` and `npm test` pass 295 tests.
 
-- **Paper ruleset (6931574).** One moon light from the top-right, one hard shadow down-right, 1 to 3 flat layers, a lit rim and dark lip per layer (`src/render/paper-rules.ts`, `flatLayer` / `paperEmblem` / `flatCut` / `flatShadow` in `paper-kit.ts`). All 19 weapon and passive emblems, card mounts and HUD tags were redrawn with it. Developer views `/?gallery=1&check=value` and `&check=gloss`.
-- **Paper world (265fe69, 8a42c20).** Redrawn ink blob, bat, crumple and Eraser; readable damaged, scraps and burnt prop states; district paper sheets with seams and fringe-cut verges; a distinct base per landmark kind instead of one shared oval.
-- **Wash-out (f06b3a8, 39c10c9, caa24a4).** A sparse 32-unit colour grid in `SimState.wash`. Page states: painted, colourless (raw cream paper with the pencil underdrawing) and blank (rubbed out by the Eraser). Water lifts colour; pigment, lit pumpkins, full lanterns, the Watercolour Brush and dawn paint it back. Wash Drip and Pencil Sketch enemies, the Water Bucket prop, the `water` element and paper rain. Contract: [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md#wash-out-colour-grid).
-- **Paper verbs (3437a1b).** Zero's exclusive Paper Cut (close a loop to cut ink and paper out) and Nicole's exclusive Page Fold (fold the page over nearby ink; level 3 adds a short wall). Damage shows as creases and tears on the cat's clothes, healing as tape; the head is untouched. New snip and fold sounds.
-- **Combat readability (b92920e).** Baked ground tiles are lowered and greyed (`PAPER_VALUE.ground`), plain decor and props a smaller step (`PAPER_VALUE.decor`), so cats, ink and shots read first. Cached enemy body parts and the live chosen cat get a pale moon-side cut rim. Player shots are one solid colour on a dark paper outline, without glow. Lamps were halved (every `lampChance` halved, lamps placed only beside roads; about 44 to 51 per seeded world instead of 100 to 110). Plain lamps, windows, candles and decor pumpkins lost their gradient glows, so interactive pumpkins and lanterns stay the brightest warm accents. The blurred `shadow()` became a flat down-right shadow, and scenery, props, lamps and landmark ground bake with `withFlatShadows` (hard down-right shadows instead of blurred down-left ones). No render module sets `ctx.filter` per frame; only the gallery value check uses a one-off grayscale filter.
-- **Not done.** Page Fold's planned temporary dry bridge over water was skipped: the shared water contract (same pure polygons for art and physics, crossings only from world-gen) has no runtime crossing API. Balance and playtest of wash-out, paper rain, sketches, Paper Cut and Page Fold were not done. The new snip and fold sounds were never heard.
-- **Review v1 fixes (14cc45c).** Nicole's skill, Paper Crane volleys and Zero's mirror dash no longer store wash cells on painted, never-washed ground: fold protection is kept as up to 12 `SimState.wash.folds` circles, and cut marks only land on colourless cells. An unwashed run keeps an empty grid and `washFrame` stays null. The grid's square fold covers are gone, and cut holes are blots, skipped under a live Paper Cut piece (that piece draws its own polygon hole). The wet hint now shows only while the cell is wet; dry colourless paper gets `hint.colourless` (en, zh). Smudge stains drop from 0.6 to 0.3, below `WASH.colourless`, so one drop no longer wakes pencil (repeated drops still add up). The wet slow no longer stacks with a smudge puddle slow. Over the sketch budget, enemies (26 of the 32 slots) are picked by lowest id, so the set no longer flickers with draw order. Hatching paths are cached per box size. The cat-rim and sketch copies rasterise at or above the live scale in quarter steps, never below it, and the cat box grew to ±54 / −106..22. These sim changes shift seeded outcomes on smudge and wash paths. Three tests were changed on purpose to match the new contract (the Paper Cut loop now washes first, the flap checks a fold circle, the kit-interplay test adds empty-grid checks for Nicole's skill, a crane fold and a dash), and two were added for the hints and the sketch pick (295 pass).
-- **Still open from that review.** Browser frame time for the per-frame cat rim (two scratch canvases) and `drawSketched` (four scratch layers and about 12 blend drawImages per pencil actor, up to 32) is unmeasured, because the sandbox has no working browser. Measure it before adding more wash content. If it is too slow, cache enemy sketch variants per art part, the way `sketchedSprite` does for scenery. The cat box enlargement is from the art bounds plus margin; no still at a cue zoom confirms nothing is clipped. Balance items for the authorized playtest: the Wash Drip in the last two spawn-table rows, the 0.3 smudge stain (still wet for 7 s, x0.8 slow outside puddles), the unconditional mid-night paper rain and the common brush card in both pools.
-- **Verification.** `npm run build` and `npm test` pass **295 tests** (247 at e7bc669). Lamp placement changed seeded decor layouts deliberately; no seeded test expectation needed changing for it. Three tests were adjusted on purpose: the off-camera spawn test skips `wakesOn` kinds (sketches wake near the cat by design), the radius map adds Wash Drip 11 and Sketch 10, and the "brush is the last weapon" check became "after Pumpkin Seed". Screenshot: the one allowed static capture of `/?gallery=1` failed. System Chrome headless (`--headless=new --screenshot`, window 1600 x 3000) aborted with exit code 134 and printed nothing inside the sandbox, so no image exists (the dropped earlier attempt reported the same code). It was not retried with other tools. A preview server was already answering on port 4173 (it serves the repository root, so `dist/` from the latest build); `lsof` shows nothing in the sandbox, so its owner is unknown and it was left running.
-- **Sim timing (Node, seed 7, 3,600 steps after warm-up, 100 enemies, fire and water every 0.5 s, probe in ignored `output/playwright/step-timing.mjs`).** e85365d: 0.386 / 0.352 ms per step (Zero / Nicole, no wash grid). b92920e: 0.453 / 0.426 ms per step with 600 / 353 wash cells, about 17 to 21% more. No single hotspot was found worth changing, so the sim was left as is. Browser FPS, the cost of pencil compositing, sketch tile baking, bake-time grades and the per-frame cat rim (two scratch canvases per frame) are unmeasured.
+## User verdict and P0
 
-## Current checkpoint
+The user viewed the wash-out round and rated it "只能说凑合" (only passable). The art is **not approved**. The P0 is still that the game must look good, so visual quality is the top open item. The approved paper heads (2d8b25e) stay as they are: proportions, rectangular eyewear, markings, narrow head edge.
 
-- **Character art.** The user approved the paper heads in 2d8b25e. Keep the proportions, rectangular eyewear, original markings, and narrow head edge. The source Meow Wall data remains under src/cats/.
-- **Paper polish.** The shared Canvas theatre puts the cat on a layered stage with folded curtains. Desktop and portrait selection use the same painter. Offset tickets have a paw seal for the chosen cat. Compact layouts show all three skill headings with expandable descriptions. Mounted paper emblems and bound journal sheets give upgrades, chests, pause, and results finer edges and folds.
-- **World art.** District patches and bridge boards have more distinct shapes and edges. Damaged crates expose corrugation, bales unroll, and vats spill ink. Fences and crates show flames. Shield folds and Eraser sweep arrows distinguish protection from danger. The gallery fits the elite bat with its actual drawing bounds and only shows fire states for props that can burn.
-- **Walking performance.** b06adc0 moves terrain baking to one CPU-backed worker with a timed fallback. The main renderer keeps at most 14 ready tiles and ranks its prefetches within that budget. Run changes release pending work and bitmaps. The visible board is the 2× drawing surface, and the board stops repainting behind static menus. Crowd radius lookups and common dry or fire-free paths do less work.
-- **Public documentation.** README.md is an English player guide with controls, setup, and credits. Keep release notes and test evidence here or in Git.
+## Open work
 
-The user requested e7bc669's commit and push to origin/main. AGENTS.md now restricts the project to local commits: do not push or deploy without explicit authorization. Vercel can deploy automatically from a GitHub push. Check the exact commit and deployment status before saying a version is live.
+1. **Visual quality (P0).** Make concrete visual improvements driven by real screenshots of the running game and `?gallery=1`, not by tests alone. Ask the user which areas read worst (emblems, enemies, district sheets, landmark bases, pencil underdrawing, tide lines, Paper Cut / Page Fold, cat wear, value grade, solid shots).
+2. **Screenshot tooling.** System Chrome headless (`--headless=new --screenshot`) aborts with exit code 134 in the sandbox and produces no image. A working capture path is needed for item 1. At most one static screenshot per round.
+3. **Browser frame time (unmeasured).** Per-frame cat rim (two scratch canvases), `drawSketched` pencil compositing (four scratch layers, about 12 blend drawImages per actor, up to 32 actors) and sketch tile baking. Measure before adding more wash content; if slow, cache enemy sketch variants per art part like `sketchedSprite`. No still confirms the enlarged cat box (±54 / −106..22) is unclipped at cue zoom.
+4. **Sim cost.** The Node step probe (seed 7, 100 enemies, fire and water every 0.5 s, `output/playwright/step-timing.mjs`) is 0.453 / 0.426 ms per step (Zero / Nicole), about 17 to 21% slower than e85365d with wash active. No hotspot found yet.
+5. **Page Fold dry bridge over water** is not built: the shared water contract has no runtime crossing API (crossings come only from world-gen).
+6. **Balance and playtest** (deferred by the user, needs authorization): Wash Drip in the last two spawn-table rows, the 0.3 smudge stain (wet 7 s, x0.8 slow outside puddles), the unconditional mid-night paper rain, the common brush card in both pools, Paper Cut, Page Fold. Also one full run per cat for upgrade pacing, chests, Eraser pressure, water access, landmark rewards, hazard/skill overlap on dark ground and touch controls through retry.
+7. **Audio.** The snip and fold sounds and the overall mix are unheard.
+8. **Review leftovers.**
+   - Fold protection lasts 6 s (`WASH.fold.seconds`) but its visual shows only about 0.6 s.
+   - The cut-hole blot edge may read as a double line.
+   - A fourth Paper Cut loop within 2.5 s re-exposes the oldest holes.
+   - Stale `foldUntil` assignment in `tests/paper-visuals.test.mjs:654` (wash cells no longer store folds).
+   - Untested branches: puddle plus wet gives a single slow, `underCutOut`, `rasterScale >= scale`.
+9. **Pending user decisions.** The Boss can be outrun and dawn still wins (confirmed rule, but Boss/dawn pressure policy is open). If passive slots fill first, the evolution partner passive is locked out for that run (confirmed rule; no hint or fallback added).
+10. **Release.** English is the default and both packs are complete. Publishing the latest round, Devpost copy and media are pending; deadline 2026-12-05 06:00 Beijing time. Push, deploy and video recording need explicit authorization.
+11. **Not started.** Random helper cats (ask the user first) and neutral town NPCs.
 
-## Game rules to preserve
+## Run
 
-- Use one papercraft style. Draw scenery, characters, UI art, and effects in Canvas or CSS. Synthesize audio with Web Audio. Reference images guide the art. Local Allo fonts and their license live in [assets/fonts/](assets/fonts/).
-- Choose Zero or Nicole at the start. Each run has one protagonist. Afterimages are skill effects. Ask before starting random helper cats. Neutral town NPCs are also unimplemented.
-- Zero has Meowline, Afterimage, and exclusive Night Claw and Long Shadow. Nicole has Moonstars, Moonfold, and exclusive Star Fall, Deep Fold, and Thick Paper. Both can pick up Paper Crane and Pumpkin Seed. Their evolutions are **Echo Legion** and **Full Moon**, earned when a chest opens with the starting weapon maxed and the matching passive owned. Evolution uses the original weapon slot.
-- The build allows three weapon slots and four passive slots. If the passive slots fill before the player picks up the matching passive, that evolution is unavailable in that run. The user confirmed this consequence.
-- Survive 600 seconds to dawn. Defeating the Eraser is optional. The seeded world spans 10 × 10 screens, with five districts, 12 landmark types across 24 sites, and at most 100 living enemies. Kiro Ghosts share the paper actor rules and have a separate cap of eight.
-- Fire burns the cat and enemies, including fire started by the player. Shallow water extinguishes carried flames before damage. Deep water blocks movement, and explicit decks stay dry. Art and collision share the water polygons. The shallow basin east of the starting yard sits at (1040, 420).
-- Paper can tear, burn, fold, and take an ink coating. Folded objects open a route temporarily. Plants regrow after the area clears, with one loot payment per prop per run. Fire destroys props without loot. The teahouse heals, the greenhouse responds to folding, the observatory freezes nearby enemies, and the windmill responds to crane wind.
-- Use t(locale, key) for player-facing text. English is the default for new visitors. Keep the complete Chinese pack, language toggle, and saved choices.
-- Wash-out is gameplay, not a style toggle. Water makes paper colourless (pencil showing); the Eraser makes it blank; pigment paints it back. Wet washed paper slows, cannot burn and tears easily. Sketch enemies wake only on colourless paper. Keep the zero-wash path free of mask work so an unwashed run looks and costs as before.
-- Paper Cut stays Zero's and Page Fold stays Nicole's (CharacterDef.exclusives + WeaponDef.pool). Their existing actives are unchanged.
-- Value hierarchy: ground lowest, plain decor and props one step up, actors and shots on top, interactive pumpkins and lanterns the brightest warm lights. New ground and decor art inherits the bake-time grade; new enemy body parts get the rim through `enemyPart`.
-
-## Verification and remaining work
-
-- **Latest game build.** npm run build and npm test pass 295 tests at 14cc45c (review fixes). The Chrome checks below were made at e7bc669 and were not repeated for the wash-out round. At e7bc669, Chrome checks covered both cats and both languages at five viewport sizes. Compact skill headings, choosing a cat, starting, and pausing back to the same selection worked.
-- **Visual evidence.** No image of the wash-out round exists (the screenshot failed, see above), so nobody, including the agents, has looked at this round's pixels. output/playwright/papercraft-polish-2026-11-18.png is a static composite of the e7bc669 selection, combat fixtures, menus, and gallery. The approved head comparison is output/playwright/paper-head-comparison-2026-11-18.png. These files are local and ignored by Git. The ruleset emblems, paper enemies, district sheets, landmark bases, pencil underdrawing, tide lines, paper verbs, cat wear, value grade, rims and solid shots all still need a first browser look and user review.
-- **Performance evidence at b06adc0.** On a fixed seed-7 route in local Chrome, frame interval P95 went from about 50 ms to about 16.7 ms with an empty scene and with 100 enemies plus 40 fire cells. Two 3,600-step Node probes at the crowd cap preserved state hashes and used 25–28% less time. The paper polish did not repeat those timings. Device memory peaks and device-specific frame times remain open.
-
-The user deferred full playtesting. When they resume it, check one full run per cat for upgrade pacing, chest timing, Eraser pressure, water access, and landmark rewards. Check hazard and skill overlap on dark ground, touch controls through retry, and the audio mix. Devpost copy and media are pending. The plan records December 5, 2026 at 06:00 Beijing time as the deadline. Video recording needs explicit approval.
-
-Use build and tests for routine verification, with at most one static screenshot when relevant. Keep timing and motion checks in their requested scope.
-
-## Run and extend
-
-Use Node.js 22 or newer and Python 3 for the preview. Install dependencies with `npm ci` if needed.
+Node.js 22+, Python 3 for the preview, `npm ci` if needed.
 
 ```sh
-npm run build
-npm start
+npm run build   # tsc -> dist/, static output -> site/
+npm start       # serves site/ on port 4173 (check for an existing listener first)
+npm test        # builds, then runs node --test tests/*.test.mjs
 ```
 
-The preview serves `site/` on port 4173. Check for an existing listener. Use `/?start=1&seed=7` for a repeatable start and `/?gallery=1` for the workshop. `npm test` builds the project before running tests. Vercel uses the static `site/` output.
-
-| Area | Where to look |
-| --- | --- |
-| Content | [src/defs/](src/defs/) holds numbers, hooks, and adjacent art. Append in registration order in defs/index.ts, defs/world-index.ts, and render/art-index.ts. |
-| Simulation | [src/game/](src/game/) advances the fixed step, derives stats, and manages progress, enemies, props, and actor contact. Preserve seeded outcomes for art or performance changes. |
-| Paper art | [src/render/paper-kit.ts](src/render/paper-kit.ts), [prop-kit.ts](src/render/prop-kit.ts), [playbill-stage.ts](src/render/playbill-stage.ts), and [paper-face.ts](src/render/paper-face.ts). Keep live transforms separate from cached sheets. |
-| Terrain and water | [src/render/craft-world.ts](src/render/craft-world.ts), [terrain-worker.ts](src/render/terrain-worker.ts), [water-art.ts](src/render/water-art.ts), and [src/game/world-gen.ts](src/game/world-gen.ts). |
-| UI and language | [src/ui/](src/ui/), [styles.css](styles.css), and [src/content/](src/content/). Add string keys to the key list and both language packs. |
-
-The simulation stays free of DOM and render imports. Rendering reads state and uses render hashes. Keep cat-specific logic in the registered definitions and art. Keep legacy pixel utilities that have callers. Follow the deletion rules in AGENTS.md and leave local task state and generated output out of commits. [Paper ecology recipe](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)
+- `http://localhost:4173/?start=1` starts a run with the saved cat; add `&seed=N` (or `?seed=N`) to pin the seed.
+- `/?gallery=1` shows every registered entry; `&check=value` shows values only, `&check=gloss` flags gradients, blurred shadows and additive light.
+- Verification is build plus tests plus at most one static screenshot. No animation or recording checks unless the user asks.
