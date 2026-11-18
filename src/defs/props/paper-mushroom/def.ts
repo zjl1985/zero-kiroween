@@ -7,7 +7,7 @@ export const PAPER_MUSHROOM: PropDef = {
   size: { w: 32, d: 14 },
   durability: 2,
   damagedBelow: 0.6,
-  accepts: ["cut", "ink", "fold", "fire"],
+  accepts: ["cut", "ink", "fold", "fire", "water"],
   regrow: { seconds: 32, burntSeconds: 46 },
   drops: { shard: 0.35, shardValue: 1, treat: 0 },
   spawn: { clear: 26, scale: [0.8, 1.2] },

@@ -12,6 +12,7 @@ import { INK_THIN_PAPER } from "../dist/defs/reactions/ink-thin-paper.js";
 import { GUST_INK } from "../dist/defs/reactions/gust-ink.js";
 import { MELT_WAX } from "../dist/defs/reactions/melt-wax.js";
 import { PAPER_ELEMENTS } from "../dist/defs/reactions/paper-status.js";
+import { WASH } from "../dist/defs/wash.js";
 import { SPILL_INK } from "../dist/defs/reactions/spill-ink.js";
 import { CRANE_FOLD, PAPER_CRANE } from "../dist/defs/weapons/paper-crane.js";
 import { damageProp, nearPropColliders, propMaxHp, standingPropColliders, stepPropLifecycle } from "../dist/game/props.js";
@@ -21,7 +22,7 @@ import { CHUNK, chunkContent, clearWorldCache } from "../dist/game/world-gen.js"
 
 function state(cat = "zero") { return createSim({ seed: 7, cat }); }
 function context() {
-  const calls = { elements: [], damage: [], shards: [], treats: [], hurt: [] };
+  const calls = { elements: [], damage: [], shards: [], treats: [], hurt: [], wash: [] };
   const ctx = {
     calls,
     effect(s, x, y, kind, life, extra) { s.impacts.push({ x, y, kind, life, ...extra }); },
@@ -36,6 +37,8 @@ function context() {
     safePosition: (_s, x, y) => ({ x, y }),
     spawnShot(s, shot) { s.shots.push({ ...shot, id: s.nextShotId++ }); },
     nearestEnemy: () => undefined,
+    wash(_s, x, y, radius, amount, soak = true) { calls.wash.push({ x, y, radius, amount, soak }); },
+    paint() {},
   };
   return ctx;
 }
@@ -199,6 +202,8 @@ test("smudge drops apply ink exactly once on landing while retaining puddle and 
   assert.equal(s.hazards[0].radius, SMUDGE.puddleRadius);
   assert.equal(s.hazards[0].life, SMUDGE.puddleLife);
   assert.deepEqual(ctx.calls.hurt, [SMUDGE.splashDamage]);
+  // The wet ink also leaves a wash stain on the ground, without soaking props (the ink coat stays).
+  assert.deepEqual(ctx.calls.wash, [{ x: p.x, y: p.y, radius: SMUDGE.puddleRadius, amount: WASH.smudgeStain, soak: false }]);
   SMUDGE_DEF.stepWorld(s, 2, ctx);
   assert.equal(ctx.calls.elements.length, 1);
   assert.equal(s.rngState, rng);

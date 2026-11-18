@@ -282,6 +282,16 @@ export const MESSAGE_KEYS = [
   "activity.landmark-observatory",
   "activity.landmark-windmill",
   "activity.cooldown",
+  "enemy.wash.name",
+  "enemy.sketch.name",
+  "prop.water-bucket.name",
+  "upgrade.watercolour-brush.name",
+  "upgrade.watercolour-brush.desc",
+  "notice.paper-rain",
+  "notice.eraser-wipe",
+  "result.colour_kept",
+  "result.colour_value",
+  "hint.washed",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

@@ -13,5 +13,6 @@ export const OLD_TOWN: BiomeDef = {
     { prop: "paper-grass", chance: 0.35, count: [1, 1] },
     { prop: "ink-vat", chance: 0.65, count: [1, 1] },
     { prop: "wax-candle", chance: 0.5, count: [1, 2] },
+    { prop: "water-bucket", chance: 0.35, count: [1, 1] },
   ],
 };

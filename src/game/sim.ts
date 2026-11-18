@@ -30,6 +30,7 @@ import {
   chunkKey,
   chunksNear,
   clampToWorld,
+  hash2,
   insideWorld,
   landmarks,
   nearStaticColliders,
@@ -73,6 +74,18 @@ import { hitLandmarkActions, stepLandmarkActions } from "./landmark-actions.js";
 import { avoidDeepWater, resolveWaterMove, waterAt } from "./water.js";
 import { WATER } from "../defs/water.js";
 import { touchPaperEnvironment } from "./paper-status.js";
+import { WASH } from "../defs/wash.js";
+import {
+  createWash,
+  paintAt,
+  quenchFire,
+  sketchCells,
+  stepWash,
+  washAt,
+  washCentre,
+  washElement,
+  washWetTouches,
+} from "./wash.js";
 
 export { inSweep, startBossAttack } from "../defs/enemies/eraser-boss/attacks.js";
 
@@ -99,6 +112,10 @@ const ctx: SimContext = {
   elementHit: applyElement,
   damageProp: (state, prop, amount, burnt) => damageProp(state, prop, amount, ctx, burnt),
   ignite: (state, x, y, radius) => ignite(state, x, y, radius, ctx),
+  wash: (state, x, y, radius, amount, soak = true) => spillWater(state, x, y, radius, amount, soak),
+  paint: (state, x, y, radius, amount, hint) => {
+    paintAt(state, x, y, radius, amount, hint);
+  },
 };
 /** Element each shot tag applies to props (plain bolts are "bolt"). */
 const SHOT_ELEMENT = new Map(
@@ -114,6 +131,8 @@ function enemyDef(kind: EnemyKind): EnemyDef {
 }
 /** The kind that arrives on its own schedule (the Boss), if any is registered. */
 const ARRIVAL = ENEMY_DEFS.all().find((d) => d.arrival);
+/** The kind that wakes from colourless paper (pencil sketches), if any is registered. */
+const SKETCH = ENEMY_DEFS.all().find((d) => d.wakesOn === "colourless");
 
 function defaultStroke(width: number, height: number): StrokePoint[] {
   const cx = width * 0.5,
@@ -193,6 +212,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
       chestsOpened: 0,
       propsTorn: 0,
       cellsBurnt: 0,
+      colourKept: 100,
     },
     notice: null,
     xp: 0,
@@ -227,6 +247,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     nextChestId: 1,
     props: {},
     fire: { cells: {}, ash: {}, clock: 0, ticks: 0 },
+    wash: createWash(),
     landmarkEvents: {},
   };
   for (const w of WEAPON_DEFS.all()) w.init?.(state);
@@ -645,6 +666,7 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   stepInteractables(state, dt);
   stepTreats(state, dt);
   stepFire(state, dt, ctx);
+  stepWashWorld(state, dt);
   if (state.ended === "playing") {
     stepLandmarkActions(state, dt, ctx);
     stepSchedule(state, rng);
@@ -722,7 +744,9 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
       : 1;
   // Leftovers of enemy kinds (smudge puddles) slow the cat.
   for (const d of ENEMY_DEFS.all()) if (d.catSlow) p.slow *= d.catSlow(state);
+  // One water slow at most: shallow water, or else wet washed paper.
   if (waterAt(state.seed, p.x, p.y) === "shallow") p.slow *= WATER.shallowSlow;
+  else if (washWetTouches(state, p.x, p.y, 0)) p.slow *= WASH.wetSlow;
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
       length(input.ax, input.ay) < 0.15
@@ -742,6 +766,9 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
     p.dashTime = Math.max(0, p.dashTime - dt);
     p.x += p.vx * dt;
     p.y += p.vy * dt;
+    // A kit's dash may mark the page it crosses (a cut through the paper).
+    const trail = cat.dashTrail;
+    if (trail) washElement(state, p.x, p.y, trail.radius, trail.element, trail.power);
   } else {
     const dir = normalize(input.ax, input.ay);
     p.vx = dir.x * ps.speed * p.slow;
@@ -806,6 +833,11 @@ function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
     if (e.elite) {
       state.stats.elitesDefeated++;
       dropChest(state, e.x, e.y, false);
+    }
+    // Its own colour splashes back onto washed paper.
+    if (def.pigment && paintAt(state, e.x, e.y, WASH.pigment.radius, WASH.pigment.amount, def.pigment) > 0) {
+      state.wash.pigments++;
+      effect(state, e.x, e.y, "pigment", EFFECT_LIFE.pigment, { radius: WASH.pigment.radius, src: e.kind });
     }
     // Kind effects on defeat: crumple splits, the Eraser's reward.
     for (const onDeath of def.onDeath ?? []) onDeath(state, e, ctx);
@@ -1128,6 +1160,9 @@ function stepShots(state: SimState, dt: number): void {
     if (s.life <= 0 && s.alive) {
       if (s.burst) seedBurst(state, s);
       s.alive = false;
+      // A shot that drops into a pond splashes the paper around it.
+      if (waterAt(state.seed, s.x, s.y) !== "dry" && waterAt(state.seed, s.x, s.y) !== "bridge")
+        washAt(state, s.x, s.y, WASH.splash.radius * 0.6, WASH.splash.amount);
     }
   }
 }
@@ -1238,6 +1273,9 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     if (waterAt(state.seed, e.x, e.y) === "shallow") {
       dx *= WATER.shallowSlow;
       dy *= WATER.shallowSlow;
+    } else if (washWetTouches(state, e.x, e.y, 0)) {
+      dx *= WASH.wetSlow;
+      dy *= WASH.wetSlow;
     }
     // Keep separation in enemy order. Radius lookups are shared across all pairs,
     // with a lazy entry for summons appended while a Boss steers.
@@ -1313,6 +1351,7 @@ export function applyElement(
   power: number,
 ): void {
   elementHit(state, x, y, radius, element, power, ctx);
+  washElement(state, x, y, radius, element, power);
   hitLandmarkActions(state, x, y, radius, element, power, ctx);
 }
 /** Sets flammable cells around (x, y) alight with the sim's own context (tools and tests). */
@@ -1323,4 +1362,108 @@ export function livingEnemies(state: SimState): number {
   let n = 0;
   for (const e of state.enemies) if (e.alive) n++;
   return n;
+}
+
+/**
+ * Spilled water (buckets, wash drips, rain, smudge stains; tools and tests):
+ * washes the colour out of the circle, puts out fire there and, unless
+ * `soak` is false, applies "water" to the props it reaches.
+ */
+export function spillWater(state: SimState, x: number, y: number, radius: number, amount: number, soak = true): void {
+  if (state.ended !== "playing") return;
+  washAt(state, x, y, radius, amount);
+  if (quenchFire(state, x, y, radius) > 0) effect(state, x, y, "steam", EFFECT_LIFE.steam);
+  if (soak) applyElement(state, x, y, radius, "water", 1);
+  state.wash.splashes++;
+}
+/** Paints colour back with the sim's own context (tools and tests). */
+export function paintColour(state: SimState, x: number, y: number, radius: number, amount: number, hint?: string): number {
+  return paintAt(state, x, y, radius, amount, hint);
+}
+/**
+ * The wash grid's world beat (WASH.tick): wading splashes, the paper-rain
+ * spell, lantern and pumpkin repainting and sketches waking on colourless
+ * paper. Rolls use hash2 only; the step RNG is never touched.
+ */
+function stepWashWorld(state: SimState, dt: number): void {
+  const beats = stepWash(state, dt);
+  for (let i = 0; i < beats && state.ended === "playing"; i++) {
+    washSplashes(state);
+    paperRain(state);
+    for (const o of state.interactables) {
+      if (o.kind === "pumpkin" && o.lit > 0)
+        paintAt(state, o.x, o.y, WASH.pumpkin.radius, WASH.pumpkin.rate * WASH.tick, "#e8913a");
+      else if (o.kind === "lantern" && o.charge >= 1)
+        paintAt(state, o.x, o.y, WASH.lantern.radius, WASH.lantern.rate * WASH.tick, "#f2d27a");
+    }
+    wakeSketches(state);
+  }
+}
+/** Actors wading in shallow water splash the page around them (a few per beat). */
+function washSplashes(state: SimState): void {
+  const { radius, amount, perTick } = WASH.splash,
+    p = state.player;
+  if (p.hp > 0 && waterAt(state.seed, p.x, p.y) === "shallow") washAt(state, p.x, p.y, radius, amount);
+  let n = 0;
+  for (const e of state.enemies) {
+    if (n >= perTick) break;
+    if (!e.alive || e.spawnTime > 0 || waterAt(state.seed, e.x, e.y) !== "shallow") continue;
+    washAt(state, e.x, e.y, radius, amount);
+    n++;
+  }
+}
+/** One mid-night spell of paper rain: diagonal bands of water near the cat. */
+function paperRain(state: SimState): void {
+  const r = WASH.rain,
+    start = r.at * state.sessionSeconds,
+    end = r.until * state.sessionSeconds;
+  if (state.elapsed < start || state.elapsed >= end) return;
+  const due = Math.floor((state.elapsed - start) / r.every) + 1;
+  while (state.wash.rainPulses < due) {
+    const pulse = state.wash.rainPulses++;
+    if (pulse === 0) notify(state, "paper-rain");
+    const p = state.player;
+    for (let b = 0; b < r.bands; b++) {
+      const h = (salt: number) => hash2(state.seed, pulse, b, 1300 + salt),
+        a = Math.PI * 0.32 + (h(0) - 0.5) * 0.5,
+        cx = p.x + (h(1) - 0.5) * 2 * r.reach,
+        cy = p.y + (h(2) - 0.5) * 2 * r.reach * 0.6,
+        dx = Math.cos(a),
+        dy = Math.sin(a),
+        stepLen = r.width * 0.7,
+        n = Math.ceil(r.length / stepLen);
+      for (let k = 0; k <= n; k++) {
+        const t = k * stepLen - r.length / 2,
+          x = cx + dx * t,
+          y = cy + dy * t;
+        if (!insideWorld(x, y, 0)) continue;
+        washAt(state, x, y, r.width / 2, r.amount);
+        quenchFire(state, x, y, r.width / 2);
+        applyElement(state, x, y, r.width / 2, "water", 1);
+      }
+    }
+    state.wash.splashes++;
+  }
+}
+/**
+ * Pencil sketches wake on colourless (not blank) cells near the cat. The
+ * chance grows with the washed share of the page around it; caps apply.
+ */
+function wakeSketches(state: SimState): void {
+  if (!SKETCH) return;
+  const w = state.wash;
+  w.sketchClock += WASH.tick;
+  if (w.sketchClock + 1e-9 < WASH.sketch.every) return;
+  w.sketchClock = 0;
+  const cap = Math.min(hordeCap(state), HORDE.hardCap) - (bossEnemy(state) ? HORDE.bossRoom : 0);
+  if (livingEnemies(state) >= cap) return;
+  if (livingOfKind(state, SKETCH.id) >= (KIND_CAP[SKETCH.id] ?? WASH.sketch.cap)) return;
+  const p = state.player,
+    { keys, fraction } = sketchCells(state, p.x, p.y);
+  if (!keys.length || fraction < WASH.sketch.minFraction) return;
+  if (hash2(state.seed, w.ticks, 0, 1401) >= Math.min(1, fraction * WASH.sketch.weight)) return;
+  const key = keys[Math.min(keys.length - 1, Math.floor(hash2(state.seed, w.ticks, 1, 1402) * keys.length))]!,
+    [x, y] = washCentre(key),
+    pos = safePosition(state, x, y, SKETCH.stats.radius);
+  spawnEnemy(state, SKETCH.id, pos.x, pos.y, undefined, 0.9);
 }

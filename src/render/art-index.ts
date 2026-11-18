@@ -14,6 +14,8 @@ import { INK_BLOB_ART } from "../defs/enemies/ink-blob/art.js";
 import { PAPER_BAT_ART } from "../defs/enemies/paper-bat/art.js";
 import { KIRO_GHOST_ART } from "../defs/enemies/kiro-ghost/art.js";
 import { SMUDGE_ART } from "../defs/enemies/smudge/art.js";
+import { WASH_ART } from "../defs/enemies/wash/art.js";
+import { SKETCH_ART } from "../defs/enemies/sketch/art.js";
 import { DEEP_FOLD_ART } from "../defs/passives/deep-fold.art.js";
 import { FOCUS_ART } from "../defs/passives/focus.art.js";
 import { LONG_SHADOW_ART } from "../defs/passives/long-shadow.art.js";
@@ -33,6 +35,7 @@ import { NIGHT_CLAW_ART } from "../defs/weapons/night-claw.art.js";
 import { PAPER_CRANE_ART } from "../defs/weapons/paper-crane.art.js";
 import { PUMPKIN_SEED_ART } from "../defs/weapons/pumpkin-seed.art.js";
 import { STAR_FALL_ART } from "../defs/weapons/star-fall.art.js";
+import { WATERCOLOUR_BRUSH_ART } from "../defs/weapons/watercolour-brush.art.js";
 import { PAPER_BUSH_ART } from "../defs/props/paper-bush/art.js";
 import { PAPER_FENCE_ART } from "../defs/props/paper-fence/art.js";
 import { PAPER_GRASS_ART } from "../defs/props/paper-grass/art.js";
@@ -56,6 +59,7 @@ import { PAPER_TOMBSTONE_ART } from "../defs/props/paper-tombstone/art.js";
 import { DEAD_TREE_ART } from "../defs/props/dead-tree/art.js";
 import { INK_VAT_ART } from "../defs/props/ink-vat/art.js";
 import { WAX_CANDLE_ART } from "../defs/props/wax-candle/art.js";
+import { WATER_BUCKET_ART } from "../defs/props/water-bucket/art.js";
 import { PAPER_WINDMILL_ART } from "../defs/landmarks/paper-windmill/art.js";
 import { PUPPET_THEATRE_ART } from "../defs/landmarks/puppet-theatre/art.js";
 import { WISHING_WELL_ART } from "../defs/landmarks/wishing-well/art.js";
@@ -72,7 +76,8 @@ import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEA
 export * from "./art-registry.js";
 
 for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(a);
-for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART]) ENEMY_ART.register(a);
+for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART, WASH_ART, SKETCH_ART])
+  ENEMY_ART.register(a);
 for (const a of [
   MEOW_BOLT_ART,
   NIGHT_CLAW_ART,
@@ -82,6 +87,7 @@ for (const a of [
   FULL_MOON_ART,
   PAPER_CRANE_ART,
   PUMPKIN_SEED_ART,
+  WATERCOLOUR_BRUSH_ART,
 ])
   WEAPON_ART.register(a);
 for (const a of [
@@ -116,6 +122,7 @@ for (const a of [
   DEAD_TREE_ART,
   INK_VAT_ART,
   WAX_CANDLE_ART,
+  WATER_BUCKET_ART,
 ])
   PROP_ART.register(a);
 for (const a of [

@@ -11,4 +11,5 @@ export const INK_BLOB: EnemyDef = {
   behaviours: [{ id: "chase" }],
   eliteable: true,
   contactPush: 8,
+  pigment: "#4a3d6b",
 };

@@ -1,6 +1,7 @@
 import { STATS } from "../../../game/types.js";
 import type { EnemyDef } from "../../types.js";
 import { ENEMY_FX_LIFE } from "../fx-life.js";
+import { WASH } from "../../wash.js";
 
 /** Smudges stop at range and lob a slow, telegraphed ink drop. */
 export const SMUDGE = {
@@ -14,7 +15,7 @@ export const SMUDGE = {
   puddleRadius: 24,
   puddleLife: 3,
   puddleSlow: 0.6,
-    inkPower: 1,
+  inkPower: 1,
 } as const;
 
 export const SMUDGE_DEF: EnemyDef = {
@@ -23,6 +24,7 @@ export const SMUDGE_DEF: EnemyDef = {
   behaviours: [{ id: "chase" }, { id: "kite-lob", params: SMUDGE }],
   eliteable: true,
   contactPush: 8,
+  pigment: "#5d4c78",
   onSpawn(e) {
     e.timer = SMUDGE.cooldown * 0.5;
     e.windup = 0;
@@ -39,12 +41,15 @@ export const SMUDGE_DEF: EnemyDef = {
     if (state.ended !== "playing") return;
     const p = state.player;
     for (const s of state.enemyShots) {
-      if (!s.alive) continue;
+      // Water spit belongs to the wash drip's own pass.
+      if (!s.alive || s.kind === "water") continue;
       s.t += dt;
       if (s.t < s.flight) continue;
       s.alive = false;
       ctx.effect(state, s.tx, s.ty, "splat", ENEMY_FX_LIFE.splat);
-            ctx.elementHit(state, s.tx, s.ty, SMUDGE.puddleRadius, "ink", SMUDGE.inkPower);
+      ctx.elementHit(state, s.tx, s.ty, SMUDGE.puddleRadius, "ink", SMUDGE.inkPower);
+      // The wet ink lifts the paint under it: a wash stain stays after the puddle dries.
+      ctx.wash(state, s.tx, s.ty, SMUDGE.puddleRadius, WASH.smudgeStain, false);
       state.hazards.push({
         id: state.nextHazardId++,
         kind: "puddle",

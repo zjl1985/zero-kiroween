@@ -52,6 +52,7 @@ export function paintJournal(locale: Locale, sim: SimState): void {
       ["result.pumpkins", sim.stats.pumpkinsLit],
       ["result.props_torn", sim.stats.propsTorn],
       ["result.cells_burnt", sim.stats.cellsBurnt],
+      ["result.colour_kept", t(locale, "result.colour_value", { n: sim.stats.colourKept })],
     ];
   must("result-stats").replaceChildren(
     ...rows.map(([label, value]) => {

@@ -16,6 +16,7 @@ import { EFFECT_LIFE, STATS } from "./types.js";
 import { chunkContent, chunkOf, hash2, nearProps } from "./world-gen.js";
 import { pointSegDist } from "./collision.js";
 import { paperTouchesWater, spreadCarriedFire, stepPaperStatus } from "./paper-status.js";
+import { washBlocksFire } from "./wash.js";
 
 const PHASE = { intact: 0, damaged: 1, scraps: 2 } as const;
 
@@ -128,10 +129,14 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
   });
   if (burnt) {
     m.burnt = true;
+    def.onScraps?.(state, p, ctx, true);
     return;
   }
   state.stats.propsTorn++;
-  if (claimed) return;
+  if (claimed) {
+    def.onScraps?.(state, p, ctx, false);
+    return;
+  }
   // Seeded drops: the same prop always gives the same thing.
   const [cx, cy] = p.id.split("#")[0]!.split(",").map(Number) as [number, number],
     index = Number(p.id.split("#")[1]);
@@ -147,6 +152,7 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
       }
   }
   if (hash2(state.seed, cx * 64 + index, cy, 72) < def.drops.treat) ctx.dropTreat(state, p.x, p.y + 6);
+  def.onScraps?.(state, p, ctx, false);
 }
 
 // ---------------------------------------------------------------- lifecycle
@@ -237,10 +243,15 @@ function fuelAt(state: SimState, ix: number, iy: number): PropSpot[] {
   return out;
 }
 function propFlammability(state: SimState, p: PropSpot, def: PropDef): number {
-  const inked = (state.props[p.id]?.inkedUntil ?? 0) > state.elapsed;
+  const m = state.props[p.id],
+    inked = (m?.inkedUntil ?? 0) > state.elapsed;
+  // Soaked paper cannot burn.
+  if ((m?.soakedUntil ?? 0) > state.elapsed) return 0;
   return MATERIALS.get(def.material).flammability * (inked ? ECOLOGY.inkFlammability : 1);
 }
+/** Exposed water or wet washed paper: fire cannot hold or spread here. */
 function wetCell(state: SimState, ix: number, iy: number): boolean {
+  if (washBlocksFire(state, ix, iy)) return true;
   return paperTouchesWater(state.seed, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, FIRE.cell * Math.SQRT1_2);
 }
 function flammability(state: SimState, ix: number, iy: number): number {

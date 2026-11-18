@@ -346,7 +346,7 @@ test("redrawn enemy bodies, elites and trail marks are flat paper: no gradients,
 test("enemy redraws keep their kind's collision radius and the eraser reads as a three-face block with a sleeve", (t) => {
   environment(t);
   assert.deepEqual(Object.fromEntries(Object.entries(ENEMIES).map(([id, d]) => [id, d.radius])),
-    { "ink-blob": 10, "paper-bat": 8, crumple: 14, smudge: 11, "kiro-ghost": 12, "eraser-boss": 26 });
+    { "ink-blob": 10, "paper-bat": 8, crumple: 14, smudge: 11, "kiro-ghost": 12, "eraser-boss": 26, wash: 11, sketch: 10 });
   const ctx = canvas().getContext("2d"), art = ENEMY_ART.get("eraser-boss");
   art.draw(ctx, Object.freeze({ id: 1, kind: art.id, x: 0, y: 0, hp: 420, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0 }), 0, { x: 100, y: 0 });
   const fills = new Set(allPaint(ctx).filter((c) => c.op === "fill").map((c) => c.fillStyle));

@@ -11,6 +11,7 @@ export const CRUMPLE_DEF: EnemyDef = {
   behaviours: [{ id: "chase" }],
   eliteable: true,
   contactPush: 8,
+  pigment: "#b08a5a",
   onDeath: [
     // A crumpled ball bursts into small blobs, as far as the cap allows.
     (state, e, ctx) => {

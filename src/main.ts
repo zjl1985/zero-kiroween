@@ -104,6 +104,9 @@ function cueState(s: SimState) {
     chain: Math.floor(s.streak.count / STATS.streakMilestone),
     torn: s.stats.propsTorn,
     burning: Object.keys(s.fire.cells).length,
+    splashes: s.wash.splashes,
+    pigments: s.wash.pigments,
+    rain: s.wash.rainPulses,
     ended: s.ended,
   };
 }
@@ -278,6 +281,9 @@ function boot(): void {
     if (now.chain > p.chain) sfx.play("streak", s.streak.count);
     if (now.torn > p.torn) sfx.play("tear");
     if (now.burning > 0) sfx.play("crackle", now.burning);
+    if (now.rain > p.rain) sfx.play("rain");
+    else if (now.splashes > p.splashes) sfx.play("splash");
+    if (now.pigments > p.pigments) sfx.play("pigment", now.pigments - p.pigments);
   };
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;

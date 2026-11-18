@@ -9,6 +9,7 @@ export const PAPER_BAT: EnemyDef = {
   behaviours: [{ id: "chase" }, { id: "swoop", params: BAT }],
   eliteable: true,
   contactPush: 8,
+  pigment: "#6b4f8a",
   onSpawn(e) {
     // No RNG here: bats get a swoop phase from their id.
     e.phase = (e.id * 2.399) % (Math.PI * 2);

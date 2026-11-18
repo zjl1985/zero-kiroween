@@ -18,6 +18,8 @@ import { INK_BLOB } from "./enemies/ink-blob/def.js";
 import { PAPER_BAT } from "./enemies/paper-bat/def.js";
 import { KIRO_GHOST_DEF } from "./enemies/kiro-ghost/def.js";
 import { SMUDGE_DEF } from "./enemies/smudge/def.js";
+import { WASH_DEF } from "./enemies/wash/def.js";
+import { SKETCH_DEF } from "./enemies/sketch/def.js";
 import { ECHO_LEGION_EVOLUTION } from "./evolutions/echo-legion.js";
 import { FULL_MOON_EVOLUTION } from "./evolutions/full-moon.js";
 import { DEEP_FOLD } from "./passives/deep-fold.js";
@@ -49,6 +51,7 @@ import { NIGHT_CLAW } from "./weapons/night-claw.js";
 import { PAPER_CRANE } from "./weapons/paper-crane.js";
 import { PUMPKIN_SEED } from "./weapons/pumpkin-seed.js";
 import { STAR_FALL } from "./weapons/star-fall.js";
+import { WATERCOLOUR_BRUSH } from "./weapons/watercolour-brush.js";
 // Materials, reactions and props (also imported by world-gen).
 import "./world-index.js";
 
@@ -65,6 +68,7 @@ for (const w of [
   FULL_MOON,
   PAPER_CRANE,
   PUMPKIN_SEED,
+  WATERCOLOUR_BRUSH,
 ])
   WEAPON_DEFS.register(w);
 for (const p of [
@@ -83,7 +87,8 @@ for (const p of [
   PASSIVE_DEFS.register(p);
 for (const e of [ECHO_LEGION_EVOLUTION, FULL_MOON_EVOLUTION]) EVOLUTION_DEFS.register(e);
 for (const b of [CHASE, SWOOP, KITE_LOB, BOSS_HUNT, GHOST_GLIDE]) BEHAVIOURS.register(b);
-for (const e of [INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS, KIRO_GHOST_DEF]) ENEMY_DEFS.register(e);
+for (const e of [INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS, KIRO_GHOST_DEF, WASH_DEF, SKETCH_DEF])
+  ENEMY_DEFS.register(e);
 
 /** Subscribes a def's hooks so they only run while `active(state)` holds. */
 function subscribe(hooks: SimHooks | undefined, active: (state: SimState) => boolean): void {

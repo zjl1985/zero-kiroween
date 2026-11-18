@@ -21,6 +21,7 @@ import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
 import { ENEMY_ART, effectPainter } from "./art-registry.js";
+import { WASH_DRIP } from "../defs/enemies/wash/def.js";
 
 export interface Look {
   x: number;
@@ -187,7 +188,7 @@ export function drawEnemyGround(ctx: Ctx, state: SimState): void {
   for (const s of state.enemyShots) {
     if (!s.alive) continue;
     const k = Math.min(1, s.t / s.flight);
-    dangerRing(ctx, s.tx, s.ty, SMUDGE.splashRadius, k);
+    dangerRing(ctx, s.tx, s.ty, s.kind === "water" ? WASH_DRIP.splashRadius : SMUDGE.splashRadius, k);
   }
   for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e, state.player);
 }
@@ -198,6 +199,13 @@ export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {
     gy = s.y0 + (s.ty - s.y0) * k,
     lift = 32 + Math.sin(k * Math.PI) * 46 - k * 18;
   enemyShadow(ctx, x, gy, 4, 1.5);
+  if (s.kind === "water") {
+    enemyPart("water-drop", 24, 28, (c) => {
+      flatLayer(c, { shape: new Path2D("M 0 -8 Q 5 -1 4 4 Q 0 10 -4 4 Q -5 -1 0 -8 Z"), color: "#7fb3c8", rim: "#e6f4f6", texture: 0.25 });
+      line(c, -2, -1, -2, 3, "#eef8fa", 0.9, 0.8);
+    }).draw(ctx, { x, y: gy - lift });
+    return;
+  }
   enemyPart("ink-drop", 24, 28, (c) => {
     flatLayer(c, { shape: new Path2D("M 0 -8 Q 5 -1 4 4 Q 0 10 -4 4 Q -5 -1 0 -8 Z"), color: "#3a2c4b", rim: "#8a6fa3", texture: 0.35 });
     line(c, -2, -1, -2, 3, "#b5a0bd", 0.9, 0.7);

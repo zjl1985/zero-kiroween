@@ -6,7 +6,6 @@
 import type { EnemyState, SimState } from "../../game/types.js";
 import type { EnemyBehaviour } from "../types.js";
 import type { BAT } from "./paper-bat/def.js";
-import type { SMUDGE } from "./smudge/def.js";
 import type { BOSS } from "./eraser-boss/def.js";
 import { stepBoss } from "./eraser-boss/attacks.js";
 import { KIRO_GHOST, kiroGhostMotion } from "./kiro-ghost/def.js";
@@ -36,8 +35,18 @@ export const SWOOP: EnemyBehaviour<typeof BAT> = {
   },
 };
 
+/** Numbers of a kiting lobber (smudge ink drops, wash water spit). */
+export interface KiteLobParams {
+  readonly range: number;
+  readonly windup: number;
+  readonly cooldown: number;
+  readonly dropSpeed: number;
+  readonly minFlight: number;
+  /** What the lob carries; default the smudge's ink drop. */
+  readonly shot?: "water";
+}
 /** Stop at range, wind up, and lob a slow ink drop at the cat's locked spot. */
-export const KITE_LOB: EnemyBehaviour<typeof SMUDGE> = {
+export const KITE_LOB: EnemyBehaviour<KiteLobParams> = {
   id: "kite-lob",
   steer(state, e, m, smudge) {
     const move = kiteLob(state, e, m.dt, m.dist, smudge);
@@ -47,7 +56,7 @@ export const KITE_LOB: EnemyBehaviour<typeof SMUDGE> = {
 };
 
 /** Returns a movement factor: kiting enemies stand still while in range or winding up. */
-function kiteLob(state: SimState, e: EnemyState, dt: number, dist: number, smudge: typeof SMUDGE): number {
+function kiteLob(state: SimState, e: EnemyState, dt: number, dist: number, smudge: KiteLobParams): number {
   const p = state.player;
   e.timer = Math.max(0, (e.timer ?? 0) - dt);
   if ((e.windup ?? 0) > 0) {
@@ -64,7 +73,7 @@ function kiteLob(state: SimState, e: EnemyState, dt: number, dist: number, smudg
   return 0;
 }
 
-function throwInk(state: SimState, e: EnemyState, smudge: typeof SMUDGE): void {
+function throwInk(state: SimState, e: EnemyState, smudge: KiteLobParams): void {
   const tx = e.tx ?? state.player.x,
     ty = e.ty ?? state.player.y,
     d = Math.hypot(tx - e.x, ty - e.y);
@@ -77,6 +86,7 @@ function throwInk(state: SimState, e: EnemyState, smudge: typeof SMUDGE): void {
     t: 0,
     flight: Math.max(smudge.minFlight, d / smudge.dropSpeed),
     alive: true,
+    ...(smudge.shot ? { kind: smudge.shot } : {}),
   });
   e.timer = smudge.cooldown;
 }

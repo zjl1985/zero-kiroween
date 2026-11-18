@@ -22,7 +22,10 @@ export type Cue =
   | "skill"
   | "card"
   | "tear"
-  | "crackle";
+  | "crackle"
+  | "splash"
+  | "pigment"
+  | "rain";
 
 /** Minimum seconds between repeats of the busiest cues. */
 const THROTTLE: Partial<Record<Cue, number>> = {
@@ -33,6 +36,9 @@ const THROTTLE: Partial<Record<Cue, number>> = {
   tear: 0.08,
   // Repeats while anything burns; the gap sets the crackle's pace.
   crackle: 0.28,
+  splash: 0.12,
+  pigment: 0.08,
+  rain: 0.6,
 };
 
 export interface Sfx {
@@ -274,6 +280,22 @@ export function createSfx(initiallyMuted: boolean): Sfx {
       const pops = 2 + Math.min(3, Math.floor(k / 8));
       for (let i = 0; i < pops; i++)
         noise(0.018, { type: "highpass", freq: 2600 + Math.random() * 2400, gain: 0.05, delay: Math.random() * 0.24 });
+    },
+    // Water lands: a low wet plop, then a short bright spray.
+    splash: () => {
+      tone(180, 0.12, { type: "sine", gain: 0.05, to: 90 });
+      noise(0.18, { type: "highpass", freq: 3200, gain: 0.04, delay: 0.03, to: 1800 });
+    },
+    // Pigment splashes back: a soft round pop that rises with the count.
+    pigment: (k) => {
+      tone(620 + Math.min(k, 6) * 50, 0.1, { type: "triangle", gain: 0.035, to: 880 });
+      noise(0.05, { freq: 1800, q: 1.2, gain: 0.025, delay: 0.02 });
+    },
+    // Paper rain: a patter of tiny ticks over a soft hiss.
+    rain: () => {
+      noise(0.9, { type: "lowpass", freq: 1400, gain: 0.03 });
+      for (let i = 0; i < 9; i++)
+        noise(0.015, { type: "highpass", freq: 3800 + Math.random() * 2600, gain: 0.03, delay: Math.random() * 0.8 });
     },
   };
 

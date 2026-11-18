@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { createSim, snapshot, step } from "../dist/game/sim.js";
 import { STATS } from "../dist/game/types.js";
+import { ENEMY_DEFS } from "../dist/defs/index.js";
 import {
   CHUNK,
   LANDMARK,
@@ -189,6 +190,8 @@ test("enemies spawn outside the camera view but inside the world", () => {
       const c = viewCentre(s.player.x, s.player.y);
       for (const e of s.enemies) {
         if (e.id < seen || e.spawnTime < 0.6 - DT * 1.5) continue;
+        // Pencil sketches wake from washed paper near the cat, in view by design.
+        if (ENEMY_DEFS.get(e.kind).wakesOn) continue;
         const inside =
           Math.abs(e.x - c.x) < SCREEN.width / 2 && Math.abs(e.y - c.y) < SCREEN.height / 2;
         assert.ok(!inside, `enemy ${e.id} spawned in view at ${e.x},${e.y}`);

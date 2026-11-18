@@ -7,7 +7,7 @@ export const PAPER_REEDS: PropDef = {
   size: { w: 54, d: 20 },
   durability: 2,
   damagedBelow: 0.55,
-  accepts: ["cut", "wind", "fire", "ink", "fold"],
+  accepts: ["cut", "wind", "fire", "ink", "fold", "water"],
   regrow: { seconds: 22, burntSeconds: 34 },
   drops: { shard: 0.15, shardValue: 1, treat: 0 },
   spawn: { clear: 30, scale: [0.85, 1.2], flat: true },

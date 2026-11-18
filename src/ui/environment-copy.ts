@@ -4,6 +4,8 @@ import { LANDMARK_DEFS } from "../defs/registries.js";
 import { landmarkActivityPoint } from "../defs/landmark-activities.js";
 import type { SimState } from "../game/types.js";
 import { landmarks } from "../game/world-gen.js";
+import { WASH } from "../defs/wash.js";
+import { washLevelAt } from "../game/wash.js";
 
 /** Pure status/help copy shared by desktop and touch HUDs, independent of drawing. */
 export function environmentCopy(locale: Locale, state: SimState): { status: string | null; hint: string | null; danger: boolean } {
@@ -28,6 +30,7 @@ export function environmentCopy(locale: Locale, state: SimState): { status: stri
       ? t(locale, "activity.cooldown", { name: t(locale, `landmark.${nearby.kind}` as MessageKey), seconds: Math.ceil(event.cooldown) })
       : t(locale, `activity.${activity.notice}` as MessageKey) };
   }
+  if (washLevelAt(state, p.x, p.y) >= WASH.colourless) return { status, danger: false, hint: t(locale, "hint.washed") };
   return { status, danger: false, hint: status ? t(locale, "hint.wet")
     : state.elapsed >= 6 && state.elapsed < 30 ? t(locale, "hint.paper-world") : null };
 }

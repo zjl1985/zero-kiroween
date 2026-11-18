@@ -2,6 +2,7 @@ import { normalize } from "../../../game/collision.js";
 import type { Rng } from "../../../game/rng.js";
 import { STATS, type BossAct, type EnemyState, type SimState } from "../../../game/types.js";
 import { clampToWorld } from "../../../game/world-gen.js";
+import { blankWhere } from "../../../game/wash.js";
 import { FILLER_KIND, HORDE } from "../../horde.js";
 import type { SimContext } from "../../types.js";
 import { ENEMY_FX_LIFE } from "../fx-life.js";
@@ -116,4 +117,20 @@ function eraseSweep(state: SimState, a: BossAct, ctx: SimContext): void {
     s.blankTime = STATS.strokeBlankTime;
   }
   for (const h of state.hazards) if (inSweep(a, h.x, h.y)) h.life = 0;
+  // The page under the sweep is rubbed blank: no colour and no pencil until repainted.
+  const ends = [
+      [a.x - a.dx * ERASER_STATS.radius, a.y - a.dy * ERASER_STATS.radius],
+      [a.x + a.dx * BOSS.sweep.length, a.y + a.dy * BOSS.sweep.length],
+    ],
+    half = BOSS.sweep.width / 2,
+    box = {
+      x0: Math.min(ends[0]![0]!, ends[1]![0]!) - half,
+      y0: Math.min(ends[0]![1]!, ends[1]![1]!) - half,
+      x1: Math.max(ends[0]![0]!, ends[1]![0]!) + half,
+      y1: Math.max(ends[0]![1]!, ends[1]![1]!) + half,
+    };
+  if (blankWhere(state, box, (x, y) => inSweep(a, x, y)) > 0) {
+    if (state.wash.wipes === 0) ctx.notify(state, "eraser-wipe");
+    state.wash.wipes++;
+  }
 }

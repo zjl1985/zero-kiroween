@@ -4,6 +4,7 @@ import { inWaterPolygon, nearestWaterEdge, prepareWater } from "../defs/water.js
 import { EFFECT_LIFE, STATS, type PaperStatus, type SimState } from "./types.js";
 import { waterAt } from "./water.js";
 import { waterRegionsNear } from "./world-gen.js";
+import { washWetTouches } from "./wash.js";
 
 type PaperActor = PaperStatus & { x: number; y: number };
 
@@ -52,7 +53,8 @@ function extinguish(state: SimState, actor: PaperActor, ctx: SimContext, player:
 
 /** Latch contact immediately after movement, before a later knockback can erase it. No timer advances here. */
 export function touchPaperEnvironment(state: SimState, actor: PaperActor, radius: number, ctx: SimContext, player = false): "water" | "damp" | "dry" {
-  if (paperTouchesWater(state.seed, actor.x, actor.y, radius)) {
+  // Wet washed paper soaks actors through the same path as exposed water.
+  if (paperTouchesWater(state.seed, actor.x, actor.y, radius) || washWetTouches(state, actor.x, actor.y, radius)) {
     actor.wetTime = FIRE.wetTime;
     extinguish(state, actor, ctx, player);
     return "water";
@@ -124,7 +126,7 @@ export function stepPaperStatus(state: SimState, dt: number, ctx: SimContext): v
 export function spreadCarriedFire(state: SimState, ctx: SimContext): void {
   const spread = (actor: PaperActor, radius: number) => {
     if ((actor.burnTime ?? 0) <= 0 || (actor.wetTime ?? 0) > 0) return;
-    if (paperTouchesWater(state.seed, actor.x, actor.y, radius)) return;
+    if (paperTouchesWater(state.seed, actor.x, actor.y, radius) || washWetTouches(state, actor.x, actor.y, radius)) return;
     ctx.ignite(state, actor.x, actor.y, radius + FIRE.carryReach);
   };
   if (state.ended !== "playing") return;

@@ -22,5 +22,6 @@ export const LANTERN_CANAL: BiomeDef = {
     { prop: "laundry-line", chance: 0.25, count: [1, 1] },
     { prop: "paper-grass", chance: 0.3, count: [1, 1] },
     { prop: "ink-vat", chance: 0.5, count: [1, 1] },
+    { prop: "water-bucket", chance: 0.5, count: [1, 1] },
   ],
 };

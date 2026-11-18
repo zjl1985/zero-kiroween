@@ -16,4 +16,7 @@ export const ZERO_STATS = {
   empowerDuration: 2,
   empoweredInterval: 0.17,
   empoweredPierce: 2,
+  /** The mirror dash cuts a white hole through washed or painted paper (wash grid only). */
+  dashCutRadius: 16,
+  dashCutPower: 1,
 } as const;

@@ -119,6 +119,14 @@ export interface SimContext {
   damageProp(state: SimState, prop: PropSpot, amount: number, burnt?: boolean): void;
   /** Sets flammable fire cells inside the circle alight (up to the fire cap). */
   ignite(state: SimState, x: number, y: number, radius: number): void;
+  /**
+   * Spills water over the circle: washes the colour out of the wash grid,
+   * puts out fire cells and (unless `soak` is false) applies the "water"
+   * element to props there.
+   */
+  wash(state: SimState, x: number, y: number, radius: number, amount: number, soak?: boolean): void;
+  /** Paints colour back into washed cells of the circle (`hint`: pigment colour). */
+  paint(state: SimState, x: number, y: number, radius: number, amount: number, hint?: string): void;
 }
 
 /** Events the sim emits; payloads are plain data. */
@@ -168,6 +176,8 @@ export interface CharacterDef<K extends CatBaseStats = CatBaseStats> {
   copyParams?(): Readonly<Record<string, number>>;
   /** Speed factor of ink slowed by this cat's skill and weapons (1 = no slow). */
   readonly enemySlow?: number;
+  /** Element the shared dash applies along its path every step (a cut through the page). */
+  readonly dashTrail?: { readonly element: Element; readonly power: number; readonly radius: number };
   /** Skill effect after the shared dash has started. */
   onSkill(state: SimState, ps: PlayerStats, ctx: SimContext): void;
   /** Adds the kit's own fields to the stat view (runs for every registered cat). */
@@ -315,6 +325,10 @@ export interface EnemyDef {
   readonly slowMultiplier?: number;
   /** Drops an ink shard worth stats.xp on defeat. Default true. */
   readonly dropsShard?: boolean;
+  /** Never in the spawn table: wakes from the page itself on colourless (washed, not blank) cells. */
+  readonly wakesOn?: "colourless";
+  /** Colour splashed back onto washed paper when it is defeated (none: no pigment). */
+  readonly pigment?: string;
   /** When this kind arrives on its own schedule (the Boss), as a fraction of the night. */
   readonly arrival?: { readonly at: number; readonly spawnTime: number };
   /** Per-enemy setup right after spawning (no RNG). */
@@ -330,8 +344,8 @@ export interface EnemyDef {
 // ---------------------------------------------------------------- paper world
 
 /** What touches paper: weapons, pumpkins and ink apply one of these. */
-export type Element = "fire" | "ink" | "wind" | "cut" | "fold";
-export const ELEMENTS: readonly Element[] = ["fire", "ink", "wind", "cut", "fold"];
+export type Element = "fire" | "ink" | "wind" | "cut" | "fold" | "water";
+export const ELEMENTS: readonly Element[] = ["fire", "ink", "wind", "cut", "fold", "water"];
 
 export interface MaterialDef {
   readonly id: string;
@@ -396,6 +410,8 @@ export interface PropDef {
   /** Only renewable paper flora regrows; handmade structures stay destroyed. */
   readonly regrow?: { readonly seconds: number; readonly burntSeconds?: number };
   readonly spawn: PropSpawn;
+  /** Runs once when the prop turns to scraps (torn or burnt), after drops. */
+  onScraps?(state: SimState, prop: PropSpot, ctx: SimContext, burnt: boolean): void;
   /** Art id the renderer looks up. */
   readonly art: string;
 }

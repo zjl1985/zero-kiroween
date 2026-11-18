@@ -11,7 +11,7 @@ export const SCARECROW: PropDef = {
   colliders: (_seed, x, y, s) => [{ x1: x, y1: y - 2, x2: x, y2: y - 2, radius: 5 * s }],
   durability: 4,
   damagedBelow: 0.55,
-  accepts: ["cut", "wind", "ink", "fold", "fire"],
+  accepts: ["cut", "wind", "ink", "fold", "fire", "water"],
   drops: { shard: 1, shardValue: 2, treat: 0, burst: 4 },
   spawn: { clear: 60, scale: [0.9, 1.1] },
   art: "scarecrow",

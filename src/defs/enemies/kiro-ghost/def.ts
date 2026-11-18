@@ -14,6 +14,7 @@ export const KIRO_GHOST_DEF: EnemyDef = {
   behaviours: [{ id: "chase" }, { id: "ghost-glide" }],
   eliteable: false,
   contactPush: 8,
+  pigment: "#9046ff",
   onSpawn(e) {
     e.phase = (e.id * 2.399) % KIRO_GHOST.cycle;
     e.timer = e.phase;

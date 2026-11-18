@@ -145,6 +145,8 @@ export interface EnemyShotState {
   t: number;
   flight: number;
   alive: boolean;
+  /** Water spit (wash enemy) instead of a smudge's ink drop. */
+  kind?: "water";
 }
 export interface HazardState {
   id: number;
@@ -230,7 +232,9 @@ export type EffectKind =
   | "steam"
   | "regrow"
   | "ink-wash"
-  | "landmark-reward";
+  | "landmark-reward"
+  | "splash"
+  | "pigment";
 export interface Impact {
   x: number;
   y: number;
@@ -283,6 +287,10 @@ export const EFFECT_LIFE = {
   regrow: 0.9,
   "ink-wash": 0.65,
   "landmark-reward": 1.1,
+  /** Water lands and lifts the colour (wash grid). */
+  splash: 0.6,
+  /** Pigment splashes back onto washed paper. */
+  pigment: 0.7,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -307,6 +315,12 @@ export interface RunStats {
   propsTorn: number;
   /** Fire cells that burnt out to ash. */
   cellsBurnt: number;
+  /**
+   * Colour kept this night, in percent: of every patch the water washed out,
+   * the share painted again when dawn broke (or when the watch ended). 100
+   * when nothing was washed. Frozen once dawn starts.
+   */
+  colourKept: number;
 }
 export type Notice =
   | "zero-dash"
@@ -344,7 +358,9 @@ export type Notice =
   | "landmark-tea"
   | "landmark-greenhouse"
   | "landmark-observatory"
-  | "landmark-windmill";
+  | "landmark-windmill"
+  | "paper-rain"
+  | "eraser-wipe";
 export interface UpgradeChoice {
   options: string[];
 }
@@ -378,6 +394,8 @@ export interface PropState {
   dropsClaimed?: boolean;
   foldedUntil?: number;
   inkedUntil?: number;
+  /** Soaked by water: it cannot burn and tears more easily (WASH.tearEase). */
+  soakedUntil?: number;
 }
 /** The sparse fire grid: keys are "ix,iy" cell coords (FIRE.cell). */
 export interface FireState {
@@ -389,6 +407,42 @@ export interface FireState {
   clock: number;
   /** Fire ticks run so far (seeds the spread hash). */
   ticks: number;
+}
+/** One stored cell of the wash grid; cells not stored are painted. */
+export interface WashCell {
+  /** 0 painted .. 1 colourless (raw paper and pencil underdrawing). */
+  level: number;
+  /** Rubbed out by the Eraser: no colour and no pencil until repainted. */
+  blank?: boolean;
+  /** state.elapsed of the last level change (render bloom / tide line). */
+  changedAt: number;
+  /** Wet paper until then: slows, soaks actors and stops fire. */
+  wetUntil?: number;
+  /** A white cut hole (blank look) until then. */
+  cutUntil?: number;
+  /** Fold protection: water cannot wash this cell until then. */
+  foldUntil?: number;
+  /** Last pigment colour painted here (render hint). */
+  hint?: string;
+}
+/** The sparse wash grid: keys are "ix,iy" cell coords (WASH.cell). */
+export interface WashState {
+  cells: Record<string, WashCell>;
+  /** Number of stored cells (kept by src/game/wash.ts). */
+  size: number;
+  clock: number;
+  ticks: number;
+  /** Painted cells that turned colourless or blank (each time). */
+  touched: number;
+  /** Colourless cells forgotten by the cap (counted as not kept). */
+  lost: number;
+  /** Counters the audio layer diffs. */
+  splashes: number;
+  pigments: number;
+  rainPulses: number;
+  wipes: number;
+  /** Time banked toward the next sketch roll. */
+  sketchClock: number;
 }
 export interface LandmarkEventState {
   progress: number;
@@ -464,6 +518,7 @@ export interface SimState {
    */
   props: Record<string, PropState>;
   fire: FireState;
+  wash: WashState;
   landmarkEvents: Record<string, LandmarkEventState>;
 }
 export interface SimConfig {

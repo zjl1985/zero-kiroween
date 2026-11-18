@@ -11,7 +11,7 @@ export const LAUNDRY_LINE: PropDef = {
   ],
   durability: 2.5,
   damagedBelow: 0.6,
-  accepts: ["cut", "wind", "ink", "fold", "fire"],
+  accepts: ["cut", "wind", "ink", "fold", "fire", "water"],
   drops: { shard: 0.3, shardValue: 1, treat: 0.05 },
   spawn: { clear: 56, scale: [0.9, 1.05] },
   art: "laundry-line",

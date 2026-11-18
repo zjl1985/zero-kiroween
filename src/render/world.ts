@@ -38,6 +38,7 @@ import {
 } from "./craft-scene.js";
 import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
+import { drawWashEffect, drawWashGround } from "./wash-art.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
 import {
@@ -123,6 +124,7 @@ export function drawWorld(
   if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
   drawWind(ctx, view.time);
   if (sim) {
+    drawWashGround(ctx, sim, cam);
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
     drawInteractGround(ctx, sim, view.time);
@@ -312,6 +314,7 @@ export function drawWorld(
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
       if (effect.kind !== "moon-stun" && !inView(near, effect.x, effect.y, 60)) continue;
       if (drawPaperStatusEffect(ctx, effect)) continue;
+      if (drawWashEffect(ctx, effect, sim)) continue;
       if (drawPropEffect(ctx, effect)) continue;
       if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")

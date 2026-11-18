@@ -27,6 +27,7 @@ export const ZERO: CharacterDef<typeof Z> = {
   i18n: "zero",
   art: "zero",
   skillNotice: "zero-dash",
+  dashTrail: { element: "cut", power: Z.dashCutPower, radius: Z.dashCutRadius },
   copyParams: () => ({ decoy: Z.decoyLife, empower: Z.empowerDuration, pierce: Z.empoweredPierce }),
   kitStats(s) {
     s.decoyLife = Z.decoyLife;

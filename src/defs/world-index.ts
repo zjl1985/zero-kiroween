@@ -65,6 +65,11 @@ import { INK_VAT } from "./props/ink-vat/def.js";
 import { WAX_CANDLE } from "./props/wax-candle/def.js";
 import { BURN_CARD } from "./reactions/burn-card.js";
 import { BURN_CLOTH } from "./reactions/burn-cloth.js";
+import { WASH_THIN_PAPER } from "./reactions/wash-thin-paper.js";
+import { WASH_CARD } from "./reactions/wash-card.js";
+import { WASH_CLOTH } from "./reactions/wash-cloth.js";
+import { WASH_STRAW } from "./reactions/wash-straw.js";
+import { WATER_BUCKET } from "./props/water-bucket/def.js";
 
 for (const m of [THIN_PAPER, CARD, INK, CLOTH, WAX, STRAW]) MATERIALS.register(m);
 for (const r of [
@@ -91,6 +96,10 @@ for (const r of [
   TEAR_WAX,
   BURN_CARD,
   BURN_CLOTH,
+  WASH_THIN_PAPER,
+  WASH_CARD,
+  WASH_CLOTH,
+  WASH_STRAW,
 ])
   REACTIONS.register(r);
 // Migrated decor first (fence, bush), then the props districts scatter.
@@ -112,6 +121,7 @@ for (const p of [
   DEAD_TREE,
   INK_VAT,
   WAX_CANDLE,
+  WATER_BUCKET,
 ])
   PROP_DEFS.register(p);
 // Order is the order world-gen hands kinds out (each at least once).

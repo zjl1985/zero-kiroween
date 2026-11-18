@@ -3,6 +3,7 @@
  * Kinds are registered enemy ids (tests/registry.test.mjs checks them).
  */
 import type { EnemyKind } from "./types.js";
+import { WASH } from "./wash.js";
 
 /**
  * Index = whole minutes elapsed (0..9 of the 10-minute night). The living
@@ -30,6 +31,8 @@ export const KIND_CAP: Partial<Record<EnemyKind, number>> = {
   smudge: 8,
   crumple: 14,
   "kiro-ghost": 8,
+  wash: 6,
+  sketch: WASH.sketch.cap,
 };
 /** Night phase boundaries as fractions of the session (90 s, 270 s, 480 s of 600). */
 export const PHASE_AT: readonly [number, number, number] = [0.15, 0.45, 0.8];
@@ -64,6 +67,7 @@ export const SPAWN_TABLE: readonly (readonly [EnemyKind, number][])[] = [
     ["crumple", 1],
     ["smudge", 1],
     ["kiro-ghost", 1],
+    ["wash", 1],
   ],
   [
     ["ink-blob", 2],
@@ -71,6 +75,7 @@ export const SPAWN_TABLE: readonly (readonly [EnemyKind, number][])[] = [
     ["crumple", 2],
     ["smudge", 2],
     ["kiro-ghost", 1],
+    ["wash", 1],
   ],
 ];
 /**
