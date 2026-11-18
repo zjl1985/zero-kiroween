@@ -330,7 +330,7 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
     ctx.clip(clip);
     if (m.edge) {
       stroke(ctx, m.edge, m.tide, 4.2, WASH_LOOK.tideAlpha);
-      stroke(ctx, m.edge, mix(m.tide, COLORS.tideInk, 0.3), 1.1, 0.5);
+      stroke(ctx, m.edge, mix(m.tide, COLORS.tideInk, 0.24), 1.1, 0.32);
     }
     const tile = sketchTile(frame.seed, cx, cy);
     m.levels.forEach((p, i) => {

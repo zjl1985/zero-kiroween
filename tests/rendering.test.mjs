@@ -250,7 +250,7 @@ test("burning prop tint keys retain phase, burnt flag, canonical scale and varia
   assert.deepEqual(painted[0], { s: 1, v: 1, phase: "intact", burnt: false });
 });
 
-test("folded scenery uses bounded masked shade sprites, retaining the smooth hinge transform and fade", (t) => {
+test("folded scenery uses bounded masked shade sprites and identifies foreground overlap", (t) => {
   drawingEnvironment(t);
   const art = LANDMARK_ART.all().find((a) => a.pieces?.some((p) => p.popup));
   const piece = art.pieces.find((p) => p.popup), seed = 24681357;
@@ -261,14 +261,16 @@ test("folded scenery uses bounded masked shade sprites, retaining the smooth hin
   const draw = (distance) => {
     const ctx = canvas().getContext("2d");
     const pop = Object.freeze({ cat: Object.freeze({ x: decor.x + distance, y: decor.y }), reduced: true });
-    const { sprites } = worldSprites(ctx, seed, { x: decor.x, y: decor.y }, 0, () => true, pop);
-    sprites.find((s) => s.y === decor.y).draw();
+    const { sprites } = worldSprites(ctx, seed, { x: decor.x, y: decor.y }, 0, pop);
+    const sprite = sprites.find((s) => s.y === decor.y);
+    sprite.draw();
     assert.ok(!ctx.calls.some((c) => c.op === "filter"));
     assert.equal(tints(ctx).length, 0);
-    assert.equal(images(ctx)[0].globalAlpha, 0.32, "foreground fade applies once to the complete sprite");
-    return { image: images(ctx)[0].args[0], ctx };
+    return { image: images(ctx)[0].args[0], ctx, occludesPlayer: sprite.occludesPlayer };
   };
   const upright = draw(0), folded = draw(POPUP.far);
+  assert.equal(upright.occludesPlayer, true);
+  assert.equal(folded.occludesPlayer, false);
   assert.notEqual(folded.image, upright.image);
   assert.equal(draw(POPUP.far).image, folded.image, "same fold reuses the tint");
   assert.ok(folded.ctx.calls.some((c) => c.op === "scale" && c.args[0] === 1 && c.args[1] === POPUP.min));

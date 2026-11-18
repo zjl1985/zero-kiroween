@@ -104,12 +104,22 @@ export interface EffectProgress {
   readonly ease: number;
 }
 export type EffectPainter = (ctx: Ctx, e: Impact, k: EffectProgress, state?: SimState) => void;
+/** One attack footprint. The tint and symbol follow the ground; its edge stays visible above effects. */
+export interface EnemyWarning {
+  readonly area: Path2D;
+  readonly fill?: string;
+  readonly edge: string;
+  readonly progress: number;
+  symbol?(ctx: Ctx): void;
+}
 export interface EnemyArt {
   readonly id: EnemyKind;
   /** The body at its base size; elites are scaled and crowned by the caller. */
   draw(ctx: Ctx, e: EnemyState, time: number, look: EnemyLook): void;
-  /** Flat telegraphs and trail marks on the yard for this enemy (`look` is the cat it tracks). */
+  /** Trail marks on the ground (`look` is the cat this enemy tracks). */
   ground?(ctx: Ctx, e: EnemyState, look?: EnemyLook): void;
+  /** Incoming attack, including its world-space footprint. */
+  warning?(e: EnemyState): EnemyWarning | undefined;
   /** Extra culling margin for large bodies. */
   readonly cullMargin?: number;
   /** Bounds of the unscaled illustration in the workshop, relative to its ground point. */

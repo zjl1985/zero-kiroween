@@ -15,6 +15,7 @@ import { inFootprint } from "../game/props.js";
 import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
+import { paperOccludesActor } from "./craft-world.js";
 import { glow, hash, mix, path, stroke, withFlatShadows, type Ctx } from "./paper-material.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
@@ -25,7 +26,7 @@ import { tintedSprite } from "./sprite-tint.js";
 import { sketchAmount, sketchedSprite } from "./sprite-sketch.js";
 
 const PAD = 8;
-type Add = (y: number, draw: () => void) => void;
+type Add = (y: number, draw: () => void, occludesPlayer?: boolean) => void;
 
 function propSprite(art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burnt: boolean) {
   const b = art.bounds,
@@ -140,15 +141,15 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
           burnt = !!m?.burnt,
           burning = !!sim && m?.burnAt !== undefined && phase < 2 && sim.elapsed - m.burnAt < FIRE.tick * 1.6 &&
                       activeFire.some(([x, y]) => inFootprint(p, def, x, y, 0));
-        const elapsed = sim?.elapsed ?? 0,
+        const elapsed = sim?.elapsed ?? 0, folded = m?.foldedUntil !== undefined,
           regrow = m?.regrowAt !== undefined && m.destroyedAt !== undefined
             ? Math.max(0, Math.min(1, (elapsed - m.destroyedAt) / Math.max(0.01, m.regrowAt - m.destroyedAt))) : 0;
         add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time, {
-          folded: m?.foldedUntil !== undefined,
+          folded,
           inked: (m?.inkedUntil ?? 0) > elapsed,
           regrow,
           sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
-        }));
+        }), !!sim && phase < 2 && !folded && paperOccludesActor(p.x, p.y, p.s, bd, sim.player));
       }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [number, number, number][] {

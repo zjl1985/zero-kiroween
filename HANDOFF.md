@@ -4,8 +4,8 @@ Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [
 
 ## Checkpoint
 
-- Code checkpoint: `12576a4` on `main`, 12 local commits ahead of `origin/main` (the paper wash-out round, 6931574..12576a4). Not pushed, not deployed. AGENTS.md forbids push and deploy without explicit user authorization.
-- `npm run build` and `npm test` pass 295 tests.
+- `70de2e0` on `main` polished road joins, the start lawn, the pause crease and the ink blob. The combat readability pass improves graveyard ground and washed paper. Warning outlines share their geometry with the ground tint and stay above foreground effects. Overlapping scenery yields to the selected cat, whose printed colours stay visible on washed paper.
+- `npm run build` and `npm test` pass with 301 tests. [One Chrome game screenshot](output/playwright/combat-readability-2026-11-18.png) shows seed 2026 at the graveyard observatory. The scene was staged at a fixed moment with Nicole, an Eraser sweep, two lob warnings, a Page Fold and a washed patch. The full-run playtest remains deferred.
 
 ## User verdict and P0
 
@@ -13,8 +13,8 @@ The user viewed the wash-out round and rated it "只能说凑合" (only passable
 
 ## Open work
 
-1. **Visual quality (P0).** Make concrete visual improvements driven by real screenshots of the running game and `?gallery=1`, not by tests alone. Ask the user which areas read worst (emblems, enemies, district sheets, landmark bases, pencil underdrawing, tide lines, Paper Cut / Page Fold, cat wear, value grade, solid shots).
-2. **Screenshot tooling.** System Chrome headless (`--headless=new --screenshot`) aborts with exit code 134 in the sandbox and produces no image. A working capture path is needed for item 1. At most one static screenshot per round.
+1. **Visual quality (P0).** Review the graveyard combat still with the user. Continue reviewing emblems, enemies, district sheets, landmark bases, pencil underdrawing, tide lines, Paper Cut / Page Fold and cat wear.
+2. **Gameplay visibility.** The static frame shows the cat in front of the observatory and the attack outlines across both ground values. Other seeds, camera positions and dense encounters remain to be checked.
 3. **Browser frame time (unmeasured).** Per-frame cat rim (two scratch canvases), `drawSketched` pencil compositing (four scratch layers, about 12 blend drawImages per actor, up to 32 actors) and sketch tile baking. Measure before adding more wash content; if slow, cache enemy sketch variants per art part like `sketchedSprite`. No still confirms the enlarged cat box (±54 / −106..22) is unclipped at cue zoom.
 4. **Sim cost.** The Node step probe (seed 7, 100 enemies, fire and water every 0.5 s, `output/playwright/step-timing.mjs`) is 0.453 / 0.426 ms per step (Zero / Nicole), about 17 to 21% slower than e85365d with wash active. No hotspot found yet.
 5. **Page Fold dry bridge over water** is not built: the shared water contract has no runtime crossing API (crossings come only from world-gen).
@@ -24,8 +24,7 @@ The user viewed the wash-out round and rated it "只能说凑合" (only passable
    - Fold protection lasts 6 s (`WASH.fold.seconds`) but its visual shows only about 0.6 s.
    - The cut-hole blot edge may read as a double line.
    - A fourth Paper Cut loop within 2.5 s re-exposes the oldest holes.
-   - Stale `foldUntil` assignment in `tests/paper-visuals.test.mjs:654` (wash cells no longer store folds).
-   - Untested branches: puddle plus wet gives a single slow, `underCutOut`, `rasterScale >= scale`.
+   - Untested branches include `underCutOut` and `rasterScale >= scale`.
 9. **Pending user decisions.** The Boss can be outrun and dawn still wins (confirmed rule, but Boss/dawn pressure policy is open). If passive slots fill first, the evolution partner passive is locked out for that run (confirmed rule; no hint or fallback added).
 10. **Release.** English is the default and both packs are complete. Publishing the latest round, Devpost copy and media are pending; deadline 2026-12-05 06:00 Beijing time. Push, deploy and video recording need explicit authorization.
 11. **Not started.** Random helper cats (ask the user first) and neutral town NPCs.

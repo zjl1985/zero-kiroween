@@ -246,10 +246,8 @@ export const PAPER_CUT_ART: WeaponArt = {
   id: "paper-cut",
   ground(ctx, state) {
     eachOut(state, (out, u) => drawHole(ctx, out, u));
-    drawSlit(ctx, state);
-  },
-  front(ctx, state) {
     eachOut(state, (out, u) => drawPiece(ctx, out, u));
+    drawSlit(ctx, state);
   },
   effects: {
     // Snipped flecks spring off the rim of the cut-out.

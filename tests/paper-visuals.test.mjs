@@ -1,20 +1,23 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { BOSS } from "../dist/defs/enemies/eraser-boss/def.js";
+import { lobFlightTime } from "../dist/defs/enemies/behaviours.js";
+import { SMUDGE } from "../dist/defs/enemies/smudge/def.js";
+import { WASH_DRIP } from "../dist/defs/enemies/wash/def.js";
 import { FIRE } from "../dist/defs/fire.js";
 import { LANDMARK_DEFS } from "../dist/defs/registries.js";
 import { landmarkActivityPoint } from "../dist/defs/landmark-activities.js";
 import { EFFECT_LIFE } from "../dist/game/types.js";
 import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
-import { ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js";
+import { CAT_ART, ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js";
 import { drawActorPaperStatus, drawPaperFlame, drawPaperStatusEffect } from "../dist/render/paper-status-art.js";
 import { drawFireGround, drawProp, fireSprites } from "../dist/render/craft-props.js";
 import { drawLandmarkActivity } from "../dist/render/craft-juice.js";
-import { drawCraftEnemy, dangerRing } from "../dist/render/craft-enemies.js";
+import { drawCraftEnemy, drawEnemyGround, drawWarningEdges, drawWarningGround, enemyWarnings } from "../dist/render/craft-enemies.js";
 import { drawCraftShot } from "../dist/render/craft-combat.js";
 import { drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
-import { drawChunks, clearWorldRenderCache, cachedChunkCount } from "../dist/render/craft-world.js";
-import { paperOccludesActor } from "../dist/render/world.js";
+import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
 class Path {
@@ -228,11 +231,11 @@ test("tall registered buildings yield by their bounds, not a historical landmark
 
 test("world status hooks follow actual actor art and exclude decoys; props follow deferred lifecycle", () => {
   const world = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
-  assert.match(world, /drawWithLitRim\(ctx, pose\.x, pose\.y, CAT_BOX, paintCat\)\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
+  assert.match(world, /drawWithLitRim\(ctx, pose\.x, pose\.y, CAT_BOX, paintCat\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
   assert.match(world, /drawCraftEnemy\(ctx, e,[\s\S]*?if \(e\.spawnTime <= 0\) drawActorPaperStatus/);
   assert.match(world, /drawPaperStatusEffect\(ctx, effect\)/);
   const props = readFileSync(new URL("../src/render/craft-props.ts", import.meta.url), "utf8");
-  assert.match(props, /folded: m\?\.foldedUntil !== undefined/);
+  assert.match(props, /folded = m\?\.foldedUntil !== undefined/);
   assert.match(props, /activeFire\.some/);
   for (const file of ["paper-face.ts", "paper-status-art.ts", "craft-combat.ts", "craft-enemies.ts", "combat-fx.ts"])
     assert.doesNotMatch(readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8"), /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b/);
@@ -293,14 +296,63 @@ test("terrain prefetch stops at capacity and closes results from an abandoned ru
   assert.ok(bitmaps.every((bitmap) => bitmap.closed), "both cached and late bitmaps release their pixels");
 });
 
-test("splash warnings preserve circular damage geometry and draw a legible cross", (t) => {
+test("ink and water warnings keep their damage circles and countdown as the shots leave the enemy", (t) => {
   environment(t);
+  for (const [kind, lob] of [["smudge", SMUDGE], ["wash", WASH_DRIP]]) {
+    const e = { kind, alive: true, x: -70, y: 40, tx: 30, ty: 40, windup: 0.001, spawnTime: 0 };
+    const tell = (enemies, enemyShots) => {
+      const ground = canvas().getContext("2d"), edges = canvas().getContext("2d");
+      const warnings = enemyWarnings({ enemies, enemyShots });
+      drawWarningGround(ground, warnings);
+      drawWarningEdges(edges, warnings);
+      restored(ground);
+      restored(edges);
+      return { ground: ground.calls, edges: edges.calls };
+    };
+    const shot = { alive: true, tx: e.tx, ty: e.ty, t: 0.001, flight: lobFlightTime(100, lob), kind: lob.shot };
+    const windup = tell([e], []), flight = tell([], [shot]);
+    for (const { ground, edges } of [windup, flight]) {
+      const circle = ground.find(c => c.op === "fill").args[0];
+      assert.deepEqual(circle.ops, [["arc", e.tx, e.ty, lob.splashRadius, 0, Math.PI * 2]]);
+      const rims = edges.filter(c => c.op === "stroke" && c.args[0] === circle);
+      assert.equal(rims.length, 2, "dark keyline and lighter dashes");
+      assert.ok(rims[0].lineWidth > rims[1].lineWidth);
+      const mark = ground.at(-1).args[0].ops;
+      assert.deepEqual(mark.map(([op]) => op), kind === "wash" ? ["path"] : ["moveTo", "lineTo", "moveTo", "lineTo"]);
+    }
+    const alpha = ({ ground }) => ground.find(c => c.op === "fill").globalAlpha;
+    assert.ok(alpha(flight) > alpha(windup) && alpha(flight) - alpha(windup) < 0.001);
+  }
+});
+
+test("the lingering ink edge follows the slowdown ellipse and expires with it", (t) => {
+  environment(t);
+  const h = { id: 1, x: 30, y: 40, radius: SMUDGE.puddleRadius, life: 2, maxLife: SMUDGE.puddleLife };
   const ctx = canvas().getContext("2d");
-  dangerRing(ctx, 30, 40, 20, 0.5);
-  const shape = ctx.calls.find(c => c.op === "fill").args[0];
-  assert.deepEqual(shape.ops[0], ["arc", 30, 40, 20, 0, Math.PI * 2]);
-  assert.ok(ctx.calls.some(c => c.op === "stroke" && c.strokeStyle === "#ffe2bb"));
+  drawEnemyGround(ctx, { enemies: [], hazards: [h, { ...h, life: 0 }] });
+  const edges = ctx.calls.filter(c => c.op === "stroke");
+  assert.equal(edges.length, 1);
+  assert.deepEqual(edges[0].args[0].ops, [["ellipse", h.x, h.y, h.radius, h.radius / SMUDGE.puddleAspect, 0, 0, Math.PI * 2]]);
   restored(ctx);
+});
+
+test("the Eraser shows its locked sweep and the full width of its dry-ground charge", (t) => {
+  environment(t);
+  const boss = { kind: "eraser-boss", alive: true, spawnTime: 0, x: 45, y: 50 };
+  const tell = (kind) => {
+    boss.act = { kind, x: 40, y: 50, dx: 1, dy: 0, t: BOSS[kind].telegraph };
+    return enemyWarnings({ enemies: [boss], enemyShots: [] })[0].area.ops;
+  };
+  const radius = ENEMIES[boss.kind].radius, half = BOSS.sweep.width / 2;
+  assert.deepEqual(tell("sweep"), [
+    ["moveTo", 40 - radius, 50 + half], ["lineTo", 40 + BOSS.sweep.length, 50 + half],
+    ["lineTo", 40 + BOSS.sweep.length, 50 - half], ["lineTo", 40 - radius, 50 - half], ["closePath"],
+  ]);
+  const length = BOSS.charge.speed * BOSS.charge.time;
+  assert.deepEqual(tell("charge"), [
+    ["arc", boss.x, boss.y, radius, Math.PI / 2, 3 * Math.PI / 2],
+    ["arc", boss.x + length, boss.y, radius, -Math.PI / 2, Math.PI / 2], ["closePath"],
+  ]);
 });
 
 test("enemy recoil and directional dash marks are read-only and reuse finite cuts", (t) => {
@@ -383,7 +435,7 @@ test("prop scraps and ash are a few large flat pieces, and damaged tears curl ov
 });
 
 import { buildChunk } from "../dist/render/craft-world.js";
-import { CHUNK, chunkOf, landmarks } from "../dist/game/world-gen.js";
+import { CHUNK, chunkOf, landmarkParts, landmarks } from "../dist/game/world-gen.js";
 import { BIOME_ART } from "../dist/render/art-index.js";
 
 /** A JSON-safe command stream: nested sprite/noise canvases are expanded, paths become their ops. */
@@ -662,12 +714,59 @@ test("the gallery washed-paper swatches show pencil on cream, clean blank paper 
 
 import { drawWorld } from "../dist/render/world.js";
 
+test("warning tint stays below actors while its edge passes above raised skills and around the cat's face", (t) => {
+  environment(t);
+  const sim = createSim({ cat: "nicole", seed: 7 });
+  const { x, y } = sim.player;
+  sim.upgrades["page-fold"] = 1;
+  sim.upgrades["full-moon"] = 1;
+  sim.enemies = [{ id: 17, kind: "smudge", x: x + 65, y, hp: 3, alive: true, spawnTime: 0,
+    windup: 0.4, tx: x, ty: y }];
+  t.mock.method(WEAPON_ART.get("page-fold"), "ground", ctx => ctx.fillRect(x, y, 2, 3));
+  t.mock.method(ENEMY_ART.get("smudge"), "draw", ctx => ctx.fillRect(x, y, 4, 5));
+  t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => ctx.fillRect(x, y, 6, 7));
+  const ctx = canvas().getContext("2d");
+  drawWorld(ctx, sim, { time: 1, camera: sim.player });
+  const skill = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 2 && c.args[3] === 3);
+  const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, cx, cy, r]) =>
+    op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius));
+  const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 4 && c.args[3] === 5);
+  const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 6 && c.args[3] === 7);
+  const faceClip = ctx.calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd" &&
+    c.args[0].ops.some(([op, l, top, width, height]) =>
+      op === "roundRect" && l < x && l + width > x && top < y - 40 && top + height > y - 40));
+  const edge = ctx.calls.findIndex(c => c.op === "stroke" && c.args[0] === ctx.calls[warning]?.args[0]);
+  assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip);
+});
+
+test("the selected cat retains its colours and draws above a foreground landmark", (t) => {
+  environment(t);
+  const sim = createSim({ cat: "nicole", seed: 2026 });
+  const art = LANDMARK_ART.get("star-observatory");
+  const place = landmarks(sim.seed).find(l => l.kind === art.id);
+  const roof = art.pieces.find(p => p.bounds.t < -200);
+  const decor = landmarkParts(place).decor.find(d => d.kind === roof.kind);
+  Object.assign(sim.player, { x: decor.x, y: decor.y - 70 });
+  spillWater(sim, sim.player.x, sim.player.y, 16, 1, false);
+  t.mock.method(roof, "paint", c => c.fillRect(45, 46, 47, 48));
+  t.mock.method(CAT_ART.get(sim.player.id), "draw", c => c.fillRect(51, 52, 53, 54));
+  const ctx = canvas().getContext("2d");
+  drawWorld(ctx, sim, { time: 0, camera: sim.player, reducedMotion: true });
+  const draws = images(ctx);
+  const withRect = marker => draws.findIndex(c => c.args[0].getContext("2d").calls.some(op =>
+    op.op === "fillRect" && op.args[0] === marker));
+  const building = withRect(45), cat = withRect(51);
+  assert.ok(building >= 0 && cat > building);
+  assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");
+  assert.equal(draws[cat].globalAlpha, 1);
+});
+
 test("a whole world frame over washed, cut and folded paper leaves SimState untouched", (t) => {
   const sim = washedSim();
   spillWater(sim, sim.player.x, sim.player.y, 90, 1, false);
   const near = Object.entries(sim.wash.cells)[0][1];
   near.cutUntil = sim.elapsed + 2;
-  near.foldUntil = sim.elapsed + 2;
+  sim.wash.folds.push({ x: sim.player.x, y: sim.player.y, radius: 78, until: sim.elapsed + 2 });
   const before = structuredClone(sim);
   environment(t);
   clearWorldRenderCache();

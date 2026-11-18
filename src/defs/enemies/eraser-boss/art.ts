@@ -12,6 +12,7 @@ import { paperFleck } from "../../../render/craft-combat.js";
 const DEPTH = { x: 9, y: -7 } as const;
 const RUBBER = { front: "#ec9aaa", top: "#ffd0d7", side: "#f7b6c2", worn: "#f9dfe0" } as const;
 const SLEEVE = { front: "#41639a", top: "#7f9fd0", side: "#5b7fb8", label: "#efe5cf" } as const;
+const ERASER_WARNING = { fill: "#be677d", edge: "#ffc3cd" } as const;
 
 /** A box face from four corners, drawn as one flat paper layer. */
 function face(c: Ctx, pts: readonly Point[], color: string, rim: string, lift = 0): void {
@@ -111,15 +112,6 @@ function drawEraser(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     return;
   }
   enemyShadow(ctx, e.x, e.y, R * 1.55, R * 0.42);
-  if (windup > 0) {
-    // A flat pink warning sheet under the block grows with the windup.
-    ctx.save();
-    ctx.globalAlpha *= 0.2 + windup * 0.35;
-    ctx.fillStyle = "#ff9fb0";
-    ctx.fill(oval(e.x, e.y, R * (1.7 + windup * 0.5), R * (0.55 + windup * 0.15), 3, 0.08));
-    ctx.restore();
-    dashed(ctx, oval(e.x, e.y, R * (1.7 + windup * 0.5), R * (0.55 + windup * 0.15), 3, 0.08), "#ffd3da", 0.5 + windup * 0.5, 1.4);
-  }
   // Crumbs shed from the trailing end roll off and settle (positions from view time only).
   const back = look.x < e.x ? 1 : -1;
   for (let i = 0; i < 4; i++) {
@@ -190,11 +182,33 @@ function sweepRect(a: BossAct): Path2D {
   ]);
 }
 
+/** The moving body traced along the full dry-ground charge, with round end caps. */
+function chargeLane(e: EnemyState, a: BossAct, angle: number, length: number): Path2D {
+  const radius = enemyRadius(e), side = Math.PI / 2, lane = new Path2D();
+  const endX = e.x + a.dx * length, endY = e.y + a.dy * length;
+  lane.arc(e.x, e.y, radius, angle + side, angle + side * 3);
+  lane.arc(endX, endY, radius, angle - side, angle + side);
+  lane.closePath();
+  return lane;
+}
+
+function warningArrows(ctx: Ctx, x: number, y: number, angle: number, length: number): void {
+  const arrow = enemyPart("eraser-warning-arrow", 26, 23, (c) => {
+    flatLayer(c, { shape: path([[-8, -7], [0, -7], [8, 0], [0, 7], [-8, 7], [0, 0]]),
+      color: "#ffd4cf", rim: "#fff1df", lift: 0.65, texture: 0.3 });
+    crease(c, 0, 0, 7, 0, 0.75);
+  }, false);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  for (const at of [0.28, 0.53, 0.78]) arrow.draw(ctx, { x: length * at, y: 0 });
+  ctx.restore();
+}
+
 export const ERASER_BOSS_ART: EnemyArt = {
   id: "eraser-boss",
   draw: drawEraser,
   cullMargin: 80,
-  /** Sweep lane, charge lane and summon ring while an attack winds up. */
   ground(ctx, e, look) {
     // Behind the block the page is rubbed back to blank paper: a pale smear with rubbed streaks.
     if (e.spawnTime <= 0) {
@@ -210,58 +224,27 @@ export const ERASER_BOSS_ART: EnemyArt = {
       }, false).draw(ctx, { x: 0, y: 0, scale: R / 26 });
       ctx.restore();
     }
+  },
+  warning(e) {
     const a = e.act;
     if (!a || a.t <= 0) return;
-    const k = 1 - a.t / BOSS[a.kind].telegraph;
-    if (a.kind === "sweep") {
-      const r = sweepRect(a);
-      ctx.save();
-      ctx.globalAlpha = 0.12 + k * 0.22;
-      ctx.fillStyle = "#f0a3b1";
-      ctx.fill(r);
-      ctx.restore();
-      dashed(ctx, r, "#ffd3da", 0.6 + k * 0.4, 1.8);
-      const arrow = enemyPart("eraser-sweep-paper-arrow", 28, 26, (c) => {
-        flatLayer(c, { shape: path([[-7, -8], [8, 0], [-7, 8], [-2, 0]]), color: "#f3bac2", rim: "#ffe3d1", lift: 0.4, texture: 0.3 });
-        crease(c, -2, 0, 7, 0, 0.65);
-      });
-      ctx.save();
-      ctx.globalAlpha *= 0.67 + k * 0.25;
-      for (const distance of [BOSS.sweep.length * 0.37, BOSS.sweep.length * 0.78]) {
-        ctx.save();
-        ctx.translate(a.x + a.dx * distance, a.y + a.dy * distance);
-        ctx.rotate(Math.atan2(a.dy, a.dx));
-        arrow.draw(ctx, { x: 0, y: 0 });
-        ctx.restore();
-      }
-      ctx.restore();
-    } else if (a.kind === "charge") {
-      const len = BOSS.charge.speed * BOSS.charge.time,
-        ex = a.x + a.dx * len,
-        ey = a.y + a.dy * len,
-        lane = new Path2D();
-      lane.moveTo(a.x, a.y);
-      lane.lineTo(ex, ey);
-      // Width matches the moving Boss body; round caps cover both endpoints.
-      ctx.save();
-      ctx.lineCap = "round";
-      stroke(ctx, lane, "#201923", enemyRadius(e) * 2 + 3, 0.48);
-      stroke(ctx, lane, "#e7a1aa", enemyRadius(e) * 2, 0.2 + k * 0.12);
-      ctx.restore();
-      dashed(ctx, lane, "#ffd3da", 0.5 + k * 0.5, 3 + k * 4);
-      const nx = -a.dy, ny = a.dx;
-      ctx.save();
-      ctx.fillStyle = "#ffe2bb";
-      ctx.fill(path([
-        [ex, ey],
-        [ex - a.dx * 14 + nx * 7, ey - a.dy * 14 + ny * 7],
-        [ex - a.dx * 14 - nx * 7, ey - a.dy * 14 - ny * 7],
-      ]));
-      ctx.restore();
-      dashed(ctx, oval(ex, ey, 18, 9), "#ffd3da", 0.5 + k * 0.5, 1.4);
-    } else {
-      dashed(ctx, oval(e.x, e.y, BOSS.summon.distance + 10, (BOSS.summon.distance + 10) * 0.6), "#c99ad8", 0.5 + k * 0.4, 1.4);
+    const progress = 1 - a.t / BOSS[a.kind].telegraph;
+    if (a.kind === "summon") {
+      const ring = new Path2D(), distance = BOSS.summon.distance;
+      ring.ellipse(e.x, e.y, distance, distance * 0.6, 0, 0, Math.PI * 2);
+      return { area: ring, edge: "#e0bcec", progress };
     }
+    const sweep = a.kind === "sweep",
+      length = sweep ? BOSS.sweep.length : BOSS.charge.speed * BOSS.charge.time,
+      angle = Math.atan2(a.dy, a.dx),
+      x = sweep ? a.x : e.x,
+      y = sweep ? a.y : e.y;
+    return {
+      area: sweep ? sweepRect(a) : chargeLane(e, a, angle, length),
+      ...ERASER_WARNING,
+      progress,
+      symbol: (ctx) => warningArrows(ctx, x, y, angle, length),
+    };
   },
   dissolve: {
     flakes: ["#f0a3b1", "#e58e9f", "#4f6f9c", "#f6ece0"],

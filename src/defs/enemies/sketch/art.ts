@@ -4,7 +4,7 @@ import { flatLayer } from "../../../render/paper-kit.js";
 import { line, type Ctx } from "../../../render/paper-material.js";
 import type { EnemyState } from "../../../game/types.js";
 
-const PAPER = "#efe6d2", GRAPHITE = "#5e5a58", LIGHT = "#8d8883";
+const PAPER = "#e2d5bc", GRAPHITE = "#413947", LIGHT = "#817481";
 
 /** The loose pencil outline of a crouching ink creature, drawn twice like a quick sketch. */
 function outline(c: Ctx, dx: number, dy: number, width: number, alpha: number): void {

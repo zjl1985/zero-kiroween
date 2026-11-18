@@ -25,12 +25,13 @@ import type { Ctx } from "./paper-material.js";
 /** Quantised sketch amounts: half-washed pieces show a partial pencil look. */
 export const SKETCH_STEPS = [0, 0.5, 1] as const;
 /** How much graphite tone survives from the piece's own values (0 = flat cream, 1 = full). */
-const TONE = 0.62;
+const DECOR_TONE = 0.62;
+const LIVE_TONE = 0.87;
 /** At most this many live actors are composed in pencil per frame; the rest stay painted. */
 export const SKETCH_ACTORS_PER_FRAME = 32;
 /**
- * Enemies get this share of the budget (the cat, its decoy and live rotors
- * keep the rest). When more enemies stand on colourless paper, the oldest
+ * Enemies get this share of the budget (live scenery keeps the rest).
+ * When more enemies stand on colourless paper, the oldest
  * ones (lowest ids) keep the pencil look, so the set does not flicker with
  * the y-sorted draw order.
  */
@@ -103,7 +104,7 @@ function hatchPath(W: number, H: number, k: number): Path2D {
  * Draws the pencil version of `src` (W x H device pixels covering w x h
  * units at k pixels per unit) into `ctx` at (0, 0) in units, mixed by `q`.
  */
-function composeSketch(ctx: Ctx, src: CanvasSurface, w: number, h: number, k: number, q: number, salt: number): void {
+function composeSketch(ctx: Ctx, src: CanvasSurface, w: number, h: number, k: number, q: number, salt: number, tone: number): void {
   const W = src.width, H = src.height;
   // Body: the cut's own values as soft graphite on raw cream.
   const body = scratch(W, H, 1), b = body.ctx;
@@ -112,7 +113,7 @@ function composeSketch(ctx: Ctx, src: CanvasSurface, w: number, h: number, k: nu
   b.fillStyle = "#808080";
   b.fillRect(0, 0, W, H);
   b.globalCompositeOperation = "screen";
-  b.fillStyle = grey(1 - TONE);
+  b.fillStyle = grey(1 - tone);
   b.fillRect(0, 0, W, H);
   b.globalCompositeOperation = "multiply";
   b.fillStyle = PENCIL.paper;
@@ -175,7 +176,7 @@ export function sketchedSprite(sprite: CanvasSprite, amount: number): CanvasSpri
     sprite.width,
     sprite.height,
     sprite.scale,
-    (ctx) => composeSketch(ctx, src, sprite.width, sprite.height, sprite.scale, q, idSalt(sprite.id)),
+    (ctx) => composeSketch(ctx, src, sprite.width, sprite.height, sprite.scale, q, idSalt(sprite.id), DECOR_TONE),
     sprite.anchor,
   );
 }
@@ -193,7 +194,7 @@ export interface SketchBox {
   readonly b: number;
 }
 /**
- * Draws a live actor (cat, enemy, rotor) through `paint`, in pencil when it
+ * Draws a live piece (enemy or rotor) through `paint`, in pencil when it
  * stands on colourless paper. `paint` draws in world units at its own
  * position. Painted actors (amount 0) are drawn directly, with no extra work.
  */
@@ -216,6 +217,7 @@ export function drawSketched(ctx: Ctx, amount: number, x: number, y: number, box
   src.ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.save();
   ctx.translate(x + l, y + t);
-  composeSketch(ctx, src.canvas, w, h, k, q, Math.round(w * 7 + h));
+  // Live silhouettes and eyes keep more of their dark shading than the terrain sketches.
+  composeSketch(ctx, src.canvas, w, h, k, q, Math.round(w * 7 + h), LIVE_TONE);
   ctx.restore();
 }

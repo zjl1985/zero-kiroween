@@ -5,11 +5,13 @@ import {
   drawEnemyEffect,
   drawEnemyGround,
   drawEnemyShot,
+  drawWarningEdges,
+  drawWarningGround,
+  enemyWarnings,
 } from "./craft-enemies.js";
 import { playerStats } from "../game/upgrades.js";
 import { enemyRadius } from "../game/sim.js";
 import { landmarks } from "../game/world-gen.js";
-import { decorPiece, type ArtBounds } from "./art-registry.js";
 import { drawActorPaperStatus, drawPaperStatusEffect } from "./paper-status-art.js";
 import {
   drawCombatGround,
@@ -36,7 +38,7 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
-import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
+import { drawChunks, drawNavArrows, paperOccludesActor, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketched, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
@@ -73,21 +75,9 @@ export interface ViewState {
   /** Presentation cues (timeline.ts) from main.ts. */
   cues?: readonly Cue[];
 }
-interface Sprite {
-  y: number;
-  draw: () => void;
-}
-/** Sprite bounds overlap the cat's visible body, while their base sorts in front. */
-export function paperOccludesActor(x: number, y: number, s: number, bounds: ArtBounds, actor: { x: number; y: number }): boolean {
-  return actor.y <= y + 5 && actor.x + 20 > x + bounds.l * s && actor.x - 20 < x + bounds.r * s &&
-    actor.y > y + bounds.t * s && actor.y - 65 < y + bounds.b * s;
-}
 /** Box around the cat's base point that holds its body, head, tail and lantern (CAT_DETAIL_BOUNDS plus swing and bob margin). */
 const CAT_BOX = { l: -54, r: 54, t: -106, b: 22 } as const;
-const COMMON_BOUNDS: Readonly<Record<string, ArtBounds>> = {
-  tree: { l: -82, r: 82, t: -158, b: 16 },
-  cottage: { l: -120, r: 100, t: -144, b: 16 },
-};
+const YARD_PROP_BOUNDS = { l: -36, r: 36, t: -34, b: 8 } as const;
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -106,7 +96,8 @@ export function drawWorld(
     progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
     session = sim?.sessionSeconds,
     view0 = viewRect(cam),
-    near = viewRect(cam, 140);
+    near = viewRect(cam, 140),
+    warnings = sim ? enemyWarnings(sim) : [];
   // Screen-space sky behind the world; hidden once the camera is far south.
   ctx.save();
   ctx.translate(shake.x, shake.y);
@@ -142,42 +133,29 @@ export function drawWorld(
     for (const landmark of landmarks(seed)) if (inView(near, landmark.x, landmark.y, landmark.radius))
       drawLandmarkActivity(ctx, sim, landmark);
   }
-  const town = worldSprites(ctx, seed, cam, view.time, (d) =>
-    !!sim && paperOccludesActor(d.x, d.y, d.s,
-      decorPiece(d.kind)?.bounds ?? COMMON_BOUNDS[d.kind] ?? { l: -36, r: 36, t: -28, b: 5 }, sim.player),
-    { cat: sim ? { x: sim.player.x, y: sim.player.y } : null, reduced, activities: sim?.landmarkEvents,
-      ...(wash && sim ? { sketch: (x: number, y: number) => sketchAmount(sim, x, y) } : {}) },
-  );
-  const sprites: Sprite[] = [...town.sprites];
-  const addSprite = (y: number, draw: () => void) => sprites.push({ y, draw });
+  const town = worldSprites(ctx, seed, cam, view.time, {
+    cat: sim?.player ?? null, reduced, activities: sim?.landmarkEvents,
+    ...(wash && sim ? { sketch: (x: number, y: number) => sketchAmount(sim, x, y) } : {}),
+  });
+  const sprites: WorldSprite[] = [...town.sprites];
+  const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean) => sprites.push({ y, draw, occludesPlayer });
   propSprites(ctx, sim, seed, cam, view.time, addSprite);
   if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
   const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
     if (!inView(near, l.x, l.y)) continue;
     lamps.push(l);
-    sprites.push({ y: l.y, draw: () => drawLamp(ctx, l, view.time) });
+    addSprite(l.y, () => drawLamp(ctx, l, view.time),
+      !!sim && paperOccludesActor(l.x, l.y, l.s, { l: -18, r: 18, t: -75, b: 8 }, sim.player));
   }
   for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s);
   for (const p of YARD_PROPS) {
     if (!inView(near, p.x, p.y)) continue;
-    sprites.push({
-      y: p.y,
-      draw: () => {
-        ctx.save();
-        // Foreground props yield when a cat passes behind them.
-        if (
-          sim &&
-          Math.abs(sim.player.x - p.x) < 36 * p.s &&
-          sim.player.y < p.y + 5 &&
-          sim.player.y > p.y - 28 * p.s
-        )
-          ctx.globalAlpha = 0.48;
-        drawProp(ctx, p);
-        ctx.restore();
-      },
-    });
+    addSprite(p.y, () => drawProp(ctx, p),
+      !!sim && paperOccludesActor(p.x, p.y, p.s, YARD_PROP_BOUNDS, sim.player));
   }
+  // The selected cat sorts just after the last scenery cut that could cover it.
+  const playerDepth = sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0);
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
       drawGroundLight(ctx, pose.x + pose.facing * 21, pose.y, view.time, 0.7);
@@ -205,14 +183,13 @@ export function drawWorld(
       ctx.restore();
     }
     sprites.push({
-      y: pose.y,
+      y: pose.decoy ? pose.y : playerDepth,
       draw: () => {
         drawFootDust(ctx, pose);
-        // On colourless paper the cat is drawn over in pencil; its head art itself is untouched.
-        // The live cat gets the moon-side cut rim from its finished pose (parts flip with facing).
+        // Keep the printed colours and the face readable on every paper tone.
         const paintCat = (c: Ctx) => catArt(pose.id).draw(c, pose);
-        drawSketched(ctx, wash && sim ? sketchAmount(sim, pose.x, pose.y) : 0, pose.x, pose.y, CAT_BOX, (ctx) =>
-          pose.decoy ? paintCat(ctx) : drawWithLitRim(ctx, pose.x, pose.y, CAT_BOX, paintCat));
+        if (pose.decoy) paintCat(ctx);
+        else drawWithLitRim(ctx, pose.x, pose.y, CAT_BOX, paintCat);
         if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },
     });
@@ -321,8 +298,18 @@ export function drawWorld(
       wear: catWear(sim.player.hp / Math.max(1, sim.player.maxHp), sim.player.healAt, sim.elapsed),
     });
   }
+  drawWarningGround(ctx, warnings);
   sprites.sort((a, b) => a.y - b.y);
-  for (const sprite of sprites) sprite.draw();
+  for (const sprite of sprites) {
+    if (!sprite.occludesPlayer) {
+      sprite.draw();
+      continue;
+    }
+    ctx.save();
+    ctx.globalAlpha *= 0.48;
+    sprite.draw();
+    ctx.restore();
+  }
   if (sim) drawPaperRain(ctx, sim, cam, view.time, reduced);
   if (sim) {
     for (const s of sim.shots)
@@ -345,6 +332,16 @@ export function drawWorld(
     if (cues.length) drawCueWorld(ctx, cues, sim, view.time, reduced);
   }
   drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps);
+  if (sim && warnings.length) {
+    // Project just the hostile keylines over the effects and foreground. Keep the cat's face clear.
+    const exposed = new Path2D(), p = sim.player;
+    exposed.rect(near.x0, near.y0, near.x1 - near.x0, near.y1 - near.y0);
+    exposed.roundRect(p.x - 26, p.y - 72, 52, 49, 10);
+    ctx.save();
+    ctx.clip(exposed, "evenodd");
+    drawWarningEdges(ctx, warnings);
+    ctx.restore();
+  }
   if (!sim && titleCat) drawPlaybillStage(ctx, titleCat);
   ctx.restore();
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, cam, view.time, reduced);

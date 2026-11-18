@@ -21,7 +21,8 @@ import { addLitRim } from "./paper-value.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
-import { ENEMY_ART, effectPainter } from "./art-registry.js";
+import { ENEMY_ART, effectPainter, type EnemyWarning } from "./art-registry.js";
+import { lobFlightTime, type KiteLobParams } from "../defs/enemies/behaviours.js";
 import { WASH_DRIP } from "../defs/enemies/wash/def.js";
 
 export interface Look {
@@ -159,46 +160,113 @@ function drawEliteCrown(ctx: Ctx, x: number, y: number, s: number, seed: number,
 }
 export function dashed(ctx: Ctx, p: Path2D, color: string, alpha: number, width = 1.4): void {
   ctx.save();
+  stroke(ctx, p, "#2a192e", width + 2, alpha * 0.9);
   ctx.setLineDash([6, 4]);
   ctx.lineDashOffset = 0;
-  stroke(ctx, p, "#1b1424", width + 1.4, alpha * 0.5);
   stroke(ctx, p, color, width, alpha);
   ctx.restore();
 }
 
+const LOB_PALETTES = {
+  ink: { fill: "#b86f86", edge: "#ffc486" },
+  water: { fill: "#5d9fba", edge: "#a6e6f7" },
+} as const;
+
 /** World-space circular splash footprint; never flatten a radial damage test. */
-export function dangerRing(ctx: Ctx, x: number, y: number, radius: number, progress: number): void {
-  const ring = new Path2D();
-  ring.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.save();
-  ctx.globalAlpha *= 0.12 + Math.max(0, Math.min(1, progress)) * 0.2;
-  ctx.fillStyle = "#eab2cb";
-  ctx.fill(ring);
-  ctx.restore();
-  dashed(ctx, ring, "#ffe2bb", 0.9, 1.6);
-  const r = radius * 0.3;
-  line(ctx, x - r, y - r, x + r, y + r, "#ffe2bb", 1.2, 0.85);
-  line(ctx, x - r, y + r, x + r, y - r, "#ffe2bb", 1.2, 0.85);
+function lobTarget(x: number, y: number, radius: number, progress: number, kind: "ink" | "water"): EnemyWarning {
+  const area = new Path2D(), palette = LOB_PALETTES[kind];
+  area.arc(x, y, radius, 0, Math.PI * 2);
+  return { area, ...palette, progress, symbol: (ctx) => drawLobSymbol(ctx, x, y, radius, kind) };
 }
-/** Puddles, landing marks and Boss telegraphs, drawn flat on the yard. */
+
+function drawLobSymbol(ctx: Ctx, x: number, y: number, radius: number, kind: "ink" | "water"): void {
+  const { edge } = LOB_PALETTES[kind];
+  if (kind === "water") {
+    const drop = new Path2D("M 0 -8 Q 5 -1 4.5 3 Q 4.5 7 0 7 Q -4.5 7 -4.5 3 Q -5 -1 0 -8 Z");
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = edge;
+    ctx.fill(drop);
+    stroke(ctx, drop, "#2a192e", 1.5);
+    ctx.restore();
+    return;
+  }
+  const cross = new Path2D(), r = radius * 0.24;
+  cross.moveTo(x - r, y - r);
+  cross.lineTo(x + r, y + r);
+  cross.moveTo(x - r, y + r);
+  cross.lineTo(x + r, y - r);
+  stroke(ctx, cross, "#2a192e", 3.6);
+  stroke(ctx, cross, edge, 1.6);
+}
+
+/** Start the landing mark at aim lock and carry the same countdown into flight. */
+export function lobWarning(e: EnemyState, lob: KiteLobParams & { splashRadius: number }): EnemyWarning | undefined {
+  const remaining = e.windup ?? 0;
+  if (remaining <= 0 || e.tx === undefined || e.ty === undefined) return;
+  const flight = lobFlightTime(Math.hypot(e.tx - e.x, e.ty - e.y), lob);
+  return lobTarget(e.tx, e.ty, lob.splashRadius, (lob.windup - remaining) / (lob.windup + flight), lob.shot ?? "ink");
+}
+
+/** Ink stains and trails sit under the warning tape. */
 export function drawEnemyGround(ctx: Ctx, state: SimState): void {
   for (const h of state.hazards) {
+    if (h.life <= 0) continue;
     const k = h.life / h.maxLife, v = Math.abs(h.id) % 3;
+    const patch = new Path2D();
+    patch.ellipse(h.x, h.y, h.radius, h.radius / SMUDGE.puddleAspect, 0, 0, Math.PI * 2);
     ctx.save();
     ctx.globalAlpha *= Math.min(1, k * 3) * 0.85;
+    ctx.fillStyle = "#33263f";
+    ctx.fill(patch);
+    stroke(ctx, patch, "#aa90b9", 1.1, 0.72);
+    ctx.clip(patch);
     enemyPart(`ink-puddle:${v}`, 58, 40, (c) => {
-      flatLayer(c, { shape: oval(0, 0, 20, 12.4, v, 0.28), color: "#33263f", lift: 0, rim: "#6c5486", texture: 0.45 });
+      flatLayer(c, { shape: oval(0, 0, 16, 9.2, v, 0.24), color: "#4d375e", lift: 0, rim: "#73598b", texture: 0.45 });
       c.fillStyle = "#8a74a855";
       c.fill(oval(-6, -3.6, 5.6, 2.4, v + 2));
     }, false).draw(ctx, { x: h.x, y: h.y, scale: h.radius / 20 });
     ctx.restore();
   }
+  for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e, state.player);
+}
+
+/** Collect both passes from the same paths and attack clocks for the current frame. */
+export function enemyWarnings(state: SimState): EnemyWarning[] {
+  const warnings: EnemyWarning[] = [];
   for (const s of state.enemyShots) {
     if (!s.alive) continue;
-    const k = Math.min(1, s.t / s.flight);
-    dangerRing(ctx, s.tx, s.ty, s.kind === "water" ? WASH_DRIP.splashRadius : SMUDGE.splashRadius, k);
+    const lob = s.kind === "water" ? WASH_DRIP : SMUDGE;
+    const k = (lob.windup + s.t) / (lob.windup + s.flight);
+    warnings.push(lobTarget(s.tx, s.ty, lob.splashRadius, k, s.kind ?? "ink"));
   }
-  for (const e of state.enemies) if (e.alive) ENEMY_ART.find(e.kind)?.ground?.(ctx, e, state.player);
+  for (const e of state.enemies) {
+    if (!e.alive || e.spawnTime > 0) continue;
+    const warning = ENEMY_ART.find(e.kind)?.warning?.(e);
+    if (warning) warnings.push(warning);
+  }
+  return warnings;
+}
+
+export function drawWarningGround(ctx: Ctx, warnings: readonly EnemyWarning[]): void {
+  for (const { area, fill, progress, symbol } of warnings) {
+    if (fill) {
+      const k = Math.max(0, Math.min(1, progress));
+      ctx.save();
+      ctx.globalAlpha *= 0.1 + k * 0.16;
+      ctx.fillStyle = fill;
+      ctx.fill(area);
+      ctx.restore();
+    }
+    symbol?.(ctx);
+  }
+}
+
+export function drawWarningEdges(ctx: Ctx, warnings: readonly EnemyWarning[]): void {
+  for (const { area, edge, progress } of warnings) {
+    const k = Math.max(0, Math.min(1, progress));
+    dashed(ctx, area, edge, 0.85 + k * 0.15, 1.6 + k * 0.35);
+  }
 }
 /** A slow ink drop arcing toward its locked landing spot. */
 export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {

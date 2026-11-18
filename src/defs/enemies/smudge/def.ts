@@ -13,6 +13,8 @@ export const SMUDGE = {
   splashRadius: 20,
   splashDamage: 1,
   puddleRadius: 24,
+  /** Horizontal radius divided by vertical radius, shared with the ground art. */
+  puddleAspect: 1.6,
   puddleLife: 3,
   puddleSlow: 0.6,
   inkPower: 1,
@@ -32,7 +34,7 @@ export const SMUDGE_DEF: EnemyDef = {
   // Standing in a puddle slows the cat.
   catSlow(state) {
     const p = state.player;
-    return state.hazards.some((h) => Math.hypot(p.x - h.x, (p.y - h.y) * 1.6) <= h.radius)
+    return state.hazards.some((h) => Math.hypot(p.x - h.x, (p.y - h.y) * SMUDGE.puddleAspect) <= h.radius)
       ? SMUDGE.puddleSlow
       : 1;
   },

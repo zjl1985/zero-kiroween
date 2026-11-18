@@ -45,6 +45,9 @@ export interface KiteLobParams {
   /** What the lob carries; default the smudge's ink drop. */
   readonly shot?: "water";
 }
+export function lobFlightTime(distance: number, params: KiteLobParams): number {
+  return Math.max(params.minFlight, distance / params.dropSpeed);
+}
 /** Stop at range, wind up, and lob a slow ink drop at the cat's locked spot. */
 export const KITE_LOB: EnemyBehaviour<KiteLobParams> = {
   id: "kite-lob",
@@ -84,7 +87,7 @@ function throwInk(state: SimState, e: EnemyState, smudge: KiteLobParams): void {
     tx,
     ty,
     t: 0,
-    flight: Math.max(smudge.minFlight, d / smudge.dropSpeed),
+    flight: lobFlightTime(d, smudge),
     alive: true,
     ...(smudge.shot ? { kind: smudge.shot } : {}),
   });

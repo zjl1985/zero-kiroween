@@ -14,11 +14,11 @@ import { grain, hash, line, mix, type Ctx, type Point } from "../../render/paper
 import { foldTurn, PAPER_VERB_LOOK, wallStand } from "../../render/timeline.js";
 import { PAGE_FOLD } from "./page-fold.js";
 
-/** The flap sheet: the page's warm face, its paler ruled back, and the under-sheet the fold uncovers. */
+/** The flap sheet, with a muted violet face and a lighter ruled back. */
 const FLAP = {
-  face: "#d8c49a",
-  back: "#f1e6cb",
-  rule: "#9fb4c4",
+  face: "#a390b2",
+  back: "#c7bacd",
+  rule: "#8a839d",
   under: "#120d1c",
   /** Cached sheet size in drawing units (stretched onto the flap). */
   w: 96,
@@ -106,7 +106,7 @@ function drawFlap(ctx: Ctx, f: FoldFlap, age: number): void {
     uy = (b[1] - a[1]) / FLAP.w;
   // Moonlight on the turning sheet: brightest when it faces the top-right.
   const facing = Math.abs(Math.cos(theta)) * 0.55 + 0.45;
-  ctx.globalAlpha = 0.9 * fade;
+  ctx.globalAlpha = 0.74 * fade;
   ctx.save();
   ctx.transform(ux, uy, ox / FLAP.h, oy / FLAP.h, (a[0] + b[0]) / 2 + ox / 2, (a[1] + b[1]) / 2 + oy / 2);
   sheet.draw(ctx, { x: 0, y: 0 });

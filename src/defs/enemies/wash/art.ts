@@ -1,5 +1,5 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
-import { dangerRing, enemyPart, enemyShadow, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
+import { enemyPart, enemyShadow, googly, hpStrip, lobWarning, spawning, type Look } from "../../../render/craft-enemies.js";
 import { crease, flatLayer } from "../../../render/paper-kit.js";
 import { line, oval, type Ctx } from "../../../render/paper-material.js";
 import type { EnemyState } from "../../../game/types.js";
@@ -55,9 +55,8 @@ function drawWash(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
 export const WASH_ART: EnemyArt = {
   id: "wash",
   draw: drawWash,
-  ground(ctx, e) {
-    if ((e.windup ?? 0) > 0 && e.tx !== undefined && e.ty !== undefined)
-      dangerRing(ctx, e.tx, e.ty, WASH_DRIP.splashRadius, 1 - e.windup! / WASH_DRIP.windup);
+  warning(e) {
+    return lobWarning(e, WASH_DRIP);
   },
   dissolve: { flakes: [DYE, DYE_SHADE, WATER, "#e8f2f4"], count: 10 },
 };

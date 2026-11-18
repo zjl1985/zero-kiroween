@@ -76,7 +76,8 @@ Enemies inherit shared paper-actor status: radius fire contact, 3 s carried burn
        // eyes that track the cat: googly(...)
      },
      dissolve: { flakes: ["#2c2340", "#e8d9bd"], count: 10 },
-     // ground(ctx, e) {}      flat telegraphs
+     // ground(ctx, e) {}      trails and stains
+     // warning(e) {}          return the attack Path2D with its edge, progress and optional tint/symbol
      // cullMargin: 60         large bodies
      // effects: { "<fx>"(ctx, e, { t, fade, ease }) {} }
    };

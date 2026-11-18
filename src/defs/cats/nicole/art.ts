@@ -4,7 +4,7 @@ import { drawOrbitStar, drawSkillEffect, ring, star } from "../../../render/comb
 import { drawCraftCat } from "../../../render/craft-cat.js";
 import { drawPaperPortrait, PAPER_FACE_OUTLINE } from "../../../render/paper-face.js";
 import { glow as light } from "../../../render/paper-material.js";
-import { ellipse, line, polygon, rect } from "../../../render/pixel-art.js";
+import { ellipse, line, polygon } from "../../../render/pixel-art.js";
 import { NICOLE_STATS } from "./stats.js";
 
 export const NICOLE_ART: CatArt = {
@@ -100,29 +100,20 @@ export const NICOLE_ART: CatArt = {
     star(ctx, 7, 23, 4, color);
     if (kind === "active") ring(ctx, 16, 16, 6, "#8d80b2", 0.7);
   },
-  /** Fold-moon fields: a soft violet pool with a countdown ring and paper stars. */
+  /** Fold-moon fields: a matte violet sheet with sparse markers along its edge. */
   ground(ctx, state) {
     for (const f of state.fields) {
       const radius = f.radius ?? NICOLE_STATS.fieldRadius,
         remaining = f.life / (f.duration ?? NICOLE_STATS.fieldDuration);
       ctx.save();
-      ctx.globalAlpha = Math.min(1, f.life * 3);
-      light(ctx, f.x, f.y, radius + 22, "#7772c6", 0.13, 0.75);
-      ctx.globalAlpha *= 0.065;
-      ellipse(ctx, f.x, f.y, radius, radius, "#b49ee9");
-      ctx.globalAlpha = Math.min(1, f.life * 3);
-      ring(ctx, f.x, f.y, radius, "#80769e");
-      ring(ctx, f.x, f.y, radius - 4, "#c0a8e5", 1, remaining);
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4,
-          x = f.x + Math.cos(a) * (radius - 10),
-          y = f.y + Math.sin(a) * (radius - 10);
-        star(ctx, x, y, 3, "#b3a7d6", a);
-      }
-      for (let i = 0; i < 7; i++) {
-        const a = i * 2.4 + state.elapsed * 0.45,
-          r = 20 + i * 6;
-        rect(ctx, f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 1, 2, "#c8bcdf");
+      const fade = Math.min(1, f.life * 3);
+      ctx.globalAlpha *= fade * 0.13;
+      ellipse(ctx, f.x, f.y, radius, radius, "#9c84c2");
+      ctx.globalAlpha = fade * 0.68;
+      ring(ctx, f.x, f.y, radius, "#b5a4d0", 1, remaining);
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2 + Math.PI / 4;
+        star(ctx, f.x + Math.cos(a) * radius, f.y + Math.sin(a) * radius, 2.6, "#b3a7d6", a);
       }
       ctx.restore();
     }

@@ -1,5 +1,5 @@
 import type { EnemyArt } from "../../../render/art-registry.js";
-import { dangerRing, enemyPart, enemyShadow, googly, hpStrip, spawning, type Look } from "../../../render/craft-enemies.js";
+import { enemyPart, enemyShadow, googly, hpStrip, lobWarning, spawning, type Look } from "../../../render/craft-enemies.js";
 import { hash, line, oval, path, type Ctx, type Point } from "../../../render/paper-material.js";
 import { crease, flatLayer } from "../../../render/paper-kit.js";
 import type { EnemyState } from "../../../game/types.js";
@@ -73,9 +73,8 @@ function inkDrop() {
 }
 export const SMUDGE_ART: EnemyArt = {
   id: "smudge", draw: drawSmudge,
-  ground(ctx, e) {
-    if ((e.windup ?? 0) > 0 && e.tx !== undefined && e.ty !== undefined)
-      dangerRing(ctx, e.tx, e.ty, SMUDGE.splashRadius, 1 - e.windup! / SMUDGE.windup);
+  warning(e) {
+    return lobWarning(e, SMUDGE);
   },
   dissolve: { flakes: ["#3a2c4b", "#54406a", "#e3d3b5", "#6d5684"], count: 10 },
   effects: {

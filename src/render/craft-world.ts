@@ -89,6 +89,11 @@ export interface Bounds {
   t: number;
   b: number;
 }
+/** Can a foreground paper piece cover the player's head or body? */
+export function paperOccludesActor(x: number, y: number, s: number, b: Bounds, actor: { x: number; y: number }): boolean {
+  return actor.y <= y && actor.x + 26 > x + b.l * s && actor.x - 26 < x + b.r * s &&
+    actor.y + 8 > y + b.t * s && actor.y - 68 < y + b.b * s;
+}
 /** Generic decor sprites; landmark pieces come from LANDMARK_ART (decorPiece). */
 const BOUNDS: Record<string, Bounds> = {
   tree: { l: -82, r: 82, t: -158, b: 16 },
@@ -459,8 +464,8 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
     for (const run of runsNear(r.points, r.width + 30, x0, y0, x1, y1)) {
       for (let i = 0; i < run.length - 1; i++)
         constructionLine(ctx, run[i]![0], run[i]![1], run[i + 1]![0], run[i + 1]![1], 9, 0.14);
-      for (const side of [-1, 1]) pencilLine(ctx, subdivide(offsetRun(run, side * r.width), 16), ri * 13 + side, { weight: 0.95, alpha: 0.6, overshoot: 5 });
-      shadeAlong(ctx, run, r.width + 0.8, r.width + 7, 0.28, ri);
+      for (const side of [-1, 1]) pencilLine(ctx, subdivide(offsetRun(run, side * r.width), 16), ri * 13 + side, { weight: 0.8, alpha: 0.43, overshoot: 5 });
+      shadeAlong(ctx, run, r.width + 0.8, r.width + 7, 0.18, ri);
     }
   });
   yield;
@@ -483,7 +488,7 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
       pencilFootprint(ctx, d.x, d.y + 1, rx, Math.max(2.5, rx * 0.28), d.seed, 0.32);
     }
   ctx.save();
-  ctx.globalAlpha = 0.45;
+  ctx.globalAlpha = 0.31;
   ctx.strokeStyle = PENCIL.graphite;
   ctx.lineWidth = 0.6;
   ctx.lineCap = "round";
@@ -678,6 +683,7 @@ export function clearWorldRenderCache(): void {
 export interface WorldSprite {
   y: number;
   draw: () => void;
+  occludesPlayer?: boolean;
 }
 export interface VisibleLamp {
   x: number;
@@ -737,7 +743,6 @@ export function worldSprites(
   seed: number,
   cam: Camera,
   time: number,
-  fade?: (d: Decor) => boolean,
   pop?: PopupView,
 ): { sprites: WorldSprite[]; lamps: VisibleLamp[] } {
   const dt = foldTime === null ? 0 : Math.min(0.1, Math.max(0, time - foldTime));
@@ -762,15 +767,9 @@ export function worldSprites(
           pencil = pop?.sketch?.(d.x, d.y) ?? 0;
         sprites.push({
           y: d.y,
-          draw: () =>
-            drawFolded(ctx, d, bd, f, (shade) => {
-              if (fade?.(d)) {
-                ctx.save();
-                ctx.globalAlpha = 0.32;
-                drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil);
-                ctx.restore();
-              } else drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil);
-            }),
+          occludesPlayer: !!pop?.cat && paperOccludesActor(d.x, d.y, 1, { ...bd, t: bd.t * f, b: bd.b * f }, pop.cat),
+          draw: () => drawFolded(ctx, d, bd, f, (shade) =>
+            drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil)),
         });
       }
     }

@@ -37,7 +37,8 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 - `water-art.ts` must use the exact shared shore/core/crossing polygons: pale shallow access, dark blocked core, explicit dry decks after roads. No independent jittered/smoothed water collision outline. The start teaching basin at (1040, 420) is fully shallow.
 - Ground fire marks the actual 24-unit cell squares; flames only come from positive live cells. Prop ink stays inside the cut alpha, fold reuses the cut, and regrowth is an anticipation cue until the sim restores the prop. Deferred folds remain folded while collider restoration waits.
 - Enemy facets, bat wings, crumple valleys, smudge layers and Eraser sleeve; combat cranes, stars, flecks and open rings use finite cached cuts with live transforms. Preserve negative space, threat silhouettes and telegraphs; no time/actor-id texture keys or claimed FPS gain without measurement.
-- Activity progress uses shared sim court anchors. Windmill tower cache excludes sails; `DecorPiece.live` draws one cached rotor in the same depth/pop-up transform, reading sim-owned `turn`. Tall building occlusion uses registered bounds, not a special-case id list.
+- Activity progress uses shared sim court anchors. Windmill tower cache excludes sails; `DecorPiece.live` draws one cached rotor in the same depth/pop-up transform, reading sim-owned `turn`. A foreground obstruction is detected from the art bounds at its current fold. The scene fades the blocking cut and draws the selected cat after it.
+- Hostile warning tints and symbols sit on the ground. The matching outlined paths draw above foreground and skill effects, with an opening over the selected cat's face. Friendly Page Fold and Paper Cut sheets sit under actor art.
 - Complete source/timing/lifecycle contracts: `.kiro/skills/midnight-meow-dev/references/paper-ecology.md`.
 
 ## Value hierarchy and shadows (b92920e)
@@ -49,7 +50,7 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 ## Washed paper (wash-out)
 
 - Three page states read from `SimState.wash`: painted (normal art), colourless (raw cream paper with a graphite pencil underdrawing of the same scene) and blank (clean paper, rubbed halo, no pencil). Washed edges get a watercolour tide line; fresh changes bloom for `WASH.bloom`. Wet cells show a wet film. Cut hits through colourless paper show white cut-hole blots with a lifted shadow (a live Paper Cut piece keeps only its own polygon hole). Fold protection draws nothing on the grid; the fold field and flap art already show it. Painted, never-washed ground stores no cells, so Nicole's skill, Paper Crane and the mirror dash add no wash visuals there.
-- Pencil art uses `pencil.ts` primitives and `sprite-sketch.ts` (blend modes only, no pixel reads or filters). Keep eyes readable on sketched actors. Lamps stay painted. The cat head is never redrawn; the sketch overlay sits on top.
+- Pencil art uses `pencil.ts` primitives and `sprite-sketch.ts` (blend modes only, no pixel reads or filters). Live ink keeps darker graphite than the underdrawing, so silhouettes and eyes read against cream paper. The chosen cat and lamps retain their printed colours.
 - An unwashed run must look and cost exactly as before: `washFrame` returns null after one empty check.
 - The gallery has a "Washed paper" section (painted, colourless, blank, tide line per district).
 
@@ -59,6 +60,6 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 
 ## Review
 
-- At most one static screenshot for authorized art verification; no animation or recording checks. For the wash-out round the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists; nobody has viewed its art in a browser. Full gameplay screen/mobile remain unreviewed.
-- Latest verification: build and 295 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
+- At most one static screenshot for authorized art verification; no animation or recording checks. The latest Chrome still shows a fixed graveyard combat scene in the running game ([combat-readability-2026-11-18.png](../../output/playwright/combat-readability-2026-11-18.png)).
+- Latest verification passed build and 301 tests. Mobile, full-run balance, audio and browser performance remain open.
 - Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.

@@ -3,11 +3,13 @@ import { test } from "node:test";
 import { t } from "../dist/content/i18n.js";
 import { FIRE } from "../dist/defs/fire.js";
 import { BOSS } from "../dist/defs/enemies/eraser-boss/def.js";
+import { SMUDGE } from "../dist/defs/enemies/smudge/def.js";
+import { WASH } from "../dist/defs/wash.js";
 import { WATER } from "../dist/defs/water.js";
 import { LANDMARK_DEFS } from "../dist/defs/index.js";
 import { landmarkActivityPoint } from "../dist/defs/landmark-activities.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
-import { applyElement, createSim, snapshot, step } from "../dist/game/sim.js";
+import { applyElement, createSim, snapshot, spillWater, step } from "../dist/game/sim.js";
 import { playerStats } from "../dist/game/stats.js";
 import { landmarks } from "../dist/game/world-gen.js";
 import { waterAt } from "../dist/game/water.js";
@@ -40,6 +42,18 @@ for (const cat of ["zero", "nicole"]) test(`${cat}: the main step slows in shall
   assert.equal(s.player.wetTime, FIRE.wetTime);
   assert.ok(Math.abs(s.player.vx - speed * WATER.shallowSlow) < 1e-8);
   assert.equal(s.notice.kind, "extinguished");
+});
+
+test("wet paper applies only its own slow outside the ink puddle's ellipse", () => {
+  const halfHeight = SMUDGE.puddleRadius / SMUDGE.puddleAspect;
+  for (const [distance, slow] of [[halfHeight - 0.1, SMUDGE.puddleSlow], [halfHeight + 0.1, WASH.wetSlow]]) {
+    const s = quiet(), { x, y } = s.player, speed = playerStats(s).speed;
+    assert.equal(waterAt(s.seed, x, y), "dry");
+    spillWater(s, x, y, WASH.cell, 1, false);
+    s.hazards = [{ id: 1, kind: "puddle", x, y: y + distance, radius: SMUDGE.puddleRadius, life: 3, maxLife: 3 }];
+    step(s, { ax: 1, ay: 0, dash: false }, DT);
+    assert.ok(Math.abs(s.player.vx - speed * slow) < 1e-8);
+  }
 });
 
 test("water contact survives same-step knockback, even when that contact hit is fatal", () => {
