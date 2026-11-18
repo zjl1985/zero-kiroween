@@ -14,13 +14,15 @@ const COURSES: readonly (readonly Point[])[] = [
 /** Old town: worn masonry courses, inset drain grates and leaves caught in the joints. */
 export const OLD_TOWN_ART: BiomeArt = {
   id: "old-town",
-  swatch: ["#5d6450", "#857c6c", "#e3b866"],
+  swatch: ["#686153", "#948776", "#e3b866"],
   patchChance: 0.55,
   patch(ctx, x, y, r, seed) {
     const look = variant(seed, { palette: ["#7d7466", "#8a8070", "#736f66"], flip: true, shift: 0.15 });
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(r / 70 * look.flip, r / 70);
+    paperCut(ctx, [[-63, -24], [-5, -30], [46, -23], [59, 1], [44, 26], [-18, 30], [-58, 20]],
+      { color: "#655d50", thickness: 1.1, layers: 1, shadow: 0.8, texture: 0.67, edge: "#9f8c72" });
     for (const [i, [sx, sy]] of COURSES[look.index]!.entries()) {
       const w = i % 3 === 0 ? 20 : 18, h = i % 2 ? 9 : 10;
       paperCut(ctx, [[sx - w / 2, sy - h / 2], [sx + w / 2 - 3, sy - h / 2], [sx + w / 2, sy - 1], [sx + w / 2 - 1, sy + h / 2], [sx - w / 2 + 1, sy + h / 2]], {

@@ -171,6 +171,21 @@ export const ERASER_BOSS_ART: EnemyArt = {
       ctx.fill(r);
       ctx.restore();
       dashed(ctx, r, "#ffd3da", 0.6 + k * 0.4, 1.8);
+      const arrow = enemyPart("eraser-sweep-paper-arrow", 28, 26, (c) => {
+        piece(c, path([[-7, -8], [8, 0], [-7, 8], [-2, 0]]), "#f3bac2",
+          { shadow: 0.35, edge: "#ffe3d1", thickness: 0.75, texture: 0.32 });
+        foldLine(c, -2, 0, 7, 0, 0.65);
+      });
+      ctx.save();
+      ctx.globalAlpha *= 0.67 + k * 0.25;
+      for (const distance of [BOSS.sweep.length * 0.37, BOSS.sweep.length * 0.78]) {
+        ctx.save();
+        ctx.translate(a.x + a.dx * distance, a.y + a.dy * distance);
+        ctx.rotate(Math.atan2(a.dy, a.dx));
+        arrow.draw(ctx, { x: 0, y: 0 });
+        ctx.restore();
+      }
+      ctx.restore();
     } else if (a.kind === "charge") {
       const len = BOSS.charge.speed * BOSS.charge.time,
         ex = a.x + a.dx * len,

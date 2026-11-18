@@ -25,14 +25,16 @@ test("every registered cat, enemy, prop, landmark, biome, weapon and passive get
   }
 });
 
-test("gallery states: cats idle + skill, elites only when eliteable, props in every state", () => {
+test("gallery states match cat poses, elite eligibility and the prop's fire rules", () => {
   const cells = galleryLayout(gallerySections(), 1000).cells;
   for (const id of CATS.ids())
     assert.deepEqual(cells.filter((c) => c.id === id && c.kind === "cat").map((c) => c.state), ["idle", "skill"]);
   for (const def of ENEMY_DEFS.all())
     assert.equal(cells.some((c) => c.kind === "enemy" && c.id === def.id && c.state === "elite"), def.eliteable);
-  for (const id of PROP_DEFS.ids())
-    assert.deepEqual(cells.filter((c) => c.kind === "prop" && c.id === id).map((c) => c.state), [...PROP_STATES]);
+  const states = (id) => cells.filter((c) => c.kind === "prop" && c.id === id).map((c) => c.state);
+  assert.deepEqual(states("ink-vat"), ["intact", "damaged", "scraps"]);
+  assert.deepEqual(states("paper-fence"), [...PROP_STATES]);
+  assert.deepEqual(states("wax-candle"), [...PROP_STATES]);
 });
 
 test("gallery labels, section titles and state labels are all i18n keys", () => {

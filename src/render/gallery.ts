@@ -72,10 +72,17 @@ const PAINTERS: Record<GalleryKind, Painter> = {
         spawnTime: 0,
         ...(elite ? { elite: true, radius: r } : {}),
       };
-    if (!ENEMY_ART.find(cell.id)) return;
+    const art = ENEMY_ART.find(cell.id);
+    if (!art) return;
+    const mul = elite ? ELITE.radiusMul : 1;
+    const bounds = art.previewBounds;
+    const f = bounds ? fit({
+      l: bounds.l * mul, r: bounds.r * mul, b: bounds.b * mul,
+      t: Math.min(bounds.t * mul, elite ? (art.crownY ?? -def.stats.radius * 2.05) * mul - r * 0.75 : 0),
+    }, st, 2.4) : { k, x: st.x + st.w / 2, y: st.y + st.h - 8 };
     ctx.save();
-    ctx.translate(st.x + st.w / 2, st.y + st.h - 8);
-    ctx.scale(k, k);
+    ctx.translate(f.x, f.y);
+    ctx.scale(f.k, f.k);
     drawCraftEnemy(ctx, e, 0, { x: 0, y: -1 });
     ctx.restore();
   },

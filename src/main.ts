@@ -175,6 +175,20 @@ function boot(): void {
   // The follow camera is presentation state; it never enters the sim.
   let camera: Camera = createCamera();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const compactPlaybill = matchMedia("(max-aspect-ratio: 1/1), (max-height: 600px)");
+  const layoutPlaybill = () => {
+    document.querySelectorAll<HTMLDetailsElement>(".skill-row").forEach((skill) => {
+      if (compactPlaybill.matches) {
+        skill.open = false;
+        skill.setAttribute("name", "playbill-kit");
+      } else {
+        skill.removeAttribute("name");
+        skill.open = true;
+      }
+    });
+  };
+  layoutPlaybill();
+  compactPlaybill.addEventListener("change", layoutPlaybill);
   let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
   let worldNeedsPaint = true;
   reducedMotion.addEventListener("change", () => { worldNeedsPaint = true; });
@@ -610,7 +624,7 @@ function boot(): void {
           ? {
               id: selectedCat,
               x: 705,
-              y: 399,
+              y: 418,
               facing: 1,
               moving: false,
               dashing: false,

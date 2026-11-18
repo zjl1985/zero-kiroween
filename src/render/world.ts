@@ -15,11 +15,11 @@ import {
   drawCombatGround,
   drawCombatFront,
   drawSkillEffect,
-  drawHeroAura,
   drawWeaponShot,
 } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
+import { drawPlaybillStage } from "./playbill-stage.js";
 import { drawPixelStroke, drawFootDust } from "./pixel.js";
 import {
   drawSky,
@@ -202,10 +202,6 @@ export function drawWorld(
       },
     });
   };
-  if (!sim && titleCat) {
-    drawHeroAura(ctx, titleCat.id, titleCat.x, titleCat.y, view.time);
-    cat(titleCat);
-  }
   if (sim) {
     if (sim.player.dashTime > 0) {
       const len = Math.hypot(sim.player.vx, sim.player.vy) || 1,
@@ -325,6 +321,7 @@ export function drawWorld(
     if (cues.length) drawCueWorld(ctx, cues, sim, view.time, reduced);
   }
   drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps);
+  if (!sim && titleCat) drawPlaybillStage(ctx, titleCat);
   ctx.restore();
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, cam, view.time, reduced);
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.

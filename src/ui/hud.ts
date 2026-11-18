@@ -7,7 +7,7 @@ import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { catName, characterCopy, paintPortrait } from "./character-panel.js";
 import { catArt } from "../render/art-index.js";
 import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
-import { paintUpgradeIcon } from "../render/upgrade-icons.js";
+import { paintCardEmblem, paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
 import { landmarks } from "../game/world-gen.js";
 import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./journal-geometry.js";
@@ -182,9 +182,17 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
   el.dataset.sig = sig;
   const title = document.createElement("strong");
   title.textContent = t(locale, r.big ? "chest.big_title" : "chest.title");
+  const seal = r.evolved ? document.createElement("canvas") : null;
+  if (seal) {
+    seal.className = "evolution-seal";
+    seal.width = seal.height = 96;
+    seal.setAttribute("aria-hidden", "true");
+    paintCardEmblem(seal, r.evolved as UpgradeId);
+  }
   el.classList.toggle("evolved", !!r.evolved);
   el.classList.toggle("big", r.big);
   el.replaceChildren(
+    ...(seal ? [seal] : []),
     title,
     ...lines.map((line, i) => {
       const s = document.createElement("span");

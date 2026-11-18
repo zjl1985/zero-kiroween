@@ -60,7 +60,7 @@ export const PAPER_FENCE_ART: PropArt = {
   id: "paper-fence",
   bounds: { l: -46, r: 46, t: -42, b: 12 },
   variants: 4,
-  flames: [],
+  flames: [[-13, -17], [19, -18]],
   scraps: [PICKET, RAIL, "#8c6a45", FIBRE],
   paint(ctx, x, y, s, v, phase, burnt) {
     if (phase === "intact") {

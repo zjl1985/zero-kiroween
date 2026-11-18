@@ -36,7 +36,7 @@
           </div>
           <div class="profile">
             <div class="mini-stage" aria-hidden="true">
-              <canvas id="profile-portrait" width="64" height="52"></canvas>
+              <canvas id="profile-portrait" width="232" height="186"></canvas>
             </div>
             <div>
               <div class="profile-title">
@@ -49,53 +49,38 @@
           <div class="profile-stats">
             <span id="profile-hp"></span><span id="profile-speed"></span>
           </div>
-          <div class="skill-list" tabindex="0">
-            <article class="skill-row">
-              <canvas
-                id="icon-attack"
-                width="32"
-                height="32"
-                aria-hidden="true"
-              ></canvas>
-              <div>
-                <header>
-                  <span id="skill-attack-type"></span>
-                  <h4 id="skill-attack-name"></h4>
-                </header>
-                <p id="skill-attack-desc"></p>
-              </div>
-            </article>
-            <article class="skill-row">
-              <canvas
-                id="icon-active"
-                width="32"
-                height="32"
-                aria-hidden="true"
-              ></canvas>
-              <div>
-                <header>
-                  <span id="skill-active-type"></span>
-                  <h4 id="skill-active-name"></h4>
+          <div class="skill-list">
+            <details class="skill-row" open>
+              <summary>
+                <canvas id="icon-attack" width="64" height="64" aria-hidden="true"></canvas>
+                <span class="skill-fold-label">
+                  <small id="skill-attack-type"></small>
+                  <strong id="skill-attack-name"></strong>
+                </span>
+              </summary>
+              <p id="skill-attack-desc"></p>
+            </details>
+            <details class="skill-row" open>
+              <summary>
+                <canvas id="icon-active" width="64" height="64" aria-hidden="true"></canvas>
+                <span class="skill-fold-label">
+                  <small id="skill-active-type"></small>
+                  <strong id="skill-active-name"></strong>
                   <kbd id="profile-skill-key">SPACE</kbd>
-                </header>
-                <p id="skill-active-desc"></p>
-              </div>
-            </article>
-            <article class="skill-row">
-              <canvas
-                id="icon-passive"
-                width="32"
-                height="32"
-                aria-hidden="true"
-              ></canvas>
-              <div>
-                <header>
-                  <span id="skill-passive-type"></span>
-                  <h4 id="skill-passive-name"></h4>
-                </header>
-                <p id="skill-passive-desc"></p>
-              </div>
-            </article>
+                </span>
+              </summary>
+              <p id="skill-active-desc"></p>
+            </details>
+            <details class="skill-row" open>
+              <summary>
+                <canvas id="icon-passive" width="64" height="64" aria-hidden="true"></canvas>
+                <span class="skill-fold-label">
+                  <small id="skill-passive-type"></small>
+                  <strong id="skill-passive-name"></strong>
+                </span>
+              </summary>
+              <p id="skill-passive-desc"></p>
+            </details>
           </div>
           <footer class="selection-footer">
             <p id="profile-tactic"></p>
@@ -118,16 +103,8 @@
         <p id="title-credit" class="credit corner-br"></p>
       </section>
       <div id="overlay">
-        <!-- Paper theater framing the chosen cat, which the canvas draws on the stage. -->
-        <div id="theater" class="theater" aria-hidden="true">
-          <div class="valance"></div>
-          <div class="curtain curtain-l"></div>
-          <div class="curtain curtain-r"></div>
-          <div class="stage-lip"></div>
-          <div class="hero-caption">
-            <span id="hero-kicker" class="eyebrow"></span
-            ><strong id="hero-name"></strong><span id="hero-role"></span>
-          </div>
+        <div class="hero-caption" aria-hidden="true">
+          <strong id="hero-name"></strong><span id="hero-role"></span>
         </div>
         <div id="hud" class="hud hidden">
           <div class="watch-badge">
@@ -241,10 +218,7 @@
             <button type="button" id="upgrade-card-0" class="upgrade-card" style="--deal: 0">
               <span class="card-stack" aria-hidden="true"><i></i><i></i></span>
               <span class="card-tag"></span>
-              <span class="card-window" aria-hidden="true"
-                ><canvas class="card-flower" width="192" height="192"></canvas
-                ><canvas class="card-icon" width="96" height="96"></canvas
-              ></span>
+              <canvas class="card-icon" width="192" height="192" aria-hidden="true"></canvas>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>
@@ -253,10 +227,7 @@
             <button type="button" id="upgrade-card-1" class="upgrade-card" style="--deal: 1">
               <span class="card-stack" aria-hidden="true"><i></i><i></i></span>
               <span class="card-tag"></span>
-              <span class="card-window" aria-hidden="true"
-                ><canvas class="card-flower" width="192" height="192"></canvas
-                ><canvas class="card-icon" width="96" height="96"></canvas
-              ></span>
+              <canvas class="card-icon" width="192" height="192" aria-hidden="true"></canvas>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>
@@ -265,10 +236,7 @@
             <button type="button" id="upgrade-card-2" class="upgrade-card" style="--deal: 2">
               <span class="card-stack" aria-hidden="true"><i></i><i></i></span>
               <span class="card-tag"></span>
-              <span class="card-window" aria-hidden="true"
-                ><canvas class="card-flower" width="192" height="192"></canvas
-                ><canvas class="card-icon" width="96" height="96"></canvas
-              ></span>
+              <canvas class="card-icon" width="192" height="192" aria-hidden="true"></canvas>
               <strong class="card-name"></strong>
               <small class="card-level"></small>
               <p class="card-desc"></p>

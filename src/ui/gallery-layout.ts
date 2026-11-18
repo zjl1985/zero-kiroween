@@ -7,7 +7,7 @@
  * in Node (tested in tests/gallery.test.mjs).
  */
 import type { MessageKey } from "../content/keys.js";
-import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
+import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
 export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "biome" | "weapon" | "passive";
 export type GalleryState =
@@ -71,7 +71,11 @@ export function gallerySections(): GallerySection[] {
         ENEMY_DEFS.get(id).eliteable ? ["normal", "elite"] : ["normal"],
       ),
     ),
-    section("prop", "props", items("prop", PROP_DEFS.ids(), (id) => `prop.${id}.name`, () => PROP_STATES)),
+    section("prop", "props", items("prop", PROP_DEFS.ids(), (id) => `prop.${id}.name`, (id) => {
+      const prop = PROP_DEFS.get(id);
+      return prop.accepts.includes("fire") && MATERIALS.get(prop.material).flammability > 0
+        ? PROP_STATES : ["intact", "damaged", "scraps"];
+    })),
     section("landmark", "landmarks", items("landmark", LANDMARK_DEFS.ids(), (id) => `landmark.${id}`, () => ["building"])),
     section("biome", "biomes", items("biome", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => ["ground"])),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),

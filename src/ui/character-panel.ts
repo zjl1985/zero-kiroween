@@ -4,7 +4,9 @@ import { t } from "../content/i18n.js";
 import { CATS } from "../defs/index.js";
 import { catArt } from "../render/art-index.js";
 import { paintSkillIcon } from "../render/combat-fx.js";
-import { evolutionDef, START_WEAPON, type UpgradeId } from "../game/upgrades.js";
+import { paintPaw } from "../render/journal-ui.js";
+import { paintPlaybillPortrait } from "../render/playbill-stage.js";
+import { evolutionDef, type UpgradeId } from "../game/upgrades.js";
 
 /** The cat's display name, through i18n (`<prefix>.name`). */
 export function catName(locale: Locale, id: CatId): string {
@@ -39,14 +41,11 @@ export function characterCopy(
 ): string {
   return t(locale, `${CATS.get(id).i18n}.${part}` as MessageKey, characterValues(locale, id));
 }
-/** Starting weapon and evolution path, read from START_WEAPON and EVOLUTIONS. */
+/** The evolution path uses the registered base weapon and matching passive. */
 export function buildPath(locale: Locale, id: CatId): string {
   const evo = evolutionDef(id),
     name = (u: UpgradeId) => t(locale, `upgrade.${u}.name` as MessageKey);
-  return `${t(locale, "selector.weapon")} · ${name(START_WEAPON[id]!)}  ${t(
-    locale,
-    "selector.evolution",
-  )} · ${name(evo.id)}: ${t(locale, "evolution.rule", {
+  return `${t(locale, "selector.evolution")} · ${name(evo.id)} · ${t(locale, "evolution.rule", {
     weapon: name(evo.weapon),
     passive: name(evo.passive),
   })}`;
@@ -84,21 +83,25 @@ export function buildCatTickets(): readonly HTMLButtonElement[] {
     b.id = id;
     b.className = "cat-choice ticket";
     b.dataset.cat = cat.id;
+    b.style.setProperty("--ticket-tone", catArt(cat.id).colors.hud);
     b.setAttribute("aria-pressed", String(i === 0));
     const canvas = document.createElement("canvas");
     canvas.width = 64;
     canvas.height = 52;
+    canvas.className = "choice-portrait";
     canvas.setAttribute("aria-hidden", "true");
     const label = document.createElement("span"),
       name = document.createElement("strong"),
       role = document.createElement("small"),
-      check = document.createElement("i");
+      seal = document.createElement("canvas");
     name.className = "choice-name";
     role.className = "choice-role";
     label.append(name, role);
-    check.setAttribute("aria-hidden", "true");
-    check.textContent = "✓";
-    b.append(canvas, label, check);
+    seal.className = "choice-seal";
+    seal.width = seal.height = 64;
+    seal.setAttribute("aria-hidden", "true");
+    paintPaw(seal, "#9b3e36", i + 2);
+    b.append(canvas, label, seal);
     group.append(b);
     return b;
   });
@@ -121,15 +124,22 @@ export function paintCharacterPanel(locale: Locale, id: CatId): void {
   set("profile-build", buildPath(locale, id));
   set("hero-name", catName(locale, id).toUpperCase());
   set("hero-role", characterCopy(locale, id, "role"));
-  set("hero-kicker", t(locale, "selector.preview"));
   for (const b of buildCatTickets()) {
     const candidate = b.dataset.cat!;
     b.setAttribute("aria-pressed", String(candidate === id));
     b.querySelector(".choice-name")!.textContent = t(locale, `cat.${candidate}.choice` as MessageKey);
     b.querySelector(".choice-role")!.textContent = characterCopy(locale, candidate, "role");
-    paintPortrait(b.querySelector("canvas")!, candidate);
+    const portrait = b.querySelector<HTMLCanvasElement>(".choice-portrait")!;
+    if (!portrait.dataset.cat) {
+      paintPortrait(portrait, candidate);
+      portrait.dataset.cat = candidate;
+    }
   }
-  paintPortrait(document.getElementById("profile-portrait") as HTMLCanvasElement, id);
+  const stage = document.getElementById("profile-portrait") as HTMLCanvasElement;
+  if (stage.dataset.cat !== id) {
+    paintPlaybillPortrait(stage, id);
+    stage.dataset.cat = id;
+  }
   for (const kind of ["attack", "active", "passive"] as const) {
     set(`skill-${kind}-type`, t(locale, `selector.${kind}`));
     set(`skill-${kind}-name`, characterCopy(locale, id, `${kind}.name`));

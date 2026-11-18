@@ -1,7 +1,7 @@
 import type { PropArt } from "../../../render/art-registry.js";
-import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
-import { hash, line, mix, oval, path, shadow, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
-import { phasedPaint, post } from "../../../render/prop-kit.js";
+import { paperCut } from "../../../render/paper-kit.js";
+import { hash, line, mix, oval, path, shadow, stroke, type Ctx } from "../../../render/paper-material.js";
+import { phasedPaint } from "../../../render/prop-kit.js";
 import { variant } from "../../../render/variants.js";
 
 const HAY = ["#d8b363", "#c9a24f", "#e2c272"] as const;
@@ -30,6 +30,18 @@ function bale(ctx: Ctx, v: number): void {
   for (const bx of [-12, 2]) stroke(ctx, new Path2D(`M ${bx} -30 Q ${bx - 2} -15 ${bx} 0`), "#7a4f34", 1.1, 0.85);
 }
 
+function unrolledBale(ctx: Ctx, v: number): void {
+  const color = HAY[v % HAY.length]!;
+  shadow(ctx, 0, 2, 27, 5.5);
+  paperCut(ctx, new Path2D("M -27 1 Q -28 -12 -20 -21 L 12 -23 L 22 -13 L 18 0 L -12 4 Z"),
+    { color, layers: 1, thickness: 0.9, edge: "#ebd08c", shadow: 1.5, texture: 0.78 });
+  paperCut(ctx, oval(15, -10, 10, 10, v + 4, 0.1), { color: "#ad874c", shadow: 0.8, thickness: 0.9, texture: 0.69 });
+  paperCut(ctx, oval(16, -10, 5.5, 6, v + 5, 0.12), { color: "#695035", edge: "#e4bd72", shadow: 0.3, thickness: 0.55 });
+  paperCut(ctx, new Path2D("M -22 -13 Q -11 -20 2 -16 Q -7 -8 -3 -2 Q 5 1 11 0 L 6 6 Q -8 7 -18 3 L -29 5 Q -20 -1 -22 -13 Z"),
+    { color: "#ebcd87", thickness: 0.78, shadow: 0.7, edge: "#fbebbb", texture: 0.68 });
+  stroke(ctx, new Path2D("M -13 -21 Q -18 -10 -15 -5 M -16 1 Q -23 3 -28 1"), "#885d40", 1.1, 0.86);
+}
+
 export const HAYBALE_ART: PropArt = {
   id: "haybale",
   bounds: BOUNDS,
@@ -44,6 +56,7 @@ export const HAYBALE_ART: PropArt = {
   paint: phasedPaint({
     bounds: BOUNDS,
     intact: bale,
+    damaged: unrolledBale,
     stub: "#c9a24f",
     stubs: [
       [-12, 10],

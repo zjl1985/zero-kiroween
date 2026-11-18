@@ -1,6 +1,6 @@
 import type { WaterPolygon, WaterRegion, WaterShape } from "../defs/types.js";
 import { prepareWater } from "../defs/water.js";
-import { paperCut, stitchAlong } from "./paper-kit.js";
+import { foldLine, paperCut, stitchAlong } from "./paper-kit.js";
 import { hash, line, stroke, type Ctx } from "./paper-material.js";
 
 /** No rough oval or smoothing here: this is the exact simulation polygon. */
@@ -37,12 +37,19 @@ export function drawWaterCrossings(ctx: Ctx, region: WaterRegion): void {
   for (const crossing of region.crossings) {
     const p = waterPath(crossing.polygon), a = crossing.polygon[0]!, b = crossing.polygon[1]!,
       d = crossing.polygon[3]!, dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
-    paperCut(ctx, p, { color: "#9a8b7e", shadow: 2.2, thickness: 1.6, texture: 0.85, edge: "#dac6a4" });
+    // The same walkable polygon tops two denser sheets. The cut cross-section
+    // gives the bridge a base without widening its dry surface.
+    paperCut(ctx, p, { color: "#9a8b7e", layers: 2, shadow: 2.7, thickness: 1.45, texture: 0.7, edge: "#dac6a4" });
     ctx.save(); ctx.clip(p);
+    const wx = d.x - a.x, wy = d.y - a.y;
     const count = Math.max(1, Math.ceil(len / 13));
-    for (let i = 1; i < count; i++) {
-      const t = i / count;
-      line(ctx, a.x + dx * t, a.y + dy * t, d.x + dx * t, d.y + dy * t, "#655d57", 0.8, 0.8);
+    for (let i = 0; i < count; i++) {
+      const from = (i + 0.08) / count, to = (i + 0.94) / count;
+      const left = { x: a.x + dx * from, y: a.y + dy * from };
+      const right = { x: a.x + dx * to, y: a.y + dy * to };
+      paperCut(ctx, [[left.x, left.y], [right.x, right.y], [right.x + wx, right.y + wy], [left.x + wx, left.y + wy]],
+        { color: i % 2 ? "#a49786" : "#b0a18f", thickness: 0.52, shadow: 0.55, edge: "#e0caa8", texture: 0.54 });
+      if (i % 3 === 0) foldLine(ctx, left.x + wx * 0.12, left.y + wy * 0.12, left.x + wx * 0.82, left.y + wy * 0.82, 0.42);
     }
     ctx.restore();
     // Low stitched edges, not impassable parapets hiding access to the shallow shelf.

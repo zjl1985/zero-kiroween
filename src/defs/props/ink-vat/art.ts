@@ -31,10 +31,24 @@ function vat(ctx: Ctx, v: number): void {
   paperCut(ctx, [[7, -33], [11, -32], [8, -27], [4, -28]], { color: "#333048", thickness: 0.5, shadow: 0.4 });
 }
 
+function spilledVat(ctx: Ctx, v: number): void {
+  const color = CARDS[v % CARDS.length]!;
+  shadow(ctx, 2, 2, 24, 6);
+  paperCut(ctx, new Path2D("M -24 5 Q -27 0 -16 -2 Q -3 -2 4 -6 L 24 -4 Q 30 0 24 7 Q 21 12 4 10 Q -8 14 -24 5 Z"),
+    { color: "#343049", shadow: 0.6, thickness: 0.5, texture: 0.63, edge: "#7e7795" });
+  paperCut(ctx, [[-17, -24], [-5, -20], [-1, -14], [7, -18], [15, -21], [13, -2], [6, 2], [-12, 1]],
+    { color, thickness: 1, shadow: 1.1, texture: 0.7, edge: "#afafb0" });
+  paperCut(ctx, [[-17, -24], [-4, -20], [-5, -14], [-20, -18], [-24, -27]],
+    { color: mix(color, "#c0ac90", 0.43), thickness: 0.7, shadow: 1.1, texture: 0.57 });
+  paperCut(ctx, new Path2D("M -1 -16 L 8 -18 Q 7 -9 13 -5 L 19 3 L 7 7 Q 1 2 -1 -16 Z"),
+    { color: "#292840", thickness: 0.55, shadow: 0.7, edge: "#817e9b", texture: 0.58 });
+  line(ctx, 8, 3, 17, 5, "#a5a0b9", 0.85, 0.8);
+}
+
 export const INK_VAT_ART: PropArt = {
   id: "ink-vat", bounds: BOUNDS, variants: 3, flames: [], scraps: [...CARDS, "#39364f", "#d6c9a6"],
   paint: phasedPaint({
-    bounds: BOUNDS, intact: vat, stub: "#64788c", stubs: [[-12, 8], [10, 5]],
+    bounds: BOUNDS, intact: vat, damaged: spilledVat, stub: "#64788c", stubs: [[-12, 8], [10, 5]],
     scraps: [...CARDS, "#39364f", "#d6c9a6"], spread: [25, 9],
   }),
 };

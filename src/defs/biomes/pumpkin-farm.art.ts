@@ -1,20 +1,20 @@
 import type { BiomeArt } from "../../render/art-registry.js";
 import { paperCut } from "../../render/paper-kit.js";
-import { line, oval, stroke } from "../../render/paper-material.js";
+import { line, stroke } from "../../render/paper-material.js";
 import { paperSprig } from "../../render/scenery-details.js";
 import { variant } from "../../render/variants.js";
 
 /** Furrowed beds: a leafy runner, paired seedlings, or a tied harvest-straw bundle. */
 export const PUMPKIN_FARM_ART: BiomeArt = {
   id: "pumpkin-farm",
-  swatch: ["#6a6a44", "#6b4f38", "#e0863f"],
+  swatch: ["#736343", "#8d6142", "#e0863f"],
   patchChance: 0.7,
   patch(ctx, x, y, r, seed) {
     const look = variant(seed, { palette: ["#61503b", "#65573e", "#6a5940"], flip: true });
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(r / 70 * look.flip, r / 70);
-    const soil = oval(0, 0, 61, 24, seed, 0.12);
+    const soil = new Path2D("M -62 -13 L -47 -21 L -24 -20 L 9 -26 L 53 -23 L 62 -17 L 61 17 L 31 20 L 17 24 L -11 22 L -28 26 L -53 19 Z");
     paperCut(ctx, soil, { color: look.color, shadow: 0.6, thickness: 0.8, texture: 0.7, edge: "#8c7650" });
     ctx.save();
     ctx.clip(soil);
@@ -22,7 +22,7 @@ export const PUMPKIN_FARM_ART: BiomeArt = {
       const yy = -16 + row * 10;
       // Broad overlapping ridges, with a dark lower lip and one pale folded edge.
       paperCut(ctx, [[-62, yy], [-25, yy + 2], [24, yy - 2], [63, yy - 4], [61, yy + 1], [22, yy + 3], [-26, yy + 6], [-62, yy + 4]], {
-        color: row % 2 ? "#7c6343" : "#725b3f", shadow: 0.5, thickness: 0.7, texture: 0.6, edge: "#9d7e50",
+        color: row % 2 ? "#906744" : "#76553e", shadow: 0.65, thickness: 0.8, texture: 0.6, edge: "#b08a5a",
       });
     }
     ctx.restore();

@@ -14,6 +14,8 @@ export interface PhasedLook {
   readonly bounds: ArtBounds;
   /** The intact prop at s = 1 with its base at (0, 0). */
   intact(ctx: Ctx, v: number): void;
+  /** A material-specific damage silhouette where the shared tear would hide its construction. */
+  damaged?(ctx: Ctx, v: number): void;
   /** Paper colour of the stubs left standing. */
   readonly stub: string;
   /** Stubs left standing: x offsets and heights at s = 1. */
@@ -41,6 +43,7 @@ export function phasedPaint(look: PhasedLook): PropArt["paint"] {
     ctx.translate(x, y);
     ctx.scale(s, s);
     if (phase === "intact") look.intact(ctx, v);
+    else if (phase === "damaged" && look.damaged) look.damaged(ctx, v);
     else if (phase === "damaged") {
       const keep = look.keep ?? 0.5 + hash(v * 3 + 1) * 0.18,
         line = tearLine(b, b.t * keep, v),

@@ -1,7 +1,6 @@
 /**
  * Small code-drawn pieces of the night-watch journal UI: the moon arc, the
- * lantern string, the skill wick, the folded minimap, the paw stamp and the
- * paper-cut window flowers behind upgrade icons. Every painter only reads its
+ * lantern string, the skill wick, the folded minimap and the paw stamp. Every painter only reads its
  * arguments; none touches SimState or the sim RNG.
  */
 import { glow, hash, line, mix, oval, path, piece, stitch, stroke, type Ctx } from "./paper-material.js";
@@ -366,66 +365,4 @@ export function paintPaw(canvas: HTMLCanvasElement, ink: string, seed: number): 
     ctx.fill();
   }
   ctx.restore();
-}
-
-// ---------------------------------------------------------------- window flower
-export function textSeed(text: string): number {
-  let h = 7;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
-/** One cut-paper rosette layer: a scalloped disc with a round window and petal holes. */
-function rosette(size: number, color: string, petals: number, seed: number, rot: number): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = c.height = size * 2;
-  const ctx = c.getContext("2d")!;
-  ctx.scale(2, 2);
-  const cx = size / 2,
-    R = size * 0.46,
-    edge: [number, number][] = [];
-  for (let i = 0; i < petals * 8; i++) {
-    const a = (i / (petals * 8)) * Math.PI * 2 + rot,
-      r = R * (0.93 + 0.07 * Math.cos(a * petals - rot * petals));
-    edge.push([cx + Math.cos(a) * r, cx + Math.sin(a) * r]);
-  }
-  piece(ctx, path(edge, true), color, { shadow: 0, thickness: 0.8, texture: 0.5 });
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = "#000";
-  ctx.fill(oval(cx, cx, R * 0.5, R * 0.5, seed, 0.02));
-  for (let i = 0; i < petals; i++) {
-    const a = (i / petals) * Math.PI * 2 + rot,
-      px = cx + Math.cos(a) * R * 0.72,
-      py = cx + Math.sin(a) * R * 0.72;
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(a);
-    // Teardrop petal hole pointing outward.
-    ctx.fill(path([[-R * 0.12, 0], [0, -R * 0.08], [R * 0.16, 0], [0, R * 0.08]], true));
-    ctx.restore();
-    const b = a + Math.PI / petals;
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(b) * R * 0.84, cx + Math.sin(b) * R * 0.84, R * 0.035, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(b) * R * 0.6, cx + Math.sin(b) * R * 0.6, R * 0.05, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  return c;
-}
-/** Paper-cut window flower behind a card icon; `double` adds a gold under-layer cut in a different pattern. */
-export function paintWindowFlower(canvas: HTMLCanvasElement, tone: string, seed: number, double: boolean): void {
-  const { ctx, w } = begin(canvas),
-    petals = [6, 8, 10][seed % 3]!,
-    rot = (hash(seed) - 0.5) * 0.6,
-    drop = (layer: HTMLCanvasElement, size: number, dy: number) => {
-      ctx.save();
-      ctx.shadowColor = "rgba(15,10,25,.55)";
-      ctx.shadowBlur = 3;
-      ctx.shadowOffsetY = dy;
-      ctx.drawImage(layer, (w - size) / 2, (w - size) / 2, size, size);
-      ctx.restore();
-    };
-  if (double) drop(rosette(w, "#e8c06f", petals + 4, seed + 3, rot + Math.PI / (petals + 4)), w, 2.4);
-  const front = double ? w * 0.84 : w * 0.96;
-  drop(rosette(front, tone, petals, seed, rot), front, 1.6);
 }

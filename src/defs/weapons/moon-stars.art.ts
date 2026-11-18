@@ -8,9 +8,11 @@ import { playerStats } from "../../game/upgrades.js";
 export const MOON_STARS_ART: WeaponArt = {
   id: "moon-stars",
   icon(ctx, ink) {
-    star(ctx, 14, 18, 8, ink);
-    star(ctx, 24, 9, 4.5, "#fff1ce");
-    stitch(ctx, oval(16, 17, 12, 7, 2), ink, 0.6);
+    star(ctx, 15, 18, 8.5, "#8576ac", 0.12);
+    star(ctx, 14, 16, 7.8, ink, 0.12);
+    stitch(ctx, oval(16, 17, 13, 8, 2), "#c7b7e7", 0.72);
+    star(ctx, 25, 9, 4.5, "#fff1ce", 0.24);
+    star(ctx, 5, 23, 3.6, "#c7b7e7", -0.22);
   },
   /** The faint orbit track, gold once the Full Moon is out. */
   ground(ctx, state) {

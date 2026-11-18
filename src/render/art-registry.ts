@@ -112,6 +112,10 @@ export interface EnemyArt {
   ground?(ctx: Ctx, e: EnemyState): void;
   /** Extra culling margin for large bodies. */
   readonly cullMargin?: number;
+  /** Bounds of the unscaled illustration in the workshop, relative to its ground point. */
+  readonly previewBounds?: ArtBounds;
+  /** Crown seat on the unscaled illustration for actors whose heads sit above the hit radius. */
+  readonly crownY?: number;
   readonly dissolve: EnemyDissolve;
   /** Impact kinds this enemy's attacks and defeat leave (ENEMY_FX_LIFE). */
   readonly effects?: Readonly<Record<string, EffectPainter>>;

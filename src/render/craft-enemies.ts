@@ -115,21 +115,21 @@ export function drawCraftEnemy(
 }
 
 function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
+  const art = ENEMY_ART.get(e.kind);
   if (!e.elite) {
-    ENEMY_ART.get(e.kind).draw(ctx, e, time, look);
+    art.draw(ctx, e, time, look);
     return;
   }
-  const base = ENEMIES[e.kind].radius,
-    k = enemyRadius(e) / base;
+  const base = ENEMIES[e.kind].radius, radius = enemyRadius(e), k = radius / base;
   ctx.save();
   ctx.translate(e.x, e.y);
   ctx.scale(k, k);
   ctx.translate(-e.x, -e.y);
   // The body is drawn at its base size inside the scale, with a gold rim glow.
   glow(ctx, e.x, e.y - base, base * 2.4, "#f2c46a", 0.22);
-  ENEMY_ART.get(e.kind).draw(ctx, { ...e, radius: base }, time, look);
+  art.draw(ctx, { ...e, radius: base }, time, look);
   ctx.restore();
-  if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y - enemyRadius(e) * 2.05, enemyRadius(e) / 14, e.id, time);
+  if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y + (art.crownY ?? -base * 2.05) * k, radius / 14, e.id, time);
 }
 /** A small folded gold-paper crown with stitched band. */
 function drawEliteCrown(ctx: Ctx, x: number, y: number, s: number, seed: number, time: number): void {

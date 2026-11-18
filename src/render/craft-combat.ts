@@ -67,11 +67,11 @@ export function drawCraftBlob(
     ][v]!);
     piece(c, cut, "#3b2d49", { shadow: 1.5, edge: "#a38ab1", texture: 0.55, thickness: 1.1 });
     c.save(); c.clip(cut);
-    c.fillStyle = "#574362";
-    c.fill(path([[-12, 3], [-6, -12], [1, -14], [-2 + v, 2], [-5, 7]]));
+    c.fillStyle = "#745b81";
+    c.fill(path([[-12, 3], [-6, -12], [1, -14], [1 + v, -3], [-5, 7]]));
     c.fillStyle = "#281e36";
     c.fill(path([[1, -14], [9, -8], [13, 2], [18, 10], [3, 5]]));
-    foldLine(c, -6, -10, -2 + v, 3, 0.55);
+    foldLine(c, -6, -10, -2 + v, 3, 0.78);
     c.restore();
     for (const dx of [-5, 5]) {
       piece(c, oval(dx, -1, 1.6, 2), "#f0c16d", { shadow: 0, texture: 0.15, edge: "#ffe1a0", thickness: 0.4 });

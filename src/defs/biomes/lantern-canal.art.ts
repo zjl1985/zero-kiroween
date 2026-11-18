@@ -1,20 +1,21 @@
 import type { BiomeArt } from "../../render/art-registry.js";
 import { paperCut } from "../../render/paper-kit.js";
-import { line, oval } from "../../render/paper-material.js";
+import { line } from "../../render/paper-material.js";
 import { reedFan } from "../../render/scenery-details.js";
 import { variant } from "../../render/variants.js";
 
 /** Dry towpath scraps only. Real water is generated once and drawn by water-art. */
 export const LANTERN_CANAL_ART: BiomeArt = {
   id: "lantern-canal",
-  swatch: ["#4f5a4c", "#2c4560", "#f0b85a"],
+  swatch: ["#476263", "#2c4560", "#f0b85a"],
   patchChance: 0.6,
   patch(ctx, x, y, r, seed) {
-    const look = variant(seed, { palette: ["#6b7562", "#707b6c", "#737b69"], flip: true });
+    const look = variant(seed, { palette: ["#687f72", "#6b8479", "#738c7c"], flip: true });
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(r / 70 * look.flip, r / 70);
-    paperCut(ctx, oval(0, 3, 61, 22, seed, 0.12), { color: look.color, shadow: 0.5, thickness: 0.7, texture: 0.65, edge: "#909b81" });
+    paperCut(ctx, new Path2D("M -64 2 L -53 -7 L -37 -8 Q -21 -22 5 -13 L 26 -16 L 41 -12 L 65 1 L 58 16 L 39 18 L 24 24 L 1 18 L -18 23 L -42 16 L -59 14 Z"),
+      { color: look.color, layers: 1, shadow: 0.62, thickness: 0.8, texture: 0.65, edge: "#a1ae94" });
     // Layered towpath fibres do not imply wet status on otherwise dry ground.
     for (let i = 0; i < 4; i++) {
       const yy = -3 + i * 3;

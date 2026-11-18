@@ -19,7 +19,7 @@ Composable, `src/render/paper-kit.ts`:
 - `charEdge(ctx, shape, amount?, seed?)`: burnt rim. `tornEdge(ax, ay, bx, by, teeth, depth, seed)`: jagged torn points. `warmGlow(ctx, x, y, r, strength?, color?)`: lamp or window light.
 - `toPath(shape)`, `insetPoints(points, inset)`.
 
-Props, `src/render/prop-kit.ts`: `phasedPaint(look)` builds a `PropArt.paint` for all three phases from one intact painter (damaged = intact clipped below a seeded torn line plus scraps; scraps = torn stubs or ash). `post(ctx, x, y0, y1, w, color, seed?)` draws a paper post. Scrap helpers in `src/render/paper-scraps.ts` (`scrapPieces`, `ashPatch`, `tornStub`).
+Props, `src/render/prop-kit.ts`. `phasedPaint(look)` can clip the intact prop below a seeded tear line and add scraps. A custom `damaged` painter can reveal the construction of a specific material, such as a rolled core or a corrugated flap. Scrap states use stubs or ash from `paper-scraps.ts`, and `post` gives stems and posts a cut edge.
 
 Seeded looks, `src/render/variants.ts`: `variant(seed, { palette, shift?, scale?, angle?, wear?, flip? })` returns `{ index, color, scale, angle, wear, flip }`, deterministic per seed. It uses the render-only `visHash` (`src/render/hash.ts`), never `Math.random` (tested). Props also get a per-placement size / tilt / mirror from their world seed (`PropArt.look`, default `PROP_LOOK`).
 
@@ -69,7 +69,7 @@ function signBoard(ctx: Ctx, v: number): void {
 
 `http://localhost:4173/?gallery=1` shows every registered entry on night-paper cards, without a sim, audio or game loop. It repaints on resize and on the language button.
 
-- `src/ui/gallery-layout.ts` (pure, Node-safe, tested): `gallerySections()` builds sections from the registries in this order: cats (`idle`, `skill`), enemies (`normal`, plus `elite` when `eliteable`), props (`PROP_STATES`: `intact`, `damaged`, `scraps`, `burning`, `burnt`), landmarks (`building`), biomes (`ground`), weapons and passives (`icon`). `galleryLayout(sections, width)` returns headers and cells; `GALLERY_CELL` sets cell sizes per kind; `GALLERY_GRID` the spacing.
+- `src/ui/gallery-layout.ts` builds the list from the registries and computes cell bounds. Cats have idle and skill poses. Elite previews require `eliteable`. Props have intact, damaged, and scrap previews. Fire previews require a flammable material and a prop that accepts fire. `GALLERY_CELL` and `GALLERY_GRID` control sizes and spacing.
 - `src/render/gallery.ts`: `paintGallery(canvas, locale, width, dpr)` dispatches by section kind only; it never names an id. Landmarks come from `landmarkPreview(id)` in `src/render/craft-world.ts`.
 - `src/main.ts` `bootGallery()` runs instead of `boot()` when `?gallery=1`.
 

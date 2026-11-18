@@ -19,14 +19,14 @@ function drawBat(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
     enemyPart("bat-wing", 42, 36, (c) => {
       const wing = path([[0, 0], [6, -7], [16, -12], [13, 2], [10, -1], [8, 5], [5, 1], [1, 6]]);
       piece(c, wing, "#393046", { shadow: 1.2, edge: "#a395b7", texture: 0.6, thickness: 0.9 });
-      c.fillStyle = "#5c4b6d";
+      c.fillStyle = "#766184";
       c.fill(path([[0, 0], [6, -7], [16, -12], [7, -1]]));
       c.fillStyle = "#211c2c";
       c.fill(path([[0, 0], [7, -1], [13, 2], [10, -1], [8, 5], [5, 1], [1, 6]]));
       foldLine(c, 0, 0, 15, -11, 0.75);
       foldLine(c, 1, 1, 8, 4, 0.4);
       // A turned-over wing tip and shoulder tab make the hinge read as folded card.
-      piece(c, path([[11, -8], [16, -12], [14, -5]]), "#a291b0",
+      piece(c, path([[8, -6], [16, -12], [14, -4], [11, -2]]), "#a291b0",
         { shadow: 0.3, edge: "#d6c7d9", texture: 0.3, thickness: 0.45 });
       line(c, 2, -1, 5, -3, "#cab8cd", 0.7, 0.75);
     }).draw(ctx, { x: 0, y: 0 });
@@ -50,5 +50,7 @@ function drawBat(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
 }
 export const PAPER_BAT_ART: EnemyArt = {
   id: "paper-bat", draw: drawBat,
+  previewBounds: { l: -25, r: 25, t: -39, b: 10 },
+  crownY: -32,
   dissolve: { flakes: ["#221c2c", "#372d42", "#4b3d55", "#c9a76f"], count: 10 },
 };

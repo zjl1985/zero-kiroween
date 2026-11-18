@@ -103,9 +103,22 @@ export function drawCombatFront(ctx: Ctx, state: SimState): void {
   if (p.shield > 0 && p.shieldTime > 0) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.85, p.shieldTime * 2);
-    light(ctx, p.x, p.y - 28, 45, "#8caccf", 0.09, 1);
-    ring(ctx, p.x, p.y - 29, 34, "#b9c9ec", 1.22);
-    ring(ctx, p.x, p.y - 29, 37, "#827ba9", 1.2, 0.65);
+    light(ctx, p.x, p.y - 28, 42, "#8caccf", 0.07, 1);
+    ring(ctx, p.x, p.y - 29, 35, "#b9c9ec", 1.22);
+    const guard = combatPart("shield-paper-fold", 26, 38, (c) => {
+      paperPiece(c, paperPath([[-5, -12], [3, -9], [7, 8], [-1, 14], [1, 5]]), "#9a95c7",
+        { shadow: 0.5, edge: "#e1d7f1", thickness: 0.62, texture: 0.35 });
+      paperPiece(c, paperPath([[-5, -12], [3, -9], [3, 2], [0, 0]]), "#ded4ed",
+        { shadow: 0.25, edge: "#f1e7f6", thickness: 0.38, texture: 0.3 });
+      foldLine(c, 0, -7, 4, 8, 0.55);
+    });
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(p.x + side * 35, p.y - 24);
+      ctx.scale(side, 1);
+      guard.draw(ctx, { x: 0, y: 0 });
+      ctx.restore();
+    }
     for (let i = 0; i < p.shield; i++)
       star(ctx, p.x + (i - (p.shield - 1) / 2) * 10, p.y - 77, 3, "#e4ddff");
     ctx.restore();
@@ -222,7 +235,9 @@ export function drawHeroAura(ctx: Ctx, id: CatId, x: number, y: number, time: nu
 /** The same code-generated symbols appear in selection, HUD, and touch controls. */
 export function paintSkillIcon(canvas: HTMLCanvasElement, id: CatId, kind: SkillIconKind): void {
   const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, 32, 32);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(canvas.width / 32, 0, 0, canvas.height / 32, 0, 0);
   catArt(id).skillIcon(ctx, kind);
 }
 export { orbitPositions };
