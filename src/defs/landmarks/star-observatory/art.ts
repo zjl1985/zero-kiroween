@@ -1,6 +1,7 @@
 import { OBSERVATORY } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
-import { paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, shadow, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 import { cardBeam, cardStar } from "../night-workshop-kit.art.js";
 
@@ -168,18 +169,23 @@ export const STAR_OBSERVATORY_ART: LandmarkArt = {
   id: "star-observatory",
   ink: "#b4b7d0",
   reach: () => 210,
-  ground(ctx, l) {
+  base(ctx, l) {
     ctx.save(); ctx.translate(l.x, l.y);
-    paperCut(ctx, oval(0, 24, 177, 105, l.seed, 0.055), { color: "#66667b", thickness: 1.4, shadow: 2, texture: 0.9 });
-    const court = paperCut(ctx, oval(0, 26, 161, 92, l.seed + 1, 0.04), { color: "#858595", thickness: 0.9, shadow: 0.6, texture: 0.9 });
+    // A stepped twelve-sided star-chart dais: a dark plinth tier, then the court tier cut into wedges.
+    flatCut(ctx, polygon(0, 24, 180, 106, 12, Math.PI / 12), { color: "#5b5b70", thickness: 1.6, lift: 1.6, rim: 1.1, layers: 1 });
+    const court = flatCut(ctx, polygon(0, 26, 162, 92, 12, Math.PI / 12), { color: "#858595", thickness: 1, lift: 0.8, rim: 1 });
     ctx.save(); ctx.clip(court);
     for (let i = 0; i < 12; i++) {
-      const a = (i * Math.PI) / 6, b = a + Math.PI / 6,
-        outerA: Point = [Math.cos(a) * 160, 26 + Math.sin(a) * 91],
-        outerB: Point = [Math.cos(b) * 160, 26 + Math.sin(b) * 91];
-      paperCut(ctx, [[Math.cos(a) * 113, 26 + Math.sin(a) * 62], outerA, outerB, [Math.cos(b) * 113, 26 + Math.sin(b) * 62]], { color: i % 2 ? "#8f8d9a" : "#787c91", thickness: 0.5, shadow: 0.3, texture: 0.8 });
+      const a = (i * Math.PI) / 6 - Math.PI / 12, b = a + Math.PI / 6,
+        outerA: Point = [Math.cos(a) * 170, 26 + Math.sin(a) * 97],
+        outerB: Point = [Math.cos(b) * 170, 26 + Math.sin(b) * 97];
+      flatCut(ctx, [[Math.cos(a) * 113, 26 + Math.sin(a) * 62], outerA, outerB, [Math.cos(b) * 113, 26 + Math.sin(b) * 62]], { color: i % 2 ? "#8f8d9a" : "#787c91", thickness: 0.5, lift: 0.3, texture: 0.7 });
     }
     ctx.restore();
+    ctx.restore();
+  },
+  ground(ctx, l) {
+    ctx.save(); ctx.translate(l.x, l.y);
     stitchAlong(ctx, oval(0, 26, 151, 84, l.seed + 1, 0.04), "#cdc2a6", 0.75);
     stroke(ctx, oval(0, 26, 112, 62, 5, 0.015), "#c6bba1", 1.5, 0.65);
     stroke(ctx, oval(0, 26, 104, 56, 5, 0.015), "#c6bba1", 0.65, 0.6);

@@ -1,4 +1,6 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut } from "../../../render/paper-kit.js";
 import { grassTuft, leaf } from "../../../render/craft-scene.js";
 import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, glow, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
@@ -72,19 +74,22 @@ function bench(ctx: Ctx, x: number, y: number, s: number, v: number): void {
 export const PUPPET_THEATRE_ART: LandmarkArt = {
   id: "puppet-theatre",
   ink: "#c2604e",
+  base(ctx, l) {
+    const { x, y, seed } = l;
+    // Stage boards: a planked apron with a dark front rail, narrowing toward the back.
+    flatCut(ctx, [[x - 128, y - 78], [x + 128, y - 80], [x + 164, y + 92], [x - 166, y + 94]], { color: "#3d2b2b", thickness: 1.4, lift: 1.5, rim: 0.8 });
+    boards(ctx, x - 150, y - 72, x + 150, y + 84, 8, ["#7d6048", "#735641", "#86684e"], seed);
+    flatCut(ctx, [[x - 168, y + 84], [x + 166, y + 82], [x + 168, y + 96], [x - 170, y + 98]], { color: "#5a2f30", edge: "#b0645a", thickness: 1, lift: 1, stitch: "#d8a77c", stitchInset: 2 });
+  },
   ground(ctx, l) {
     const { x, y, seed } = l;
-    const yard = oval(x, y + 8, 168, 96, seed, 0.08);
-    piece(ctx, yard, "#6a5a48", { shadow: 1.6, edge: "#9a8466", texture: 0.85, thickness: 1.2 });
-    stitch(ctx, oval(x, y + 8, 162, 90, seed, 0.08), "#b8a07a", 0.6);
-    // Ticket stubs and confetti trodden into the yard.
-    for (let i = 0; i < 26; i++) {
-      const cx = x + (hash(seed + i) - 0.5) * 280,
-        cy = y + 8 + (hash(seed + i * 3) - 0.5) * 150,
+    // A few large ticket stubs dropped on the boards, not confetti.
+    for (let i = 0; i < 7; i++) {
+      const cx = x + (hash(seed + i) - 0.5) * 260,
+        cy = y + 8 + (hash(seed + i * 3) - 0.5) * 130,
         c = ["#c2604e", "#e3b866", "#8aa0b8", "#efe2c2"][i % 4]!;
-      piece(ctx, box(cx, cy, 4 + hash(seed + i * 5) * 3, 2.4, seed + i), c, { shadow: 0.3, texture: 0.3, thickness: 0.3 });
+      flatCut(ctx, box(cx, cy, 11 + hash(seed + i * 5) * 4, 6, seed + i), { color: c, thickness: 0.6, lift: 0.5, texture: 0.3 });
     }
-    for (let i = 0; i < 8; i++) leaf(ctx, x + (hash(seed + i * 7) - 0.5) * 300, y + 80 + hash(seed + i) * 20, 7, 3, hash(seed + i * 9) * 6, "#9f5740", i);
   },
   pieces: [
     { kind: "theatre", bounds: { l: -86, r: 86, t: -172, b: 14 }, paint: theatre, popup: true },

@@ -192,7 +192,12 @@ export interface DecorPiece {
 /** Art of one landmark kind, same id as its LandmarkDef. */
 export interface LandmarkArt {
   readonly id: string;
-  /** Ground-level art baked into the chunk caches (plazas, soil, water ...). */
+  /**
+   * The kind's own grounded footing (riverbank, fence yard, furrows, boards,
+   * tiles ...), painted flat before `ground`; never a shared oval base.
+   */
+  base(ctx: Ctx, l: LandmarkPlace): void;
+  /** Ground-level detail on the base, baked into the chunk caches (court marks, paths, plants ...). */
   ground(ctx: Ctx, l: LandmarkPlace): void;
   /** How far the ground art reaches from the centre (default radius + 40). */
   reach?(l: LandmarkPlace): number;
@@ -202,11 +207,22 @@ export interface LandmarkArt {
   readonly pieces?: readonly DecorPiece[];
 }
 
+/** How a district's ground sheets are cut and finished (render/paper-ground.ts). */
+export interface SheetLook {
+  /** Sheet paper tones (night values, so cats and ink stay readable). */
+  readonly colors: readonly [string, string, string];
+  /** Edge cut: ruler-cut and stitched, field strips, torn, wavy or scalloped. */
+  readonly seam: "ruled" | "furrow" | "torn" | "wave" | "scallop";
+  /** Fringe-cut grass along stretches of each sheet's lower edge. */
+  readonly fringe?: string;
+}
 /** Ground art of one district biome, same id as its BiomeDef. */
 export interface BiomeArt {
   readonly id: string;
   /** Base paper, plus two accents (gallery swatch and minimap tint). */
   readonly swatch: readonly [string, string, string];
+  /** The large paper sheets the district ground is laid from. */
+  readonly sheet: SheetLook;
   /** Chance that a ground patch cell of this biome gets a patch. */
   readonly patchChance: number;
   /** One flat cluster of ground detail around (x, y), about r wide; baked into chunk caches. */

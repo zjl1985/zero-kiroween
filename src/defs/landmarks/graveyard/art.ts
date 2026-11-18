@@ -1,4 +1,6 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut } from "../../../render/paper-kit.js";
 import { grassTuft, leaf, pumpkin } from "../../../render/craft-scene.js";
 import { box, glow, grain, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 
@@ -84,21 +86,14 @@ function tomb(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
 export const GRAVEYARD_ART: LandmarkArt = {
   id: "graveyard",
   ink: "#b2abc2",
-  ground(ctx, l) {
+  base(ctx, l) {
     const { x, y, seed } = l;
-    const yard = oval(x, y, 200, 124, seed, 0.08);
-    piece(ctx, yard, "#454a40", { shadow: 1.2, edge: "#5f6653", texture: 0.85, thickness: 1 });
-    // A low wrought fence rings the yard, open toward the south.
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2;
-      if (Math.sin(a) > 0.92) continue;
-      const fx = x + Math.cos(a) * 196,
-        fy = y + Math.sin(a) * 120;
-      line(ctx, fx, fy, fx, fy - 11, "#2a2230", 1.4);
-      piece(ctx, path([[fx - 1.8, fy - 11], [fx, fy - 15], [fx + 1.8, fy - 11]]), "#3a2f3f", { shadow: 0.3, texture: 0.4, thickness: 0.3 });
-    }
-    stroke(ctx, oval(x, y - 6, 196, 120, seed, 0.0), "#2a2230", 1, 0.7);
+    // A torn moss sheet for the yard, with a cut fence silhouette round the back, open to the south.
+    flatCut(ctx, blob(x, y, 200, 124, seed, 0.09, 36), { color: "#434a3f", edge: "#6a735c", thickness: 1.3, lift: 1.3, rim: 1 });
+    flatCut(ctx, blob(x + 8, y + 6, 168, 98, seed + 3, 0.12, 30), { color: "#4a5345", thickness: 0.8, lift: 0.6, rim: 0.8 });
+    fenceSilhouette(ctx, x, y, 196, 120, Math.PI / 2 + 0.42, Math.PI * 2.5 - 0.42, 46, 14, "#2c2532", seed);
   },
+  ground() {},
   pieces: [
     { kind: "chapel", bounds: { l: -82, r: 72, t: -202, b: 14 }, paint: chapel, popup: true },
     { kind: "tomb", bounds: { l: -16, r: 16, t: -38, b: 8 }, paint: tomb, variants: 6 },

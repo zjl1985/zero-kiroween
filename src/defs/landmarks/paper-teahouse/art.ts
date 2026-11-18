@@ -1,9 +1,9 @@
 import { TEA } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
-import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut, foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, path, shadow, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 import { cardBeam, foldedLeaf, foldedPot, paperSprig } from "../night-workshop-kit.art.js";
-import { plaza } from "../plaza.art.js";
 
 function cup(ctx: Ctx, x: number, y: number, s = 1): void {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
@@ -143,9 +143,24 @@ export const PAPER_TEAHOUSE_ART: LandmarkArt = {
   id: "paper-teahouse",
   ink: "#d7ac74",
   reach: () => 210,
+  base(ctx, l) {
+    ctx.save(); ctx.translate(l.x, l.y);
+    // A raked paper-gravel garden: a pale sheet combed into long waves.
+    const garden = flatCut(ctx, blob(0, 28, 178, 102, l.seed, 0.03, 40), { color: "#9b927f", edge: "#d8ccb0", thickness: 1.3, lift: 1.4, rim: 1 });
+    ctx.save();
+    ctx.clip(garden);
+    for (let i = 0; i < 11; i++) {
+      const yy = -70 + i * 18, comb = new Path2D();
+      comb.moveTo(-190, yy);
+      for (let xx = -190; xx <= 190; xx += 38) comb.quadraticCurveTo(xx + 9.5, yy - 5, xx + 19, yy), comb.quadraticCurveTo(xx + 28.5, yy + 5, xx + 38, yy);
+      stroke(ctx, comb, "#7d7564", 1.2, 0.5);
+      ctx.save(); ctx.translate(0.6, -1); stroke(ctx, comb, "#c8bea6", 0.8, 0.55); ctx.restore();
+    }
+    ctx.restore();
+    ctx.restore();
+  },
   ground(ctx, l) {
     ctx.save(); ctx.translate(l.x, l.y);
-    plaza(ctx, 0, 28, 177, 102, l.seed);
     // A broad unoccupied entrance path, framed by two planted islands.
     for (const [px, py, rx, ry] of [[-133, -38, 40, 35], [137, -25, 30, 26]] as const) {
       paperCut(ctx, oval(px, py, rx, ry, l.seed + px, 0.1), { color: "#59634a", thickness: 1, shadow: 1, texture: 0.9 });

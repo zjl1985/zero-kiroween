@@ -43,7 +43,8 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
                       behaviours.ts, fx-life.ts, eraser-boss/attacks.ts
   reactions/<id>.ts   23 unique material x element rows; tear.ts and paper-status.ts shared helpers
   props/<id>/         def.ts, art.ts (17 props, including ink-vat / wax-candle; 5 renewable flora)
-  landmarks/<id>/     def.ts, art.ts (12 kinds over 24 sites); plaza.art.ts shared ground;
+  landmarks/<id>/     def.ts, art.ts (12 kinds over 24 sites); ground-kit.art.ts flat per-kind bases
+                      (riverbank, fence yard, furrows, boards, tiles, fringed mounds, stone ring);
                       night-workshop-kit.art.ts shared beams, folded plants, pots and star motifs
   biomes/<id>.ts      + <id>.art.ts (5 districts); districts.ts (DISTRICTS, BASE_DECOR)
 src/game/             generic simulation, no DOM, no per-cat literals (tested)
@@ -74,6 +75,7 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   prop-kit.ts         phasedPaint (intact / damaged / scraps from one painter), post
   variants.ts         variant(seed, base): seeded colour, scale, tilt, wear, mirror (render hash only)
   sprite-tint.ts      cached offscreen alpha-masked tints for burning props and folding decor
+  paper-ground.ts     district ground sheets (seam styles, fringe-cut lower edges), global order
   paper-material.ts   low-level paper fiber, cut edges, thickness, shadows, stitching, glow
   paper-scraps.ts     scrap pieces, ash patch, torn stubs
   paper-face.ts       cached visible color contours / silhouette from untouched official data;

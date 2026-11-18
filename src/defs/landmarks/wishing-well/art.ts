@@ -1,6 +1,7 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
 import { grassTuft } from "../../../render/craft-scene.js";
-import { paperCut } from "../../../render/paper-kit.js";
+import { flatCut, paperCut } from "../../../render/paper-kit.js";
 import { box, glow, hash, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 
 import { POND } from "./def.js";
@@ -53,12 +54,14 @@ function well(ctx: Ctx, x: number, y: number, s: number, v: number): void {
 export const WISHING_WELL_ART: LandmarkArt = {
   id: "wishing-well",
   ink: "#8fb6c6",
+  base(ctx, l) {
+    const { x, y, seed } = l;
+    // Wet ground inside a ring of separate wet stones at the well's foot.
+    flatCut(ctx, blob(x, y - 42, 56, 15, seed, 0.05), { color: "#3d434c", thickness: 0.8, lift: 0.3 });
+    stoneRing(ctx, x, y - 42, 74, 22, 14, 0.36, seed);
+  },
   ground(ctx, l) {
     const { x, y, seed } = l;
-    // A cobbled ring around the well.
-    const ring = oval(x, y - 42, 70, 20, seed, 0.06);
-    piece(ctx, ring, "#8b8174", { shadow: 1.4, edge: "#b9ab92", texture: 0.85, thickness: 1.2 });
-    stitch(ctx, oval(x, y - 42, 64, 17, seed, 0.06), "#cdbb98", 0.6);
     // The shared water pass paints the exact shore/core before this floating detail.
     const py = y + POND.dy;
     for (let i = 0; i < 4; i++)

@@ -1,6 +1,11 @@
 import { GREENHOUSE } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
-import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut, foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import type { Point } from "../../../render/paper-material.js";
+
+/** The squared potting-yard sheet, shared by the base and the bed clip. */
+const YARD: readonly Point[] = [[-180, -72], [176, -78], [184, 116], [-184, 120]];
 import { box, hash, line, oval, path, shadow, stroke, type Ctx } from "../../../render/paper-material.js";
 import { cardBeam, foldedLeaf, foldedPot, paperSprig } from "../night-workshop-kit.art.js";
 
@@ -168,11 +173,16 @@ export const FOLD_GREENHOUSE_ART: LandmarkArt = {
   id: "fold-greenhouse",
   ink: "#95bc9d",
   reach: () => 215,
+  base(ctx, l) {
+    ctx.save(); ctx.translate(l.x, l.y);
+    // A potting yard: a squared green sheet whose front edge is a folded kraft-paper border.
+    flatCut(ctx, YARD, { color: "#63725a", edge: "#a3b285", thickness: 1.5, lift: 1.4, rim: 1.1, stitch: "#a3b285", stitchInset: 7 });
+    flatCut(ctx, [[-186, 112], [184, 108], [186, 126], [-184, 130]], { color: "#8a7a5c", edge: "#d2c29c", thickness: 1, lift: 1, fold: { from: [-186, 118], to: [186, 114], depth: 0.25, side: -1 } });
+    ctx.restore();
+  },
   ground(ctx, l) {
     ctx.save(); ctx.translate(l.x, l.y);
-    const yard = paperCut(ctx, oval(0, 25, 183, 108, l.seed, 0.07), { color: "#63725a", thickness: 1.5, shadow: 1.8, texture: 0.95 });
-    stitchAlong(ctx, oval(0, 25, 175, 100, l.seed, 0.07), "#a3b285", 0.6);
-    ctx.save(); ctx.clip(yard);
+    ctx.save(); ctx.clip(path(YARD));
     for (const [px, py, w] of [[-140, -23, 46], [116, -2, 47], [-120, 80, 65]] as const) {
       paperCut(ctx, oval(px, py, w, 26, l.seed + px, 0.13), { color: "#665747", thickness: 0.8, shadow: 0.6, texture: 0.9 });
       for (let i = 0; i < 5; i++) {

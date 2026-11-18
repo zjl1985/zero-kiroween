@@ -1,7 +1,8 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut } from "../../../render/paper-kit.js";
 import { grassTuft, leaf, pumpkin } from "../../../render/craft-scene.js";
 import { box, glow, grain, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
-import { plaza } from "../plaza.art.js";
 
 function clockTower(ctx: Ctx, x: number, y: number, s: number, _seed: number): void {
   ctx.save();
@@ -76,8 +77,14 @@ function clockTower(ctx: Ctx, x: number, y: number, s: number, _seed: number): v
 export const CLOCK_TOWER_ART: LandmarkArt = {
   id: "clock-tower",
   ink: "#c9a35f",
+  base(ctx, l) {
+    // Paved paper tiles on a stepped octagonal apron around the tower.
+    const apron = polygon(l.x, l.y + 12, 136, 82, 8, Math.PI / 8);
+    pavedTiles(ctx, apron, l.x, l.y + 12, 136, 82, 17, ["#958a7b", "#80776b", "#a29683"], l.seed);
+  },
   ground(ctx, l) {
-    plaza(ctx, l.x, l.y + 12, 130, 78, l.seed);
+    // A darker inlaid ring of tiles marks the clock's footprint.
+    stoneRing(ctx, l.x, l.y + 8, 64, 26, 12, 0.28, l.seed + 3, false);
   },
   pieces: [{ kind: "clock-tower", bounds: { l: -52, r: 52, t: -258, b: 14 }, paint: clockTower, popup: true }],
 };

@@ -40,6 +40,8 @@ import { viewRect } from "./camera.js";
 import { popupStep, popupTarget } from "./timeline.js";
 import { drawInteractable } from "./craft-juice.js";
 import { tintedSprite } from "./sprite-tint.js";
+import { sheetGround } from "./paper-ground.js";
+import { flatCut, fringeStrip, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import {
   bush,
   candles,
@@ -48,6 +50,7 @@ import {
   fence,
   flower,
   grassTuft,
+  groundOutline,
   groundTilePasses,
   groundUnderlay,
   horizonHills,
@@ -182,48 +185,97 @@ function roadHits(r: Road, x0: number, y0: number, x1: number, y1: number): bool
     return Math.max(p.x, q.x) + pad >= x0 && Math.min(p.x, q.x) - pad <= x1 && Math.max(p.y, q.y) + pad >= y0 && Math.min(p.y, q.y) - pad <= y1;
   });
 }
-/** A cut-paper road strip: contact shadow, dark cut edge, light top edge, pebbles and stitching. */
-function drawRoad(ctx: Ctx, r: Road, ri: number, tile: ViewRect): void {
+/** Road paper and its verge fringe tone per district (sheet fringe, else a quiet moss). */
+const ROAD = { paper: "#b9ad93", card: "#5c4f40", rim: "#ecd8b3", patchEvery: 130, vergeEvery: 84 } as const;
+/**
+ * A cut-paper road strip: a hard shadow down-right, the darker card side, the
+ * paper strip, a lit cut rim toward the moon, fibre chips along both cut
+ * edges, a few large repair patches instead of pebble specks, stitching, and
+ * fringe-cut grass verges in short runs along both edges.
+ */
+function drawRoad(ctx: Ctx, r: Road, ri: number, tile: ViewRect, seed: number): void {
   const p = roadPath(r.points),
-    w = r.width * 2;
+    w = r.width * 2,
+    { dirX, dirY } = PAPER_LIGHT;
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.save();
-  ctx.translate(-0.9, 2.6);
-  stroke(ctx, p, "rgba(15,10,25,.42)", w + 4);
+  ctx.translate(PAPER_SHADOW.dx * 2.4, PAPER_SHADOW.dy * 2.4);
+  stroke(ctx, p, PAPER_SHADOW.color, w + 2, 0.36);
   ctx.restore();
-  stroke(ctx, p, "#5f5243", w + 2.2);
-  stroke(ctx, p, "#bfb399", w);
   ctx.save();
-  ctx.translate(-0.35, -0.6);
-  stroke(ctx, p, "#e4cfaa", 1.1, 0.5);
+  ctx.translate(PAPER_SHADOW.dx * 0.9, PAPER_SHADOW.dy * 0.9);
+  stroke(ctx, p, ROAD.card, w + 1.4);
   ctx.restore();
+  stroke(ctx, p, ROAD.paper, w);
   ctx.restore();
-  // Pebbles, placed by world position so every chunk agrees.
-  const pad = r.width + 4;
+  // Lit rim on the moon side of each cut edge, dark lip on the other.
+  for (const side of [-1, 1]) {
+    const edge = roadPath(r.points, side * (r.width - 0.9));
+    ctx.save();
+    ctx.translate(-dirX * 0.5, -dirY * 0.5);
+    stroke(ctx, edge, ROAD.rim, 1.2, 0.5);
+    ctx.restore();
+    ctx.save();
+    ctx.setLineDash([2.5, 6, 1.2, 9]);
+    ctx.lineDashOffset = ri * 7 + (side > 0 ? 3 : 0);
+    stroke(ctx, roadPath(r.points, side * (r.width - 0.4)), "#f3e3c2", 1.6, 0.5);
+    ctx.restore();
+  }
+  const pad = r.width + 30;
   for (let i = 0; i < r.points.length - 1; i++) {
     const a = r.points[i]!,
       b = r.points[i + 1]!;
     if (Math.max(a.x, b.x) + pad < tile.x0 || Math.min(a.x, b.x) - pad > tile.x1 ||
         Math.max(a.y, b.y) + pad < tile.y0 || Math.min(a.y, b.y) - pad > tile.y1) continue;
     const len = Math.hypot(b.x - a.x, b.y - a.y),
-      nx = -(b.y - a.y) / (len || 1),
-      ny = (b.x - a.x) / (len || 1);
-    for (let k = 0; k < len; k += 7) {
-      const seed = ri * 100003 + i * 7919 + k,
-        t = k / len,
-        across = (hash(seed) - 0.5) * r.width * 1.3,
-        x = a.x + (b.x - a.x) * t + nx * across,
-        y = a.y + (b.y - a.y) * t + ny * across;
-      if (x < tile.x0 - 4 || x > tile.x1 + 4 || y < tile.y0 - 4 || y > tile.y1 + 4) continue;
-      const d = new Path2D();
-      d.ellipse(x, y, 1 + hash(seed + 8) * 2, 0.3 + hash(seed + 1) * 0.6, hash(seed + 2) * 2, 0, Math.PI * 2);
-      ctx.fillStyle = seed % 3 ? "rgba(95,77,64,.14)" : "rgba(245,224,186,.3)";
-      ctx.fill(d);
+      ux = (b.x - a.x) / (len || 1),
+      uy = (b.y - a.y) / (len || 1),
+      nx = -uy,
+      ny = ux;
+    // Large paper repair patches, placed by world position so every chunk agrees.
+    for (let k = ROAD.patchEvery * 0.5; k < len; k += ROAD.patchEvery) {
+      const sd = ri * 100003 + i * 7919 + Math.round(k);
+      if (hash(sd) < 0.4) continue;
+      const across = (hash(sd + 1) - 0.5) * r.width * 0.8,
+        cx = a.x + ux * k + nx * across,
+        cy = a.y + uy * k + ny * across,
+        pw = 9 + hash(sd + 2) * 8,
+        ph = 4 + hash(sd + 3) * 3;
+      if (cx < tile.x0 - 30 || cx > tile.x1 + 30 || cy < tile.y0 - 30 || cy > tile.y1 + 30) continue;
+      flatCut(ctx, [[cx - ux * pw - nx * ph, cy - uy * pw - ny * ph], [cx + ux * pw * 0.9 - nx * ph * 1.1, cy + uy * pw * 0.9 - ny * ph * 1.1],
+        [cx + ux * pw + nx * ph, cy + uy * pw + ny * ph], [cx - ux * pw * 0.8 + nx * ph * 0.9, cy - uy * pw * 0.8 + ny * ph * 0.9]],
+        { color: hash(sd + 4) < 0.5 ? "#c9bea4" : "#a89c83", thickness: 0.6, lift: 0.45, rim: 0.5, texture: 0.5 });
     }
   }
   for (const side of [-1, 1]) stitch(ctx, roadPath(r.points, side * (r.width - 3.5)), "#826c55", 0.9);
+  // Fringe-cut grass verges in short runs; skipped near water so crossings stay clean.
+  for (let i = 0; i < r.points.length - 1; i++) {
+    const a = r.points[i]!,
+      b = r.points[i + 1]!;
+    if (Math.max(a.x, b.x) + pad < tile.x0 || Math.min(a.x, b.x) - pad > tile.x1 ||
+        Math.max(a.y, b.y) + pad < tile.y0 || Math.min(a.y, b.y) - pad > tile.y1) continue;
+    const len = Math.hypot(b.x - a.x, b.y - a.y),
+      ux = (b.x - a.x) / (len || 1),
+      uy = (b.y - a.y) / (len || 1);
+    if (Math.abs(uy) > 0.8) continue;
+    for (let k = 20; k < len - 20; k += ROAD.vergeEvery)
+      for (const side of [-1, 1]) {
+        const sd = ri * 50021 + i * 3571 + Math.round(k) * 3 + (side > 0 ? 1 : 0);
+        if (hash(sd) < 0.45) continue;
+        const run = 22 + hash(sd + 1) * 26,
+          off = side * (r.width + 0.5),
+          sx = a.x + ux * k - uy * off,
+          sy = a.y + uy * k + ux * off,
+          mx = sx + ux * run * 0.5,
+          my = sy + uy * run * 0.5;
+        if (mx < tile.x0 - 60 || mx > tile.x1 + 60 || my < tile.y0 - 40 || my > tile.y1 + 40) continue;
+        if (waterRegionsNear(seed, mx, my, run + 10).some((water) => touchesWaterShore(water, mx, my, run + 10))) continue;
+        const look = BIOME_ART.find(biomeAt(seed, Math.floor(mx / CHUNK.width), Math.floor(my / CHUNK.height)).id)?.sheet;
+        fringeStrip(ctx, sx, sy, sx + ux * run, sy + uy * run, 7 + hash(sd + 2) * 4, look?.fringe ?? "#626b4c", sd, 3.8);
+      }
+  }
 }
 /** The map edge: a paper hedge on the west, east and south. */
 function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): void {
@@ -247,7 +299,7 @@ function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): vo
       clump(x, WORLD.maxY - 10 - hash(x) * 8, Math.floor(x / step) * 3);
 }
 /** Ground patch grid: one possible cluster per cell, its biome from the cell centre's chunk. */
-const PATCH = { cell: 150, margin: 110, r: [46, 84] } as const;
+const PATCH = { cell: 210, margin: 110, r: [46, 84] } as const;
 /**
  * District ground detail in a chunk's cache: clustered patches placed on a
  * world grid by render hashes, so every chunk that overlaps a patch draws it
@@ -283,7 +335,9 @@ function* biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number
 }
 /** Ground-level landmark art baked into the chunk caches. */
 function landmarkGround(ctx: Ctx, l: Landmark): void {
-  LANDMARK_ART.find(l.kind)?.ground(ctx, l);
+  const art = LANDMARK_ART.find(l.kind);
+  art?.base(ctx, l);
+  art?.ground(ctx, l);
 }
 /** Span of the river band in a stand-alone landmark preview. */
 const PREVIEW_SPAN = 260;
@@ -394,6 +448,11 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   if (cy === 0) horizonHills(ctx, x0, x1);
   yield;
   yield* groundTilePasses(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
+  // Large district paper sheets over the pulp, clipped to the ground silhouette (horizon row).
+  ctx.save();
+  ctx.clip(groundOutline(x0, y0, c.w, c.h, cy === 0));
+  yield* sheetGround(ctx, seed, x0, y0, x1, y1);
+  ctx.restore();
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
   for (const water of waters) {
@@ -411,7 +470,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   for (let i = rs.length - 1; i >= 0; i--) {
     const road = rs[i]!;
     if (!roadHits(road, x0, y0, x1, y1)) continue;
-    drawRoad(ctx, road, i, { x0, y0, x1, y1 });
+    drawRoad(ctx, road, i, { x0, y0, x1, y1 }, seed);
     yield;
   }
   for (const water of waters) drawWaterCrossings(ctx, water);

@@ -1,8 +1,9 @@
 import { cachedSprite } from "../../../engine/sprite.js";
 import { LANDMARK_ACTIONS, WINDMILL } from "../../landmark-activities.js";
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
 import { grassTuft } from "../../../render/craft-scene.js";
-import { foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
+import { flatCut, foldLine, paperCut, stitchAlong, warmGlow } from "../../../render/paper-kit.js";
 import { box, hash, line, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
 
 /** One lattice sail on its arm, pointing along angle `a` from the hub. */
@@ -87,17 +88,28 @@ export function paintWindmillSails(ctx: Ctx, x: number, y: number, s: number, v:
 export const PAPER_WINDMILL_ART: LandmarkArt = {
   id: "paper-windmill",
   ink: "#e3d6b4",
+  base(ctx, l) {
+    const { x, y, seed } = l;
+    // A mown turf disc: wedge stripes cut from two greens radiate from the mill, on a raised plinth of turf.
+    const turf = flatCut(ctx, blob(x, y + 14, 170, 92, seed, 0.05, 36), { color: "#56603f", edge: "#8c9a64", thickness: 1.4, lift: 1.4, rim: 1.1 });
+    ctx.save();
+    ctx.clip(turf);
+    const stripes = new Path2D();
+    for (let i = 0; i < 16; i += 2) {
+      const a0 = (i / 16) * Math.PI * 2, a1 = ((i + 1) / 16) * Math.PI * 2;
+      stripes.moveTo(x, y + 4);
+      stripes.lineTo(x + Math.cos(a0) * 240, y + 4 + Math.sin(a0) * 140);
+      stripes.lineTo(x + Math.cos(a1) * 240, y + 4 + Math.sin(a1) * 140);
+      stripes.closePath();
+    }
+    ctx.globalAlpha *= 0.55;
+    ctx.fillStyle = "#636e48";
+    ctx.fill(stripes);
+    ctx.restore();
+    flatCut(ctx, polygon(x, y, 112, 58, 10, 0.2), { color: "#64704a", edge: "#9aa872", thickness: 1.1, lift: 1.1, rim: 1, stitch: "#a4ac74", stitchInset: 5 });
+  },
   ground(ctx, l) {
     const { x, y, seed } = l;
-    // A grassy mound with a trodden path to the door.
-    for (const [rx, ry, dy, c] of [
-      [170, 92, 14, "#56603f"],
-      [110, 58, 0, "#64704a"],
-    ] as const) {
-      const p = oval(x, y + dy, rx, ry, seed + rx, 0.1);
-      piece(ctx, p, c, { shadow: 2.4, edge: "#8c9a64", texture: 0.85, thickness: 1.2 });
-      stitch(ctx, oval(x, y + dy, rx - 5, ry - 4, seed + rx, 0.1), "#a4ac74", 0.5);
-    }
     const walk = new Path2D();
     walk.moveTo(x - 6, y + 4);
     walk.quadraticCurveTo(x + 20, y + 50, x - 10, y + 96);

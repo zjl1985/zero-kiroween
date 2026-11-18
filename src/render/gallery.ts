@@ -18,6 +18,7 @@ import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
 import { landmarkPreview, type Bounds } from "./craft-world.js";
 import { visHash } from "./hash.js";
+import { paintSheet } from "./paper-ground.js";
 import { paperCut } from "./paper-kit.js";
 import { box, glow, type Ctx } from "./paper-material.js";
 
@@ -113,11 +114,14 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     const art = BIOME_ART.find(cell.id),
       def = BIOME_DEFS.get(cell.id);
     if (!art) return;
-    // A ground swatch with three of its patches and a few props of its mix.
+    // A ground swatch laid from two of its district sheets, with three of its patches and a few props of its mix.
     const g = box(st.x + 4, st.y + 4, st.w - 8, st.h - 8, cell.id.length);
-    paperCut(ctx, g, { color: art.swatch[0], shadow: 1, thickness: 1, texture: 0.85, edge: art.swatch[1] });
     ctx.save();
     ctx.clip(g);
+    ctx.fillStyle = art.swatch[0];
+    ctx.fillRect(st.x, st.y, st.w, st.h);
+    paintSheet(ctx, [[st.x + st.w * 0.46, st.y - 14], [st.x + st.w + 14, st.y - 10], [st.x + st.w + 14, st.y + st.h + 14], [st.x + st.w * 0.5, st.y + st.h + 12]], art.sheet, 9);
+    paintSheet(ctx, [[st.x - 14, st.y - 12], [st.x + st.w * 0.6, st.y - 8], [st.x + st.w * 0.56, st.y + st.h * 0.7], [st.x - 14, st.y + st.h * 0.74]], art.sheet, 3);
     const cy = st.y + st.h * 0.58;
     [0.22, 0.55, 0.85].forEach((fx, i) => art.patch(ctx, st.x + st.w * fx, cy + (i % 2 ? -14 : 10), Math.min(54, st.w * 0.2), 11 + i * 17));
     const shown = def.props.map((p) => p.prop).filter((id, i, a) => a.indexOf(id) === i && id !== "paper-grass").slice(0, 3);

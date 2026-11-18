@@ -192,7 +192,8 @@ export interface GroundLamp {
   x: number;
   y: number;
 }
-function groundOutline(x0: number, y0: number, w: number, h: number, top: boolean): Path2D {
+/** The ground sheet silhouette of a tile (the wavy horizon edge in the top row). */
+export function groundOutline(x0: number, y0: number, w: number, h: number, top: boolean): Path2D {
   const p = new Path2D();
   if (!top) {
     p.rect(x0 - 12, y0 - 12, w + 24, h + 24);
@@ -295,9 +296,10 @@ export function* groundTilePasses(
   grain(ctx, p, 0.45);
   ctx.restore();
   // Quiet, short hatching follows patches of moss; it never becomes confetti.
+  // Kept sparse: the district paper sheets laid over it carry the structure.
   const moss = [new Path2D(), new Path2D()],
     area = w * (y0 + h - Math.max(gy0, 205)),
-    count = Math.round(area * 0.0208),
+    count = Math.round(area * (yard ? 0.0208 : 0.006)),
     salt = Math.floor(x0 * 3 + y0 * 7);
   for (let i = 0; i < count; i++) {
     if (i > 0 && i % 512 === 0) yield;

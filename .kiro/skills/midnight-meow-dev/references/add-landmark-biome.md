@@ -66,7 +66,7 @@ The world has 24 landmark super-cells (`LANDMARK.cols` 5 x `rows` 5, minus the s
    ```
 
    - `pieces` are tall y-sorted cached sprites; every non-generic `b.add` kind must be a registered piece (tested). `popup: true` makes it fold up like a pop-up book page near the cat (`POPUP` in `src/render/timeline.ts`, render-only).
-   - Shared plaza ground: `src/defs/landmarks/plaza.art.ts`.
+   - `base(ctx, l)` paints the kind's own grounded footing before `ground`; build it from the flat helpers in `src/defs/landmarks/ground-kit.art.ts` (`tornBank`, `fenceSilhouette`, `furrowStrips`, `boards`, `pavedTiles`, `fringedMound`, `stoneRing`, `blob`, `polygon`). Never reuse one shared oval base; tests require distinct base paths per kind and no gradients/shadowBlur.
    - `DecorPiece.live` draws live parts after the cached body under the same depth/pop-up transform. Windmill uses a tower without baked sails plus one three-variant cached rotor rotated from sim-owned `turn`; never cache by time/angle or draw duplicate sails. Preserve registered bounds and reduced-motion behavior.
    - Append to the `LANDMARK_ART` list in art-index.ts; `LANDMARK_ART.ids()` must equal `LANDMARK_DEFS.ids()`.
 
@@ -113,21 +113,24 @@ The town splits into a jittered 4 x 3 grid of district sites (`DISTRICTS` in `sr
 
    ```ts
    import type { BiomeArt } from "../../render/art-registry.js";
-   import { paperCut } from "../../render/paper-kit.js";
+   import { flatCut } from "../../render/paper-kit.js";
    import { hash, oval } from "../../render/paper-material.js";
 
    export const PUMPKIN_FARM_ART: BiomeArt = {
      id: "pumpkin-farm",
      swatch: ["#6a6a44", "#6b4f38", "#e0863f"],   // base paper + two accents (gallery, minimap)
-     patchChance: 0.7,                              // chance a 150-unit ground cell gets a patch
+     // Large ground sheets (render/paper-ground.ts): three night tones, a seam style
+     // distinct per district (ruled | furrow | torn | wave | scallop), optional fringe-cut grass.
+     sheet: { colors: ["#5d5240", "#655840", "#57503a"], seam: "furrow", fringe: "#6f7547" },
+     patchChance: 0.7,                              // chance a 210-unit ground cell gets a patch
      patch(ctx, x, y, r, seed) {
-       paperCut(ctx, oval(x, y, r, r * 0.38, seed, 0.14), { color: "#5f4a36", shadow: 1, thickness: 1, texture: 0.85 });
+       flatCut(ctx, oval(x, y, r, r * 0.38, seed, 0.14), { color: "#5f4a36", lift: 0.6, thickness: 1, texture: 0.85 });
        // clustered detail; use hash(seed + i), never Math.random
      },
    };
    ```
 
-   Patches are baked into chunk ground caches. Append to the `BIOME_ART` list in art-index.ts.
+   Sheets and patches are baked into chunk ground caches (terrain worker and fallback run the same `paintChunk`). Append to the `BIOME_ART` list in art-index.ts.
 
 4. **i18n**: `biome.<id>.name`.
 

@@ -1,7 +1,8 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
+import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { flatCut } from "../../../render/paper-kit.js";
 import { grassTuft, leaf, pumpkin } from "../../../render/craft-scene.js";
 import { box, glow, grain, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
-import { plaza } from "../plaza.art.js";
 
 function stall(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   ctx.save();
@@ -75,17 +76,22 @@ function stringLights(ctx: Ctx, x: number, y: number, s: number, _seed: number):
 export const LANTERN_MARKET_ART: LandmarkArt = {
   id: "lantern-market",
   ink: "#f0b85a",
+  base(ctx, l) {
+    // A board deck for the stalls: separate planks with ragged ends, on the shared hard shadow.
+    const { x, y } = l;
+    flatCut(ctx, [[x - 182, y - 84], [x + 180, y - 88], [x + 186, y + 74], [x - 186, y + 78]], { color: "#3f3128", thickness: 1.4, lift: 1.5, rim: 0.8 });
+    boards(ctx, x - 176, y - 80, x + 176, y + 70, 9, ["#7a5c45", "#6f533f", "#83654b"], l.seed);
+  },
   ground(ctx, l) {
     const { x, y } = l;
-    plaza(ctx, x, y - 4, 190, 98, l.seed);
-    // Two woven rugs in front of the stalls.
+    // Two woven market cloths spread in front of the stalls.
     for (const [dx, dy, c] of [
       [-70, 40, "#7c3f43"],
       [64, 34, "#3f5466"],
     ] as const) {
-      const rug = box(x + dx - 26, y + dy - 12, 52, 24, dx);
-      piece(ctx, rug, c, { shadow: 1, edge: mix(c, "#f2d6a6", 0.4), texture: 0.8, thickness: 0.6 });
-      stitch(ctx, box(x + dx - 22, y + dy - 9, 44, 18, dx + 1), "#e2c79a", 0.8);
+      const rug = box(x + dx - 30, y + dy - 13, 60, 26, dx);
+      flatCut(ctx, rug, { color: c, edge: mix(c, "#f2d6a6", 0.4), texture: 0.7, thickness: 0.8, lift: 0.6, stitch: "#e2c79a", stitchInset: 4 });
+      for (let i = 1; i < 4; i++) line(ctx, x + dx - 26, y + dy - 12 + i * 6, x + dx + 26, y + dy - 12 + i * 6, mix(c, "#f2d6a6", 0.3), 0.8, 0.6);
     }
   },
   pieces: [

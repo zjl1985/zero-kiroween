@@ -378,3 +378,62 @@ test("prop scraps and ash are a few large flat pieces, and damaged tears curl ov
     assert.equal(c.globalCompositeOperation, "source-over");
   }
 });
+
+import { buildChunk } from "../dist/render/craft-world.js";
+import { CHUNK, chunkOf, landmarks } from "../dist/game/world-gen.js";
+import { BIOME_ART } from "../dist/render/art-index.js";
+
+/** A JSON-safe command stream: nested sprite/noise canvases are expanded, paths become their ops. */
+function stream(ctx) {
+  const value = (a) => a?.getContext ? stream(a.getContext("2d")) : a instanceof Path ? a.ops : a?.data ? a.data.length : a;
+  return ctx.calls.map((c) => ({
+    op: c.op, args: (c.args ?? []).map(value), alpha: c.globalAlpha, composite: c.globalCompositeOperation,
+    fill: typeof c.fillStyle === "object" ? "pattern" : c.fillStyle, stroke: typeof c.strokeStyle === "object" ? "pattern" : c.strokeStyle,
+  }));
+}
+
+test("every landmark kind stands on its own flat grounded base, not one shared oval", (t) => {
+  environment(t);
+  const firsts = new Set();
+  for (const def of LANDMARK_DEFS.all()) {
+    const art = LANDMARK_ART.get(def.id), ctx = canvas().getContext("2d");
+    const place = Object.freeze({ id: `base-${def.id}`, kind: def.id, x: 0, y: 0, radius: def.radius, seed: 7, ...(def.span ? { span: 260 } : {}) });
+    assert.equal(typeof art.base, "function", `${def.id} has a base painter`);
+    art.base(ctx, place);
+    const calls = allPaint(ctx), fills = calls.filter((c) => c.op === "fill");
+    assert.ok(fills.length >= 3, `${def.id} base paints paper layers`);
+    assert.deepEqual(gloss(calls), [], `${def.id} base stays flat paper`);
+    assert.ok(calls.some((c) => c.op === "translate" && c.args[0] > 0 && c.args[1] > 0), `${def.id} base casts its shadow down-right`);
+    // The first painted base path identifies the kind's footing.
+    firsts.add(JSON.stringify(fills.find((c) => c.args[0] instanceof Path)?.args[0].ops));
+    assert.equal(ctx.depth, 0);
+  }
+  assert.equal(firsts.size, LANDMARK_DEFS.ids().length, "no two kinds share the same base footing");
+});
+
+test("district sheet looks are distinct per district: colour and seam style", () => {
+  const looks = BIOME_ART.all().map((a) => a.sheet);
+  assert.equal(new Set(looks.map((l) => l.seam)).size, looks.length);
+  assert.equal(new Set(looks.map((l) => l.colors[0])).size, looks.length);
+});
+
+test("chunk ground baking is deterministic and the budgeted fallback bakes the same tile as a full build", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  const seed = 7, l = landmarks(seed)[0], { cx, cy } = chunkOf(l.x, l.y);
+  const a = stream(buildChunk(seed, cx, cy).getContext("2d")), b = stream(buildChunk(seed, cx, cy).getContext("2d"));
+  assert.ok(a.length > 200, `a real tile was painted (${a.length} commands)`);
+  assert.deepEqual(a, b, "same seed and chunk paint the same command stream");
+  assert.ok(a.some((c) => c.op === "fill" && Array.isArray(c.args[0]) && c.args[0].length > 20), "large sheets are cut, not only pixels");
+  // Fallback path: no Worker/OffscreenCanvas here, so drawChunks bakes with the budgeted generator.
+  const cam = { x: (cx + 0.5) * CHUNK.width, y: (cy + 0.5) * CHUNK.height };
+  let image;
+  for (let i = 0; i < 20000 && !image; i++) {
+    const ctx = canvas().getContext("2d");
+    drawChunks(ctx, seed, cam, false);
+    image = images(ctx).find((c) => c.args[1] === cx * CHUNK.width && c.args[2] === cy * CHUNK.height)?.args[0];
+  }
+  assert.ok(image, "the fallback finished the tile");
+  assert.deepEqual(stream(image.getContext("2d")), a, "fallback and full build paint identically");
+  clearWorldRenderCache();
+});
