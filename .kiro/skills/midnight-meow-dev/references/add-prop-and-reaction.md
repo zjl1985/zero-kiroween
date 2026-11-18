@@ -2,7 +2,7 @@
 
 Paper props react to elements through a **material x element reaction table**. Weapons, lit pumpkins and fire apply an element to props in range (`ctx.elementHit`), `reactionFor(material, element)` finds the row, and the row's `effect` changes the prop through the context (`damageProp`, `ignite`). A prop has three looks: `intact`, `damaged`, `scraps` (burnt scraps are ash).
 
-Interfaces in `src/defs/types.ts`: `Element` / `ELEMENTS` (`fire`, `ink`, `wind`, `cut`, `fold`), `MaterialDef`, `ReactionDef`, `PropDef`, `PropSpawn`, `PropSpot`, `PropHit`, `PropPhase`. Art: `PropArt` and `PROP_LOOK` in `src/render/art-registry.ts`, `phasedPaint` / `post` in `src/render/prop-kit.ts`. Sim side: `src/game/props.ts` (`elementHit`, `damageProp`, `ignite`, `stepFire`, `propPhase`, `propMaxHp`, `burningCount`), numbers in `src/defs/fire.ts` (`FIRE`, `PROP_HITS`).
+Interfaces in `src/defs/types.ts`: `Element` / `ELEMENTS` (`fire`, `ink`, `wind`, `cut`, `fold`, `water`), `MaterialDef`, `ReactionDef`, `PropDef`, `PropSpawn`, `PropSpot`, `PropHit`, `PropPhase`. Art: `PropArt` and `PROP_LOOK` in `src/render/art-registry.ts`, `phasedPaint` / `post` in `src/render/prop-kit.ts`. Sim side: `src/game/props.ts` (`elementHit`, `damageProp`, `ignite`, `stepFire`, `propPhase`, `propMaxHp`, `burningCount`), numbers in `src/defs/fire.ts` (`FIRE`, `PROP_HITS`).
 
 Registration for this whole area is `src/defs/world-index.ts` (not `src/defs/index.ts`), because `src/game/world-gen.ts` imports it to place props.
 
@@ -14,7 +14,9 @@ Registration for this whole area is `src/defs/world-index.ts` (not `src/defs/ind
 - **Cats and enemies ignite and carry fire.** Cat burn damage is 1 HP/s through normal shields/invulnerability; enemies take 0.4 per 0.2 s. Water extinguishes first and grants 1.25 s wet protection. The former fire-safe-cat rule is superseded.
 - Scraps and temporarily folded props open the path; damaged standing props keep their full collider. Use `propBlocks`, not a phase-only test. An expired fold stays open until safe to unfold.
 - Ink (9 s fireproof prop coating) and fold (5 s reversible passage) have registered rows and real sources: smudge/vat for ink, Nicole and one Paper Crane launch pulse per volley for fold. Five flora props regrow after 18–32 s torn / 30–46 s burnt, with occupancy/fire deferral and lifetime loot protection.
-- There are 17 props and 23 unique reaction rows. Card and cloth burn (flammability 0.45 / 0.65); card still has no wind row. `ink-vat` and `wax-candle` use the ink/wax materials.
+- There are 18 props and 27 unique reaction rows. Card and cloth burn (flammability 0.45 / 0.65); card still has no wind row. `ink-vat` and `wax-candle` use the ink/wax materials.
+- **Water** is the sixth element (appended last to `ELEMENTS`). The rows `wash-thin-paper`, `wash-card`, `wash-cloth`, `wash-straw` soak a prop (`PropState.soakedUntil`, `WASH.soakSeconds` 8 s): soaked props have flammability 0 and tear 1.6x easier, as do props standing on wet washed cells. Give a new paper prop `water` in `accepts` (every thin-paper/card/cloth/straw prop has it). `SimContext.wash` applies water to props together with the wash grid and fire quench.
+- **`onScraps(state, prop, ctx, burnt)`** on `PropDef` runs once when the prop turns to scraps (torn or burnt), after drops. `water-bucket` uses it to spill (radius 64) through `ctx.wash`. Keep it idempotent with the lifetime state; it must not use the step RNG.
 - Read [paper-ecology.md](paper-ecology.md) for the complete row matrix, source dispatch, lifecycle, water/fire ordering and test contracts. Numbers live in defs, never in art/UI.
 
 ## Material

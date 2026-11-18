@@ -40,8 +40,25 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 - Activity progress uses shared sim court anchors. Windmill tower cache excludes sails; `DecorPiece.live` draws one cached rotor in the same depth/pop-up transform, reading sim-owned `turn`. Tall building occlusion uses registered bounds, not a special-case id list.
 - Complete source/timing/lifecycle contracts: `.kiro/skills/midnight-meow-dev/references/paper-ecology.md`.
 
+## Value hierarchy and shadows (b92920e)
+
+- Order of brightness and contrast: baked ground lowest (`PAPER_VALUE.ground`, graded at bake time in `paper-value.ts`), plain decor and props one step up (`PAPER_VALUE.decor`), actors and shots on top, interactive pumpkins and full lanterns the brightest warm lights. Plain lamps, windows, candles and decor pumpkins have no gradient glow; lamps sit only beside roads (`lampChance` 0.22).
+- Cached enemy parts (through `enemyPart`) and the live chosen cat get a pale top-right cut rim. Player shots are one solid colour on a dark paper outline, no glow.
+- Cached scenery, props, lamps and landmark ground bake inside `withFlatShadows`, so `piece`/`paperCut` cast the hard down-right `PAPER_SHADOW`. The approved cat heads keep the old default. No `ctx.filter` per frame anywhere in render.
+
+## Washed paper (wash-out)
+
+- Three page states read from `SimState.wash`: painted (normal art), colourless (raw cream paper with a graphite pencil underdrawing of the same scene) and blank (clean paper, rubbed halo, no pencil). Washed edges get a watercolour tide line; fresh changes bloom for `WASH.bloom`. Wet cells show a wet film, fold-protected cells a translucent fold cover, Zero's cut cells white cut holes with a lifted shadow.
+- Pencil art uses `pencil.ts` primitives and `sprite-sketch.ts` (blend modes only, no pixel reads or filters). Keep eyes readable on sketched actors. Lamps stay painted. The cat head is never redrawn; the sketch overlay sits on top.
+- An unwashed run must look and cost exactly as before: `washFrame` returns null after one empty check.
+- The gallery has a "Washed paper" section (painted, colourless, blank, tide line per district).
+
+## Paper verbs
+
+- Paper Cut: slit with a lit wall and dark lip, a closing guide, and a lifting, turning cut-out piece over a white hole. Page Fold: a two-sided cached flap under a live affine transform, hard shadow and crease, and a pleated accordion wall from level 3. Cat wear: cached creases, tears and tape pieces on clothing only (thresholds `CAT_WEAR` in `timeline.ts`).
+
 ## Review
 
-- At most one static screenshot for authorized art verification; no animation or recording checks. Latest evidence: `output/playwright/paper-ecology-review.png` was captured and viewed using system Chrome (not missing bundled Chromium). It shows selected art only; full gameplay screen/mobile remain unreviewed.
-- Latest verification: build and 237 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
-- Do not report the art as approved; only the user can accept it.
+- At most one static screenshot for authorized art verification; no animation or recording checks. The wash-out round's one still is `output/playwright/paper-washout-review.png` (the `?gallery=1` workshop page); what it shows is recorded in `HANDOFF.md`. Full gameplay screen/mobile remain unreviewed.
+- Latest verification: build and 293 passing tests. Geometry/Canvas-command checks do not prove browser pixels, motion or speed. No animation, recording, audio or FPS checks were performed; balance and performance remain open.
+- Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.

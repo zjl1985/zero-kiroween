@@ -32,7 +32,7 @@ Reference: `src/defs/weapons/star-fall.ts` (timed area hits) or `paper-crane.ts`
      steps: STEPS,
      base: BASE,              // card params: {interval}, {damage} ... in upgrade.<id>.desc
      timing: "auto",          // "move" (hand weapons), "aura" (orbits, pulses), "auto" (timed)
-     elements: ["cut"],       // what it does to props: fire | ink | wind | cut | fold (first is used)
+     elements: ["cut"],       // what it does to props: fire | ink | wind | cut | fold | water (first is used)
      // shotTag: "<tag>",     // only if it spawns shots (ShotState.weapon)
      stats(s, level) {
        const b = stepBonus(STEPS, level);
@@ -83,6 +83,19 @@ Reference: `src/defs/weapons/star-fall.ts` (timed area hits) or `paper-crane.ts`
    Append to the `WEAPON_ART` list in `src/render/art-index.ts` in the same position as in `WEAPON_DEFS` (it is also draw order).
 
 4. **i18n**: `upgrade.<id>.name`, `upgrade.<id>.desc` (desc may use `{interval}`, `{damage}` ... from `base`).
+
+### Paper verbs and wash-aware weapons
+
+References: `paper-cut.ts` (Zero, `timing: "move"`), `page-fold.ts` (Nicole, `timing: "auto"`) and `watercolour-brush.ts` (pool `any`). They were appended after Pumpkin Seed in this order: watercolour-brush, paper-cut, page-fold. Appending them changed no seeded card-roll test.
+
+- An exclusive card needs `pool: "<cat-id>"` **and** the id in that cat's `CharacterDef.exclusives`; never name the cat in `src/game`.
+- Geometry belongs in pure helpers (`src/game/paper-geometry.ts`: loop closing, polygon tests, crease reflection). Store live state in `SimState` (`cut`, `fold`, `walls`) and set it up in `init(state)`.
+- `ctx.elementHit(state, x, y, r, element, power, within?)` accepts an optional polygon: props are filtered by centre and wash cells by cell centre, so only what lies inside the loop tears or turns into white cut cells.
+- Temporary walls go in `SimState.walls` (capsules with a life); `safePosition` treats them like scenery for the cat and ink. Water crossings cannot be created at runtime (shared water contract).
+- Wash-aware weapons call `ctx.paint(state, x, y, r, amount, hint?)` to repaint (hint = pigment colour) and `ctx.wash(state, x, y, r, amount, soak?)` to spill. Cut or fold hits only mark the wash grid when their radius is at least `WASH.cut.minRadius` / `WASH.fold.minRadius` (10).
+- A verb that the player should hear needs a sim counter (`s.cut.cuts`, `s.fold.folds`) and a cue in `src/audio/sfx.ts` played from the counter diff in `main.ts`; the sim stays audio-free.
+- Art: verbs draw through `ground` / `sprites` / `front` with finite cached sheets and live transforms (Page Fold's flap is two cached faces under an affine transform). Icons follow the paper ruleset (`paperEmblem`).
+- Tests: `tests/paper-verbs.test.mjs` (loop, inside-only cut, Boss share, fold flip and pin, walls, per-cat offers, determinism, cat wear).
 
 ## Passive
 

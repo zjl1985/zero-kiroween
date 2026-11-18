@@ -49,7 +49,7 @@ Enemies inherit shared paper-actor status: radius fire contact, 3 s carried burn
    };
    ```
 
-3. **Register**: append to `for (const e of [INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS]) ENEMY_DEFS.register(e);` in `src/defs/index.ts`.
+3. **Register**: append to the `ENEMY_DEFS.register` list in `src/defs/index.ts` (currently `INK_BLOB, PAPER_BAT, CRUMPLE_DEF, SMUDGE_DEF, ERASER_BOSS, KIRO_GHOST_DEF, WASH_DEF, SKETCH_DEF`).
 
 4. **Spawning**, all in `src/defs/horde.ts`:
    - `SPAWN_TABLE[phase]`: weighted `[kind, weight]` rows per night phase (4 rows).
@@ -85,6 +85,16 @@ Enemies inherit shared paper-actor status: radius fire contact, 3 s carried burn
    Elites are scaled, glowed and crowned by the caller; draw only the base body. Append to the `ENEMY_ART` list in `src/render/art-index.ts`. `src/render/craft-enemies.ts` must not switch on kinds or name kind literals (tested). Reuse finite `enemyPart`/shadow cuts for facets, wings and sleeves, applying live transforms rather than rebuilding texture each frame. World rendering attaches shared burn/wet overlays after the actual actor art; do not paint duplicate statuses inside each def or obscure eyes/telegraphs.
 
 6. **i18n**: `enemy.<id>.name` (gallery label) in keys.ts, en.ts, zh.ts.
+
+## Wash-out fields (`wash`, `sketch`)
+
+References: `src/defs/enemies/wash/` (Wash Drip) and `sketch/` (Pencil Sketch). The current list ends `..., KIRO_GHOST_DEF, WASH_DEF, SKETCH_DEF`; append after them. Contract in [paper-ecology.md](paper-ecology.md#wash-out-colour-grid).
+
+- `pigment?: string`: the colour a defeated enemy splashes back onto washed paper (radius 44). Set it on ordinary ink kinds; leave it out for kinds that should not repaint.
+- `wakesOn?: "colourless"`: the kind is never in `SPAWN_TABLE`; `game/wash.ts` wakes it on colourless, not blank, cells near the cat (`WASH.sketch`: every 1.5 s, 90 to 300 from the cat, cap 10). These spawn in view by design, so the off-camera spawn test skips `wakesOn` kinds. The renderer does not re-sketch them.
+- Water projectiles: `KITE_LOB` params are `KiteLobParams` with optional `shot: "water"`. The smudge `stepWorld` skips water shots; the wash kind's `stepWorld` lands them through `ctx.wash`.
+- Wash Drip is in phases 2 and 3 of `SPAWN_TABLE` (`['wash', 1]` appended) with `KIND_CAP` 6.
+- Art for new enemy body parts goes through `enemyPart` so it gets the moon-side lit rim (`paper-value.ts`); keep eyes readable when the actor stands on colourless paper and is drawn sketched.
 
 ## Tests to extend
 

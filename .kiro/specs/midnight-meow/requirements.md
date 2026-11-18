@@ -211,7 +211,7 @@ Status: implemented at the user’s request on 2026-11-17. English is the defaul
 2. Each district SHALL have its own decor mix, prop mix and ground patches; roadside props SHALL stand beside roads.
 3. A chunk SHALL hold at most `DISTRICTS.propCap` props.
 4. District and prop placement SHALL be a pure function of the seed and chunk coords.
-5. The current catalog SHALL include 17 props (including ink-vat and wax-candle), 6 materials and 23 unique material x element rows. Registrations SHALL remain append-ordered; generated props/building contacts SHALL avoid wet footprints while retaining road and landmark access.
+5. The current catalog SHALL include 18 props (including ink-vat, wax-candle and water-bucket), 6 materials and 27 unique material x element rows. Registrations SHALL remain append-ordered; generated props/building contacts SHALL avoid wet footprints while retaining road and landmark access.
 
 ## Requirement 17: Shared physical paper water
 
@@ -239,8 +239,32 @@ Status: implemented at the user’s request on 2026-11-17. English is the defaul
 6. Element charge SHALL add at most 2 per hit and dispatch through the same context path as prop hits. Cooldown SHALL lock before rewards. Rotor turn SHALL integrate in sim time (0.25 rad/s idle, 2.6 boosted); rendering SHALL draw a single live rotor using finite cached textures under the tower's depth/pop-up transform, never mutate state or cache by angle/time.
 7. Burning/wet notices, HUD status, help and nearby-activity instructions SHALL be localized in both packs; urgent hazard guidance SHALL take priority over routine hints. Progress marks SHALL use real court anchors and seconds/cooldown, not invented render timers.
 
+## Requirement 19: Paper wash-out
+
+**User story:** As a player, I want water to wash the colour off the page and my actions to paint it back, so that the paper town itself changes during the night.
+
+### Acceptance criteria
+
+1. The sim SHALL keep a sparse 32-unit colour grid (`SimState.wash`, numbers in `src/defs/wash.ts`) with three page states: painted (not stored), colourless (level >= 0.5) and blank (Eraser). It SHALL be capped at 600 cells, update every 0.25 s and use `hash2`, never the step RNG.
+2. Water SHALL come from Wash Drip spit, torn Water Buckets (`PropDef.onScraps`), wading splashes, smudge stains and one paper rain between 50% and 54% of the night. The Eraser's sweep SHALL blank cells.
+3. Wet washed paper SHALL slow actors (x0.8, never stacked with shallow water), block fire, extinguish like water and let props tear 1.6x easier. The `water` element and four `wash-*` rows SHALL soak props for 8 s.
+4. Pencil Sketches (`wakesOn: 'colourless'`) SHALL wake only on colourless, not blank, cells near the cat, capped at 10 alive.
+5. Pigment from defeated ink (`EnemyDef.pigment`), lit pumpkins, full lanterns, the Watercolour Brush and dawn SHALL repaint cells. The result page SHALL show colour kept.
+6. Rendering SHALL show raw cream paper with a pencil underdrawing on colourless cells, clean paper on blank cells, watercolour tide lines on edges, and SHALL do no mask work when no cell is washed.
+
+## Requirement 20: Paper verbs
+
+**User story:** As a player, I want each cat to work the page itself, so that their kits feel like paper.
+
+### Acceptance criteria
+
+1. Paper Cut SHALL be offered only to Zero: closing the path into a loop cuts ink inside (Boss x0.35) and tears props and wash cells inside only; the open slit nicks ink.
+2. Page Fold SHALL be offered only to Nicole: when ink is near, the page folds toward it, flipping non-boss ink across the crease, pinning and hitting it; from level 3 it raises a short wall that blocks the cat and ink like scenery.
+3. Both SHALL be appended after existing weapons, keep runs deterministic and use `CharacterDef.exclusives` + `WeaponDef.pool` rather than cat ids in `src/game`.
+4. A temporary dry bridge is NOT built: the shared water contract (Requirement 17) has no runtime crossing API.
+
 ## Deferred work and evidence limits
 
 Random helper cats still require confirmation. English default is implemented (Requirement 11); dawn survival wins without a Boss kill, and full passive slots may lock out evolution by design. Full gameplay-screen/mobile review, user art acceptance, balance and performance remain open. Publishing this latest work and Devpost submission materials are pending (deadline 2026-12-05 06:00 Beijing time), not a reason to mark implemented ecology out of scope. Animation/video verification is prohibited unless the user asks again.
 
-Latest verification: `npm run build && npm test` passed **237 tests**; one static screenshot was captured and viewed at `output/playwright/paper-ecology-review.png` using **system Chrome**, not missing bundled Chromium. It shows selected art only. No animation, recording, audio or FPS checks were performed, and the user has not approved the art.
+Latest verification: `npm run build && npm test` passed **293 tests** after the paper wash-out round (local commits 6931574 through b92920e). Its one static still is the `?gallery=1` page (`output/playwright/paper-washout-review.png`, described in `HANDOFF.md`). No animation, recording, audio or FPS checks were performed; balance of wash-out and the paper verbs is untested, and the user has not approved the art.

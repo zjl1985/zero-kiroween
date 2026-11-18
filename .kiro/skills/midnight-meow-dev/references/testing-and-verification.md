@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 237 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 293 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -25,6 +25,10 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `paper-elements.test.mjs` | unique ink/fold/ink-vat/wax rows, material-scaled HP, refreshed deadlines, flat-fold no-op, vat splash, wax melting, smudge landing, Nicole and once-per-volley crane fold sources |
 | `paper-visuals.test.mjs` | read-only status/effect overlays, real fire-cell marks, deferred prop visuals, finite enemy/combat caches, court progress anchors, registered-bounds occlusion; static command recording, not animation/FPS |
 | `water.test.mjs` | pure local polygons, negative coordinates, shared render vertices, shallow/deep/deck classification, swept movement/corners, spawn recovery, explicit road crossings, placement clearance and teaching basin |
+| `paper-rules.test.mjs` | ruleset light/shadow directions, 1 to 3 layer limit, gloss-free weapon/passive icons and mounts, `?check=` parsing, the gloss probe |
+| `wash.test.mjs` | deterministic capped grid without step RNG, water element rows and fire block, tear ease, sources (bucket, wash drip, smudge, rain, Eraser), unstacked wet slow, pigment/lantern/pumpkin/dawn restoration, fold protection and dash cut holes, sketch wakes and caps, the brush, strings in both packs, no state without wash |
+| `paper-verbs.test.mjs` | Paper Cut loop closing, inside-only cut and white cells, partial Boss cut, slit expiry; Page Fold flip and pin; level-3 walls; per-cat offers; determinism; cat wear creases/tears/tape |
+| `paper-value.test.mjs` | no render `ctx.filter` except the one-off gallery value check, value hierarchy data (ground below decor, rim, dark shot outlines), half lamp chance and road-side lamps |
 | `gallery.test.mjs` | gallery sections, base preview states, labels, layout bounds, seeded variants without `Math.random` |
 | `rendering.test.mjs` | Canvas command recording: registered skill previews, landmark markers / depth order, cached alpha-mask tinting (not pixel or performance checks) |
 | `seed.test.mjs` | uint32 bounds, zero, decimal syntax, invalid / overflowing seed rejection |
@@ -60,7 +64,9 @@ When adding content, the generic registry, reactions and gallery tests usually c
 2. `npm run build && npm start`.
 3. Open `http://localhost:4173/?start=1` (straight into a run with the saved cat), add `&seed=N` to pin the world, or `/?gallery=1` for the art gallery.
 
-Current evidence: **one static screenshot was captured and viewed** at `output/playwright/paper-ecology-review.png` using **system Chrome**, not the missing Playwright-bundled Chromium. Earlier sandbox/missing-executable failures are historical, not the current result. The image shows selected art only; full gameplay-screen and mobile layout remain unreviewed. No animation, recording, audio or FPS checks were performed; no user art approval is recorded.
+Current evidence: the wash-out round has one static still, `output/playwright/paper-washout-review.png`, of the `?gallery=1` workshop page taken with system Chrome headless; `HANDOFF.md` records what it shows and any failure. It shows no live wash, gameplay screen or mobile layout. No animation, recording, audio or FPS checks were performed; no user art approval is recorded. Older stills (`paper-ecology-review.png`, `papercraft-polish-2026-11-18.png`) predate this round.
+
+Headless capture used: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1600,3000 --virtual-time-budget=8000 --screenshot=<png> "http://localhost:4173/?gallery=1"`.
 
 For a future authorized attempt, report the actual browser/executable and scope. If it fails, skip it and report the error; do not install browsers or expand verification merely to obtain more evidence. Never describe unviewed art or infer motion/performance from one still.
 
@@ -68,7 +74,7 @@ For a future authorized attempt, report the actual browser/executable and scope.
 
 - `?start=1`: skip the title, start a run with the saved cat.
 - `?seed=N`: pin the run seed (1–10 decimal digits within `0..4294967295`, including zero). Missing, malformed or out-of-range values use a fresh seed from `crypto.getRandomValues`; they never wrap.
-- `?gallery=1`: the paper workshop gallery instead of the game.
+- `?gallery=1`: the paper workshop gallery instead of the game. Add `&check=value` (luminance only) or `&check=gloss` (red outline on cells that use gradients, blurred shadows or additive light); developer views, never linked from the UI.
 
 ## Kiro hooks
 
@@ -85,4 +91,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 237 passing tests, plus one captured/viewed selected-art screenshot. State what is still unreviewed: full gameplay screen/mobile, motion, audio, balance and FPS at about 100 enemies with fire. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 293 passing tests, plus the one `?gallery=1` still described in `HANDOFF.md`, and a Node step probe (0.453 / 0.426 ms per step for Zero / Nicole at 100 enemies with fire and water, against 0.386 / 0.352 at e85365d). State what is still unreviewed: full gameplay screen/mobile, motion, audio (including snip/fold), balance of wash-out and the paper verbs, and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.

@@ -1,4 +1,4 @@
-# Paper ecology: water, fire, treatments and landmark activities
+# Paper ecology: water, fire, treatments, wash-out and landmark activities
 
 This is the implemented contract as of 2026-11-17, not a claim of visual approval. The user explicitly requested the remaining art and interaction gaps, including **paper actors catching fire and water extinguishing them**. This supersedes the old “fire never hurts the cat” rule and the old deferral of ink/fold sources, regrowth, windmill interaction and water collision.
 
@@ -40,14 +40,14 @@ These rules apply to both selectable cats and living enemies, not to skill decoy
 
 ## Materials, rows and sources
 
-`world-index.ts` registers **6 materials, 23 unique material x element rows and 17 props**. The row matrix is:
+`world-index.ts` registers **6 materials, 27 unique material x element rows and 18 props**. The row matrix is:
 
 | Material | Elements with rows | Flammability |
 | --- | --- | --- |
-| thin-paper | cut, wind, fire, ink, fold | 1 |
-| card | cut, fire, ink, fold | 0.45 |
-| cloth | cut, wind, fire, ink, fold | 0.65 |
-| straw | cut, wind, fire, ink, fold | 1.2 |
+| thin-paper | cut, wind, fire, ink, fold, water | 1 |
+| card | cut, fire, ink, fold, water | 0.45 |
+| cloth | cut, wind, fire, ink, fold, water | 0.65 |
+| straw | cut, wind, fire, ink, fold, water | 1.2 |
 | ink | cut, wind | 0 |
 | wax | cut, fire | 0.5 |
 
@@ -58,8 +58,9 @@ These rules apply to both selectable cats and living enemies, not to skill decoy
 - **Fold:** Nicole's Moonfold supplies fold at her real field radius without replacing shields or the slow field. Paper Crane supplies **one** radius-84, power-1 fold pulse at the cat per successful volley launch. Crane shots remain wind (`elements[0]`); merely listing a second element does not dispatch it automatically. Fan, homing, timing and RNG remain unchanged.
 - **Folded props:** 5 s temporary passage for standing props that actually have colliders. No HP, destruction-stat or loot change; no fake treatment of flat flora. `propBlocks` remains false while `foldedUntil` exists, including an expired fold awaiting safe unfolding. Retry in 0.5 s if the cat or an enemy occupies the collider plus 8-unit clearance. This is distinct from render-only landmark pop-up folding.
 - **Wax:** `wax-candle` accepts cut/fire. `melt-wax` consumes `power * 0.8` through burnt damage without loot or an invented ignition call. Its wax material can separately fuel real grid fire.
+- **Water (wash-out round):** the `water` element is appended to `ELEMENTS`; `wash-thin-paper`, `wash-card`, `wash-cloth` and `wash-straw` rows (registered last, 27 rows in total) soak a prop for `WASH.soakSeconds` (8 s). Soaked props have flammability 0 and tear `WASH.tearEase` (1.6x) easier. Every thin-paper/card/cloth/straw prop lists `water` in `accepts`.
 
-The 17 props are paper-fence, paper-bush, paper-grass, paper-lanterns, scarecrow, haybale, paper-crate, mailbox, signpost, paper-flowers, paper-reeds, paper-mushroom, laundry-line, paper-tombstone, dead-tree, ink-vat and wax-candle.
+The 18 props are paper-fence, paper-bush, paper-grass, paper-lanterns, scarecrow, haybale, paper-crate, mailbox, signpost, paper-flowers, paper-reeds, paper-mushroom, laundry-line, paper-tombstone, dead-tree, ink-vat, wax-candle and water-bucket. `water-bucket` spills through the `PropDef.onScraps` hook when torn (lantern-canal chance 0.5, old-town 0.35, appended at the end of those biome lists).
 
 ## Regrowth is restoration, never a loot farm
 
@@ -94,11 +95,54 @@ Only these five flora definitions opt into `regrow`:
 - Wind hits refresh a 6 s rotor boost even during cooldown. Sim-owned `turn` integrates 0.25 rad/s idle and 2.6 rad/s boosted; rendering reads it without mutation. The cached tower has no sails; `DecorPiece.live` draws one rotor under the same depth/pop-up transform using only three cached texture variants, never time/angle cache keys.
 - Court progress/cooldown marks use the same `landmarkActivityPoint` as simulation. Keep their approach walkable and copy localized. `src/ui/environment-copy.ts` gives burning status/help first priority. Wet status remains visible; a nearby court's real action/cooldown takes hint priority over wet help, which otherwise replaces the routine early-run hint.
 
+## Wash-out colour grid
+
+Implemented in f06b3a8 (sim), 39c10c9 and caa24a4 (render). Numbers in `src/defs/wash.ts` (`WASH`), simulation in `src/game/wash.ts`, render in `src/render/wash-art.ts`, `pencil.ts`, `sprite-sketch.ts` and the pencil chunk layer in `craft-world.ts`. Not balanced or playtested; never viewed in motion.
+
+### Grid and page states
+
+- `SimState.wash` holds a sparse record of 32-unit cells keyed `'ix,iy'` (`WashCell { level 0..1, blank?, changedAt, wetUntil?, cutUntil?, foldUntil?, hint? }`), capped at `WASH.maxCells` (600; fully painted cells are forgotten first). Keep the `size` counter and use `washEmpty()`; iterating the record every call made a 600 s night take 35 s.
+- Three page states: **painted** (cell not stored, normal art), **colourless** (`level >= WASH.colourless` = 0.5: raw cream paper with the pencil underdrawing) and **blank** (`blank` set by the Eraser: clean paper, no pencil). Pure readers: `washLevelAt`, `washCellAt`, `washBlankAt`, `washWetAt`, `isColourless`, `washCentre`, `washEmpty`.
+- The grid updates on `WASH.tick` (0.25 s). Every roll uses `hash2(seed, cell, tick)`, never the step RNG.
+
+### Sources of water
+
+- `SimContext.wash(state, x, y, r, amount, soak = true)` (`sim.spillWater`): washes cells, quenches fire and applies the `water` element to props.
+- Wash Drip enemies (`wash`, kite-lob with `shot: 'water'`, phases 2 and 3, cap 6) spit water drops. Torn Water Buckets spill radius 64. Wading actors splash radius 34 (at most 4 per tick). Smudge landings leave a 0.6 stain under the ink (soak false, so the ink coat stays).
+- Paper rain: one spell between 50% and 54% of the night, three diagonal 44-wide bands around the cat every 3 s (`notice.paper-rain`).
+- The Eraser's sweep blanks cells through `blankWhere` in `eraser-boss/attacks.ts` (`notice.eraser-wipe`); its old stroke behaviour is kept.
+
+### Effects
+
+- A freshly washed cell is wet for 7 s. Wet washed paper slows to x0.8 (else-if with shallow water, never stacked), blocks fire (`washBlocksFire`, and `paper-status` treats it like water for extinguishing and wet protection) and tears props 1.6x easier.
+- Pencil Sketches (`sketch`, `wakesOn: 'colourless'`) wake every 1.5 s on colourless, not blank, cells 90 to 300 from the cat, with chance = washed fraction x 2.4 (minimum fraction 0.04), at most 10 alive. They spawn in view by design (0.9 s spawn ring); the off-camera spawn test skips `wakesOn` kinds.
+- Protection: Nicole's active fold fields and large fold hits (`foldUntil`, 6 s) keep painted cells from washing. Zero's dash (`CharacterDef.dashTrail`, numbers in `zero/stats.ts`) and large cut hits mark white cut holes (`cutUntil`, 2.5 s) on the grid only. Shots below radius 10 never mark.
+
+### Restoration
+
+- `SimContext.paint` brings colour back. A defeated enemy with `EnemyDef.pigment` splashes its colour (radius 44, amount 0.8) and stores it as the cell `hint`. Lit pumpkins (radius 84, rate 0.5) and full moon lanterns (radius 96, rate 0.35) repaint slowly. The Watercolour Brush (common weapon, pool any) dabs the cat's colour and rubs sketches out faster. Dawn repaints everything over 80% of `STATS.dawnSeconds`.
+- `RunStats.colourKept` = 1 - (colourless now + lost) / touched, 100% if nothing washed; refreshed every tick and frozen once dawn starts. The result page shows it (`result.colour_kept`).
+
+### Render contract
+
+- `washFrame(sim)` returns null after one `washEmpty` check, so an unwashed run does no mask work and looks exactly as before. Otherwise cells are bucketed per chunk (blots overlap neighbours), coded by quantised level, blank, cut, fold and wet, and summed into an order-free signature; `maskFor` rebuilds the Path2D blots only when the signature changes.
+- `drawWashGround` order: watercolour tide line (`WASH_LOOK.tideAlpha`) under the pencil tile drawn through per-level blot clips (raw cream until the tile is baked), wet film, blank paper with a rubbed halo, fold cover (translucent sheet, creases, turned corner), cut holes (white cut-out, lifted shadow, lit rim, dark lip), then blooms from render-only memory of quantised changes (max 48, `WASH.bloom` 0.6 s).
+- Pencil chunk tiles come from `buildChunk(seed, cx, cy, 'sketch')` in the same 14-tile budget (key suffix `:sketch`; order: visible painted, visible washed sketch, prefetch), released with their painted chunk and by `clearWorldRenderCache`. `clearWashRender()` runs beside it in `main.ts`.
+- Decor, landmark bodies, props, the cat and enemies on colourless cells use `sprite-sketch.ts` (cached `sketch:<id>:<0.5|1>` variants, pooled scratch canvases for live actors, cap 32 per frame; blend modes only, no pixel reads or filters). Lamps stay painted. Sketch enemies themselves are not re-sketched. The cat head art is unchanged; the overlay sits on top.
+- Effects: splash ripple and cut-paper drops, pigment confetti (3 shapes x 6 turns per colour), cached slanted rain drops during the rain window, the brush's painted paper ribbon from render-only trail memory.
+
+## Paper verbs (3437a1b)
+
+- **Paper Cut** (`weapons/paper-cut.ts`, pool zero, timing move): samples the cat every 12 units into `SimState.cut.points` (max 40, life 1.8 s). `closeLoop` in `game/paper-geometry.ts` closes a loop by a segment crossing or a return within the close distance (min area 1800). Enemies inside take damage (Boss x0.35); `ctx.elementHit(..., within)` restricts the cut to props and wash cells inside the polygon. The open slit nicks ink for 0.6 every 0.45 s.
+- **Page Fold** (`weapons/page-fold.ts`, pool nicole, timing auto, every 3.4 s, only when ink is within 1.6 x band): a crease through Nicole with its normal toward the ink centroid. Non-boss ink inside the band is reflected through `safePosition`, stunned 1.3 s and hit; the Boss takes only 0.5. The fold element protects wash cells under the flap. From level 3 a temporary capsule wall (`SimState.walls`, life 3 s, max 3) blocks the cat and ink like scenery.
+- Not built: a temporary dry bridge over water. The shared water contract has no runtime crossing API, and adding one would break "same pure polygons for art and physics".
+- Cat wear is render-only: `PlayerState.healAt` (stamped by fish treat, snack, vitality, teahouse) and HP drive cached creases, tears and tape in `cat-detail.ts` (`CAT_WEAR` thresholds in `timeline.ts`); the head is untouched. Audio cues `snip` / `fold` come from `s.cut.cuts` / `s.fold.folds` diffs in `main.ts`; never heard.
+
 ## Art and evidence boundaries
 
 - `paper-face.ts` derives cached color contours and silhouette from untouched official Meow Wall rectangle data with last-rectangle-wins visibility. Keep markings, holes, diagonal contacts, small eye/nose/highlight regions, narrow rim and existing anchors. World cats and portraits share that source; do not replace the face or edit official data to fake papercraft.
 - Enemy cuts and combat effects use finite cached facets, wings, sleeves, cranes, stars, flecks and open rings, with live transforms instead of per-frame texture rebuilding. Keep threat silhouettes, eyes and telegraphs readable.
 - `paper-status-art.ts` supplies read-only carried flame/char and damp drop/ripple overlays after actual actor art, not decoys; steam, ink-wash, regrow and landmark-reward have separate paper cues. Prop ink is alpha-masked, folds retain the underlying cut, ground fire marks the real square cell. Tall building occlusion uses registered bounds, not an id allowlist.
-- New regression suites: `environment-integration`, `fire-water`, `landmark-actions`, `paper-elements`, `paper-visuals`, `water` (all `tests/*.test.mjs`). Also retain cat-art, reactions, rendering, scenery-art, registry and official-data checks. Canvas command/geometry tests are not browser-pixel, animation or performance tests.
-- Latest verification: `npm run build && npm test` passed **237 tests**. One static screenshot was captured **and viewed** at `output/playwright/paper-ecology-review.png` using system Chrome, not the missing bundled Chromium. It shows selected art only, not a full gameplay-screen or mobile review.
-- No animation, recording, audio or FPS checks were performed. Balance, full-screen/mobile layout, motion and user art approval remain open; the art and entry are not finished. Do not infer deployment of this work from the user's confirmation of the older Vercel version. Follow [testing-and-verification.md](testing-and-verification.md).
+- New regression suites: `environment-integration`, `fire-water`, `landmark-actions`, `paper-elements`, `paper-visuals`, `water`; wash-out round: `paper-rules`, `wash`, `paper-verbs`, `paper-value` (all `tests/*.test.mjs`). Also retain cat-art, reactions, rendering, scenery-art, registry and official-data checks. Canvas command/geometry tests are not browser-pixel, animation or performance tests.
+- Latest verification: `npm run build && npm test` passed **293 tests**. The one static still of the wash-out round is the `?gallery=1` page (`output/playwright/paper-washout-review.png`, described in `HANDOFF.md`); it is not a gameplay-screen or mobile review and shows no live wash.
+- No animation, recording, audio or FPS checks were performed. A Node step probe (seed 7, 100 enemies, fire and water every 0.5 s) measured 0.453 / 0.426 ms per step (Zero / Nicole) against 0.386 / 0.352 at e85365d. Balance, full-screen/mobile layout, motion and user art approval remain open; the art and entry are not finished. Do not infer deployment of this work from the user's confirmation of the older Vercel version. Follow [testing-and-verification.md](testing-and-verification.md).

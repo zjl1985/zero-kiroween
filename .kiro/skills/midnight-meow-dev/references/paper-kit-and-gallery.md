@@ -88,7 +88,7 @@ icon(ctx, ink) {
 }
 ```
 
-Scope: all registered weapon and passive icons (8 weapons including the 2 evolved ones, 11 passives), the upgrade card emblem mount (`paintCardEmblem`, also used for the evolution seal in the chest reveal) and the HUD slot tag (`paintUpgradeIcon`). `piece` and `paperCut` keep their older soft drop shadow because the approved cat heads (`paper-face.ts`) are built from `paperCut`; do not change their defaults without the user's approval of the heads. Warm lamp/window light (`warmGlow`, `glow`) is scene lighting and stays outside emblems.
+Scope: all registered weapon and passive icons (11 weapons including the 2 evolved ones and the later Watercolour Brush, Paper Cut and Page Fold, plus 11 passives), the upgrade card emblem mount (`paintCardEmblem`, also used for the evolution seal in the chest reveal) and the HUD slot tag (`paintUpgradeIcon`). `piece` and `paperCut` keep their older soft drop shadow because the approved cat heads (`paper-face.ts`) are built from `paperCut`; do not change their defaults without the user's approval of the heads. Warm lamp/window light (`warmGlow`, `glow`) is scene lighting and stays outside emblems.
 
 ### Gallery check views (developer only)
 
@@ -115,17 +115,25 @@ A newly registered cat, enemy, prop, landmark, biome, weapon or passive shows up
 - `wash-art.ts` buckets `SimState.wash` per chunk each frame (one check and nothing else when no cells are stored), builds quantised vector masks (one watercolour blot per cell, `washStep` 0..4) and rebuilds a chunk's mask only when its signature changes (`washMaskRevision`). Tide line under the pencil layer, blank paper, fold covers, white cut holes, then blooms timed by `WASH_LOOK` / `washBloom` in `timeline.ts`.
 - Pieces and actors on colourless cells use `sprite-sketch.ts`: cached `sketch:<sprite id>:<0.5|1>` variants for decor, props and landmark bodies, and pooled scratch canvases for live actors (at most `SKETCH_ACTORS_PER_FRAME`). Blend modes only; no canvas filter, pixel reads or gradients. Cat head art is drawn unchanged underneath the overlay.
 
-The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview` draws its own skill pose and effect. Landmark previews build initial interaction-marker state from registered spots (including the moon lantern's starting charge), and use `craft-juice.ts` in world depth order without starting a sim or duplicating the decor bodies. A single system-Chrome screenshot at `output/playwright/paper-ecology-review.png` was captured and viewed for selected art only. It is not coverage of every gallery entry, every runtime status, the full gameplay screen or mobile layout, and the user has not approved the art. The gallery's five base prop states do not automatically include runtime ink/fold/regrowth treatments.
+The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview` draws its own skill pose and effect. Landmark previews build initial interaction-marker state from registered spots (including the moon lantern's starting charge), and use `craft-juice.ts` in world depth order without starting a sim or duplicating the decor bodies. The wash-out round's single still, `output/playwright/paper-washout-review.png`, is of this page; `HANDOFF.md` records what it shows. It is not coverage of every runtime status, the full gameplay screen or mobile layout, and the user has not approved the art. The gallery's five base prop states do not automatically include runtime ink/fold/regrowth treatments, and the washed-paper swatches are static, not live wash.
+
+### Value hierarchy and flat shadows
+
+- `src/render/paper-value.ts`: `gradeCanvas` lowers and greys baked ground tiles (`PAPER_VALUE.ground`) and decor/prop sprites one smaller step (`PAPER_VALUE.decor`) at bake time; `addLitRim` gives cached enemy parts (through `enemyPart`) a pale top-right cut rim; `drawWithLitRim` does the same for the live chosen cat from its finished pose (decoys skip it). New ground and decor art inherits the grade automatically.
+- `withFlatShadows(fn)` in `paper-material.ts` makes `piece` / `paperCut` cast the hard down-right `PAPER_SHADOW` inside cached scenery, props, lamps and landmark ground. The approved cat heads keep the old default. `shadow()` is two flat down-right ovals, not a blur.
+- Player shots are one solid colour with a dark paper outline. Only interactive pumpkins and full lanterns keep warm glows.
 
 ## Tests
 
 `tests/gallery.test.mjs`: every registered entry gets a cell; states per kind; labels are i18n keys; cells stay inside the page and never overlap; variants are stable, spread within ranges and never call `Math.random`; `tornEdge` stays exported. `tests/registry.test.mjs`: art registries match defs and `cachedSprite` is keyed, capped and DOM-free. `tests/rendering.test.mjs` records Canvas commands to check skill dispatch, landmark markers / depth order and cached alpha-mask tinting; it does not check browser pixels or frame rate.
 
-`tests/paper-visuals.test.mjs`, `water.test.mjs`, `cat-art.test.mjs` and `scenery-art.test.mjs` additionally check shared water vertices, official-face contours, finite caches, actor/prop status cues, court anchors and bounds. These are geometry/command checks, not browser-pixel, animation, audio or FPS validation. Latest verification: build and 237 passing tests.
+`tests/paper-visuals.test.mjs`, `water.test.mjs`, `cat-art.test.mjs` and `scenery-art.test.mjs` additionally check shared water vertices, official-face contours, finite caches, actor/prop status cues, court anchors and bounds; `paper-visuals` also covers the wash masks, pencil tiles, sketched sprites, effects and brush ribbon. `paper-rules.test.mjs` and `paper-value.test.mjs` cover the ruleset and value hierarchy. These are geometry/command checks, not browser-pixel, animation, audio or FPS validation. Latest verification: build and 293 passing tests.
 
 ## Checklist
 
-- [ ] every piece has cut edge, thickness and contact shadow (`paperCut` / `piece` + `shadow`)
+- [ ] every piece has cut edge, thickness and contact shadow (`paperCut` / `piece` + `shadow`, or `flatLayer` / `flatCut` + `flatShadow` under the ruleset)
+- [ ] light from the top-right, shadow down-right; no gradients, `shadowBlur`, filters or `lighter` in emblems (check `/?gallery=1&check=gloss` and `&check=value`)
+- [ ] the piece still reads when sketched (colourless) and on the darker graded ground
 - [ ] variation through `variant` / render hashes only
 - [ ] painter is pure if cached
 - [ ] art registered in `src/render/art-index.ts`; visible in `?gallery=1`

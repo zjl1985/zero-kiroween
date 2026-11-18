@@ -2,7 +2,7 @@
 
 Checked items record implementation, not user approval. Original task numbers/history are retained below; superseded rules and gaps are explicitly labeled rather than silently erased. The user's latest request includes all remaining art/interaction gaps and paper actors igniting with water extinguishing them. This overrides the old harmless-to-cat fire rule and deferral of ecology.
 
-Latest verification: **`npm run build && npm test` passed 237 tests**. One static screenshot was captured and viewed at `output/playwright/paper-ecology-review.png` using **system Chrome**, not the missing bundled Chromium. It shows selected art only. Full gameplay-screen/mobile review, balance and user art acceptance remain open; no animation, recording, audio or FPS checks were performed. The user viewed the older deployed version and asked for refinement; neither older approval nor a static image accepts the latest game.
+Latest verification: **`npm run build && npm test` passed 293 tests** after the paper wash-out round (tasks 78 to 85). Its one static still is the `?gallery=1` page (`output/playwright/paper-washout-review.png`, described in `HANDOFF.md`). Full gameplay-screen/mobile review, balance and user art acceptance remain open; no animation, recording, audio or FPS checks were performed. The user viewed the older deployed version and asked for refinement; neither older approval nor a static image accepts the latest game.
 
 ## Foundation
 
@@ -118,6 +118,18 @@ Details and source contracts: [design.md](design.md), [requirements.md](requirem
 - [x] 75. One static system-Chrome screenshot captured and viewed: `output/playwright/paper-ecology-review.png`, selected art only. Earlier missing bundled Chromium failure is historical, not the current evidence.
 - [ ] 76. Full gameplay-screen/mobile, reference-target and user art review; existing task 18/44/63/64 acceptance remains open. Verification remains limited to at most one static screenshot; animation or recording requires the user's explicit request.
 - [ ] 77. Authorized balance/performance/audio follow-up; no animation, recording, audio or FPS checks have been performed for the ecology. Do not mark the art or competition entry finished.
+
+## Paper wash-out round (2026-11-18, local commits, not pushed)
+
+- [x] 78. Paper ruleset (`paper-rules.ts`, flat helpers), 19 gloss-free weapon/passive emblems, flat card mounts and HUD tags, gallery check views `?check=value|gloss` (6931574).
+- [x] 79. Paper enemies (ink-soaked sheet blob, origami bat, faceted crumple, rubber-block Eraser) and readable prop damaged/scraps/burnt states (265fe69).
+- [x] 80. District paper sheets (`paper-ground.ts`), fringe-cut verges, a distinct base per landmark kind (`ground-kit.art.ts`; `plaza.art.ts` removed) (8a42c20).
+- [x] 81. Wash-out sim: colour grid, `water` element and rows, Water Bucket, Wash Drip and Pencil Sketch, paper rain, Eraser blanks, restoration, `colourKept`, Watercolour Brush, dash cut holes, fold protection (f06b3a8; Req 19).
+- [x] 82. Pencil underdrawing, wash masks, tide lines, blooms, sketched sprites and actors, splash/pigment/rain effects, brush ribbon, gallery "Washed paper" section (39c10c9, caa24a4).
+- [x] 83. Paper Cut (Zero) and Page Fold (Nicole) with walls from level 3, cat tear/tape wear, snip/fold audio (3437a1b; Req 20). Dry bridge not built.
+- [x] 84. Value hierarchy (bake-time grade, lit rims, solid shots), halved road-side lamps, flat cached shadows, no per-frame blur filter (b92920e).
+- [x] 85. Docs and one static `?gallery=1` still (see `HANDOFF.md`).
+- [ ] 86. User visual review of tasks 78 to 84 (P0: it must look good), then authorized playtest/balance of wash-out and verbs, and browser FPS.
 
 ## Release
 

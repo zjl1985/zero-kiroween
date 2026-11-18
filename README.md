@@ -29,7 +29,28 @@ On touch screens, move with the stick and tap the skill button. English is the d
 - Visit five districts linked by roads and bridges. Rest at a teahouse, tend the greenhouse, or align the observatory.
 - Tear or fold paper obstacles to open routes. Paper Crane can fold nearby props and drive windmills.
 - Fire spreads through flammable paper and can burn your cat. Shallow water puts out flames, and bridges let you cross deep water.
-- Watch for Ink Blobs, Paper Bats, Crumples, Smudges, Kiro Ghosts, and the Eraser.
+- Watch for Ink Blobs, Paper Bats, Crumples, Smudges, Kiro Ghosts, Wash Drips, Pencil Sketches, and the Eraser.
+
+## Wash-out: keep the colour on the page
+
+Water lifts the colour off the paper. Wash Drips spit water drops, Water Buckets spill when torn, wading splashes the page, and a short paper rain falls in the middle of the night. Washed paper turns back into raw cream paper with its pencil underdrawing showing. While it is wet it slows you, cannot burn, and tears easily. Pencil Sketches wake on colourless paper near you.
+
+The Eraser rubs the page blank: no colour and no pencil lines. Paint it back before more sketches wake.
+
+Colour comes back from pigment. Defeated ink splashes its own colour where it falls, lit pumpkins and full moon lanterns slowly repaint the paper around them, and dawn repaints the whole town. The result page shows how much colour you kept.
+
+The **Watercolour Brush** is a weapon either cat can pick up. It dabs your cat's colour back onto the page as you walk, grazes nearby ink, and rubs out pencil sketches quickly.
+
+## Paper verbs
+
+Each cat has one more exclusive card that works the page itself:
+
+| Card | Cat | What it does |
+| --- | --- | --- |
+| **Paper Cut** | Zero | Your path slits the page for a moment. Close the line into a loop to cut the piece out: ink inside takes damage and paper inside tears. The open slit nicks ink that crosses it. |
+| **Page Fold** | Nicole | Every few seconds, when ink is close, the page folds over toward it. Ink in the fold is flipped across, pinned and hit. At level 3 the fold also raises a short paper wall. |
+
+Your cat shows damage as creases and tears on its clothes, and healing as tape patches. Controls are unchanged.
 
 ## Run locally
 
