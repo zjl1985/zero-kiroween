@@ -28,6 +28,23 @@ export const SKETCH_STEPS = [0, 0.5, 1] as const;
 const TONE = 0.62;
 /** At most this many live actors are composed in pencil per frame; the rest stay painted. */
 export const SKETCH_ACTORS_PER_FRAME = 32;
+/**
+ * Enemies get this share of the budget (the cat, its decoy and live rotors
+ * keep the rest). When more enemies stand on colourless paper, the oldest
+ * ones (lowest ids) keep the pencil look, so the set does not flicker with
+ * the y-sorted draw order.
+ */
+export const SKETCH_ENEMIES_PER_FRAME = 26;
+
+/** The enemy ids drawn in pencil this frame, or null when all candidates fit the budget. */
+export function sketchEnemyPick(ids: readonly number[]): ReadonlySet<number> | null {
+  if (ids.length <= SKETCH_ENEMIES_PER_FRAME) return null;
+  return new Set([...ids].sort((a, b) => a - b).slice(0, SKETCH_ENEMIES_PER_FRAME));
+}
+/** Device pixels per unit for an offscreen copy: never below the live scale (no upscaling blur), quarter steps. */
+export function rasterScale(scale: number): number {
+  return Math.max(1, Math.min(4, Math.ceil(scale * 4 - 1e-6) / 4));
+}
 
 /** Snap an amount to SKETCH_STEPS. */
 export function sketchStep(amount: number): number {
@@ -66,6 +83,22 @@ const grey = (v: number) => {
   const n = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0");
   return `#${n}${n}${n}`;
 };
+/** Hatching strokes for a W x H box, reused per size (live boxes snap to a few sizes). */
+const hatches = new Map<string, Path2D>();
+function hatchPath(W: number, H: number, k: number): Path2D {
+  const key = `${W}x${H}:${k}`;
+  let lines = hatches.get(key);
+  if (lines) return lines;
+  if (hatches.size > 40) hatches.clear();
+  lines = new Path2D();
+  const gap = 3.2 * k;
+  for (let d = -H; d < W + H; d += gap) {
+    lines.moveTo(d, H);
+    lines.lineTo(d + H, 0);
+  }
+  hatches.set(key, lines);
+  return lines;
+}
 /**
  * Draws the pencil version of `src` (W x H device pixels covering w x h
  * units at k pixels per unit) into `ctx` at (0, 0) in units, mixed by `q`.
@@ -106,11 +139,7 @@ function composeSketch(ctx: Ctx, src: CanvasSurface, w: number, h: number, k: nu
   const hat = scratch(W, H, 3), t = hat.ctx;
   t.drawImage(src, 0, 0);
   t.globalCompositeOperation = "source-in";
-  const lines = new Path2D(), gap = 3.2 * k;
-  for (let d = -H; d < W + H; d += gap) {
-    lines.moveTo(d, H);
-    lines.lineTo(d + H, 0);
-  }
+  const lines = hatchPath(W, H, k);
   t.strokeStyle = PENCIL.graphite;
   t.lineWidth = 0.55 * k;
   t.stroke(lines);
@@ -177,7 +206,7 @@ export function drawSketched(ctx: Ctx, amount: number, x: number, y: number, box
   actorsThisFrame++;
   const m = typeof ctx.getTransform === "function" ? ctx.getTransform() : undefined,
     scale = typeof m?.a === "number" && Number.isFinite(m.a) ? Math.hypot(m.a, m.b) : 2,
-    k = Math.max(1, Math.min(4, Math.round(scale * 2) / 2)),
+    k = rasterScale(scale),
     // Snap boxes to 8-unit steps so the scratch pool reuses a few sizes.
     l = Math.floor(box.l / 8) * 8, t = Math.floor(box.t / 8) * 8,
     w = Math.ceil((box.r - l) / 8) * 8, h = Math.ceil((box.b - t) / 8) * 8,

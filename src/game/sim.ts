@@ -753,10 +753,11 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
       ? STATS.strokeSlow
       : 1;
   // Leftovers of enemy kinds (smudge puddles) slow the cat.
+  const unslowed = p.slow;
   for (const d of ENEMY_DEFS.all()) if (d.catSlow) p.slow *= d.catSlow(state);
-  // One water slow at most: shallow water, or else wet washed paper.
+  // One water slow at most: shallow water, or else wet washed paper (not on top of a puddle slow either).
   if (waterAt(state.seed, p.x, p.y) === "shallow") p.slow *= WATER.shallowSlow;
-  else if (washWetTouches(state, p.x, p.y, 0)) p.slow *= WASH.wetSlow;
+  else if (p.slow >= unslowed && washWetTouches(state, p.x, p.y, 0)) p.slow *= WASH.wetSlow;
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
       length(input.ax, input.ay) < 0.15

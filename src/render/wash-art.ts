@@ -7,9 +7,11 @@
  * per cell, grouped by quantised level, rebuilt only when that chunk's cells
  * change (a render-side revision, never sim state). A darker tide line dries
  * along every wash edge; fresh changes bloom with pigment (WASH_LOOK timing
- * in timeline.ts). Zero-style cut holes are clean white cut-outs and fold
- * protection is a folded paper cover. Splashes, paper rain and pigment
- * confetti are small flat paper cuts.
+ * in timeline.ts). Cut holes through colourless paper are clean white
+ * cut-out blots (cells under a live Paper Cut piece are left to its own
+ * polygon hole). Fold protection stores no cells and draws nothing here (the
+ * fold and flap art show it). Splashes, paper rain and pigment confetti are
+ * small flat paper cuts.
  *
  * With no stored wash cells nothing here runs past one check. No per-frame
  * canvas filters or pixel reads, no gradients, no random numbers. Render only:
@@ -25,7 +27,8 @@ import { BIOME_ART, type BiomeArt } from "./art-registry.js";
 import { viewRect, type Camera, type ViewRect } from "./camera.js";
 import { sketchTile } from "./craft-world.js";
 import { visHash } from "./hash.js";
-import { crease, flatCut, placePoints, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
+import { flatCut, placePoints, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
+import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { mix, stroke, type Ctx, type Point } from "./paper-material.js";
 import { PENCIL } from "./pencil.js";
 import { WASH_LOOK, washBloom } from "./timeline.js";
@@ -37,9 +40,6 @@ const COLORS = Object.freeze({
   wet: "#a6c8d2",
   cut: "#fffdf8",
   cutLip: "#6a5a4a",
-  fold: "#ece4f1",
-  foldEdge: "#a99bba",
-  foldCorner: "#faf5fc",
   drop: "#8fbfcd",
   dropRim: "#e8f6f6",
 });
@@ -53,7 +53,7 @@ export function washStep(level: number): number {
 export function cellCode(c: WashCell, now: number): number {
   const blank = c.blank === true;
   return (blank ? 0 : washStep(c.level)) | (blank ? 8 : 0) | ((c.cutUntil ?? 0) > now ? 16 : 0) |
-    ((c.foldUntil ?? 0) > now ? 32 : 0) | ((c.wetUntil ?? 0) > now ? 64 : 0);
+    ((c.wetUntil ?? 0) > now ? 64 : 0);
 }
 interface Mark {
   readonly ix: number;
@@ -72,8 +72,7 @@ interface Mask {
   edge: Path2D | null;
   wet: Path2D | null;
   blank: Path2D | null;
-  cut: Set<string>;
-  fold: Set<string>;
+  cut: Path2D | null;
   tide: string;
   pigment: string;
 }
@@ -147,8 +146,10 @@ export function washFrame(sim: SimState): WashFrame | null {
       comma = key.indexOf(","),
       ix = +key.slice(0, comma),
       iy = +key.slice(comma + 1),
-      code = cellCode(c, now),
-      v = c.blank ? 5 : code & 7;
+      v = c.blank ? 5 : washStep(c.level);
+    let code = cellCode(c, now);
+    // A Paper Cut piece draws its own polygon hole: no second (cell) hole under it.
+    if (code & 16 && underCutOut(sim, ix, iy)) code &= ~16;
     const m = memory.get(key);
     if (!m) memory.set(key, { v, at: c.changedAt, dir: v > 0 ? 1 : -1, ...(c.hint ? { hint: c.hint } : {}), seen: frameNo });
     else {
@@ -189,6 +190,13 @@ export function washFrame(sim: SimState): WashFrame | null {
   }
   for (const key of masks.keys()) if (!buckets.has(key)) masks.delete(key);
   return { chunks, buckets, seed: sim.seed, elapsed: now };
+}
+/** True when the cell centre lies inside a Paper Cut piece cut within the last WASH.cut.seconds. */
+function underCutOut(sim: SimState, ix: number, iy: number): boolean {
+  const outs = sim.cut?.outs;
+  if (!outs?.length) return false;
+  const x = (ix + 0.5) * WASH.cell, y = (iy + 0.5) * WASH.cell;
+  return outs.some((o) => sim.elapsed - o.at < WASH.cut.seconds && insidePolygon(o.points, x, y));
 }
 
 /** One soft watercolour blot (smooth closed curve through hashed radii) appended to `p`. */
@@ -256,7 +264,7 @@ function buildMask(seed: number, key: string, bucket: Bucket): Mask {
   const [cx, cy] = key.split(",").map(Number) as [number, number],
     levels: (Path2D | null)[] = [null, null, null, null],
     look = chunkLook(seed, cx, cy),
-    m: Mask = { sig: bucket.sig, levels, edge: null, wet: null, blank: null, cut: new Set(), fold: new Set(), ...look };
+    m: Mask = { sig: bucket.sig, levels, edge: null, wet: null, blank: null, cut: null, ...look };
   for (const { ix, iy, code } of bucket.marks) {
     const step = code & 7;
     if (step > 0) {
@@ -264,8 +272,7 @@ function buildMask(seed: number, key: string, bucket: Bucket): Mask {
       blot(m.edge ??= new Path2D(), ix, iy);
     }
     if (code & 8) blot(m.blank ??= new Path2D(), ix, iy, 0.94);
-    if (code & 16) m.cut.add(ix + "," + iy);
-    if (code & 32) m.fold.add(ix + "," + iy);
+    if (code & 16) blot(m.cut ??= new Path2D(), ix, iy, 0.84);
     if (code & 64) blot(m.wet ??= new Path2D(), ix, iy, 0.9);
   }
   revisions.set(key, (revisions.get(key) ?? 0) + 1);
@@ -280,26 +287,8 @@ function maskFor(seed: number, key: string, bucket: Bucket): Mask {
   return m;
 }
 
-/** Square cells of a set as one path, plus their outer edges split by side (for lit rim / dark lip). */
-function cellShapes(cells: ReadonlySet<string>, inset: number): { body: Path2D; lit: Path2D; lip: Path2D } {
-  const body = new Path2D(), lit = new Path2D(), lip = new Path2D(), c = WASH.cell;
-  for (const key of cells) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number],
-      x0 = ix * c, y0 = iy * c, x1 = x0 + c, y1 = y0 + c,
-      has = (dx: number, dy: number) => cells.has(ix + dx + "," + (iy + dy));
-    body.rect(x0 - (has(-1, 0) ? 0 : -inset), y0 - (has(0, -1) ? 0 : -inset),
-      c - (has(-1, 0) ? 0 : inset) - (has(1, 0) ? 0 : inset), c - (has(0, -1) ? 0 : inset) - (has(0, 1) ? 0 : inset));
-    // Top and right edges face the moon; bottom and left carry the dark lip.
-    if (!has(0, -1)) { lit.moveTo(x0 + inset, y0 + inset); lit.lineTo(x1 - inset, y0 + inset); }
-    if (!has(1, 0)) { lit.moveTo(x1 - inset, y0 + inset); lit.lineTo(x1 - inset, y1 - inset); }
-    if (!has(0, 1)) { lip.moveTo(x0 + inset, y1 - inset); lip.lineTo(x1 - inset, y1 - inset); }
-    if (!has(-1, 0)) { lip.moveTo(x0 + inset, y0 + inset); lip.lineTo(x0 + inset, y1 - inset); }
-  }
-  return { body, lit, lip };
-}
-/** Zero-style cut holes: clean white cut-outs lifted a little off the page. */
-function drawCutHoles(ctx: Ctx, cells: ReadonlySet<string>): void {
-  const { body, lit, lip } = cellShapes(cells, 2.5);
+/** Cut holes through colourless paper: clean white cut-out blots lifted a little off the page. */
+function drawCutHoles(ctx: Ctx, body: Path2D): void {
   ctx.save();
   ctx.save();
   ctx.translate(PAPER_SHADOW.dx * 1.8, PAPER_SHADOW.dy * 1.8);
@@ -309,35 +298,16 @@ function drawCutHoles(ctx: Ctx, cells: ReadonlySet<string>): void {
   ctx.restore();
   ctx.fillStyle = COLORS.cut;
   ctx.fill(body);
-  stroke(ctx, lip, COLORS.cutLip, 0.9, 0.7);
-  stroke(ctx, lit, PAPER_LIGHT.rim, 1.1, 0.9);
-  ctx.restore();
-}
-/** Fold protection: a translucent folded sheet laid over the cells, creased, with a turned corner. */
-function drawFoldCover(ctx: Ctx, cells: ReadonlySet<string>): void {
-  const { body, lit, lip } = cellShapes(cells, 1.5), c = WASH.cell;
+  // The cut wall: a dark lip toward the shadow (down-left), a lit rim toward the moon (up-right).
   ctx.save();
+  ctx.translate(-PAPER_LIGHT.dirX * 0.7, -PAPER_LIGHT.dirY * 0.7);
+  stroke(ctx, body, COLORS.cutLip, 0.9, 0.6);
+  ctx.restore();
   ctx.save();
-  ctx.translate(PAPER_SHADOW.dx * 1.2, PAPER_SHADOW.dy * 1.2);
-  ctx.globalAlpha *= 0.18;
-  ctx.fillStyle = PAPER_SHADOW.color;
-  ctx.fill(body);
+  ctx.translate(PAPER_LIGHT.dirX * 0.6, PAPER_LIGHT.dirY * 0.6);
+  stroke(ctx, body, PAPER_LIGHT.rim, 1, 0.8);
   ctx.restore();
-  ctx.globalAlpha *= 0.46;
-  ctx.fillStyle = COLORS.fold;
-  ctx.fill(body);
   ctx.restore();
-  stroke(ctx, lip, COLORS.foldEdge, 0.8, 0.6);
-  stroke(ctx, lit, COLORS.foldCorner, 0.9, 0.8);
-  for (const key of cells) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number], x0 = ix * c, y0 = iy * c;
-    if ((ix + iy) % 2 === 0) crease(ctx, x0 + 4, y0 + c - 4, x0 + c - 4, y0 + 4, 0.35);
-    // The top-right corner of a cover is turned back toward the moon.
-    if (!cells.has(ix + 1 + "," + iy) && !cells.has(ix + "," + (iy - 1))) {
-      const x1 = x0 + c - 1.5, y1 = y0 + 1.5;
-      flatCut(ctx, [[x1 - 10, y1], [x1, y1 + 10], [x1 - 10, y1 + 10]], { color: COLORS.foldCorner, thickness: 0.5, lift: 0.6, texture: 0 });
-    }
-  }
 }
 function forChunks(view: ViewRect, fn: (cx: number, cy: number) => void): void {
   for (let cy = Math.floor(view.y0 / CHUNK.height); cy <= Math.floor(view.y1 / CHUNK.height); cy++)
@@ -346,7 +316,7 @@ function forChunks(view: ViewRect, fn: (cx: number, cy: number) => void): void {
 /**
  * Washed ground for the visible chunks, under everything that stands on it:
  * tide line, pencil layer through the level blots (raw cream until the tile
- * is baked), wet film, blank paper, fold covers and cut holes, then blooms.
+ * is baked), wet film, blank paper and cut holes, then blooms.
  */
 export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): void {
   if (!frame) return;
@@ -391,8 +361,7 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
       ctx.restore();
       stroke(ctx, m.blank, PENCIL.blank, 2.4, 0.9);
     }
-    if (m.fold.size) drawFoldCover(ctx, m.fold);
-    if (m.cut.size) drawCutHoles(ctx, m.cut);
+    if (m.cut) drawCutHoles(ctx, m.cut);
     ctx.restore();
   });
   drawBlooms(ctx, view, frame);

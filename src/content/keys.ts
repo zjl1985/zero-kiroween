@@ -297,6 +297,7 @@ export const MESSAGE_KEYS = [
   "result.colour_kept",
   "result.colour_value",
   "hint.washed",
+  "hint.colourless",
   "upgrade.paper-cut.name",
   "upgrade.paper-cut.desc",
   "upgrade.page-fold.name",

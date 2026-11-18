@@ -39,7 +39,7 @@ import {
 import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
-import { beginSketchFrame, drawSketched, sketchAmount } from "./sprite-sketch.js";
+import { beginSketchFrame, drawSketched, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
@@ -82,8 +82,8 @@ export function paperOccludesActor(x: number, y: number, s: number, bounds: ArtB
   return actor.y <= y + 5 && actor.x + 20 > x + bounds.l * s && actor.x - 20 < x + bounds.r * s &&
     actor.y > y + bounds.t * s && actor.y - 65 < y + bounds.b * s;
 }
-/** Box around the cat's base point that holds its body, head, tail and lantern. */
-const CAT_BOX = { l: -48, r: 48, t: -100, b: 18 } as const;
+/** Box around the cat's base point that holds its body, head, tail and lantern (CAT_DETAIL_BOUNDS plus swing and bob margin). */
+const CAT_BOX = { l: -54, r: 54, t: -106, b: 22 } as const;
 const COMMON_BOUNDS: Readonly<Record<string, ArtBounds>> = {
   tree: { l: -82, r: 82, t: -158, b: 16 },
   cottage: { l: -120, r: 100, t: -144, b: 16 },
@@ -283,13 +283,17 @@ export function drawWorld(
     // Googly eyes follow the cat.
     const look = { x: sim.player.x, y: sim.player.y - 20 };
     // Off-screen ink is culled; the Eraser is large, so it gets a wider margin.
-    for (const e of sim.enemies)
-      if (e.alive && inView(near, e.x, e.y, ENEMY_ART.find(e.kind)?.cullMargin ?? 0))
+    const shown = sim.enemies.filter((e) => e.alive && inView(near, e.x, e.y, ENEMY_ART.find(e.kind)?.cullMargin ?? 0)),
+      sketchOf = (e: (typeof shown)[number]) =>
+        wash && ENEMY_DEFS.find(e.kind)?.wakesOn !== "colourless" ? sketchAmount(sim, e.x, e.y) : 0,
+      // Over budget, the oldest pencil enemies keep the look (stable across frames, not draw order).
+      pick = wash ? sketchEnemyPick(shown.filter((e) => sketchOf(e) > 0.25).map((e) => e.id)) : null;
+    for (const e of shown)
         sprites.push({
           y: e.y,
           draw: () => {
             const r = enemyRadius(e), reach = r * 3 + 24;
-            drawSketched(ctx, wash && ENEMY_DEFS.find(e.kind)?.wakesOn !== "colourless" ? sketchAmount(sim, e.x, e.y) : 0, e.x, e.y,
+            drawSketched(ctx, pick && !pick.has(e.id) ? 0 : sketchOf(e), e.x, e.y,
               { l: -reach, r: reach, t: -(r * 4.6 + 40), b: r + 16 }, (ctx) => drawCraftEnemy(ctx, e, view.time, look));
             drawHitFlash(ctx, e);
             if (e.spawnTime <= 0) drawActorPaperStatus(ctx, e, view.time, enemyRadius(e));

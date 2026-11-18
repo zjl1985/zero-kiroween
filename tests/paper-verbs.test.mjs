@@ -7,7 +7,7 @@ import { closeLoop, insidePolygon, reflectAcross } from "../dist/defs/weapons/pa
 import { PAPER_CUT } from "../dist/defs/weapons/paper-cut.js";
 import { PAGE_FOLD, PAPER_WALL } from "../dist/defs/weapons/page-fold.js";
 import { isEligible, UPGRADES } from "../dist/game/upgrades.js";
-import { washCellOf, washKey } from "../dist/game/wash.js";
+import { washAt, washCellOf, washKey } from "../dist/game/wash.js";
 import { WASH } from "../dist/defs/wash.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
 import { missingKeys, t } from "../dist/content/i18n.js";
@@ -74,7 +74,13 @@ test("a cut line closes on a square path and never on a straight line", () => {
 });
 
 test("closing the loop cuts the ink inside, spares ink outside and leaves white cut cells inside only", () => {
+  // On painted, never-washed ground the loop stores no wash cells (its own polygon hole shows the cut).
+  const p = quiet("zero", "paper-cut");
+  walk(p, [[820, 420], [820, 540], [700, 540], [700, 420], [710, 412]]);
+  assert.equal(p.cut.cuts, 1);
+  assert.equal(p.wash.size, 0, "cutting painted paper marks no wash cells");
   const s = quiet("zero", "paper-cut");
+  washAt(s, 760, 480, 200, 1);
   const inside = blob(s, 760, 480), outside = blob(s, 1000, 480);
   walk(s, [[820, 420], [820, 540], [700, 540], [700, 420], [710, 412]]);
   assert.equal(s.cut.cuts, 1, "one loop closed");
@@ -114,7 +120,8 @@ test("the page fold flips ink inside the band across the crease and pins it; ink
   assert.ok(near.x > 620 && near.x < 672, `mirrored across the crease: ${near.x}`);
   assert.ok(near.stun >= 1.2, "pinned");
   assert.ok(far.x > s.player.x && !(far.stun > 0), "beyond the band: untouched");
-  assert.ok(Object.values(s.wash.cells).some((c) => (c.foldUntil ?? 0) > s.elapsed), "the flap protects the page");
+  assert.ok(s.wash.folds.some((f) => f.until > s.elapsed), "the flap protects the page");
+  assert.equal(s.wash.size, 0, "folding painted ground stores no wash cells");
   assert.equal(s.walls.length, 0, "no wall below level 3");
 });
 

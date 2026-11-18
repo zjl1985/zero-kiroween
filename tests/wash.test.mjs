@@ -10,6 +10,7 @@ import { HORDE, KIND_CAP, SPAWN_TABLE } from "../dist/defs/horde.js";
 import { ELEMENTS } from "../dist/defs/types.js";
 import { ENEMY_DEFS, PROP_DEFS, REACTIONS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { WASH_DRIP } from "../dist/defs/enemies/wash/def.js";
+import { CRANE_FOLD } from "../dist/defs/weapons/paper-crane.js";
 import {
   blankWhere, colourKept, isColourless, washAt, washBlankAt, washCellAt, washLevelAt, washWetAt,
 } from "../dist/game/wash.js";
@@ -221,17 +222,34 @@ test("kit interplay through element hits: a large fold protects, a dash cut leav
   const n = quiet("nicole");
   run(n, DT, { ax: 0, ay: 0, dash: true });
   assert.equal(n.fields.length, 1);
+  assert.equal(cellCount(n), 0, "Nicole's skill on painted ground stores no wash cells");
   spillWater(n, n.player.x, n.player.y, 40, 1);
   assert.ok(!isColourless(washCellAt(n, n.player.x, n.player.y)), "the fold field keeps the paint dry");
   // Small fold hits (crane shots in flight) never mark the page.
   const f = quiet();
   applyElement(f, 600, 300, 5, "fold", 1);
   assert.equal(cellCount(f), 0);
+  assert.equal(f.wash.folds.length, 0);
+  // A crane volley's large fold keeps the grid empty but still protects the page from water.
+  applyElement(f, 600, 300, CRANE_FOLD.radius, "fold", CRANE_FOLD.power);
+  assert.equal(cellCount(f), 0, "a crane fold on painted ground stores no wash cells");
+  assert.equal(f.wash.folds.length, 1);
+  washAt(f, 600, 300, 30, 1);
+  assert.ok(!isColourless(washCellAt(f, 600, 300)), "the fold circle keeps the paint dry");
+  run(f, WASH.fold.seconds + 0.5);
+  assert.equal(f.wash.folds.length, 0, "fold circles expire");
+  // Zero's mirror dash on painted, never-washed ground leaves no mark at all.
+  const p = quiet("zero");
+  run(p, DT * 4, { ax: 1, ay: 0, dash: true });
+  assert.equal(cellCount(p), 0, "a dash over painted ground stores no wash cells");
+  // Through colourless paper the dash cuts a white hole.
   const z = quiet("zero"), x0 = z.player.x;
+  washAt(z, x0 + 60, z.player.y, 120, 1);
+  const keptBefore = colourKept(z);
   run(z, DT * 4, { ax: 1, ay: 0, dash: true });
   assert.ok(z.player.x > x0 + 20);
   assert.ok(washBlankAt(z, (x0 + z.player.x) / 2, z.player.y), "a cut hole along the dash");
-  assert.equal(z.stats.colourKept, 100, "a cut hole is not lost colour");
+  assert.equal(colourKept(z), keptBefore, "a cut hole is not lost colour");
   run(z, WASH.cut.seconds + 1);
   assert.ok(!washBlankAt(z, (x0 + z.player.x) / 2, z.player.y), "the cut closes again");
 });
@@ -311,4 +329,30 @@ test("no wash means no new state: the page starts fully painted", () => {
   assert.equal(s.wash.touched, 0);
   assert.equal(s.stats.colourKept, 100);
   assert.equal(s.wash.size, 0);
+});
+
+test("the washed hint speaks of wet paper only while it is wet; dry colourless paper gets its own line", async () => {
+  const { environmentCopy } = await import("../dist/ui/environment-copy.js");
+  for (const locale of ["en", "zh"]) {
+    const s = quiet();
+    s.elapsed = 60;
+    washAt(s, s.player.x, s.player.y, 60, 1);
+    assert.equal(environmentCopy(locale, s).hint, t(locale, "hint.washed"), "fresh wash: wet paper");
+    for (const c of Object.values(s.wash.cells)) c.wetUntil = s.elapsed - 1;
+    assert.ok(!washWetAt(s, s.player.x, s.player.y));
+    assert.equal(environmentCopy(locale, s).hint, t(locale, "hint.colourless"), "dried: colourless, not wet");
+  }
+  assert.ok(WASH.smudgeStain < WASH.colourless, "one smudge drop fades the page but wakes no pencil");
+});
+
+test("over the sketch budget the same (oldest) enemies keep the pencil look", async () => {
+  const { sketchEnemyPick, SKETCH_ENEMIES_PER_FRAME, SKETCH_ACTORS_PER_FRAME } = await import("../dist/render/sprite-sketch.js");
+  assert.ok(SKETCH_ENEMIES_PER_FRAME < SKETCH_ACTORS_PER_FRAME, "the cat and decoy keep budget");
+  const ids = Array.from({ length: SKETCH_ENEMIES_PER_FRAME }, (_, i) => i * 3);
+  assert.equal(sketchEnemyPick(ids), null, "all fit: no pick");
+  const many = Array.from({ length: SKETCH_ENEMIES_PER_FRAME + 10 }, (_, i) => 100 - i);
+  const a = sketchEnemyPick(many), b = sketchEnemyPick([...many].reverse());
+  assert.equal(a.size, SKETCH_ENEMIES_PER_FRAME);
+  assert.deepEqual([...a].sort((x, y) => x - y), [...b].sort((x, y) => x - y), "independent of draw order");
+  assert.ok(a.has(Math.min(...many)) && !a.has(Math.max(...many)));
 });

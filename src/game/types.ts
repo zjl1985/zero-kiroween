@@ -479,18 +479,29 @@ export interface WashCell {
   changedAt: number;
   /** Wet paper until then: slows, soaks actors and stops fire. */
   wetUntil?: number;
-  /** A white cut hole (blank look) until then. */
+  /** A white cut hole (blank look) until then; only colourless cells take one. */
   cutUntil?: number;
-  /** Fold protection: water cannot wash this cell until then. */
-  foldUntil?: number;
   /** Last pigment colour painted here (render hint). */
   hint?: string;
+}
+/**
+ * Fold protection: water cannot wash any cell whose centre lies in the circle
+ * until `until`. Kept as circles, not cells, so folding painted ground stores
+ * no wash cells (an unwashed run keeps an empty grid and no wash render).
+ */
+export interface WashFold {
+  x: number;
+  y: number;
+  radius: number;
+  until: number;
 }
 /** The sparse wash grid: keys are "ix,iy" cell coords (WASH.cell). */
 export interface WashState {
   cells: Record<string, WashCell>;
   /** Number of stored cells (kept by src/game/wash.ts). */
   size: number;
+  /** Live fold protection circles, oldest first (at most WASH.fold.maxZones). */
+  folds: WashFold[];
   clock: number;
   ticks: number;
   /** Painted cells that turned colourless or blank (each time). */

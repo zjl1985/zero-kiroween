@@ -104,7 +104,8 @@ export function drawWithLitRim(
   }
   const m = ctx.getTransform(),
     scale = typeof m?.a === "number" && Number.isFinite(m.a) ? Math.hypot(m.a, m.b) : 2,
-    k = Math.max(1, Math.min(4, Math.round(scale * 2) / 2)),
+    // Never rasterise below the live scale (no upscaled, soft head during cue zooms); quarter steps keep sizes few.
+    k = Math.max(1, Math.min(4, Math.ceil(scale * 4 - 1e-6) / 4)),
     w = box.r - box.l,
     h = box.b - box.t,
     W = Math.ceil(w * k),

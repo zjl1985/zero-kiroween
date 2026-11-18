@@ -316,7 +316,8 @@ export const EN: Messages = {
   "notice.eraser-wipe": "The Eraser rubs the page blank · Paint it back before sketches wake",
   "result.colour_kept": "COLOUR KEPT",
   "result.colour_value": "{n}%",
-  "hint.washed": "Washed paper is wet: it slows you, cannot burn, and tears easily. Fallen ink, lit pumpkins and lanterns paint it back.",
+  "hint.washed": "Wet washed paper slows you, cannot burn, and tears easily until it dries.",
+  "hint.colourless": "The colour washed out here, and pencil sketches can wake on bare paper. Fallen ink, lit pumpkins and lanterns paint it back.",
   "upgrade.paper-cut.name": "Paper Cut",
   "upgrade.paper-cut.desc":
     "Your path slits the page for {life}s. Close the line into a loop to cut the piece out: ink inside takes {damage}, paper tears. The open slit nicks ink for {edgeDamage}.",

@@ -16,7 +16,7 @@ export const WASH = {
   bloom: 0.6,
   /** A freshly washed cell stays wet this long: it slows, soaks and stops fire. */
   wetSeconds: 7,
-  /** Speed factor on wet washed paper; never stacks with shallow water. */
+  /** Speed factor on wet washed paper; never stacks with shallow water or a smudge puddle slow. */
   wetSlow: 0.8,
   /** Tearing damage multiplier on soaked props or props standing on wet cells. */
   tearEase: 1.6,
@@ -33,12 +33,12 @@ export const WASH = {
   pumpkin: { radius: 84, rate: 0.5 },
   /** A torn water bucket spills over this radius. */
   bucket: { radius: 64, amount: 1 },
-  /** Smudge drops leave a wash stain under the ink puddle. */
-  smudgeStain: 0.6,
-  /** Zero-style cut hits mark white cut holes (blank) for a moment; small shots never do. */
+  /** Smudge drops leave a faded wash stain under the ink puddle (below `colourless`: no pencil, no sketch fuel). */
+  smudgeStain: 0.3,
+  /** Large cut hits through colourless paper mark white cut holes for a moment; painted paper and small shots never. */
   cut: { seconds: 2.5, minRadius: 10 },
-  /** Fold hits protect painted cells from water for a while; small shots never do. */
-  fold: { seconds: 6, minRadius: 10 },
+  /** Large fold hits protect the page from water for a while (at most `maxZones` circles); small shots never do. */
+  fold: { seconds: 6, minRadius: 10, maxZones: 12 },
   /**
    * Paper rain: one mid-night spell (fractions of the night) of a few
    * diagonal bands of water around the cat, every `every` seconds.

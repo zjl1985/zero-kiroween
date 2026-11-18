@@ -5,7 +5,7 @@ import { landmarkActivityPoint } from "../defs/landmark-activities.js";
 import type { SimState } from "../game/types.js";
 import { landmarks } from "../game/world-gen.js";
 import { WASH } from "../defs/wash.js";
-import { washLevelAt } from "../game/wash.js";
+import { washLevelAt, washWetAt } from "../game/wash.js";
 
 /** Pure status/help copy shared by desktop and touch HUDs, independent of drawing. */
 export function environmentCopy(locale: Locale, state: SimState): { status: string | null; hint: string | null; danger: boolean } {
@@ -30,7 +30,11 @@ export function environmentCopy(locale: Locale, state: SimState): { status: stri
       ? t(locale, "activity.cooldown", { name: t(locale, `landmark.${nearby.kind}` as MessageKey), seconds: Math.ceil(event.cooldown) })
       : t(locale, `activity.${activity.notice}` as MessageKey) };
   }
-  if (washLevelAt(state, p.x, p.y) >= WASH.colourless) return { status, danger: false, hint: t(locale, "hint.washed") };
-  return { status, danger: false, hint: status ? t(locale, "hint.wet")
-    : state.elapsed >= 6 && state.elapsed < 30 ? t(locale, "hint.paper-world") : null };
+  // Wet washed paper (slows, cannot burn, tears easily) only while the cell is actually wet;
+  // dry colourless paper gets its own line (sketches wake there, pigment paints it back).
+  const level = washLevelAt(state, p.x, p.y);
+  if (level > 0 && washWetAt(state, p.x, p.y)) return { status, danger: false, hint: t(locale, "hint.washed") };
+  if (status) return { status, danger: false, hint: t(locale, "hint.wet") };
+  if (level >= WASH.colourless) return { status, danger: false, hint: t(locale, "hint.colourless") };
+  return { status, danger: false, hint: state.elapsed >= 6 && state.elapsed < 30 ? t(locale, "hint.paper-world") : null };
 }

@@ -10,10 +10,10 @@
 import { FIRE } from "../defs/fire.js";
 import type { Element } from "../defs/types.js";
 import { WASH } from "../defs/wash.js";
-import { STATS, type SimState, type WashCell, type WashState } from "./types.js";
+import { STATS, type SimState, type WashCell, type WashFold, type WashState } from "./types.js";
 
 export function createWash(): WashState {
-  return { cells: {}, size: 0, clock: 0, ticks: 0, touched: 0, lost: 0, splashes: 0, pigments: 0, rainPulses: 0, wipes: 0, sketchClock: 0 };
+  return { cells: {}, size: 0, folds: [], clock: 0, ticks: 0, touched: 0, lost: 0, splashes: 0, pigments: 0, rainPulses: 0, wipes: 0, sketchClock: 0 };
 }
 export function washCellOf(x: number, y: number): [number, number] {
   return [Math.floor(x / WASH.cell), Math.floor(y / WASH.cell)];
@@ -58,9 +58,10 @@ function forCells(x: number, y: number, radius: number, fn: (key: string, cx: nu
       if (Math.hypot(cx - x, cy - y) <= reach) fn(washKey(ix, iy), cx, cy);
     }
 }
-/** Fold protection: a fold mark on the cell, or an active fold field over its centre. */
-function folded(state: SimState, c: WashCell | undefined, cx: number, cy: number): boolean {
-  if (c?.foldUntil !== undefined && c.foldUntil > state.elapsed) return true;
+/** Fold protection: a live fold circle, or an active fold field, over the cell's centre. */
+function folded(state: SimState, cx: number, cy: number): boolean {
+  for (const f of state.wash.folds as readonly WashFold[])
+    if (f.until > state.elapsed && Math.hypot(cx - f.x, cy - f.y) <= f.radius + WASH.cell * 0.5) return true;
   return state.fields.some((f) => f.life > 0 && Math.hypot(cx - f.x, cy - f.y) <= (f.radius ?? 0));
 }
 function blankCell(state: SimState): WashCell {
@@ -70,7 +71,7 @@ function blankCell(state: SimState): WashCell {
 function settle(state: SimState, key: string, c: WashCell): void {
   if (c.level > 0 || c.blank) return;
   const live = (t: number | undefined) => t !== undefined && t > state.elapsed;
-  if (live(c.wetUntil) || live(c.cutUntil) || live(c.foldUntil)) return;
+  if (live(c.wetUntil) || live(c.cutUntil)) return;
   drop(state, key);
 }
 /** Keeps the store under WASH.maxCells: painted cells go first, then the oldest washed ones (lost). */
@@ -97,7 +98,7 @@ export function washAt(state: SimState, x: number, y: number, radius: number, am
   let changed = 0;
   forCells(x, y, radius, (key, cx, cy) => {
     const known = cells[key];
-    if (folded(state, known, cx, cy)) return;
+    if (folded(state, cx, cy)) return;
     const c = known ?? blankCell(state),
       was = isColourless(c),
       level = Math.min(1, c.level + amount);
@@ -202,9 +203,11 @@ export function washBlocksFire(state: SimState, ix: number, iy: number): boolean
   return washWetAt(state, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell);
 }
 /**
- * Element hits on the page itself: a large cut leaves a white cut hole for a
- * moment; a large fold protects the painted page from water. Small shots
- * (bolts, cranes in flight) never mark the grid.
+ * Element hits on the page itself. A large fold protects the page from water
+ * for a while (a fold circle: nothing is stored, so folding painted ground
+ * draws and costs nothing). A large cut leaves a white cut hole for a moment,
+ * but only through colourless paper: cutting the painted page marks nothing.
+ * Small shots (bolts, cranes in flight) never mark the page.
  */
 export function washElement(
   state: SimState,
@@ -217,19 +220,23 @@ export function washElement(
 ): void {
   if (state.ended !== "playing" || !(power > 0)) return;
   const mark = element === "cut" ? WASH.cut : element === "fold" ? WASH.fold : undefined;
-  if (!mark || radius < mark.minRadius) return;
-  const cells = state.wash.cells,
-    until = state.elapsed + mark.seconds;
+  if (!mark || radius < mark.minRadius || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const until = state.elapsed + mark.seconds;
+  if (element === "fold") {
+    const folds = state.wash.folds;
+    for (let i = folds.length - 1; i >= 0; i--) if (!(folds[i]!.until > state.elapsed)) folds.splice(i, 1);
+    folds.push({ x, y, radius, until });
+    if (folds.length > WASH.fold.maxZones) folds.splice(0, folds.length - WASH.fold.maxZones);
+    return;
+  }
+  if (washEmpty(state)) return;
+  const cells = state.wash.cells;
   forCells(x, y, radius, (key, cx, cy) => {
-    if (within && !within(cx, cy)) return;
-    const c = cells[key] ?? blankCell(state);
-    if (element === "cut") {
-      c.cutUntil = Math.max(c.cutUntil ?? 0, until);
-      c.changedAt = state.elapsed;
-    } else c.foldUntil = Math.max(c.foldUntil ?? 0, until);
-    put(state, key, c);
+    const c = cells[key];
+    if (!c || c.blank || c.level < WASH.colourless || (within && !within(cx, cy))) return;
+    c.cutUntil = Math.max(c.cutUntil ?? 0, until);
+    c.changedAt = state.elapsed;
   });
-  cap(state);
 }
 /** Puts out fire cells within the circle; returns how many went out. */
 export function quenchFire(state: SimState, x: number, y: number, radius: number): number {
@@ -282,6 +289,8 @@ export function stepWash(state: SimState, dt: number): number {
     const dawn = state.sessionSeconds > STATS.dawnSeconds && state.timeLeft <= STATS.dawnSeconds;
     if (!dawn) state.stats.colourKept = colourKept(state);
     const restore = dawn ? WASH.tick / (STATS.dawnSeconds * WASH.dawnShare) : 0;
+    const folds = w.folds;
+    for (let i = folds.length - 1; i >= 0; i--) if (!(folds[i]!.until > state.elapsed)) folds.splice(i, 1);
     for (const [key, c] of Object.entries(w.cells)) {
       if (restore > 0 && (c.level > 0 || c.blank)) {
         c.level = Math.max(0, c.level - restore);

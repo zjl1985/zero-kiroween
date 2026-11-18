@@ -309,7 +309,8 @@ export const ZH: Messages = {
   "notice.eraser-wipe": "橡皮把纸面擦成空白 · 尽快补色",
   "result.colour_kept": "守住的颜色",
   "result.colour_value": "{n}%",
-  "hint.washed": "褪色的纸是湿的：走得慢、不会着火、更易撕破。击败墨影、点亮南瓜和月灯能补回颜色。",
+  "hint.washed": "湿透的褪色纸：干透之前走得慢、不会着火、更易撕破。",
+  "hint.colourless": "这里的颜色被洗掉了，空白的纸上会醒来铅笔草稿。击败墨影、点亮南瓜和月灯能补回颜色。",
   "upgrade.paper-cut.name": "纸刀",
   "upgrade.paper-cut.desc":
     "走过的路会在纸上划开一道 {life}s 的切口。把切口绕成一圈就能把整块纸剪下：圈内墨影受到 {damage} 伤害，纸件被撕开。未闭合的切口也会划伤墨影 {edgeDamage}。",
