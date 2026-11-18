@@ -29,7 +29,7 @@ Midnight Meow (猫猫守夜) is a competition-grade browser survival roguelike f
 ## Verification and handoff
 
 - Required game verification: `npm run build` and `npm test` (the latter includes a build). Run checks sequentially; report exact commands, results and anything blocked or not run. Do not reuse historical results as proof of a new revision.
-- For relevant art changes, compare against the reference at actual display size, within **at most one static screenshot**. No animation or recording checks unless the user asks again. Interactive or full-run checks deferred by the user remain deferred; the general prompting guide does not lift that limit.
+- For relevant art changes, compare against the reference at actual display size, within **at most one static screenshot**. No animation or recording checks unless the user asks again. Interactive or full-run checks deferred by the user remain deferred.
 - State clearly what was not viewed, heard or measured. Build/test success, visual inspection, user art approval and live deployment are separate claims.
 - Leave actionable review findings and handoff information in the appropriate project document when requested or needed for another agent: paths, reference versions, verification limits and next steps. Keep this entry point lean; recipes belong in the skill and changing status in HANDOFF.md.
 - Stop only background jobs you started and remove your own disposable temporary files when no longer needed; preserve requested evidence and follow the deletion policy below.
@@ -39,5 +39,3 @@ Midnight Meow (猫猫守夜) is a competition-grade browser survival roguelike f
 - Local commits are allowed; use gitmoji plus a type prefix, e.g. `📝 docs: ...`. Do not commit `.agents/`, generated output or unrelated work, and do not change Git configuration.
 - **Do not push or deploy unless the user explicitly authorizes that publication.** Completion and passing tests are not authorization. A GitHub push may trigger Vercel deployment. Verify the exact remote/deployed commit before reporting publication.
 - Delete with `trash` (macOS Trash) by default. Git-tracked files, temporary files and files the user explicitly asks to delete directly may be deleted directly. Otherwise, if `trash` is unavailable, do not silently permanently delete.
-
-Workflow reference: [OpenAI prompting guide](https://learn.chatgpt.com/guides/prompting-gpt-6-2-astra). Project-specific limits above take precedence over its general recommendations.
