@@ -444,6 +444,22 @@ test("chunk ground baking is deterministic and the budgeted fallback bakes the s
   clearWorldRenderCache();
 });
 
+test("neighbouring painted and pencil tiles use the same irregular lawn boundary", (t) => {
+  environment(t);
+  const contour = (cx, layer) => {
+    const ctx = buildChunk(7, cx, 1, layer).getContext("2d");
+    const clip = ctx.calls.find((call) => call.op === "clip" && call.args[1] === "evenodd");
+    assert.ok(clip, `district sheets are cut around the lawn in ${layer} tile ${cx}`);
+    const lawn = clip.args[0].ops.find(([op]) => op === "addPath")?.[1];
+    assert.ok(lawn instanceof Path, "the clip contains a lawn cutout");
+    return lawn.ops;
+  };
+  const painted = contour(0, "paint");
+  assert.ok(painted.some(([op]) => op === "quadraticCurveTo"), "the lawn edge breaks up the straight tile boundary");
+  assert.deepEqual(contour(1, "paint"), painted, "adjacent terrain shares the same contour");
+  assert.deepEqual(contour(1, "sketch"), painted, "the pencil tiles share the painted outline");
+});
+
 // ---------------------------------------------------------------- washed paper rendering (FEAT-005)
 import { createSim, spillWater, paintColour } from "../dist/game/sim.js";
 import { WASH } from "../dist/defs/wash.js";

@@ -22,11 +22,9 @@ import {
   type DecorKind,
   type Landmark,
   type LandmarkKind,
-  type Road,
 } from "../game/world-gen.js";
 import type { InteractState, SimState } from "../game/types.js";
 import { waterRegionsNear } from "../game/water.js";
-import { touchesWaterShore } from "../defs/water.js";
 import { drawWaterCrossings, drawWaterGround, drawWaterShape } from "./water-art.js";
 import { MOON_LANTERN } from "../game/interactions.js";
 import { cachedSprite } from "../engine/sprite.js";
@@ -43,9 +41,10 @@ import { tintedSprite } from "./sprite-tint.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
 import { constructionLine, hatch, pencilFootprint, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
-import { flatCut, fringeStrip, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
+import { drawRoadNetwork } from "./road-art.js";
+import { clipOutsideLawn, drawLawnVerge } from "./start-lawn.js";
 import {
   bush,
   candles,
@@ -77,7 +76,6 @@ import {
   piece,
   shadow,
   stitch,
-  stroke,
   surface,
   withFlatShadows,
   type Ctx,
@@ -177,118 +175,6 @@ function flatDecorPieces(ctx: Ctx, d: Decor): void {
         ["#b97a3e", "#9f5740", "#b68b48"][i % 3]!,
         i,
       );
-  }
-}
-function roadPath(points: readonly { x: number; y: number }[], off = 0): Path2D {
-  // Keep the road on its generated polyline: water crossings use this exact footprint.
-  const pts = points.map((p, i) => {
-    const a = points[Math.max(0, i - 1)]!,
-      b = points[Math.min(points.length - 1, i + 1)]!,
-      len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    return { x: p.x + (-(b.y - a.y) / len) * off, y: p.y + ((b.x - a.x) / len) * off };
-  });
-  const p = new Path2D();
-  p.moveTo(pts[0]!.x, pts[0]!.y);
-  for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
-  return p;
-}
-function roadHits(r: Road, x0: number, y0: number, x1: number, y1: number): boolean {
-  const pad = r.width + 30;
-  return r.points.some((p, i) => {
-    const q = r.points[Math.min(i + 1, r.points.length - 1)]!;
-    return Math.max(p.x, q.x) + pad >= x0 && Math.min(p.x, q.x) - pad <= x1 && Math.max(p.y, q.y) + pad >= y0 && Math.min(p.y, q.y) - pad <= y1;
-  });
-}
-/** Road paper and its verge fringe tone per district (sheet fringe, else a quiet moss). */
-const ROAD = { paper: "#b9ad93", card: "#5c4f40", rim: "#ecd8b3", patchEvery: 130, vergeEvery: 84 } as const;
-/**
- * A cut-paper road strip: a hard shadow down-right, the darker card side, the
- * paper strip, a lit cut rim toward the moon, fibre chips along both cut
- * edges, a few large repair patches instead of pebble specks, stitching, and
- * fringe-cut grass verges in short runs along both edges.
- */
-function drawRoad(ctx: Ctx, r: Road, ri: number, tile: ViewRect, seed: number): void {
-  const p = roadPath(r.points),
-    w = r.width * 2,
-    { dirX, dirY } = PAPER_LIGHT;
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.save();
-  ctx.translate(PAPER_SHADOW.dx * 2.4, PAPER_SHADOW.dy * 2.4);
-  stroke(ctx, p, PAPER_SHADOW.color, w + 2, 0.36);
-  ctx.restore();
-  ctx.save();
-  ctx.translate(PAPER_SHADOW.dx * 0.9, PAPER_SHADOW.dy * 0.9);
-  stroke(ctx, p, ROAD.card, w + 1.4);
-  ctx.restore();
-  stroke(ctx, p, ROAD.paper, w);
-  ctx.restore();
-  // Lit rim on the moon side of each cut edge, dark lip on the other.
-  for (const side of [-1, 1]) {
-    const edge = roadPath(r.points, side * (r.width - 0.9));
-    ctx.save();
-    ctx.translate(-dirX * 0.5, -dirY * 0.5);
-    stroke(ctx, edge, ROAD.rim, 1.2, 0.5);
-    ctx.restore();
-    ctx.save();
-    ctx.setLineDash([2.5, 6, 1.2, 9]);
-    ctx.lineDashOffset = ri * 7 + (side > 0 ? 3 : 0);
-    stroke(ctx, roadPath(r.points, side * (r.width - 0.4)), "#f3e3c2", 1.6, 0.5);
-    ctx.restore();
-  }
-  const pad = r.width + 30;
-  for (let i = 0; i < r.points.length - 1; i++) {
-    const a = r.points[i]!,
-      b = r.points[i + 1]!;
-    if (Math.max(a.x, b.x) + pad < tile.x0 || Math.min(a.x, b.x) - pad > tile.x1 ||
-        Math.max(a.y, b.y) + pad < tile.y0 || Math.min(a.y, b.y) - pad > tile.y1) continue;
-    const len = Math.hypot(b.x - a.x, b.y - a.y),
-      ux = (b.x - a.x) / (len || 1),
-      uy = (b.y - a.y) / (len || 1),
-      nx = -uy,
-      ny = ux;
-    // Large paper repair patches, placed by world position so every chunk agrees.
-    for (let k = ROAD.patchEvery * 0.5; k < len; k += ROAD.patchEvery) {
-      const sd = ri * 100003 + i * 7919 + Math.round(k);
-      if (hash(sd) < 0.4) continue;
-      const across = (hash(sd + 1) - 0.5) * r.width * 0.8,
-        cx = a.x + ux * k + nx * across,
-        cy = a.y + uy * k + ny * across,
-        pw = 9 + hash(sd + 2) * 8,
-        ph = 4 + hash(sd + 3) * 3;
-      if (cx < tile.x0 - 30 || cx > tile.x1 + 30 || cy < tile.y0 - 30 || cy > tile.y1 + 30) continue;
-      flatCut(ctx, [[cx - ux * pw - nx * ph, cy - uy * pw - ny * ph], [cx + ux * pw * 0.9 - nx * ph * 1.1, cy + uy * pw * 0.9 - ny * ph * 1.1],
-        [cx + ux * pw + nx * ph, cy + uy * pw + ny * ph], [cx - ux * pw * 0.8 + nx * ph * 0.9, cy - uy * pw * 0.8 + ny * ph * 0.9]],
-        { color: hash(sd + 4) < 0.5 ? "#c9bea4" : "#a89c83", thickness: 0.6, lift: 0.45, rim: 0.5, texture: 0.5 });
-    }
-  }
-  for (const side of [-1, 1]) stitch(ctx, roadPath(r.points, side * (r.width - 3.5)), "#826c55", 0.9);
-  // Fringe-cut grass verges in short runs; skipped near water so crossings stay clean.
-  for (let i = 0; i < r.points.length - 1; i++) {
-    const a = r.points[i]!,
-      b = r.points[i + 1]!;
-    if (Math.max(a.x, b.x) + pad < tile.x0 || Math.min(a.x, b.x) - pad > tile.x1 ||
-        Math.max(a.y, b.y) + pad < tile.y0 || Math.min(a.y, b.y) - pad > tile.y1) continue;
-    const len = Math.hypot(b.x - a.x, b.y - a.y),
-      ux = (b.x - a.x) / (len || 1),
-      uy = (b.y - a.y) / (len || 1);
-    if (Math.abs(uy) > 0.8) continue;
-    for (let k = 20; k < len - 20; k += ROAD.vergeEvery)
-      for (const side of [-1, 1]) {
-        const sd = ri * 50021 + i * 3571 + Math.round(k) * 3 + (side > 0 ? 1 : 0);
-        if (hash(sd) < 0.45) continue;
-        const run = 22 + hash(sd + 1) * 26,
-          off = side * (r.width + 0.5),
-          sx = a.x + ux * k - uy * off,
-          sy = a.y + uy * k + ux * off,
-          mx = sx + ux * run * 0.5,
-          my = sy + uy * run * 0.5;
-        if (mx < tile.x0 - 60 || mx > tile.x1 + 60 || my < tile.y0 - 40 || my > tile.y1 + 40) continue;
-        if (waterRegionsNear(seed, mx, my, run + 10).some((water) => touchesWaterShore(water, mx, my, run + 10))) continue;
-        const look = BIOME_ART.find(biomeAt(seed, Math.floor(mx / CHUNK.width), Math.floor(my / CHUNK.height)).id)?.sheet;
-        fringeStrip(ctx, sx, sy, sx + ux * run, sy + uy * run, 7 + hash(sd + 2) * 4, look?.fringe ?? "#626b4c", sd, 3.8);
-      }
   }
 }
 /** The map edge: a paper hedge on the west, east and south. */
@@ -439,6 +325,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
     return;
   }
   const x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
+  const tile = { x0, y0, x1, y1 };
   const around = contentAround(seed, cx, cy), lamps: GroundLamp[] = [];
   for (const n of around)
     for (const d of n.decor)
@@ -449,8 +336,10 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   // Large district paper sheets over the pulp, clipped to the ground silhouette (horizon row).
   ctx.save();
   ctx.clip(groundOutline(x0, y0, c.w, c.h, cy === 0));
+  clipOutsideLawn(ctx, tile);
   yield* sheetGround(ctx, seed, x0, y0, x1, y1);
   ctx.restore();
+  drawLawnVerge(ctx, tile, seed);
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
   for (const water of waters) {
@@ -463,14 +352,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
     landmarkGround(ctx, l);
     yield;
   }
-  const rs = roads(seed);
-  // Branches first; the spine is laid over their joints.
-  for (let i = rs.length - 1; i >= 0; i--) {
-    const road = rs[i]!;
-    if (!roadHits(road, x0, y0, x1, y1)) continue;
-    drawRoad(ctx, road, i, { x0, y0, x1, y1 }, seed);
-    yield;
-  }
+  yield* drawRoadNetwork(ctx, seed, tile);
   for (const water of waters) drawWaterCrossings(ctx, water);
   for (const n of around)
     for (const d of n.decor) {
@@ -534,11 +416,16 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   ctx.translate(-x0, -y0);
   rawPaper(ctx, x0, y0, c.w, c.h);
   yield;
-  for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
-    const pts = sheetOutline(s.corners, s.art.sheet, s.sd);
-    pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26, closed: true, color: PENCIL.soft });
-    const [, , br, bl] = s.corners as [Point, Point, Point, Point];
-    shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16, s.sd);
+  if (!c.start) {
+    ctx.save();
+    clipOutsideLawn(ctx, { x0, y0, x1, y1 });
+    for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
+      const pts = sheetOutline(s.corners, s.art.sheet, s.sd);
+      pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26 * s.opacity, closed: true, color: PENCIL.soft });
+      const [, , br, bl] = s.corners as [Point, Point, Point, Point];
+      shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16 * s.opacity, s.sd);
+    }
+    ctx.restore();
   }
   yield;
   for (const p of patchSpots(seed, x0, y0, x1, y1)) pencilPatch(ctx, p.x, p.y, p.r, p.seed);
@@ -569,7 +456,6 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
     yield;
   }
   roads(seed).forEach((r, ri) => {
-    if (!roadHits(r, x0, y0, x1, y1)) return;
     for (const run of runsNear(r.points, r.width + 30, x0, y0, x1, y1)) {
       for (let i = 0; i < run.length - 1; i++)
         constructionLine(ctx, run[i]![0], run[i]![1], run[i + 1]![0], run[i + 1]![1], 9, 0.14);

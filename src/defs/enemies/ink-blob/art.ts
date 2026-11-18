@@ -18,5 +18,5 @@ export const INK_BLOB_ART: EnemyArt = {
       e.spawnTime,
     );
   },
-  dissolve: { flakes: ["#2c2340", "#3d3156", "#5a4a74", "#e8d9bd"], count: 10 },
+  dissolve: { flakes: ["#2c2340", "#3d3156", "#5a4a74", "#9b84b4"], count: 10 },
 };

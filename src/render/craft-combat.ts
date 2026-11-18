@@ -5,10 +5,8 @@ import {
   stroke,
   line,
   glow,
-  hash,
   mix,
   type Ctx,
-  type Point,
 } from "./paper-material.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { cachedSprite } from "../engine/sprite.js";
@@ -48,55 +46,39 @@ export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: 
   }).draw(ctx, { x: 0, y: 0, scale: size / 4 });
   ctx.restore();
 }
-/** The soaked paper sheet of an ink blob, its feathered bleed, the stain and its wet core (finite variants). */
+/** One dark dyed cut, creased toward the moon and pooled along the foot. */
 function inkBlobSheet(v: number) {
-  return enemyPart(`ink-soak:${v}`, 56, 52, (c) => {
-    // Paper slumped under the ink: a torn foot spreads on the ground.
-    const sheet: Point[] = [];
-    for (let i = 0; i < 18; i++) {
-      const a = Math.PI + (i / 17) * Math.PI,
-        rr = 15.5 + (hash(v * 31 + i) - 0.5) * 2.4;
-      sheet.push([Math.cos(a) * rr * 1.08, -2 + Math.sin(a) * rr * (0.92 + v * 0.04)]);
-    }
-    for (let i = 0; i <= 8; i++) sheet.push([17.5 - i * 4.4, 9 + (i % 2 ? 2.4 : -0.2) + (hash(v * 7 + i) - 0.5) * 1.6]);
-    flatLayer(c, { shape: path(sheet), color: "#d9ccb2", rim: "#fff3dc", texture: 0.55, lift: 1.1, thickness: 1.1 });
-    const cut = path(sheet);
+  return enemyPart(`ink-body:${v}`, 56, 52, (c) => {
+    const crown = (v - 1) * 2, foot = 3 - v * 2;
+    const cut = new Path2D();
+    cut.moveTo(crown, -17);
+    cut.bezierCurveTo(9 + crown, -17.8, 15, -9, 15.2, -2);
+    cut.quadraticCurveTo(15.4, 2.8, 17.3, 6);
+    cut.quadraticCurveTo(17.8, 9.7, 12, 9.2);
+    cut.lineTo(8.4, 8.6);
+    cut.quadraticCurveTo(foot + 4, 10, foot + 2, 11.4);
+    cut.quadraticCurveTo(foot - 0.4, 12.4, foot - 2, 9.8);
+    cut.lineTo(-7, 10.6);
+    cut.quadraticCurveTo(-15.7, 11.1, -17, 6);
+    cut.bezierCurveTo(-16.4, 1.7, -15.6, -13.8, crown, -17);
+    cut.closePath();
+    flatLayer(c, { shape: cut, color: ["#4b3b61", "#493956", "#514063"][v]!, rim: "#9b84b4", texture: 0.43, lift: 0.8, thickness: 1.3 });
+
+    // Two broad facets share the dyed face. The darker one curves into the trailing drip.
     c.save();
     c.clip(cut);
-    // Capillary bleed: a translucent fringe of fine ink spikes soaking outward.
-    const bleed: Point[] = [], stain: Point[] = [];
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2,
-        wob = 1 + Math.sin(a * 3 + v * 2) * 0.08 + (hash(v * 97 + i) - 0.5) * 0.1,
-        spike = i % 2 ? 1 + hash(v * 13 + i) * 0.22 : 0.94;
-      bleed.push([Math.cos(a) * 15.6 * wob * spike, -3 + Math.sin(a) * 14.4 * wob * spike]);
-      stain.push([Math.cos(a) * 13.4 * wob, -3.6 + Math.sin(a) * 12.2 * wob]);
-    }
-    c.globalAlpha = 0.55;
-    c.fillStyle = "#5a4c78";
-    c.fill(path(bleed));
-    c.globalAlpha = 1;
-    c.fillStyle = "#2b2442";
-    c.fill(path(stain, true));
-    // The wettest ink pools low and toward the shadow side.
-    c.fillStyle = "#17121f";
-    c.fill(oval(-2.4, 0.5, 8.6, 7.4, v + 3, 0.22));
-    // Drips running down the sheet and off its foot.
-    for (const [dx, len] of [[-9 + v, 9], [4 - v, 7], [11, 5]] as const) {
-      c.fill(new Path2D(`M ${dx - 1.4} 2 L ${dx - 1} ${2 + len} Q ${dx} ${4 + len} ${dx + 1} ${2 + len} L ${dx + 1.4} 2 Z`));
-    }
-    // Damp paper sheen: the moon catches the swollen top-right of the soaked sheet.
-    c.globalAlpha = 0.5;
-    c.strokeStyle = "#8f80b3";
-    c.lineWidth = 1.1;
-    c.stroke(new Path2D("M 2 -14 Q 9 -13 12 -6"));
-    c.globalAlpha = 1;
+    c.fillStyle = "#32263f";
+    c.fill(path([[-14.5, 3], [-9.2, 0], [-3, 4.2], [5.1, 5.3], [12.6, 2.6],
+      [15.1, 6.5], [8.4, 8.3], [foot + 2, 10.8], [-7, 9.6], [-13.6, 7.3]], true));
+    c.fillStyle = "#625078";
+    c.fill(path([[crown, -15.1], [7.8, -14.3], [12.8, -9.5], [13.7, -4.4], [8.2, -7], [5.2, -11.6]]));
+    crease(c, crown + 1.2, -14.5, 11.4, -6.4, 0.34);
+    line(c, foot - 1, 7.4, foot + 1.8, 8.1, "#88719a", 0.6, 0.56);
     c.restore();
-    // One crease where the wet sheet buckled, lit from the moon.
-    crease(c, -11, 6, -3, -11, 0.5);
+
     for (const dx of [-5, 5]) flatLayer(c, { shape: oval(dx, -3.5, 1.9, 2.3), color: "#f0c16d", rim: "#ffe1a0", lift: 0.3, texture: 0.1 });
     stroke(c, new Path2D(v === 2 ? "M -3 2 Q 0 -1 3 2" : "M -3.5 1 L -1.5 2.6 L 0 1.2 L 1.5 2.6 L 3.5 1"), "#d6c8e6", 0.7, 0.85);
-  });
+  }, false); // The dyed cut has its own coloured rim.
 }
 /** A separate ink splash on the ground beside the blob (finite variants). */
 function inkSpot(v: number) {

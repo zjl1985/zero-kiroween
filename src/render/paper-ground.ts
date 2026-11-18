@@ -13,6 +13,7 @@ import { touchesWaterShore } from "../defs/water.js";
 import { BIOME_ART, type SheetLook } from "./art-registry.js";
 import { crease, fringeStrip, insetPoints, PAPER_EDGE, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import { grain, hash, mix, path, stitch, type Ctx, type Point } from "./paper-material.js";
+import { yardDistance } from "./start-lawn.js";
 
 /** The sheet grid: cell size, overlap past the cell and corner jitter, in world units. */
 export const SHEET = { w: 280, h: 190, overlap: 46, jitter: 18, step: 14 } as const;
@@ -130,8 +131,9 @@ export function sheetAt(seed: number, i: number, j: number) {
     jx = (n: number) => (hash(sd + n) - 0.5) * 2 * q,
     corners: Point[] = [[x0 + jx(1), y0 + jx(2)], [x1 + jx(3), y0 + jx(4)], [x1 + jx(5), y1 + jx(6)], [x0 + jx(7), y1 + jx(8)]],
     cx = (i + 0.5) * w, cy = (j + 0.5) * h,
+    opacity = Math.min(1, 0.48 + yardDistance(cx, cy) / 580),
     art = BIOME_ART.find(biomeAt(seed, Math.floor(cx / CHUNK.width), Math.floor(cy / CHUNK.height)).id);
-  return { sd, corners, art, bounds: [x0 - q - 8, y0 - q - 8, x1 + q + 8, y1 + q + 8] as const };
+  return { sd, corners, art, opacity, bounds: [x0 - q - 8, y0 - q - 8, x1 + q + 8, y1 + q + 8] as const };
 }
 
 /** One grid sheet, or two overlapping strips for furrowed districts, with its fringe-cut lower edge. */
@@ -196,7 +198,7 @@ export function* patchSpots(seed: number, x0: number, y0: number, x1: number, y1
       const sd = seed * 31 + i * 7919 + j * 104729,
         x = (i + 0.2 + hash(sd) * 0.6) * c,
         y = (j + 0.2 + hash(sd + 1) * 0.6) * c;
-      if (y < WORLD.playTop + 10 || (y < 560 && x > -40 && x < 1000)) continue;
+      if (y < WORLD.playTop + 10) continue;
       if (x < WORLD.minX + 60 || x > WORLD.maxX - 60 || y > WORLD.maxY - 50) continue;
       const gx = x / CHUNK.width - 0.5, gy = y / CHUNK.height - 0.5,
         cx = Math.floor(gx), cy = Math.floor(gy),
@@ -207,6 +209,7 @@ export function* patchSpots(seed: number, x0: number, y0: number, x1: number, y1
         art = BIOME_ART.find(biomeAt(seed, bx, by).id);
       if (!art || hash(sd + 2) > art.patchChance) continue;
       const r = PATCH.r[0] + hash(sd + 3) * (PATCH.r[1] - PATCH.r[0]);
+      if (yardDistance(x, y) < r + 8) continue;
       if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
       if (waterRegionsNear(seed, x, y, r + 8).some((water) => touchesWaterShore(water, x, y, r + 8))) continue;
       yield { x, y, r, art, seed: Math.floor(hash(sd + 4) * 1e5) };
@@ -220,7 +223,10 @@ export function* patchSpots(seed: number, x0: number, y0: number, x1: number, y1
  */
 export function* sheetGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): Generator<void> {
   for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
+    ctx.save();
+    ctx.globalAlpha *= s.opacity;
     paintSheet(ctx, s.corners, s.art.sheet, s.sd);
+    ctx.restore();
     yield;
   }
 }

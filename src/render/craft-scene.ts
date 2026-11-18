@@ -20,6 +20,8 @@ import {
 } from "./paper-material.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
+import { ROAD_STOCK } from "./road-art.js";
+import { yardDistance } from "./start-lawn.js";
 import {
   LAMPS,
   YARD_PROPS,
@@ -250,6 +252,7 @@ export function* groundTilePasses(
 ): Generator<void> {
   const p = groundOutline(x0, y0, w, h, top);
   const gy0 = top ? 180 : y0;
+  const receivesYardLight = x0 < 950 && x0 + w > 30 && gy0 < 610;
   piece(ctx, p, "#52574b", {
     shadow: top ? 2 : 0,
     texture: 0.7,
@@ -271,7 +274,7 @@ export function* groundTilePasses(
       let r = 45 + n * 29 + fine * 7,
         g = 49 + n * 28 + fine * 6,
         b = 40 + n * 22 + fine * 5;
-      if (yard) {
+      if (receivesYardLight) {
         const light = Math.max(0, 1 - Math.hypot((wx - 490) / 460, (wy - 340) / 270));
         r += light * 5;
         g += light * 4;
@@ -301,15 +304,21 @@ export function* groundTilePasses(
   ctx.restore();
   // Quiet, short hatching follows patches of moss; it never becomes confetti.
   // Kept sparse: the district paper sheets laid over it carry the structure.
+  const hatchingReach = 150;
+  const nearYard = x0 < W + hatchingReach && x0 + w > -hatchingReach && gy0 < H + hatchingReach;
   const moss = [new Path2D(), new Path2D()],
     area = w * (y0 + h - Math.max(gy0, 205)),
-    count = Math.round(area * (yard ? 0.0208 : 0.006)),
+    count = Math.round(area * (nearYard ? 0.0208 : 0.006)),
     salt = Math.floor(x0 * 3 + y0 * 7);
   for (let i = 0; i < count; i++) {
     if (i > 0 && i % 512 === 0) yield;
     const x = x0 + hash(i * 17 + salt) * w,
       y = Math.max(gy0, 205) + hash(i * 37 + salt) * (y0 + h - Math.max(gy0, 205));
     if (yard && y > 225 && Math.abs(x - pathCenter(y)) < 24) continue;
+    if (nearYard) {
+      const lawn = 1 - Math.min(1, yardDistance(x, y) / hatchingReach);
+      if (hash(i * 43 + salt) > 0.29 + 0.71 * lawn) continue;
+    }
     if (noise(x, y, 30, 65) < 0.43) continue;
     const m = moss[hash(i * 29 + salt) > 0.85 ? 1 : 0]!;
     m.moveTo(x, y);
@@ -328,11 +337,11 @@ function road(ctx: Ctx): void {
     right.push([cx + w + (hash(y + 11) - 0.5), y]);
   }
   const p = path([...left, ...right.reverse()]);
-  piece(ctx, p, "#bfb399", {
-    shadow: 2.7,
-    edge: "#e4cfaa",
-    texture: 0.75,
-    thickness: 2,
+  piece(ctx, p, ROAD_STOCK.face, {
+    shadow: 1.7,
+    edge: ROAD_STOCK.rim,
+    texture: 0.68,
+    thickness: 1.2,
   });
   ctx.save();
   ctx.clip(p);
@@ -353,15 +362,6 @@ function road(ctx: Ctx): void {
     ctx.fill(d);
   }
   ctx.restore();
-  const edges = new Path2D();
-  for (const side of [-1, 1]) {
-    for (let y = 225; y < 540; y += 4) {
-      const x = pathCenter(y) + side * (10 + (y - 222) * 0.044);
-      if (y === 225) edges.moveTo(x, y);
-      else edges.lineTo(x, y);
-    }
-  }
-  stitch(ctx, edges, "#826c55", 0.9);
   for (const y of [249, 285, 337, 413, 481]) {
     const x = pathCenter(y),
       p = oval(x + 2, y, 6 + (y - 220) / 90, 3, y, 0.09);

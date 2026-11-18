@@ -1185,6 +1185,7 @@ body[data-cat="nicole"] .profile-title span {
   inset: 0;
   z-index: -1;
   background:
+    var(--page-crease, none),
     repeating-linear-gradient(180deg, #76574377 0 1px, transparent 1px 12px) 8px 10px / 5px calc(100% - 20px) no-repeat,
     linear-gradient(90deg, #b89469 0 5px, #d8bd93 5px 15px, #7d5b4233 15px 16px, transparent 16px),
     linear-gradient(90deg, transparent 22px, #c75a4855 22px 23px, transparent 23px),
@@ -1229,24 +1230,15 @@ body[data-cat="nicole"] .profile-title span {
   flex-wrap: wrap;
   margin-top: 20px;
 }
-/* Pause: the page is folded in half; the crease stays visible. */
+/* Keep the crease in the blank foot of the paper stock. */
 .journal-page.folded {
+  --page-crease: linear-gradient(180deg, transparent, #4b2c262c 46%, #fff3d879 54%, transparent)
+    left 0 bottom 7px / 100% 8px no-repeat;
   animation: page-unfold 0.55s cubic-bezier(0.25, 1.2, 0.4, 1) both;
   transform-origin: 50% 50%;
 }
-.journal-page.folded .actions {
-  position: relative;
-}
-.journal-page.folded h2::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 12px;
-  margin-top: -6px;
-  background: linear-gradient(180deg, transparent, #4b2c2633 46%, #fff3d8ba 54%, transparent);
-  pointer-events: none;
+.journal-page.folded .hint {
+  color: var(--ink-soft);
 }
 /* Result: one journal entry with a paw stamp and the night's log. */
 .result-panel {
