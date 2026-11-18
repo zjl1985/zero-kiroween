@@ -1,281 +1,55 @@
-# Handoff: current requirements
+# Midnight Meow handoff
 
-**Latest user restriction: local commits are allowed; PUSH AND DEPLOYMENT ARE FORBIDDEN.** The user corrected the previous premature deployment. Do not interpret finishing a polish pass as permission to publish. Continue character, detail and effects work locally. This overrides older publication authorizations below.
+The current game code is checkpoint e7bc669. Midnight Meow is a code-drawn papercraft survival game for Kiroween 2026. Start with [AGENTS.md](AGENTS.md) and the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md). The [plan](PLAN.md) holds the remaining work. Earlier rounds are in Git history, including the prior handoff at e7bc669.
 
-The user approved implementation of the papercraft audit. The selection screen now has a cached paper theatre with a floor under the cat, layered tickets in each cat's colours, and an ink seal for the chosen ticket. Both layouts share the stage painter. Compact layouts show all three skill headings with descriptions available on demand. Upgrade cards show larger folded weapon and passive emblems, and the evolved item uses the same emblem on its treasure slip. Pause, result, and HUD notes use binding edges, folds, or separate stock colours.
+## Current checkpoint
 
-The stone bridge has layered boards over its existing walkable polygon. All five districts have distinct paper patches. Crates have open flaps, bales expose a rolled core, and damaged vats show spilled ink. Burning crates and fences now have visible flames. The shield uses a separate paper fold at each side, and the Eraser sweep shows the direction of the attack. The gallery fits the elite bat using its drawing bounds and omits fire states for props such as the ink vat that cannot burn.
+- **Character art.** The user approved the paper heads in 2d8b25e. Keep the proportions, rectangular eyewear, original markings, and narrow head edge. The source Meow Wall data remains under src/cats/.
+- **Paper polish.** The shared Canvas theatre puts the cat on a layered stage with folded curtains. Desktop and portrait selection use the same painter. Offset tickets have a paw seal for the chosen cat. Compact layouts show all three skill headings with expandable descriptions. Mounted paper emblems and bound journal sheets give upgrades, chests, pause, and results finer edges and folds.
+- **World art.** District patches and bridge boards have more distinct shapes and edges. Damaged crates expose corrugation, bales unroll, and vats spill ink. Fences and crates show flames. Shield folds and Eraser sweep arrows distinguish protection from danger. The gallery fits the elite bat with its actual drawing bounds and only shows fire states for props that can burn.
+- **Walking performance.** b06adc0 moves terrain baking to one CPU-backed worker with a timed fallback. The main renderer keeps at most 14 ready tiles and ranks its prefetches within that budget. Run changes release pending work and bitmaps. The visible board is the 2× drawing surface, and the board stops repainting behind static menus. Crowd radius lookups and common dry or fire-free paths do less work.
+- **Public documentation.** README.md is an English player guide with controls, setup, and credits. Keep release notes and test evidence here or in Git.
 
-Build and all 247 tests passed. A short Chrome check covered both cats and both languages across five viewport sizes, including 320 × 568 and 844 × 390. It checked compact skill headings, opening a description, the start action, and returning to the same selection after pausing. One static composite was captured and reviewed at `output/playwright/papercraft-polish-2026-11-18.png`. Full runs, live combat readability, and the user's review of this art pass remain open.
+The user requested this checkpoint's commit and push to origin/main. Future pushes and manual deployments still need explicit authorization. Vercel can deploy automatically from a GitHub push. Check the exact commit and deployment status before saying a version is live.
 
-Latest checkpoint (2026-11-18). The user approved the revised paper cat heads in `2d8b25e` and asked to set playtesting aside for now. The heads use a broad face cut, a single dark frame around each lens, short ear folds, and fewer bright edges. World and portrait art share the same cached drawings. `npm run build` and all 246 tests passed. One Chrome still shows the original references, the previous and current paper heads, and each cat in the starting yard at 1× (`output/playwright/paper-head-comparison-2026-11-18.png`).
+## Game rules to preserve
 
-The user reopened performance work after seeing stutters while walking. Chunk art used to bake inline, and the prefetch area could exceed the cache budget and repeatedly evict tiles it still wanted. Terrain now bakes on a CPU-backed canvas in one worker and keeps a ranked set of up to 14 ready tiles. Browsers without worker canvas support use timed batches of the same painter. Run changes release pending work and cached bitmaps. The visible board is the 2× render surface, and paused worlds stop repainting. Enemy separation reuses radius lookups in the original order, and common dry or fire-free simulation paths do less work.
+- Use one papercraft style. Draw scenery, characters, UI art, and effects in Canvas or CSS. Synthesize audio with Web Audio. Reference images guide the art. Local Allo fonts and their license live in [assets/fonts/](assets/fonts/).
+- Choose Zero or Nicole at the start. Each run has one protagonist. Afterimages are skill effects. Ask before starting random helper cats. Neutral town NPCs are also unimplemented.
+- Zero has Meowline, Afterimage, and exclusive Night Claw and Long Shadow. Nicole has Moonstars, Moonfold, and exclusive Star Fall, Deep Fold, and Thick Paper. Both can pick up Paper Crane and Pumpkin Seed. Their evolutions are **Echo Legion** and **Full Moon**, earned when a chest opens with the starting weapon maxed and the matching passive owned. Evolution uses the original weapon slot.
+- The build allows three weapon slots and four passive slots. If the passive slots fill before the player picks up the matching passive, that evolution is unavailable in that run. The user confirmed this consequence.
+- Survive 600 seconds to dawn. Defeating the Eraser is optional. The seeded world spans 10 × 10 screens, with five districts, 12 landmark types across 24 sites, and at most 100 living enemies. Kiro Ghosts share the paper actor rules and have a separate cap of eight.
+- Fire burns the cat and enemies, including fire started by the player. Shallow water extinguishes carried flames before damage. Deep water blocks movement, and explicit decks stay dry. Art and collision share the water polygons. The shallow basin east of the starting yard sits at (1040, 420).
+- Paper can tear, burn, fold, and take an ink coating. Folded objects open a route temporarily. Plants regrow after the area clears, with one loot payment per prop per run. Fire destroys props without loot. The teahouse heals, the greenhouse responds to folding, the observatory freezes nearby enemies, and the windmill responds to crane wind.
+- Use t(locale, key) for player-facing text. English is the default for new visitors. Keep the complete Chinese pack, language toggle, and saved choices.
 
-Performance verification used a fixed seed-7 camera route in local headless Chrome, after a short warmup. Frame interval P95 went from 50.0 to 16.7 ms with no enemies and from 50.0 to 16.8 ms with 100 enemies and 40 fire cells. Intervals above 25 ms went from 69 to 1 in 480 frames and from 51 to 0 in 360 frames, respectively. The fallback ran a 200-frame route with a P95 of 16.7 ms. Two Node scenarios with 100 enemies and 3,600 fixed steps each finished with identical before/after state hashes and took 25–28% less time. The normal entry point passed a short movement, pause, and resume check, and the board stayed aligned with the HUD. Build and all 247 tests passed. Device-specific timing and live heap or GPU peaks remain open.
+## Verification and remaining work
 
-Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. The current local commits are `7a3102b` (paper ecology / cohesive art) and `d5d6025` (character / scenery refinement); both are committed but not pushed to `origin/main` or deployed. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
+- **Latest game build.** npm run build and npm test passed all 247 tests for e7bc669. Chrome checks covered both cats and both languages at five viewport sizes. Compact skill headings, choosing a cat, starting, and pausing back to the same selection worked.
+- **Visual evidence.** output/playwright/papercraft-polish-2026-11-18.png is a static composite of the current selection, combat fixtures, menus, and gallery. The approved head comparison is output/playwright/paper-head-comparison-2026-11-18.png. These files are local and ignored by Git. The wider art pass still needs user review.
+- **Performance evidence at b06adc0.** On a fixed seed-7 route in local Chrome, frame interval P95 went from about 50 ms to about 16.7 ms with an empty scene and with 100 enemies plus 40 fire cells. Two 3,600-step Node probes at the crowd cap preserved state hashes and used 25–28% less time. The paper polish did not repeat those timings. Device memory peaks and device-specific frame times remain open.
 
-Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.15). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its `references/` recipes (including the new paper-ecology contract) cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
+The user deferred full playtesting. When they resume it, check one full run per cat for upgrade pacing, chest timing, Eraser pressure, water access, and landmark rewards. Check hazard and skill overlap on dark ground, touch controls through retry, and the audio mix. Devpost copy and media are pending. The plan records December 5, 2026 at 06:00 Beijing time as the deadline. Video recording needs explicit approval.
 
-## First: do not restore the dual style
+Use build and tests for routine verification, with at most one static screenshot when relevant. Keep timing and motion checks in their requested scope.
 
-**The only target is the papercraft / cut-paper art of the reference image.** It is not "paper or pixel, your choice", and not "paper first, pixel later". Pixel tools and old layout code in the repo are code dependencies, not a second product style. Do not add a style toggle.
+## Run and extend
 
-## Status labels
+Use Node.js 22 or newer and Python 3 for the preview. Install dependencies with `npm ci` if needed.
 
-"Implemented in code" only means the code exists, compiles and passes tests. **The user has viewed the deployed previous version and requested better art. Selected current art was viewed in one static Chrome sheet, not a full playtest; the user has not approved it.**
-
-## What the user asked for
-
-1. **Make the game competition grade**: scenes, effects, interactions and evolutions should carry weight, not just static polish.
-2. Borrow effect ideas from the public descriptions of [Snapblocks](https://www.snapblocks.site/) (a paid React library) and rebuild them in Canvas / CSS. **Never copy its code.** Event rhythm (anticipation, reveal, burst, settle) follows ideas from [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft), also rebuilt rather than copied.
-3. **English default is now requested and implemented.** New visitors start in `en`; valid saved preferences override it. Keep both packs and the toggle. Every user-facing string goes through `t(locale, key)`.
-4. **Check less.** Only `npm run build` + `npm test`, at most one static screenshot, no animation or recording checks.
-5. No image or audio assets. Scenes, textures, lighting and sound are all generated by code.
-6. One protagonist per run: Zero is a male cat, Nicole a female cat. The cat not chosen never appears as a companion.
-7. The two cats must differ in skills, upgrades and evolutions.
-8. **A large explorable map with a follow camera** (the user pointed at [Tibo Dog](https://tibo.dog/?lang=zh-CN) for the sense of space). Implemented: a bounded seeded 10 x 10 screen world, follow camera, landmarks, roads, hedge border, chunk caches and nav arrows.
-9. **The UI needs its own design** and must not look like Tibo Dog. Implemented as the "night-watch journal".
-10. **Light edge around the cat head**: a very narrow warm-grey paper edge along the face silhouette (`src/render/craft-cat.ts`). Whether this is the area the user meant is still unconfirmed.
-11. **A Vampire Survivors style roguelike, not hundreds of enemies.** The user said: "the map does not need to be infinite, at most 100" and "I mean similar, not hundreds, just this kind of roguelike". Read as a map of at most 10 x 10 screens (`WORLD`) and a hard cap of 100 living enemies (`HORDE.hardCap`). Both are tunable data.
-12. **Extensible skeleton and paper world** (this round): move to "definitions + hooks + registries" without changing gameplay, add material x element reactions (tear, burn, pop-up), build paper primitives, seeded variants and a gallery page, then add districts, landmarks and props, and finally package the workflow as an English project skill under `.kiro`. The user said: "whatever I don't understand, finish it the best way you can".
-
-## Latest paper ecology and cohesive art
-
-**New user requirement: paper burns when it touches fire, and water extinguishes it. Do not restore the previous cat-only immunity.**
-
-- **Actor fire:** radius contact ignites either cat and living enemies; carried fire lasts 3 s after leaving the source. The cat takes 1 HP per 1 s (first beat delayed), enemies 0.4 per 0.2 s. Normal shield, invulnerability, rescue and death hooks apply. Own-created ground fire is also dangerous. Carried flame can ignite nearby dry fuel on the bounded fire tick.
-- **Water:** pure shared polygons describe shallow shelves, blocked deep cores and explicit dry crossings. Wishing-well ponds, stone-bridge rivers and canal pockets use this geometry in sim and art. A fully shallow basin is just east of the starting yard at (1040, 420). Shallow water slows movement to 68%, clears burn before damage and grants 1.25 s damp protection. A footprint wholly on a bridge stays dry; touching exposed water beside it wets the actor. Swept movement prevents walking / dashing / contact knockback through deep cores. Boss charge movement also respects shallow slowdown.
-- **Contact ordering:** environment contact is latched immediately after movement/knockback, before later hits can move the actor away. Entering water and then being pushed onto dry ground in the same tick still extinguishes, even if the contact hit is fatal. Burn timers advance only in `stepFire`; it runs status/lifecycle even with no live cells. A lost run cannot collect a shard and open an upgrade afterwards.
-- **Paper materials:** card and cloth are flammable (0.45 / 0.65 spread multipliers). There are now 17 props and 23 unique material × element reaction rows. New ink-vat spills a 9 s fire-resistant prop coating when cut/gusted; smudge drops also supply ink. Wax candles melt under heat and can fuel grid fire. Fire is still capped at 40 cells; large props take burn damage once per tick, not once per footprint cell.
-- **Folding / regrowth:** Nicole's Moonfold and the shared crane's launch pulse fold nearby colliding paper props for 5 s. They open a route without destroying HP or paying drops, and unfold only when occupancy is clear. Grass, reeds, flowers, bushes and mushrooms regrow after defined delays; burning takes longer. Renewal waits for actors/fire to clear, preserves one lifetime loot claim and removes only the plant's old ash. Handmade structures stay destroyed; fire gives no loot.
-- **Four activities:** teahouse proximity restores health (32 s cooldown); fold-powered greenhouse advances nearby flora regeneration and gives a treat (45 s); observatory alignment freezes nearby enemies and gives shards (48 s); wind-driven windmill releases a stun/damage gust and shards (24 s). Charges and cooldowns persist offscreen and pause with the sim. The windmill rotor is a finite cached live piece driven by integrated state, not a time-keyed sprite.
-- **Art / readability:** official face data is unchanged, but merged color contours are now layered cut-paper faces shared by world and portrait rendering. Enemy folds/facets and weapon trails/effects were refined. Carried fire, damp droplets, steam, ink coating, folded props and regeneration have visible state-based feedback. District edges blend, water art and collisions share vertices, and registered building bounds control occlusion fade.
-- **Guidance:** contextual zh/en HUD hints explain burn/wet state and each activity, including on touch screens; pause help explains the basin, bridges, ink and fold sources. No additional interaction button is needed.
-- **Validation:** 237 passing tests cover sources, material rows, shared water geometry, swept collision, fire/water timing, lifetime drops, regeneration occupancy, landmark actions, frozen timers, cached art and production packaging. One static sheet: `output/playwright/paper-ecology-review.png` (git-ignored, viewed). It is not gameplay, mobile, animation, audio or performance evidence. The editor still reports an unresolved `./water.js` import in `paper-status.ts` even though TypeScript compilation and runtime tests resolve it; likely a stale language-server index, not verified as such.
-
-## Previous character / scenery refinement
-
-- **Characters:** `src/render/cat-detail.ts` renders finite cached articulated parts. Zero has a split-tail coat, lapels, watch chain and shuttered lantern; Nicole has a bell coat, scalloped cape, moon satchel and petal lantern. Both gain segmented limbs, cuffs, soles, pleats and stitched hems. Registered `CatBodyPalette` appearance fields select these details without cat-id branches. The official face print, narrow head edge, head placement and gameplay kits are unchanged.
-- **Scenery:** grouped tree crowns and leaf fans; cottage roof variants, shingles, dormers, recessed windows, shutters, window boxes and stoops within existing sprite bounds. `scenery-details.ts` supplies shared folded flora. The five district ground painters now have stone courses / grates, furrows / vines, moss / roots / ferns, reeds / banks / subdued reflections, and flower / pebble clusters. Canal water remains decorative and walkable, with a smaller, subdued wash.
-- **New landmarks:** paper-teahouse (纸灯茶屋), fold-greenhouse (折纸温室), star-observatory (星象台), with 10 custom decor pieces, their own ground, supporting furniture / plants, colliders, discovery notices, zh/en labels and existing lantern / pumpkin interactions. All use the normal world and art registries and appear in the gallery.
-- **Map:** 12 landmark kinds across 24 sites (was 9 / 14). The grid is now 5 x 5 minus the start cell, without enlarging the 10 x 10 screen map. Margins, start-yard protection and prop/enemy caps remain unchanged. **Fixed seeds produce different maps than the previous version.**
-- **Checks:** 163 tests pass, including cached character geometry, deterministic scenery motifs and bounds, 24-site coverage, new landmark approach clearance and reachable interaction spots. These are code / command-recording checks, not browser pixels or performance measurements. Old local snapshot probe reference files were not regenerated; current deterministic snapshot tests pass.
-- **Screenshot:** one static-art screenshot attempt failed because the Playwright Chromium headless-shell executable is missing. No screenshot was produced, no browser was installed, and no animation / recording / audio / frame-rate checks were run.
-- **Deployment evidence:** commit `5b67387` and earlier local history were successfully pushed to `origin/main`. The user then confirmed the Vercel version works; no deployment URL was supplied. Do not claim that this latest local refinement is already online.
-
-## Previous fixes and deployment preparation
-
-- `makeRoom` determines off-screen enemies around clamped `viewCentre`, while retaining distance-from-player ordering and elite / Boss protection. Regression tests cover west, east and south edges, ties and fallback. The obsolete comment was removed.
-- `src/game/seed.ts` validates `?seed=N`: 1–10 decimal digits within `0..4294967295`. Invalid or overflowing pins use a fresh random seed instead of wrapping; zero remains valid.
-- Cat art owns `skillPreview`: Nicole's gallery card uses the fold effect, not Zero's dash. Landmark previews include the registered pumpkin / moon-lantern interaction markers in depth order, without duplicating their existing bodies.
-- The burning-prop and folding-decor hot paths use alpha-masked cached tint sprites instead of per-frame `ctx.filter`. Fold darkening has eight intervals; the fold transform stays continuous. Brown tint approximates the previous sepia effect. Browser appearance and performance are still unverified; `paper-material.ts`'s shadow blur is unchanged.
-- The prop recipe now states that burnt props drop nothing.
-- `vercel.json` configures a static build (`npm ci`, `npm run build`, output `site/`). `scripts/build-site.mjs` publishes only HTML, CSS and current compiled JS; no TS sources, source maps, stale modules or private docs. `npm start` now serves `site/`, not the repository. Node.js 22+ is required; Python is local-preview only.
-- `npm test` now runs the production build before the tests. Deployment tests check the file allowlist, module imports, entry assets and stale-output cleanup; rendering tests record Canvas commands, not browser pixels.
-- No gameplay decisions were changed (Boss / dawn, evolution slots, language default, helper cats). No browser, audio, frame-rate or live Vercel checks were performed, and no screenshot or recording was taken.
-
-## Previous round's commits
-
-| Commit | Change |
-|---|---|
-| `852fd08` | Cats / weapons / passives / evolutions / enemies moved into registered defs with sim event hooks |
-| `8c65a1b` | Fresh seed per run (`?seed=N` pins it); moon-lantern "full" notice only near the view |
-| `858d147` | Cats, enemies and weapon effects drawn through a registered art layer |
-| `b6f6133` | Paper materials, element reactions, tearable props, spreading fire, pop-up buildings |
-| `d75219c` | Paper kit primitives, seeded variants, `?gallery=1` |
-| `c612855` | Landmarks as defs with their own layout and art |
-| `1e20776` | makeRoom erases the farthest off-screen commons first |
-| `9eb54d4` | Districts, new landmarks and interactive props |
-| `b582c47` | Project skill; handoff, plan, steering and spec updated |
-
-The refactor commits were checked with local probes (`output/playwright/baseline-snapshot.mjs`, `baseline-long.mjs`, git-ignored) that hash snapshots under a fixed seed and scripted input. Hashes were byte-identical before and after each refactor, so gameplay did not change. The commits that changed the world on purpose (`b6f6133`, `9eb54d4`) re-recorded the references; the old ones are kept as `*-pre-feat004.txt` and `*-pre-feat006.txt`.
-
-## Architecture
-
-```
-src/engine/   content-agnostic: registry.ts (createRegistry), events.ts (createEventBus), sprite.ts (cachedSprite, LRU 256)
-src/defs/     content: types.ts (all interfaces), registries.ts (empty registries + SIM_EVENTS),
-              index.ts (registers cats / weapons / passives / evolutions / behaviours / enemies, gates hooks),
-              world-index.ts (registers materials / reactions / props / landmarks / biomes; world-gen imports it),
-              progression.ts (BUILD, XP), horde.ts (HORDE, KIND_CAP, PHASE_AT, ELITE, SPAWN_TABLE, WAVES),
-              materials.ts, fire.ts (FIRE, PROP_HITS), plus one file or folder per entry
-src/game/     generic sim (no DOM, no cat id literals): sim.ts, props.ts (reactions and fire), stats.ts, world-gen.ts,
-              interactions.ts, types.ts; characters.ts / upgrades.ts / enemies.ts are facades keeping old export names
-src/render/   art-registry.ts, art-index.ts (the only module importing art files), paper-kit.ts, prop-kit.ts, variants.ts,
-              craft-props.ts, craft-world.ts, gallery.ts, timeline.ts ...
-src/ui/       hud.ts, upgrade-cards.ts, character-panel.ts (tickets built from CATS), journal.ts, gallery-layout.ts
-src/content/  i18n: keys.ts, en.ts, zh.ts, i18n.ts
+```sh
+npm run build
+npm start
 ```
 
-- Each entry is one def file, one art file beside it, and one registration line in each index. Registration order is behaviour; append new entries at the end.
-- Hooks call sim helpers through `SimContext`, which carries no RNG. The step `Rng` goes only to `WeaponDef.step` and `EnemyBehaviour.steer`.
-- The sim never imports art, UI or the DOM; art only reads `SimState`. `tests/registry.test.mjs` checks that `src/engine` imports no other layer and that `src/game`, non-legacy render, UI and main contain no cat id literals.
+The preview serves `site/` on port 4173. Check for an existing listener. Use `/?start=1&seed=7` for a repeatable start and `/?gallery=1` for the workshop. `npm test` builds the project before running tests. Vercel uses the static `site/` output.
 
-### Where to extend (details in the skill recipes)
+| Area | Where to look |
+| --- | --- |
+| Content | [src/defs/](src/defs/) holds numbers, hooks, and adjacent art. Append in registration order in defs/index.ts, defs/world-index.ts, and render/art-index.ts. |
+| Simulation | [src/game/](src/game/) advances the fixed step, derives stats, and manages progress, enemies, props, and actor contact. Preserve seeded outcomes for art or performance changes. |
+| Paper art | [src/render/paper-kit.ts](src/render/paper-kit.ts), [prop-kit.ts](src/render/prop-kit.ts), [playbill-stage.ts](src/render/playbill-stage.ts), and [paper-face.ts](src/render/paper-face.ts). Keep live transforms separate from cached sheets. |
+| Terrain and water | [src/render/craft-world.ts](src/render/craft-world.ts), [terrain-worker.ts](src/render/terrain-worker.ts), [water-art.ts](src/render/water-art.ts), and [src/game/world-gen.ts](src/game/world-gen.ts). |
+| UI and language | [src/ui/](src/ui/), [styles.css](styles.css), and [src/content/](src/content/). Add string keys to the key list and both language packs. |
 
-| Entry | Def | Art | Registration |
-|---|---|---|---|
-| Cat | `src/defs/cats/<id>/{stats,def}.ts` (plus `CAT_VARIANTS` in `src/cats/meow-wall-art.ts`) | `cats/<id>/art.ts` | `defs/index.ts`; `render/art-index.ts` |
-| Weapon / evolved weapon / passive | `src/defs/weapons/<id>.ts`, `passives/<id>.ts` | `<id>.art.ts` | same two indexes |
-| Evolution rule | `src/defs/evolutions/<id>.ts` | uses the evolved weapon's icon | `defs/index.ts` |
-| Enemy / behaviour | `src/defs/enemies/<id>/def.ts`, `behaviours.ts` | `enemies/<id>/art.ts` | `defs/index.ts`; spawn rules in `defs/horde.ts` |
-| Material / reaction / prop | `defs/materials.ts`, `defs/reactions/<id>.ts`, `defs/props/<id>/def.ts` | `props/<id>/art.ts` | `defs/world-index.ts`; `art-index.ts` |
-| Landmark / district | `defs/landmarks/<id>/def.ts`, `defs/biomes/<id>.ts` | `art.ts`, `<id>.art.ts` | `defs/world-index.ts`; `art-index.ts` |
-
-New strings go into `keys.ts`, `en.ts` and `zh.ts`. New effect kinds or notices go into the `EffectKind` / `Notice` unions in `src/game/types.ts`.
-
-## Previous round's content
-
-### Paper reactions
-
-- Elements: `fire`, `ink`, `wind`, `cut`, `fold`. Meowline, Night Claw, Moonstars and Falling Star are cut; the paper crane is wind; bursting pumpkin seeds are fire. Lit pumpkins ignite on each pulse (`FIRE.pumpkinRadius` 64).
-- Materials: thin-paper, card, ink, cloth, wax, straw. The reaction table has one row per material x element (tear-thin-paper, tear-card, tear-cloth, gust-thin-paper, burn-thin-paper, tear-straw, gust-straw, burn-straw, gust-cloth). With no row, nothing happens.
-- Props have three phases: intact, damaged, scraps (ash if burnt). Scraps do not block movement. Torn fences and bushes turn into scraps and open a path, and drop ink shards or fish treats by a hash of the prop id. A torn scarecrow scatters a ring of 4 shards. **Burnt props drop nothing.** Prop state lasts the whole run and survives chunk reloads.
-- Fire: a 24-unit cell grid, at most 40 cells burning at once (`FIRE.maxCells`), 500 ash cells remembered. It spreads every 0.2 s by flammability using `hash2(seed, cell, 900 + ticks)`, never the step RNG. At that time fire hurt only enemies; **this immunity is superseded by the latest user requirement above**.
-- Pop-up: landmark pieces marked `popup`, trees and cottages fold up like a pop-up book as the cat approaches (`POPUP` near 430 / far 700). Render only.
-- Sound: `tear` and `crackle` (throttled to 0.28 s), synthesized noise. The result page gained "props torn" and "cells burnt" rows, 14 rows in total.
-
-### Paper kit and gallery
-
-- `src/render/paper-kit.ts`: `paperCut`, `paperStack`, `foldLine`, `stitchAlong`, `charEdge`, `tornEdge`, `warmGlow`.
-- `src/render/prop-kit.ts`: `phasedPaint` derives the damaged and scraps phases from one intact painter; `post`.
-- `src/render/variants.ts`: `variant(seed, base)` gives seeded colour, scale, tilt, wear and mirroring from the render hash only.
-- `?gallery=1`: lists every registered cat, enemy, prop (each phase), landmark, district, weapon and passive. Labels go through i18n. It does not start the sim or audio.
-
-### Districts, landmarks, props
-
-- 9 landmarks over 14 landmark sites: clock-tower, pumpkin-field, stone-bridge, graveyard, lantern-market, moon-hill, plus the new paper-windmill, puppet-theatre and wishing-well.
-- 5 districts (`src/defs/biomes/`): old town (start), pumpkin farmland, graveyard woods, lantern canal, moonlit meadow. 12 district sites on a 4 x 3 grid, seed-shuffled so every district appears. Districts choose decor, prop mix and ground patches; at most 14 props per chunk.
-- 15 props: paper-fence, paper-bush, paper-grass, paper-lanterns, scarecrow, haybale, paper-crate, mailbox, signpost, paper-flowers, paper-reeds, paper-mushroom, laundry-line, paper-tombstone, dead-tree. New straw material.
-
-### Fixes
-
-- Fresh seed every run; `?seed=N` pins it.
-- The moon-lantern "full" notice shows only near the view.
-- `makeRoom`: when an elite or the Boss needs room, the farthest off-screen common ink is erased first. Elites and the Boss are never erased.
-
-## From earlier rounds
-
-- Bounded seeded night town: `WORLD` 10 x 10 screens = 9600 x 5400, chunks of 480 x 540 (20 x 10), start yard at the north centre. Follow camera with deadzone, smoothing and world clamp; roads, hedge, nav arrows.
-- A 600-second night (`STATS.sessionSeconds`), dawn over the last 30 s; night phases at 15% / 45% / 80% (`PHASE_AT`).
-- Enemies: `HORDE.capByMinute` 12 to 96, **`hardCap` 100** (splits, summons, waves and elites included); 9 waves.
-- Elites: one every 60 s from 60 s to 500 s, each drops a chest.
-- Eraser Boss: arrives off-screen at 540 s with 420 HP and hunts at speed 92 when more than 360 from the cat; drops a big chest.
-- Build: 3 weapon slots and 4 passive slots (`BUILD`). Evolutions happen only on chest open: Echo Legion = max Meowline + Long Shadow; Full Moon = max Moonstars + Deep Fold. Otherwise a chest levels an owned item +1 (Boss chest +3), or gives a snack when everything is maxed.
-- Night-watch journal UI: luggage tag, moon arc, lantern string, folded minimap, candle-wick skill, stitched XP, weapon pennants and passive tags, chest slips, Boss eraser health bar, window-cut upgrade cards dealt in a stagger, theatre curtain title with ticket choice, folded pause page, journal result page.
-- Four-beat motion cues (anticipation, reveal, burst, settle) for evolution, Boss entrance / defeat, dawn and card dealing (`src/render/timeline.ts`).
-- Narrow paper edge along the cat face silhouette.
-- Audio uses oscillators and generated noise; the AudioContext starts on the first gesture. Prefs `{ locale, cat, muted }` live in `localStorage` under `midnight-meow-prefs`.
-
-## Cat differences
-
-Actual numbers live in `src/defs/cats/<id>/stats.ts` and the weapon / passive defs:
-
-| | Zero | Nicole |
-|---|---|---|
-| HP / speed | 4 / 126 | 6 / 96 |
-| Starting weapon | Meowline: straight ranged shot | Moonstars: three orbiting stars, spaced hits with a light push |
-| Active | Afterimage dash: 1.2 s decoy, 3 s cooldown | Moon fold: short blink, 3.5 s field slowing 60%, two shields within 4.5 s, 5.5 s cooldown |
-| Passive | Fire rate doubles for 2 s after a dash, shots pierce two targets | Two shields for 4 s the first time HP drops to 2, once per run |
-| Exclusive weapon / passive | Night Claw; Long Shadow | Falling Star; Deep Fold, Moon Shield |
-| Evolution (on chest) | Echo Legion: max Meowline + Long Shadow | Full Moon: max Moonstars + Deep Fold |
-
-Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, not a second character.
-
-## Evidence limits
-
-- `npm run build` and `npm test` (237 tests) pass. That checks compilation, tested sim behavior, Canvas commands / geometry and static packaging, not full gameplay quality or frame rate.
-- The user confirmed the previous deployed version works, but requested more polish and coherent paper interactions. One current static art sheet was captured and viewed using system Chrome. It shows selected characters, enemies, district motifs and landmarks only; the full game screen and mobile UI remain unreviewed.
-- **Audio has not been evaluated by the agent**, including the tear and crackle cues; no user audio-quality report is recorded.
-- **Balance was only probed with throwaway idle bots**; an idle Nicole cannot finish the Eraser.
-- **Frame rate at about 100 enemies with fire is unmeasured.** There is no spatial hash or object pool, and chunk caches build synchronously.
-- **The user has not approved the art.** Do not mark the art or the entry as finished.
-
-## Confirmed gameplay decisions (user, 2026-11-17)
-
-1. **Defeating the Boss is not required to win.** Surviving until dawn is a win even if the Boss is still alive; outrunning it is allowed. Do not add a Boss-kill victory gate.
-2. **Full passive slots can lock out an evolution.** If the required partner passive is missing and there is no free passive slot, that evolution is unavailable for the rest of the run. This is an intended build consequence, not a bug requiring a reserved slot or automatically granted passive. The user asked to record these rules only; no new hint or fallback mechanic is authorized by this decision.
-
-## Pending user decisions (ask before changing)
-
-1. Confirm before removing the Chinese pack or language toggle. Both are available with English as the default.
-2. Random helper cats have not been built. Confirm before starting.
-
-## Remaining review notes
-
-- Prop reaction scans and `safePosition` were a smaller share of the local 100-enemy profile than crowd separation and fire contact. Reprofile on routes or builds that make those scans expensive before adding a spatial index.
-- Confirm the cached burning tint and quantized fold shading in a real browser; removing the two filter assignments does not prove a frame-rate improvement.
-- The prior review's camera-edge bug, stale comment, seed wrap and missing burnt-drop documentation are fixed (see latest changes above).
-- Phase notice ordering is fixed: phaseSeen advances only when notify accepts the ribbon. Boss arrival/defeat and both evolution banners retain priority; the latest pending phase appears after they expire, without resetting every tick. Regression coverage exercises all four major banners.
-
-## Still open
-
-1. The user deferred playtesting. When it resumes, play full runs for both cats and assess enemy pacing, upgrades and chest timing, Boss pressure, access to shallow water, and the four landmark activities.
-2. Check combat readability when playtesting resumes, especially on the graveyard ground, behind buildings, and when skills overlap danger cues.
-3. Check touch controls end to end, including skill use, pause, card selection, and retry. The bilingual pause, upgrade, and 13-stat result layouts have static checks at three phone sizes. Audio mixing and cue clarity still need a listening pass.
-4. Check live memory peaks and frame timing on the user's device. Local desktop benchmarks cover walking across chunk boundaries and rendering 100 enemies with fire.
-5. Neutral town NPCs and random helper cats have not been implemented. Ask before starting helper cats.
-6. Devpost copy and media remain pending. The documented deadline is **2026-12-05 06:00 Beijing time**. Record a video or publish a new version only on explicit user instruction.
-
-English default, Allo, the English README, Kiro Ghosts, paper-material reactions, and the four landmark activities are implemented. Kiro Ghosts use the shared fire and water rules and have a limit of eight simultaneous ghosts.
-
-## Run and verify
-
-```bash
-npm ci          # Node.js 22+, TypeScript only
-npm run build   # tsc -> dist/; package production files -> site/
-npm start       # python3 -m http.server 4173 --directory site
-npm test        # production build + node --test tests/*.test.mjs (237 tests)
-```
-
-- Open `http://localhost:4173/`. An old local server may still hold port 4173; check the port first.
-- `/?start=1` starts a run with the saved cat; `?seed=N` pins a decimal uint32 seed (0..4294967295; invalid or missing pins get a fresh one); `/?gallery=1` opens the gallery.
-- Verification is build + test, at most one static screenshot, no animation or recording checks.
-- Screenshots and probes in `output/playwright/` exist only on this machine and are git-ignored.
-- SSH push succeeded for `5b67387` to `origin/main`; the old blanket claim that pushing is blocked is obsolete. Only commit / push when the user authorizes it; never include `.agents/`, `output/`, `dist/` or `site/`.
-
-## Kiro Ghost integration (2026-11-17)
-
-The ghost is a common enemy with a white paper body, a violet backing, and a folding tail. The fold and approach speed share an actor clock that pauses under stun. Ghosts can spawn from phase 0 onward with a limit of eight. The first phase has one ghost weight for every four blob weights. Ghosts use the shared collision, water, and fire rules and are registered in the bilingual gallery. The addition changes spawn results for the same seed.
-
-This checkpoint passed build and 238 tests. Same-seed snapshot tests passed with the new roster. Historical probe reference files were kept.
-
-## Menu and phase fixes (2026-11-17)
-
-The user explicitly deferred deployment until the game is ready. Do not treat publishing as the next task. Fixed deferred phase banners, full-device pause/upgrade/result menus, scroll access for long pages, narrow-phone result rows and long bilingual text wrapping. Build and 239 tests pass. One static system-Chrome result fixture was captured/viewed at output/playwright/menu-result-mobile.png (English, 390 × 844); no animation, recording, audio, gameplay balance or FPS checks. Final date spacing was changed after the screenshot. This round is included in the subsequent user-authorized review commit and push. English default, broader art review and balance remain pending; performance sampling and helper cats retain their prior restrictions.
-
-## Static art review and publication authorization (2026-11-17)
-
-The user requested an art check followed by commit and push. One system-Chrome screenshot, output/playwright/kiro-world-art-review.png, was captured and viewed: seed-7 start-yard world renders for each cat separately plus six enlarged ghost samples (open/folded, left/right, light/dark backgrounds). These are static fixtures using production Canvas painters, not a live playthrough. Ghosts are readable in the scene; a horizontal body/hem seam was visible. Changed the painter to cache the complete sheet before clipping body/hem, so shadow generation is no longer clipped at the hinge. This correction was not re-screenshotted (one-screenshot limit). Existing finite-cache/read-only art tests cover the new sheet. Cat faces still appear angular/dense; broader art approval remains open. No animation, audio or FPS checks. The user authorizes pushing these changes; deployment status is not verified.
-
-## Resource lifetime audit (2026-11-17)
-
-The user asked to continue optimization and check timely memory release. Added run-boundary cleanup in main: clear world memo tables, chunk render canvases and popup folds, and release the previous Boss reference. Chunk eviction/reset now sets private canvas dimensions to zero before dropping references; the cache still allows 14 canvases (about 55.4 MiB raw RGBA, not a measured browser footprint). The generic sprite LRU stays at 256 reusable entries; shared finite art caches are retained. No repeated listener registration on restart was found. Short tone/noise/cricket sources disconnect their nodes on ended; noise sources release buffer references. Turning ambience off or muting stops/disconnects its looping sources and cancels cricket scheduling; restarting rebuilds the ambient graph within the same AudioContext. The shared two-second noise buffer and one AudioContext remain intentionally page-lived. Build and 241 tests pass, including repeated audio on/off/mute cleanup and chunk pixel release/rebuild. No live heap, GPU-memory, FPS or audio listening measurements; browser GC timing is not guaranteed. Resource changes are included in the subsequent English-first release checkpoint.
-
-## English release polish (2026-11-17)
-
-User authorized English default, further polish and deployment after verification. New sessions default to English; valid saved Chinese choices remain. Cat face corner cuts are softer and internal edging/texture lighter while original source colours, coverage data, markings and head anchors remain intact. Graveyard ground is lighter and less dense; overlapping buildings fade further. Smudge splash warnings now use true circular damage footprints (the slowing puddle remains elliptical); Boss charges display a body-width corridor and direction arrow. Includes the prior resource lifecycle cleanup. One static production-painter sheet was captured/viewed: output/playwright/english-polish-review.png. The Kiro body/hem seam is no longer visible in these samples. Faces remain stylized/angular; this is not user art approval or a full gameplay/balance/audio/FPS review. No helper cats or neutral NPCs were added.
-
-Release validation: build and all 243 tests passed. Static menu fixtures in en/zh at 320×568, 390×844 and 844×390 showed no horizontal panel overflow or overflowing tested card/stat text; long panels remained scrollable. This is layout evidence, not touch interaction or full gameplay evidence. Fresh browser gallery loaded in English. Production domain from GitHub metadata: https://zero-kiroween.vercel.app.
-
-## Local character / effect detail pass (2026-11-17)
-
-Local only; do not push or deploy. Added bounded scissor-contour simplification for larger face cuts, retaining small pieces and rejecting changes exceeding 8% area; original source data is untouched. The face still has recognizable angular steps and is not an approved final art direction. Head lean now pivots at the neck for movement/dash/hurt. Watch-coat ribbon and moon-coat rosette differentiate tailoring. Three ink-blob silhouettes/expressions, folded bat wing tips, inner ears and fangs add enemy identity. Shared enemy impact compresses the body around its feet; stunned body painters use a static pose. White face-obscuring hit ovals became edge glints/flecks. Dash has directional cut-paper chevrons; hurt uses falling paper flecks; level/evolution combine stars with strips while reducing the duplicate under-burst from 12/20 to 4/6 pieces. No simulation stats, RNG, NPCs, companions or gameplay kits changed.
-
-Build and 245 tests passed. One static sheet was captured/viewed at output/playwright/character-effects-local-review.png. It shows both cats, three common enemies/ink variants and sampled dash/hurt/evolution art; it is not motion or playtest evidence and the bottom of the enlarged evolution sample extends beyond the fixture. Remaining art work includes the strongly angular head identity, fuller scene-character presence (neutral NPCs are not implemented), and full combat effect readability review. User approval, audio/FPS/balance remain open. Local commit is permitted; publication remains prohibited.
-
-## Authored paper heads and Allo (local only, 2026-11-17)
-
-The user explicitly requested replacing the stepped face outline, then requested Allo from https://allo.joshpuckett.me/ for English. Both cats now provide authored curved silhouettes/identity patches in their registered art entries; paper-face uses those curves instead of contour-tracing. Original source data remains untouched. Zero retains the gold quiff, sunglasses and chain; Nicole retains dark hair, round glasses and light muzzle. Both world and portrait renderers reuse the same two cached head sprites and unchanged placement/rim. This supersedes older instructions against redrawing the active head geometry.
-
-Allo 1.0.1 Friendly variable and regular oblique WOFF2 files are bundled unmodified under SIL OFL 1.1 in assets/fonts, with license and source notes. CSS and Canvas labels use Allo with Chinese fallbacks. Startup waits for the local normal font before drawing cached Canvas labels, with a fallback on load failure. Packaging explicitly allows only these font/license files alongside HTML/CSS/JS.
-
-Verification: build and 246 tests passed. One earlier parallel run exceeded the existing 20-second full-night simulation test budget; rerunning after closing the preview browser passed without changing its threshold. Static layout checks of 18 en/zh result/upgrade/pause fixtures at 320×568, 390×844 and 844×390 loaded Allo and showed no horizontal/text overflow. The single screenshot attempt failed to show the art because the old Python preview server reset module connections; the image at output/playwright/paper-heads-allo-review.png is an incomplete UI and must NOT be treated as visual acceptance. A temporary Node preview on 127.0.0.1:4174 resolved module/font loading for layout checks. User permission to retake the one art screenshot was requested and remains pending. No motion/audio/FPS checks. Commit locally only; no push or deployment.
-
-## Reference-faithful head correction and English README (local only)
-
-The user clarified repeatedly: REFER TO the original pixel cats and DRAW their identities in paper. Do not switch to pixel rendering, revert the whole art direction, or invent a round-eyed replacement. Updated authored head shapes toward the original broad cheeks, flatter chin, blunted ear tips, compact eyes and small muzzle. Both glasses and sunglasses now use the original rectangular proportions and spacing (Nicole is NOT a round-glasses design); three whiskers per side and the short segmented gold-chain motif follow the reference. Body, Allo, gameplay and original source data remain unchanged.
-
-README.md is now fully English, consolidated rather than retaining contradictory historical appendices. It includes setup, controls, content, resource cleanup, font licensing, architecture, static build settings, and honest review limits. No Chinese script remains in the README; relative links were checked. Build and 246 tests passed. A successful single static comparison screenshot was captured/viewed via the local Node preview server: output/playwright/reference-faithful-heads.png (original pixel heads beside the current paper heads and full bodies). This is not author approval or motion/audio/FPS testing. Commit locally only; do not push or deploy.
+The simulation stays free of DOM and render imports. Rendering reads state and uses render hashes. Keep cat-specific logic in the registered definitions and art. Keep legacy pixel utilities that have callers. Follow the deletion rules in AGENTS.md and leave local task state and generated output out of commits. [Paper ecology recipe](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)
