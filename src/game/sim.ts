@@ -1184,13 +1184,17 @@ function hurtPlayer(state: SimState, damage: number): boolean {
 function stepEnemies(state: SimState, dt: number, rng: Rng): void {
   const p = state.player,
     catSlow = CATS.get(p.id).enemySlow ?? 1,
-    ps = playerStats(state);
-  for (const e of state.enemies) {
+    ps = playerStats(state),
+    enemies = state.enemies,
+    radii = enemies.map(enemyRadius),
+    phaseSpeed = nightPhase(state) * HORDE.speedPerPhase;
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i]!;
     if (!e.alive || e.spawnTime > 0) continue;
     // Moon-lantern stun: frozen ink neither moves nor bites.
     if ((e.stun ?? 0) > 0) continue;
     const def = enemyDef(e.kind),
-      radius = enemyRadius(e);
+      radius = radii[i] ??= enemyRadius(e);
     let tx = p.x,
       ty = p.y;
     // Some kinds (the Eraser) only follow the decoy when it is almost on top of it.
@@ -1214,7 +1218,7 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     }
     const speed =
         (base ??
-          (def.stats.speed + nightPhase(state) * HORDE.speedPerPhase) * (e.elite ? ELITE.speedMul : 1)) *
+          (def.stats.speed + phaseSpeed) * (e.elite ? ELITE.speedMul : 1)) *
         slow,
       dir = normalize(tx - e.x, ty - e.y),
       move: EnemyMove = {
@@ -1235,13 +1239,15 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       dx *= WATER.shallowSlow;
       dy *= WATER.shallowSlow;
     }
-    // Simple O(n^2) separation (fine at <= HORDE.hardCap) so crowds read as a crowd.
+    // Keep separation in enemy order. Radius lookups are shared across all pairs,
+    // with a lazy entry for summons appended while a Boss steers.
     if (def.crowd !== false)
-      for (const other of state.enemies) {
+      for (let j = 0; j < enemies.length; j++) {
+        const other = enemies[j]!;
         if (other.id === e.id || !other.alive) continue;
         const ox = e.x - other.x,
           oy = e.y - other.y,
-          gap = Math.max(20, (radius + enemyRadius(other)) * 0.9),
+          gap = Math.max(20, (radius + (radii[j] ??= enemyRadius(other))) * 0.9),
           d2 = ox * ox + oy * oy;
         if (d2 <= 0 || d2 >= gap * gap) continue;
         const dist = Math.sqrt(d2);

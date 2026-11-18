@@ -1,5 +1,8 @@
 /** Integer-only drawing primitives. Every visible environment pixel is generated here. */
-export type Ctx = CanvasRenderingContext2D;
+import { surface, type CanvasContext, type CanvasSurface } from "../engine/surface.js";
+
+export { surface };
+export type Ctx = CanvasContext;
 export type Point = readonly [number, number];
 export const hash = (n: number): number => {
   let x = Math.imul(n ^ 0x6d2b79f5, 0x45d9f3b);
@@ -106,15 +109,8 @@ export function mix(a: string, b: string, t: number): string {
       .padStart(2, "0");
   return "#" + part(1) + part(3) + part(5);
 }
-export function surface(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
 /** Quantized light rendered in a small cached canvas, preserving the pixel lattice. */
-const lights = new Map<string, HTMLCanvasElement>();
+const lights = new Map<string, CanvasSurface>();
 export function light(
   ctx: Ctx,
   x: number,

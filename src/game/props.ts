@@ -39,20 +39,18 @@ export function inFootprint(p: PropSpot, def: PropDef, x: number, y: number, rad
 }
 
 // ---------------------------------------------------------------- colliders
-const colliderMemo = new Map<string, { id: string; caps: Capsule[] }[]>();
+const colliderMemo = new WeakMap<readonly PropSpot[], { id: string; caps: Capsule[] }[]>();
 /** Prop colliders around (x, y), one entry per prop that has any. */
 export function nearPropColliders(seed: number, x: number, y: number): readonly { id: string; caps: Capsule[] }[] {
-  const { cx, cy } = chunkOf(x, y),
-    key = `${seed}:${cx},${cy}`;
-  let out = colliderMemo.get(key);
+  const props = nearProps(seed, x, y);
+  let out = colliderMemo.get(props);
   if (!out) {
-    if (colliderMemo.size > 400) colliderMemo.clear();
     out = [];
-    for (const p of nearProps(seed, x, y)) {
+    for (const p of props) {
       const caps = propDef(p.kind).colliders?.(seed, p.x, p.y, p.s);
       if (caps?.length) out.push({ id: p.id, caps });
     }
-    colliderMemo.set(key, out);
+    colliderMemo.set(props, out);
   }
   return out;
 }

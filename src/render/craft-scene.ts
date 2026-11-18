@@ -1,3 +1,4 @@
+import type { CanvasSurface } from "../engine/surface.js";
 import {
   piece,
   path,
@@ -36,9 +37,9 @@ function pathCenter(y: number): number {
     oldPathCenter(y) + (y < 348 ? 17 * Math.max(0, 1 - (y - 222) / 126) : 0)
   );
 }
-let background: HTMLCanvasElement | undefined,
-  foreground: HTMLCanvasElement | undefined;
-const propCache = new Map<string, HTMLCanvasElement>();
+let background: CanvasSurface | undefined,
+  foreground: CanvasSurface | undefined;
+const propCache = new Map<string, CanvasSurface>();
 
 /** The screen-space sky sheet: pigment wash, stars, clouds, moon and two bats. */
 function skySheet(ctx: Ctx): void {
@@ -191,6 +192,27 @@ export interface GroundLamp {
   x: number;
   y: number;
 }
+function groundOutline(x0: number, y0: number, w: number, h: number, top: boolean): Path2D {
+  const p = new Path2D();
+  if (!top) {
+    p.rect(x0 - 12, y0 - 12, w + 24, h + 24);
+    return p;
+  }
+  p.moveTo(x0 - 12, 250);
+  for (let x = Math.floor(x0 / 12) * 12 - 12; x <= x0 + w + 12; x += 12)
+    p.lineTo(x, 190 + Math.sin(x * 0.015) * 8 + Math.sin(x * 0.043) * 2);
+  p.lineTo(x0 + w + 12, y0 + h + 12);
+  p.lineTo(x0 - 12, y0 + h + 12);
+  p.closePath();
+  return p;
+}
+
+/** The base colour and silhouette while a tile's detailed paper is being baked. */
+export function groundUnderlay(ctx: Ctx, x: number, y: number, w: number, h: number, top: boolean): void {
+  ctx.fillStyle = "#414538";
+  ctx.fill(groundOutline(x, y, w, h, top));
+}
+
 /**
  * Moss-green ground paper for the world rectangle (x0, y0, w, h), in world
  * coordinates. Noise and hatching are functions of world position, so tiles
@@ -207,16 +229,22 @@ export function groundTile(
   top: boolean,
   yard = false,
 ): void {
-  const p = new Path2D();
+  for (const _ of groundTilePasses(ctx, x0, y0, w, h, lamps, top, yard)) { /* finish the whole tile */ }
+}
+
+/** Batches of rows and hatching for the budgeted fallback when workers are unavailable. */
+export function* groundTilePasses(
+  ctx: Ctx,
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+  lamps: readonly GroundLamp[],
+  top: boolean,
+  yard = false,
+): Generator<void> {
+  const p = groundOutline(x0, y0, w, h, top);
   const gy0 = top ? 180 : y0;
-  if (top) {
-    p.moveTo(x0 - 12, 250);
-    for (let x = Math.floor(x0 / 12) * 12 - 12; x <= x0 + w + 12; x += 12)
-      p.lineTo(x, 190 + Math.sin(x * 0.015) * 8 + Math.sin(x * 0.043) * 2);
-    p.lineTo(x0 + w + 12, y0 + h + 12);
-    p.lineTo(x0 - 12, y0 + h + 12);
-    p.closePath();
-  } else p.rect(x0 - 12, y0 - 12, w + 24, h + 24);
   piece(ctx, p, "#52574b", {
     shadow: top ? 2 : 0,
     texture: 0.7,
@@ -224,9 +252,9 @@ export function groundTile(
   });
   const th = y0 + h - gy0,
     c = surface(w, th),
-    cc = c.getContext("2d")!,
+    cc = c.getContext("2d", { willReadFrequently: typeof document === "undefined" })!,
     im = cc.createImageData(w, th);
-  for (let y = 0; y < th; y++)
+  for (let y = 0; y < th; y++) {
     for (let x = 0; x < w; x++) {
       const wx = x0 + x,
         wy = y + gy0,
@@ -258,6 +286,8 @@ export function groundTile(
       im.data[i + 2] = b;
       im.data[i + 3] = 255;
     }
+    if ((y & 7) === 7) yield;
+  }
   cc.putImageData(im, 0, 0);
   ctx.save();
   ctx.clip(p);
@@ -270,6 +300,7 @@ export function groundTile(
     count = Math.round(area * 0.0208),
     salt = Math.floor(x0 * 3 + y0 * 7);
   for (let i = 0; i < count; i++) {
+    if (i > 0 && i % 512 === 0) yield;
     const x = x0 + hash(i * 17 + salt) * w,
       y = Math.max(gy0, 205) + hash(i * 37 + salt) * (y0 + h - Math.max(gy0, 205));
     if (yard && y > 225 && Math.abs(x - pathCenter(y)) < 24) continue;
@@ -1262,7 +1293,7 @@ function bunting(ctx: Ctx): void {
     );
   }
 }
-function buildStartYard(): HTMLCanvasElement {
+function buildStartYard(): CanvasSurface {
   const c = surface(W * 2, H * 2),
     ctx = c.getContext("2d")!;
   ctx.scale(2, 2);
@@ -1296,10 +1327,10 @@ function buildStartYard(): HTMLCanvasElement {
   return c;
 }
 /** The start yard below the sky (hills, ground, road, cottages, garden), at 2x, world 0..960 x 0..540. */
-export function startYard(): HTMLCanvasElement {
+export function startYard(): CanvasSurface {
   return (background ??= buildStartYard());
 }
-let skyCanvas: HTMLCanvasElement | undefined;
+let skyCanvas: CanvasSurface | undefined;
 /** Screen-space sky; the world's ground covers it once the camera leaves the north edge. */
 export function drawSky(ctx: Ctx): void {
   if (!skyCanvas) {
@@ -1330,7 +1361,7 @@ export function drawProp(ctx: Ctx, p: SceneProp): void {
   }
   ctx.drawImage(c, p.x - 90, p.y - 148, 180, 180);
 }
-const lamps = new Map<number, HTMLCanvasElement>();
+const lamps = new Map<number, CanvasSurface>();
 export function drawLamp(
   ctx: Ctx,
   l: { x: number; y: number; s: number },
@@ -1401,7 +1432,7 @@ export function drawAtmosphere(
     ctx.restore();
   }
 }
-function buildForeground(): HTMLCanvasElement {
+function buildForeground(): CanvasSurface {
   const c = surface(W * 2, H * 2),
     ctx = c.getContext("2d")!;
   ctx.scale(2, 2);
@@ -1504,7 +1535,7 @@ export function drawForeground(
   ctx.restore();
   if (withFrame) drawFrame(ctx);
 }
-let frame: HTMLCanvasElement | undefined;
+let frame: CanvasSurface | undefined;
 /** The torn paper border; drawn outside the camera shake so edges never show. */
 export function drawFrame(ctx: Ctx): void {
   if (!frame) {

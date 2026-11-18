@@ -243,6 +243,45 @@ test("leaving a run clears chunk pixels and permits rebuilding the same view", (
   clearWorldRenderCache();
 });
 
+test("terrain prefetch stops at capacity and closes results from an abandoned run", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  let worker;
+  class TerrainWorker {
+    requests = [];
+    terminated = false;
+    constructor() { worker = this; }
+    postMessage(request) { this.requests.push(request); }
+    terminate() { this.terminated = true; }
+  }
+  for (const [key, value] of [["Worker", TerrainWorker], ["OffscreenCanvas", class {}]]) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, value });
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : delete globalThis[key]);
+  }
+  t.after(clearWorldRenderCache);
+  const ctx = canvas().getContext("2d"), center = { x: 2180, y: 2150 };
+  const bitmaps = [];
+  const reply = () => {
+    const bitmap = { closed: false, close() { this.closed = true; } };
+    bitmaps.push(bitmap);
+    worker.onmessage({ data: { id: worker.requests.at(-1).id, bitmap } });
+  };
+  for (let i = 0; i < 24; i++) {
+    drawChunks(ctx, 7, center);
+    if (worker.requests.length > bitmaps.length) reply();
+  }
+  assert.equal(cachedChunkCount(), 14);
+  assert.equal(worker.requests.length, 14, "stationary camera must not rebake evicted margin tiles");
+  drawChunks(ctx, 7, { x: -2100, y: 2700 });
+  assert.equal(worker.requests.length, 15, "another region can start baking while the cache is full");
+  clearWorldRenderCache();
+  assert.equal(worker.terminated, true);
+  reply();
+  assert.equal(cachedChunkCount(), 0);
+  assert.ok(bitmaps.every((bitmap) => bitmap.closed), "both cached and late bitmaps release their pixels");
+});
+
 test("splash warnings preserve circular damage geometry and draw a legible cross", (t) => {
   environment(t);
   const ctx = canvas().getContext("2d");

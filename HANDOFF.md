@@ -4,6 +4,10 @@
 
 Latest checkpoint (2026-11-18). The user approved the revised paper cat heads in `2d8b25e` and asked to set playtesting aside for now. The heads use a broad face cut, a single dark frame around each lens, short ear folds, and fewer bright edges. World and portrait art share the same cached drawings. `npm run build` and all 246 tests passed. One Chrome still shows the original references, the previous and current paper heads, and each cat in the starting yard at 1× (`output/playwright/paper-head-comparison-2026-11-18.png`).
 
+The user reopened performance work after seeing stutters while walking. Chunk art used to bake inline, and the prefetch area could exceed the cache budget and repeatedly evict tiles it still wanted. Terrain now bakes on a CPU-backed canvas in one worker and keeps a ranked set of up to 14 ready tiles. Browsers without worker canvas support use timed batches of the same painter. Run changes release pending work and cached bitmaps. The visible board is the 2× render surface, and paused worlds stop repainting. Enemy separation reuses radius lookups in the original order, and common dry or fire-free simulation paths do less work.
+
+Performance verification used a fixed seed-7 camera route in local headless Chrome, after a short warmup. Frame interval P95 went from 50.0 to 16.7 ms with no enemies and from 50.0 to 16.8 ms with 100 enemies and 40 fire cells. Intervals above 25 ms went from 69 to 1 in 480 frames and from 51 to 0 in 360 frames, respectively. The fallback ran a 200-frame route with a P95 of 16.7 ms. Two Node scenarios with 100 enemies and 3,600 fixed steps each finished with identical before/after state hashes and took 25–28% less time. The normal entry point passed a short movement, pause, and resume check, and the board stayed aligned with the HUD. Build and all 247 tests passed. Device-specific timing and live heap or GPU peaks remain open.
+
 Updated 2026-11-17, after the paper-ecology and cohesive-art round. `npm run build` and `npm test` pass (237 / 237). The user explicitly requested both the remaining art work and interaction gaps, including paper actors catching fire and water extinguishing them. This overrides the old cat-fire immunity. One static art sheet was captured in system Chrome and viewed; there was no animation, recording, audio or frame-rate check. The current local commits are `7a3102b` (paper ecology / cohesive art) and `d5d6025` (character / scenery refinement); both are committed but not pushed to `origin/main` or deployed. The user explicitly deferred live frame-rate sampling and requested a commit checkpoint before continuing development; do not start performance sampling unless asked.
 
 Read the constraints in [AGENTS.md](AGENTS.md), then the task order in [PLAN.md](PLAN.md) (v0.15). **Before extending content, read the project skill [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md)**: layers and import rules, hard constraints and the verification flow. Its `references/` recipes (including the new paper-ecology contract) cover adding a cat, a weapon / passive / evolution, an enemy, a prop and reaction, a landmark and district, i18n, the paper kit and gallery, and testing and committing. `.kiro/steering/*.md` summarises the same rules.
@@ -195,7 +199,7 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 
 ## Remaining review notes
 
-- The per-shot, per-step `elementHit` scan and the prop collider scan in `safePosition` are unprofiled. Measure before adding a spatial hash or object pool.
+- Prop reaction scans and `safePosition` were a smaller share of the local 100-enemy profile than crowd separation and fire contact. Reprofile on routes or builds that make those scans expensive before adding a spatial index.
 - Confirm the cached burning tint and quantized fold shading in a real browser; removing the two filter assignments does not prove a frame-rate improvement.
 - The prior review's camera-edge bug, stale comment, seed wrap and missing burnt-drop documentation are fixed (see latest changes above).
 - Phase notice ordering is fixed: phaseSeen advances only when notify accepts the ribbon. Boss arrival/defeat and both evolution banners retain priority; the latest pending phase appears after they expire, without resetting every tick. Regression coverage exercises all four major banners.
@@ -205,7 +209,7 @@ Zero's afterimages (including Echo Legion's shooting echoes) are skill effects, 
 1. The user deferred playtesting. When it resumes, play full runs for both cats and assess enemy pacing, upgrades and chest timing, Boss pressure, access to shallow water, and the four landmark activities.
 2. Check combat readability when playtesting resumes, especially on the graveyard ground, behind buildings, and when skills overlap danger cues.
 3. Check touch controls end to end, including skill use, pause, card selection, and retry. The bilingual pause, upgrade, and 13-stat result layouts have static checks at three phone sizes. Audio mixing and cue clarity still need a listening pass.
-4. Check browser memory and frame rate near the 100-enemy cap, including fire and chunk loading, when the user asks to resume profiling. The run cache and audio cleanup paths are implemented and tested.
+4. Check live memory peaks and frame timing on the user's device. Local desktop benchmarks cover walking across chunk boundaries and rendering 100 enemies with fire.
 5. Neutral town NPCs and random helper cats have not been implemented. Ask before starting helper cats.
 6. Devpost copy and media remain pending. The documented deadline is **2026-12-05 06:00 Beijing time**. Record a video or publish a new version only on explicit user instruction.
 

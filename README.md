@@ -99,13 +99,15 @@ The generic simulation does not import art, UI, or the DOM. Gameplay numbers bel
 
 ## Resource management
 
-- Restarting a run or returning to the title clears world memo tables, chunk canvases, popup-fold state, and references to the previous run.
-- Evicted chunk canvases have their dimensions reset to release their backing pixels. The cache holds at most 14 chunk canvases, approximately 55 MiB of raw RGBA pixels before browser overhead.
+- Terrain tiles bake on a background worker. The fallback paints the same terrain in small batches across frames. Prefetching fits the number of tiles the cache can hold.
+- The visible game canvas is the 2× render surface. The board stops repainting behind static menus until the view changes or play resumes.
+- Restarting or returning to the title releases pending terrain work, cached tiles, world memo tables, and references to the previous run.
+- The terrain cache holds at most 14 ready tiles, about 55 MiB of raw RGBA pixels. An evicted bitmap is closed, and an evicted canvas has its dimensions reset.
 - The general sprite LRU holds at most 256 entries. Finite shared art is retained for reuse.
 - Short audio voices disconnect after ending. Turning ambience off or muting stops its looping sources and cancels cricket scheduling.
 - One AudioContext and a shared noise buffer remain available for the lifetime of the page.
 
-These bounds and cleanup paths do not establish a measured memory footprint or guarantee immediate browser garbage collection. Live heap/GPU memory and frame-rate measurements remain outstanding.
+Live heap and GPU memory peaks still need device measurements.
 
 ## Verification and current limits
 
@@ -114,13 +116,13 @@ npm run build
 npm test
 ```
 
-The latest recorded code verification passed **246 tests**. Tests cover simulation determinism, progression, water/fire ordering, collision, regrowth rewards, landmark cooldowns, rendering commands, resource cleanup, translations, and static packaging.
+The latest recorded code verification passed **247 tests**. Tests cover simulation determinism, progression, water/fire ordering, collision, regrowth rewards, landmark cooldowns, rendering commands, resource cleanup, translations, and static packaging.
 
 Static menu fixtures in both languages were checked at 320 × 568, 390 × 844, and 844 × 390. Allo loaded, and the tested pause, upgrade, and result layouts had no horizontal or text overflow. This is not evidence of complete touch-flow or gameplay acceptance.
 
 The author approved the revised paper heads. The comparison sheet shows the original reference, previous and revised paper portraits, and both cats in the starting yard at normal game scale.
 
-Full-run balance, audio quality, live memory usage, and frame rate near the enemy cap remain unverified. Neutral town NPCs and random helper cats are not implemented; helper cats require explicit approval. Passing tests does not mean the art is approved or the competition entry is complete.
+The local Chrome walking benchmark measured a P95 frame interval of about 16.7 ms after the terrain optimization, both alone and with 100 enemies and 40 fire cells on screen. Full-run balance, sound quality, and performance on other devices remain open. Neutral town NPCs and random helper cats have not been implemented. Helper cats require explicit approval.
 
 Documentation-only edits do not require rerunning gameplay tests. For code changes, follow the project verification rules: build and tests, at most one static screenshot, and no animation or recording checks unless requested.
 

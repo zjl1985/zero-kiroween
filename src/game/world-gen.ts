@@ -501,20 +501,31 @@ function waterIndex(seed: number): Map<string, readonly WaterRegion[]> {
     return index;
   }, WATER.cachedSeeds);
 }
+const NO_WATER: readonly WaterRegion[] = Object.freeze([]);
+function touchesWaterBounds(bounds: WaterRegion["bounds"], left: number, top: number, right: number, bottom: number): boolean {
+  return right >= bounds.minX - 24 && left <= bounds.maxX + 24 && bottom >= bounds.minY - 24 && top <= bounds.maxY + 24;
+}
 /** Local cached convex polygons, shared by water simulation and chunk-ground rendering. */
 export function waterRegionsNear(seed: number, x: number, y: number, reach: number): readonly WaterRegion[] {
-  const index = waterIndex(seed), found = new Map<string, WaterRegion>(), r = Math.max(0, reach);
-  const x0 = Math.max(CHUNK.minCx, Math.floor((x - r) / CHUNK.width)),
-    x1 = Math.min(CHUNK.maxCx, Math.floor((x + r) / CHUNK.width)),
-    y0 = Math.max(CHUNK.minCy, Math.floor((y - r) / CHUNK.height)),
-    y1 = Math.min(CHUNK.maxCy, Math.floor((y + r) / CHUNK.height));
+  const index = waterIndex(seed), r = Math.max(0, reach);
+  const left = x - r, right = x + r, top = y - r, bottom = y + r;
+  const x0 = Math.max(CHUNK.minCx, Math.floor(left / CHUNK.width)),
+    x1 = Math.min(CHUNK.maxCx, Math.floor(right / CHUNK.width)),
+    y0 = Math.max(CHUNK.minCy, Math.floor(top / CHUNK.height)),
+    y1 = Math.min(CHUNK.maxCy, Math.floor(bottom / CHUNK.height));
+  // Most actor queries stay in one chunk. Empty ground need not allocate anything.
+  if (x0 === x1 && y0 === y1) {
+    const bucket = index.get(chunkKey(x0, y0));
+    if (!bucket?.length) return NO_WATER;
+    if (bucket.length === 1)
+      return touchesWaterBounds(bucket[0]!.bounds, left, top, right, bottom) ? bucket : NO_WATER;
+  }
+  let found: Map<string, WaterRegion> | undefined;
   for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++)
-    for (const region of index.get(chunkKey(cx, cy)) ?? []) {
-      const b = region.bounds;
-      if (x + r >= b.minX - 24 && x - r <= b.maxX + 24 && y + r >= b.minY - 24 && y - r <= b.maxY + 24)
-        found.set(region.id, region);
-    }
-  return [...found.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    for (const region of index.get(chunkKey(cx, cy)) ?? NO_WATER)
+      if (touchesWaterBounds(region.bounds, left, top, right, bottom))
+        (found ??= new Map()).set(region.id, region);
+  return found ? [...found.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : NO_WATER;
 }
 
 /** Decor, colliders and interaction spots of one landmark, from its def's layout. */

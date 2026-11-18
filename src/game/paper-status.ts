@@ -29,9 +29,11 @@ export function paperTouchesWater(seed: number, x: number, y: number, radius = 0
 
 /** Circle versus the whole burning square, not just the actor's centre cell. */
 export function paperTouchesFire(state: SimState, x: number, y: number, radius: number): boolean {
+  const cells = state.fire.cells;
+  if (Object.keys(cells).length === 0) return false;
   for (let iy = Math.floor((y - radius) / FIRE.cell); iy <= Math.floor((y + radius) / FIRE.cell); iy++)
     for (let ix = Math.floor((x - radius) / FIRE.cell); ix <= Math.floor((x + radius) / FIRE.cell); ix++) {
-      if (!(`${ix},${iy}` in state.fire.cells)) continue;
+      if (!(`${ix},${iy}` in cells)) continue;
       const dx = Math.max(ix * FIRE.cell - x, 0, x - (ix + 1) * FIRE.cell),
         dy = Math.max(iy * FIRE.cell - y, 0, y - (iy + 1) * FIRE.cell);
       if (dx * dx + dy * dy <= radius * radius) return true;

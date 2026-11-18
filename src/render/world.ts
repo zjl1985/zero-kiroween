@@ -52,7 +52,7 @@ import {
   drawChest,
   drawLandmarkActivity,
 } from "./craft-juice.js";
-import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
+import { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
@@ -119,7 +119,7 @@ export function drawWorld(
     Math.round((VIEW_WIDTH / 2 - cam.x) * 2) / 2,
     Math.round((VIEW_HEIGHT / 2 - cam.y) * 2) / 2,
   );
-  drawChunks(ctx, seed, cam);
+  drawChunks(ctx, seed, cam, sim !== null);
   if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
   drawWind(ctx, view.time);
   if (sim) {
@@ -348,25 +348,4 @@ export function drawWorld(
     ctx.fillRect(0, VIEW_HEIGHT - 1 - i, VIEW_WIDTH, 1);
   }
   ctx.restore();
-}
-export function present(
-  source: HTMLCanvasElement,
-  dest: CanvasRenderingContext2D,
-  cssWidth: number,
-  cssHeight: number,
-  dpr: number,
-  overlay?: HTMLElement,
-): void {
-  const v = viewport(cssWidth, cssHeight, dpr, false);
-  dest.setTransform(1, 0, 0, 1, 0, 0);
-  dest.fillStyle = "#181622";
-  dest.fillRect(0, 0, cssWidth * dpr, cssHeight * dpr);
-  dest.imageSmoothingEnabled = true;
-  dest.drawImage(source, v.x, v.y, v.w, v.h);
-  if (overlay) {
-    overlay.style.left = `${v.cssX}px`;
-    overlay.style.top = `${v.cssY}px`;
-    overlay.style.width = `${v.cssW}px`;
-    overlay.style.height = `${v.cssH}px`;
-  }
 }

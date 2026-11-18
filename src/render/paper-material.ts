@@ -1,3 +1,4 @@
+import type { CanvasSurface } from "../engine/surface.js";
 import { hash, mix, surface, type Ctx, type Point } from "./pixel-art.js";
 export { mix, hash, surface };
 export type { Ctx, Point };
@@ -20,12 +21,12 @@ export function noise(
     s = hash(ix + 1 + (iy + 1) * 7919 + seed);
   return (p * (1 - a) + q * a) * (1 - b) + (r * (1 - a) + s * a) * b;
 }
-let fiber: HTMLCanvasElement | undefined;
+let fiber: CanvasSurface | undefined;
 /** Pulp, fine fibres and low-frequency pressing marks, generated once in code. */
-export function paperTexture(): HTMLCanvasElement {
+export function paperTexture(): CanvasSurface {
   if (fiber) return fiber;
   fiber = surface(512, 512);
-  const ctx = fiber.getContext("2d")!,
+  const ctx = fiber.getContext("2d", { willReadFrequently: typeof document === "undefined" })!,
     im = ctx.createImageData(512, 512);
   for (let y = 0; y < 512; y++)
     for (let x = 0; x < 512; x++) {

@@ -5,9 +5,10 @@
  * sprite is only an interface capability (`imageSprite`); nothing shipped
  * uses images.
  *
- * Import-safe in Node: `document` is only touched inside cachedSprite, and
- * without a DOM the sprite simply draws its code every time.
+ * Import-safe in Node: without a browser canvas the sprite just draws its
+ * code each time. Workers use the same painters on offscreen surfaces.
  */
+import { surface, type CanvasContext, type CanvasSurface } from "./surface.js";
 export interface SpriteDrawOptions {
   readonly x: number;
   readonly y: number;
@@ -21,11 +22,11 @@ export interface Sprite {
   readonly height: number;
   /** The point placed at (x, y), as a fraction of width and height. */
   readonly anchor: { readonly x: number; readonly y: number };
-  draw(ctx: CanvasRenderingContext2D, opts: SpriteDrawOptions): void;
+  draw(ctx: CanvasContext, opts: SpriteDrawOptions): void;
 }
-/** A sprite backed by a canvas (present in a browser, absent in Node). */
+/** A sprite backed by a canvas where the platform provides one. */
 export interface CanvasSprite extends Sprite {
-  readonly canvas?: HTMLCanvasElement;
+  readonly canvas?: CanvasSurface;
   /** Device pixels per drawing unit in `canvas`. */
   readonly scale: number;
 }
@@ -34,7 +35,7 @@ export interface CanvasSprite extends Sprite {
  * already scaled; `canvas` is the backing canvas when there is one, for
  * compositing passes that need raw pixels.
  */
-export type SpritePainter = (ctx: CanvasRenderingContext2D, canvas?: HTMLCanvasElement) => void;
+export type SpritePainter = (ctx: CanvasContext, canvas?: CanvasSurface) => void;
 
 /** Most cached sprites alive at once; the least recently used one is dropped first. */
 export const SPRITE_CACHE_LIMIT = 256;
@@ -67,11 +68,9 @@ export function cachedSprite(
     cache.set(key, hit);
     return hit;
   }
-  let canvas: HTMLCanvasElement | undefined;
-  if (typeof document !== "undefined") {
-    canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(w * scale);
-    canvas.height = Math.ceil(h * scale);
+  let canvas: CanvasSurface | undefined;
+  if (typeof document !== "undefined" || typeof OffscreenCanvas !== "undefined") {
+    canvas = surface(Math.ceil(w * scale), Math.ceil(h * scale));
     const c = canvas.getContext("2d")!;
     c.scale(scale, scale);
     paint(c, canvas);

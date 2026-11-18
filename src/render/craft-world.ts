@@ -4,6 +4,7 @@
  * code; offscreen canvases only cache what was drawn procedurally. Nothing
  * here touches the sim RNG or writes to SimState.
  */
+import type { CanvasSurface } from "../engine/surface.js";
 import {
   CHUNK,
   FLAT_DECOR,
@@ -47,7 +48,8 @@ import {
   fence,
   flower,
   grassTuft,
-  groundTile,
+  groundTilePasses,
+  groundUnderlay,
   horizonHills,
   leaf,
   pumpkin,
@@ -181,7 +183,7 @@ function roadHits(r: Road, x0: number, y0: number, x1: number, y1: number): bool
   });
 }
 /** A cut-paper road strip: contact shadow, dark cut edge, light top edge, pebbles and stitching. */
-function drawRoad(ctx: Ctx, r: Road, ri: number): void {
+function drawRoad(ctx: Ctx, r: Road, ri: number, tile: ViewRect): void {
   const p = roadPath(r.points),
     w = r.width * 2;
   ctx.save();
@@ -199,10 +201,13 @@ function drawRoad(ctx: Ctx, r: Road, ri: number): void {
   ctx.restore();
   ctx.restore();
   // Pebbles, placed by world position so every chunk agrees.
+  const pad = r.width + 4;
   for (let i = 0; i < r.points.length - 1; i++) {
     const a = r.points[i]!,
-      b = r.points[i + 1]!,
-      len = Math.hypot(b.x - a.x, b.y - a.y),
+      b = r.points[i + 1]!;
+    if (Math.max(a.x, b.x) + pad < tile.x0 || Math.min(a.x, b.x) - pad > tile.x1 ||
+        Math.max(a.y, b.y) + pad < tile.y0 || Math.min(a.y, b.y) - pad > tile.y1) continue;
+    const len = Math.hypot(b.x - a.x, b.y - a.y),
       nx = -(b.y - a.y) / (len || 1),
       ny = (b.x - a.x) / (len || 1);
     for (let k = 0; k < len; k += 7) {
@@ -210,8 +215,9 @@ function drawRoad(ctx: Ctx, r: Road, ri: number): void {
         t = k / len,
         across = (hash(seed) - 0.5) * r.width * 1.3,
         x = a.x + (b.x - a.x) * t + nx * across,
-        y = a.y + (b.y - a.y) * t + ny * across,
-        d = new Path2D();
+        y = a.y + (b.y - a.y) * t + ny * across;
+      if (x < tile.x0 - 4 || x > tile.x1 + 4 || y < tile.y0 - 4 || y > tile.y1 + 4) continue;
+      const d = new Path2D();
       d.ellipse(x, y, 1 + hash(seed + 8) * 2, 0.3 + hash(seed + 1) * 0.6, hash(seed + 2) * 2, 0, Math.PI * 2);
       ctx.fillStyle = seed % 3 ? "rgba(95,77,64,.14)" : "rgba(245,224,186,.3)";
       ctx.fill(d);
@@ -247,7 +253,7 @@ const PATCH = { cell: 150, margin: 110, r: [46, 84] } as const;
  * world grid by render hashes, so every chunk that overlaps a patch draws it
  * the same way. A seeded blend of neighbouring districts avoids hard chunk seams.
  */
-function biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): void {
+function* biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number, y1: number): Generator<void> {
   const c = PATCH.cell,
     ia = Math.floor((x0 - PATCH.margin) / c),
     ib = Math.floor((x1 + PATCH.margin) / c),
@@ -272,6 +278,7 @@ function biomeGround(ctx: Ctx, seed: number, x0: number, y0: number, x1: number,
       if (x + r < x0 - 20 || x - r > x1 + 20 || y + r < y0 - 20 || y - r > y1 + 20) continue;
       if (waterRegionsNear(seed, x, y, r + 8).some((water) => touchesWaterShore(water, x, y, r + 8))) continue;
       art.patch(ctx, x, y, r, Math.floor(hash(sd + 4) * 1e5));
+      yield;
     }
 }
 /** Ground-level landmark art baked into the chunk caches. */
@@ -333,129 +340,239 @@ export function landmarkPreview(kind: LandmarkKind, seed = 7): { bounds: Bounds;
 }
 
 // ---------------------------------------------------------------- chunk caches
-interface CachedChunk {
-  canvas: HTMLCanvasElement;
+type ChunkImage = CanvasSurface | ImageBitmap;
+interface ChunkTile {
+  key: string;
   cx: number;
   cy: number;
 }
-const chunkCache = new Map<string, CachedChunk>();
-/** Canvases kept alive; each is 960 x 1080 device pixels (about 4 MB). */
+export interface TerrainRequest {
+  id: number;
+  seed: number;
+  cx: number;
+  cy: number;
+}
+export interface TerrainReply {
+  id: number;
+  bitmap: ImageBitmap | null;
+}
+const chunkCache = new Map<string, ChunkImage>();
+/** Each full tile is 960 × 1080 device pixels. Keep at most 14 plus one in progress. */
 const MAX_CHUNK_CANVASES = 14;
-/** World margin around the view whose missing chunks are built ahead, one per frame. */
 const PREFETCH = 320;
+const LOCAL_PAINT_BUDGET_MS = 2;
+
+let wantedChunks = new Set<string>();
+let chunkWorker: Worker | null | undefined;
+let inFlight: { id: number; key: string } | undefined;
+let requestId = 0;
+let localPaint: { key: string; canvas: CanvasSurface; steps: Generator<void> } | undefined;
+
 function cacheKey(seed: number, cx: number, cy: number): string {
-  return isStartChunk(cx, cy) ? `start:${cx}` : `${seed}:${cx},${cy}`;
+  return isStartChunk(cx, cy) ? "start:" + cx : seed + ":" + cx + "," + cy;
 }
 function contentAround(seed: number, cx: number, cy: number): ChunkContent[] {
   const out: ChunkContent[] = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) out.push(chunkContent(seed, cx + dx, cy + dy));
   return out;
 }
-function buildChunk(seed: number, cx: number, cy: number): HTMLCanvasElement {
+function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number): Generator<void> {
   const c = chunkContent(seed, cx, cy),
-    canvas = surface(CHUNK.width * 2, CHUNK.height * 2),
-    ctx = canvas.getContext("2d")!;
+    // Keep the worker's one-off raster work off the foreground GPU queue.
+    ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!;
   ctx.scale(2, 2);
   ctx.translate(-c.x, -c.y);
   if (c.start) {
     ctx.drawImage(startYard(), 0, 0, 960, 540);
-    return canvas;
+    return;
   }
-  const x0 = c.x,
-    y0 = c.y,
-    x1 = c.x + c.w,
-    y1 = c.y + c.h,
-    around = contentAround(seed, cx, cy),
-    lamps: GroundLamp[] = [];
+  const x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
+  const around = contentAround(seed, cx, cy), lamps: GroundLamp[] = [];
   for (const n of around)
     for (const d of n.decor)
       if (d.kind === "lamp" && d.x > x0 - 90 && d.x < x1 + 90 && d.y > y0 - 60 && d.y < y1 + 60) lamps.push(d);
   if (cy === 0) horizonHills(ctx, x0, x1);
-  groundTile(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
-  biomeGround(ctx, seed, x0, y0, x1, y1);
+  yield;
+  yield* groundTilePasses(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
+  yield* biomeGround(ctx, seed, x0, y0, x1, y1);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
-  for (const water of waters) drawWaterGround(ctx, water);
+  for (const water of waters) {
+    drawWaterGround(ctx, water);
+    yield;
+  }
   for (const l of landmarks(seed)) {
     const reach = landmarkReach(l);
-    if (l.x + reach >= x0 && l.x - reach <= x1 && l.y + reach >= y0 && l.y - reach <= y1) landmarkGround(ctx, l);
+    if (l.x + reach < x0 || l.x - reach > x1 || l.y + reach < y0 || l.y - reach > y1) continue;
+    landmarkGround(ctx, l);
+    yield;
   }
   const rs = roads(seed);
   // Branches first; the spine is laid over their joints.
-  for (let i = rs.length - 1; i >= 0; i--) if (roadHits(rs[i]!, x0, y0, x1, y1)) drawRoad(ctx, rs[i]!, i);
+  for (let i = rs.length - 1; i >= 0; i--) {
+    const road = rs[i]!;
+    if (!roadHits(road, x0, y0, x1, y1)) continue;
+    drawRoad(ctx, road, i, { x0, y0, x1, y1 });
+    yield;
+  }
   for (const water of waters) drawWaterCrossings(ctx, water);
   for (const n of around)
-    for (const d of n.decor)
-      if (FLAT_DECOR.has(d.kind) && d.x > x0 - 50 && d.x < x1 + 50 && d.y > y0 - 30 && d.y < y1 + 30) flatDecor(ctx, d);
+    for (const d of n.decor) {
+      if (!FLAT_DECOR.has(d.kind) || d.x <= x0 - 50 || d.x >= x1 + 50 || d.y <= y0 - 30 || d.y >= y1 + 30) continue;
+      flatDecor(ctx, d);
+      yield;
+    }
   for (const l of lamps) glow(ctx, l.x, l.y, 55, "#eab563", 0.13, 0.55);
   drawHedge(ctx, x0, y0, x1, y1);
+}
+/** Drain the same painter on the worker, or copy an already cached start yard. */
+export function buildChunk(seed: number, cx: number, cy: number): CanvasSurface {
+  const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
+  for (const _ of paintChunk(canvas, seed, cx, cy)) { /* finish the tile */ }
   return canvas;
 }
-function chunkCanvas(seed: number, cx: number, cy: number): HTMLCanvasElement {
-  const key = cacheKey(seed, cx, cy);
-  let entry = chunkCache.get(key);
-  if (!entry) {
-    entry = { canvas: buildChunk(seed, cx, cy), cx, cy };
-    chunkCache.set(key, entry);
-  } else {
-    // Map order doubles as recency for eviction.
-    chunkCache.delete(key);
-    chunkCache.set(key, entry);
+function releaseChunk(image: ChunkImage): void {
+  if ("close" in image) image.close();
+  else image.width = image.height = 0;
+}
+function keepChunk(key: string, image: ChunkImage): void {
+  chunkCache.set(key, image);
+  for (const [old, oldImage] of chunkCache) {
+    if (chunkCache.size <= MAX_CHUNK_CANVASES) break;
+    if (wantedChunks.has(old)) continue;
+    releaseChunk(oldImage);
+    chunkCache.delete(old);
   }
-  return entry.canvas;
+}
+function disableTerrainWorker(worker: Worker): void {
+  if (chunkWorker !== worker) return;
+  worker.terminate();
+  inFlight = undefined;
+  chunkWorker = null;
+}
+function workerForTerrain(): Worker | null {
+  if (chunkWorker !== undefined) return chunkWorker;
+  if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") return chunkWorker = null;
+  try {
+    const worker = new Worker(new URL("./terrain-worker.js", import.meta.url), { type: "module" });
+    worker.onmessage = ({ data }: MessageEvent<TerrainReply>) => {
+      const { id, bitmap } = data;
+      if (chunkWorker !== worker || inFlight?.id !== id) {
+        bitmap?.close();
+        return;
+      }
+      const { key } = inFlight;
+      inFlight = undefined;
+      if (!bitmap) disableTerrainWorker(worker);
+      else if (wantedChunks.has(key) && !chunkCache.has(key)) keepChunk(key, bitmap);
+      else bitmap.close();
+    };
+    worker.onerror = (event) => {
+      event.preventDefault();
+      disableTerrainWorker(worker);
+    };
+    worker.onmessageerror = () => disableTerrainWorker(worker);
+    return chunkWorker = worker;
+  } catch {
+    return chunkWorker = null;
+  }
+}
+function cancelLocalPaint(): void {
+  if (!localPaint) return;
+  releaseChunk(localPaint.canvas);
+  localPaint = undefined;
+}
+function warmChunk(seed: number, tile: ChunkTile | undefined): void {
+  if (localPaint && !wantedChunks.has(localPaint.key)) cancelLocalPaint();
+  if (!tile || inFlight) return;
+  const worker = workerForTerrain();
+  if (worker) {
+    const id = ++requestId;
+    inFlight = { id, key: tile.key };
+    const request: TerrainRequest = { id, seed, cx: tile.cx, cy: tile.cy };
+    try {
+      worker.postMessage(request);
+      return;
+    } catch {
+      disableTerrainWorker(worker);
+    }
+  }
+  const deadline = performance.now() + LOCAL_PAINT_BUDGET_MS;
+  if (!localPaint) {
+    const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
+    localPaint = { key: tile.key, canvas, steps: paintChunk(canvas, seed, tile.cx, tile.cy) };
+  }
+  do {
+    if (!localPaint.steps.next().done) continue;
+    keepChunk(localPaint.key, localPaint.canvas);
+    localPaint = undefined;
+    break;
+  } while (performance.now() < deadline);
 }
 function chunkRange(r: ViewRect) {
   const a = chunkOf(r.x0, r.y0),
     b = chunkOf(r.x1 - 0.001, r.y1 - 0.001);
   return { a, b };
 }
-/**
- * Draws the cached ground of every chunk the view touches (world space),
- * builds at most one chunk ahead of the camera per frame, and evicts the
- * least recently drawn caches beyond the budget.
- */
-export function drawChunks(ctx: Ctx, seed: number, cam: Camera): void {
-  const view = viewRect(cam),
-    { a, b } = chunkRange(view),
-    visible = new Set<string>();
-  let built = false;
+function tilesIn(seed: number, rect: ViewRect): ChunkTile[] {
+  const { a, b } = chunkRange(rect), tiles: ChunkTile[] = [];
   for (let cy = a.cy; cy <= b.cy; cy++)
-    for (let cx = a.cx; cx <= b.cx; cx++) {
-      const key = cacheKey(seed, cx, cy);
-      visible.add(key);
-      if (!chunkCache.has(key)) built = true;
-      ctx.drawImage(chunkCanvas(seed, cx, cy), cx * CHUNK.width, cy * CHUNK.height, CHUNK.width, CHUNK.height);
-    }
-  if (!built) {
-    const ahead = chunkRange(viewRect(cam, PREFETCH));
-    let best: { cx: number; cy: number; d: number } | null = null;
-    for (let cy = ahead.a.cy; cy <= ahead.b.cy; cy++)
-      for (let cx = ahead.a.cx; cx <= ahead.b.cx; cx++) {
-        if (chunkCache.has(cacheKey(seed, cx, cy))) continue;
-        const d = Math.hypot((cx + 0.5) * CHUNK.width - cam.x, (cy + 0.5) * CHUNK.height - cam.y);
-        if (!best || d < best.d) best = { cx, cy, d };
-      }
-    if (best) {
-      const key = cacheKey(seed, best.cx, best.cy);
-      chunkCache.set(key, { canvas: buildChunk(seed, best.cx, best.cy), cx: best.cx, cy: best.cy });
-    }
-  }
-  for (const key of chunkCache.keys()) {
-    if (chunkCache.size <= MAX_CHUNK_CANVASES) break;
-    if (!visible.has(key)) {
-      const old = chunkCache.get(key)!;
-      old.canvas.width = old.canvas.height = 0;
-      chunkCache.delete(key);
-    }
-  }
+    for (let cx = a.cx; cx <= b.cx; cx++) tiles.push({ cx, cy, key: cacheKey(seed, cx, cy) });
+  return tiles;
 }
-/** How many chunk canvases are cached (for the budget test and debugging). */
+function drawMissingGround(ctx: Ctx, cx: number, cy: number): void {
+  const x = cx * CHUNK.width, y = cy * CHUNK.height;
+  const clip = new Path2D();
+  clip.rect(x, y, CHUNK.width, CHUNK.height);
+  ctx.save();
+  ctx.clip(clip);
+  if (cy === 0) horizonHills(ctx, x, x + CHUNK.width);
+  groundUnderlay(ctx, x, y, CHUNK.width, CHUNK.height, cy === 0);
+  ctx.restore();
+}
+/**
+ * Paint ready tiles and warm the closest missing tile. Rank only as many
+ * tiles as can fit, so a full cache cannot repaint the same margin forever.
+ */
+export function drawChunks(ctx: Ctx, seed: number, cam: Camera, prefetch = true): void {
+  const visible = tilesIn(seed, viewRect(cam));
+  const keys = new Set(visible.map((tile) => tile.key));
+  const distance = ({ cx, cy }: ChunkTile) =>
+    ((cx + 0.5) * CHUNK.width - cam.x) ** 2 + ((cy + 0.5) * CHUNK.height - cam.y) ** 2;
+  const ahead = prefetch
+    ? tilesIn(seed, viewRect(cam, PREFETCH))
+      .filter((tile) => !keys.has(tile.key) && !isStartChunk(tile.cx, tile.cy))
+      .sort((a, b) => distance(a) - distance(b))
+    : [];
+  const wanted = [...visible, ...ahead.slice(0, MAX_CHUNK_CANVASES - visible.length)];
+  wantedChunks = new Set(wanted.map((tile) => tile.key));
+
+  for (const { key, cx, cy } of visible) {
+    let image = chunkCache.get(key);
+    if (image) {
+      chunkCache.delete(key);
+      chunkCache.set(key, image);
+    } else if (isStartChunk(cx, cy)) {
+      image = buildChunk(seed, cx, cy);
+      keepChunk(key, image);
+    }
+    if (image) ctx.drawImage(image, cx * CHUNK.width, cy * CHUNK.height, CHUNK.width, CHUNK.height);
+    else drawMissingGround(ctx, cx, cy);
+  }
+  warmChunk(seed, wanted.find((tile) => !chunkCache.has(tile.key)));
+}
+/** How many ready tile images are cached. */
 export function cachedChunkCount(): number {
   return chunkCache.size;
 }
 
-/** Drop run-specific pixels and popup history when leaving or replacing a run. */
+/** Release pixels and pending bake work with the run that owns them. */
 export function clearWorldRenderCache(): void {
-  for (const entry of chunkCache.values()) entry.canvas.width = entry.canvas.height = 0;
+  chunkWorker?.terminate();
+  chunkWorker = undefined;
+  inFlight = undefined;
+  cancelLocalPaint();
+  wantedChunks.clear();
+  for (const image of chunkCache.values()) releaseChunk(image);
   chunkCache.clear();
   folds.clear();
   foldTime = null;

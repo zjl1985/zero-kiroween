@@ -1,3 +1,4 @@
+import type { CanvasSurface } from "../engine/surface.js";
 import {
   ellipse,
   hash,
@@ -50,10 +51,10 @@ export const YARD_PROPS: readonly SceneProp[] = [
   { kind: "fence", x: 759, y: 500, s: 1.25, seed: 51 },
   { kind: "bush", x: 919, y: 476, s: 1.1, seed: 52 },
 ];
-let background: HTMLCanvasElement | undefined;
+let background: CanvasSurface | undefined;
 const sprites = new Map<
   string,
-  { canvas: HTMLCanvasElement; ox: number; oy: number }
+  { canvas: CanvasSurface; ox: number; oy: number }
 >();
 
 // Broad coherent noise shapes the ground; fine details follow those shapes.
@@ -1005,7 +1006,7 @@ function gardenBeds(ctx: Ctx): void {
       flower(ctx, x + i * 6, y + (i % 2) * 4, 0.65, i + x);
   }
 }
-function build(): HTMLCanvasElement {
+function build(): CanvasSurface {
   const c = surface(WIDTH, HEIGHT),
     ctx = c.getContext("2d")!;
   sky(ctx);
@@ -1186,7 +1187,7 @@ export function drawWind(ctx: Ctx, time: number): void {
   }
 }
 
-let foreground: HTMLCanvasElement | undefined;
+let foreground: CanvasSurface | undefined;
 export function drawForeground(
   ctx: Ctx,
   viewer?: { x: number; y: number },
@@ -1257,7 +1258,7 @@ export function drawForeground(
   ctx.restore();
 }
 
-let dawnWash: HTMLCanvasElement | undefined;
+let dawnWash: CanvasSurface | undefined;
 /** The last 30 seconds visibly approach dawn; the completed night keeps this light. */
 export function drawNightShift(ctx: Ctx, progress: number): void {
   const dawn = Math.max(0, Math.min(1, (progress - 0.9) / 0.1));

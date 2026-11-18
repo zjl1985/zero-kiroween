@@ -19,7 +19,8 @@ import { paintUpgradeCards } from "./ui/upgrade-cards.js";
 import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
-import { drawWorld, present, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
+import { drawWorld, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
+import { viewport } from "./render/viewport.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { createCamera, followCamera, type Camera } from "./render/camera.js";
@@ -156,12 +157,12 @@ function boot(): void {
     hiddenPause = false,
     sim: SimState | null = null;
   const stage = must<HTMLCanvasElement>("game"),
-    overlay = must<HTMLElement>("overlay");
-  const back = document.createElement("canvas");
-  back.width = VIEW_WIDTH * 2;
-  back.height = VIEW_HEIGHT * 2;
-  const ctx = back.getContext("2d")!,
-    dest = stage.getContext("2d")!;
+    overlay = must<HTMLElement>("overlay"),
+    skillButton = must<HTMLButtonElement>("dash-btn");
+  // The visible board is also the 2× drawing surface. CSS scales it into the viewport.
+  stage.width = VIEW_WIDTH * 2;
+  stage.height = VIEW_HEIGHT * 2;
+  const ctx = stage.getContext("2d")!;
   const input = createInput();
   input.attach(window);
   const touch = createTouch(must("touch"), must("stick"), must("dash-btn")),
@@ -175,6 +176,8 @@ function boot(): void {
   let camera: Camera = createCamera();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
+  let worldNeedsPaint = true;
+  reducedMotion.addEventListener("change", () => { worldNeedsPaint = true; });
   const hudRefs = {
     time: must<HTMLElement>("hud-time"),
     phase: must<HTMLElement>("hud-phase"),
@@ -268,14 +271,19 @@ function boot(): void {
       h: innerHeight,
       dpr: Math.max(1, devicePixelRatio || 1),
     };
-    stage.width = Math.floor(size.w * size.dpr);
-    stage.height = Math.floor(size.h * size.dpr);
-    stage.style.width = `${size.w}px`;
-    stage.style.height = `${size.h}px`;
+    const v = viewport(size.w, size.h, size.dpr, false);
+    for (const layer of [stage, overlay]) {
+      layer.style.left = `${v.cssX}px`;
+      layer.style.top = `${v.cssY}px`;
+      layer.style.width = `${v.cssW}px`;
+      layer.style.height = `${v.cssH}px`;
+    }
+    worldNeedsPaint = true;
   };
   resize();
   window.addEventListener("resize", resize);
   const paint = () => {
+    worldNeedsPaint = true;
     document.title = t(locale, "title.name");
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
     const labels: Record<string, Parameters<typeof t>[1]> = {
@@ -315,7 +323,7 @@ function boot(): void {
       ...(hiddenPause ? [t(locale, "pause.hidden")] : []),
       t(locale, "help.paper-world"),
     ].join(" ");
-    must("dash-btn").textContent = characterCopy(
+    skillButton.textContent = characterCopy(
       locale,
       selectedCat,
       "active.short",
@@ -563,7 +571,7 @@ function boot(): void {
             break;
           }
         }
-        if (screen === "play") renderHud(hudRefs, locale, sim);
+        if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim);
       }
     } else if (screen === "upgrade") {
       if (input.consumePause()) show("pause");
@@ -588,41 +596,39 @@ function boot(): void {
         motionCues.some((c) => c.kind === "boss" && cuePhase(c, reducedMotion.matches).phase === "anticipation"),
       );
     }
-    if (sim && screen !== "title")
-      camera = followCamera(
-        camera,
-        sim.player,
-        reducedMotion.matches ? 1 : Math.min(real, 0.1),
+    const still = reducedMotion.matches;
+    if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
+      if (sim && screen === "play") camera = followCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
+      const time = still ? 0 : renderTime;
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
+      ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+      drawWorld(
+        ctx,
+        screen === "title" ? null : sim,
+        { time, reducedMotion: still, camera, locale, cues: motionCues },
+        screen === "title" && size.w > size.h
+          ? {
+              id: selectedCat,
+              x: 705,
+              y: 399,
+              facing: 1,
+              moving: false,
+              dashing: false,
+              hurt: false,
+              time,
+              scale: size.h < 500 ? 0.25 : 0.29,
+            }
+          : undefined,
       );
-    const time = reducedMotion.matches ? 0 : renderTime;
-    ctx.setTransform(2, 0, 0, 2, 0, 0);
-    ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-    drawWorld(
-      ctx,
-      screen === "title" ? null : sim,
-      { time, reducedMotion: reducedMotion.matches, camera, locale, cues: motionCues },
-      screen === "title" && size.w > size.h
-        ? {
-            id: selectedCat,
-            x: 705,
-            y: 399,
-            facing: 1,
-            moving: false,
-            dashing: false,
-            hurt: false,
-            time,
-            scale: size.h < 500 ? 0.25 : 0.29,
-          }
-        : undefined,
-    );
-    present(back, dest, size.w, size.h, size.dpr, overlay);
-    if (useTouch && sim) {
-      const button = must<HTMLButtonElement>("dash-btn");
-      button.disabled = sim.player.dashCooldown > 0;
-      button.textContent = button.disabled
+      worldNeedsPaint = false;
+    }
+    if (useTouch && sim && screen === "play") {
+      skillButton.disabled = sim.player.dashCooldown > 0;
+      const label = skillButton.disabled
         ? `${sim.player.dashCooldown.toFixed(1)}s`
         : characterCopy(locale, sim.player.id, "active.short");
-      button.style.setProperty(
+      if (skillButton.textContent !== label) skillButton.textContent = label;
+      skillButton.style.setProperty(
         "--charge",
         `${100 * (1 - sim.player.dashCooldown / playerStats(sim).cooldown)}%`,
       );
