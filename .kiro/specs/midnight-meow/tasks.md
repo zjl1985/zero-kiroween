@@ -116,7 +116,7 @@ Details and source contracts: [design.md](design.md), [requirements.md](requirem
 - [x] 73. Read-only carried flame/char and wet overlays after real actors (not decoys), steam/ink/regrow/reward effects, alpha-masked prop ink, deferred fold/regrowth visuals, real square fire-cell marks, court progress and bounds-based building occlusion. Localized hazard-priority HUD/help/activity copy in both languages (Req 14.10, 18.7).
 - [x] 74. New `environment-integration`, `fire-water`, `landmark-actions`, `paper-elements`, `paper-visuals`, `water` suites plus updated cat-art/reactions/rendering/scenery tests. Latest verification: full build and 237 tests passed; static geometry/command tests do not measure motion/audio/FPS.
 - [x] 75. One static system-Chrome screenshot captured and viewed: `output/playwright/paper-ecology-review.png`, selected art only. Earlier missing bundled Chromium failure is historical, not the current evidence.
-- [ ] 76. Full gameplay-screen/mobile, reference-target and user art review; existing task 18/44/63/64 acceptance remains open. Verification remains limited to at most one static screenshot; animation or recording requires the user's explicit request.
+- [ ] 76. Full gameplay-screen/mobile, reference-target and user art review; existing task 18/44/63/64 acceptance remains open. Agents never launch a browser in the sandbox; the user runs `node output/playwright/open-work-shot.cjs` for screenshots. Animation or recording requires the user's explicit request.
 - [ ] 77. Authorized balance/performance/audio follow-up; no animation, recording, audio or FPS checks have been performed for the ecology. Do not mark the art or competition entry finished.
 
 ## Paper wash-out round (2026-11-18, local commits, not pushed)

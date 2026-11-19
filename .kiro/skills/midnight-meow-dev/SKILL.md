@@ -63,7 +63,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 
 1. `npm run build` (tsc to `dist/`, then isolated static output to `site/`; Node.js 22+).
 2. `npm test` (`npm run build && node --test tests/*.test.mjs`; tests import from `dist/` and inspect `site/`).
-3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first) with system Chrome headless. If an authorized attempt fails, report the actual error without expanding verification.
+3. Never launch Chrome, Chromium or a Playwright browser in the sandbox (it aborts at launch and macOS shows the user a crash dialog). For art changes, tell the user to run `node output/playwright/open-work-shot.cjs` (screenshots) or `node output/playwright/frame-time.cjs` (frame time) on their machine, and record the art as not viewed.
 4. No animation or video-recording checks unless the user asks.
 
 Latest verification: build + **327 passing tests** at 7fe42d1 (325 after the open-work round, 2effc4a through 392a631, which added suites `townsfolk`, `audio-mix`). The round's one allowed screenshot failed: system Chrome headless crashed at launch (SIGABRT, `kill EPERM`) in the sandbox, so no image exists. No animation, recording, audio listening or browser FPS checks; a scripted balance probe ran, but a human playtest, mobile review and user approval remain open.

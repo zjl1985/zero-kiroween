@@ -29,7 +29,8 @@ Midnight Meow (猫猫守夜) is a competition-grade browser survival roguelike f
 ## Verification and handoff
 
 - Required game verification: `npm run build` and `npm test` (the latter includes a build). Run checks sequentially; report exact commands, results and anything blocked or not run. Do not reuse historical results as proof of a new revision.
-- For relevant art changes, compare against the reference at actual display size, within **at most one static screenshot**. No animation or recording checks unless the user asks again. Interactive or full-run checks deferred by the user remain deferred.
+- **Never launch Google Chrome, Chromium or any Playwright browser (system Chrome or the bundled headless shell) from this sandbox**, for screenshots, frame time, gallery checks, probes or any other reason. Chrome aborts at launch here (SIGABRT, exit 134) and macOS shows the user a crash dialog every time.
+- Screenshots and browser frame time are the user's job on their own machine: `node output/playwright/open-work-shot.cjs` (six-panel review sheet) and `node output/playwright/frame-time.cjs` (frame time). For relevant art changes, tell the user which command to run and record the art as not viewed. No animation or recording checks unless the user asks again. Interactive or full-run checks deferred by the user remain deferred.
 - State clearly what was not viewed, heard or measured. Build/test success, visual inspection, user art approval and live deployment are separate claims.
 - Leave actionable review findings and handoff information in the appropriate project document when requested or needed for another agent: paths, reference versions, verification limits and next steps. Keep this entry point lean; recipes belong in the skill and changing status in HANDOFF.md.
 - Stop only background jobs you started and remove your own disposable temporary files when no longer needed; preserve requested evidence and follow the deletion policy below.

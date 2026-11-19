@@ -1,6 +1,6 @@
 # Build, test, verify and commit
 
-The user wants light verification: build, tests, and at most one static screenshot. No animation or video-recording checks unless the user asks again.
+The user wants light verification: build and tests. **Never launch Google Chrome, Chromium or any Playwright browser (system Chrome or the bundled headless shell) from this sandbox**, for any reason. It aborts at launch and macOS shows the user a crash dialog each time. No animation or video-recording checks unless the user asks again.
 
 ## Commands
 
@@ -60,17 +60,18 @@ When adding content, the generic registry, reactions and gallery tests usually c
 
   When a change is meant to alter gameplay or the world, keep a copy of the old reference (for example `baseline-reference-pre-<feature>.txt`), regenerate the reference twice and confirm both runs are byte-identical. If the probes are missing, rely on the snapshot tests and say so.
 
-## Screenshot (optional, at most one)
+## Screenshots and frame time (the user runs them)
 
-1. `lsof -i :4173` first; an old server may already hold the port.
-2. `npm run build && npm start`.
-3. Open `http://localhost:4173/?start=1` (straight into a run with the saved cat), add `&seed=N` to pin the world, or `/?gallery=1` for the art gallery.
+Agents do not take screenshots or measure browser frame time. The user runs these on their own machine:
+
+- `node output/playwright/open-work-shot.cjs`: the six-panel review sheet.
+- `node output/playwright/frame-time.cjs`: browser frame time (p50 / p95 / max).
+
+After an art change, tell the user which command to run and record the art as not viewed. For manual viewing: `lsof -i :4173` first, then `npm run build && npm start`, then open `http://localhost:4173/?start=1` (add `&seed=N` to pin the world) or `/?gallery=1`.
 
 Current evidence: for the wash-out round the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. Nobody has viewed that round in a browser. No animation, recording, audio or FPS checks were performed; no user art approval is recorded. Older stills (`paper-ecology-review.png`, `papercraft-polish-2026-11-18.png`) predate this round.
 
-Headless command attempted (it aborted with exit 134 inside the sandbox; it may work outside it): `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --window-size=1600,3000 --virtual-time-budget=8000 --screenshot=<png> "http://localhost:4173/?gallery=1"`.
-
-For a future authorized attempt, report the actual browser/executable and scope. If it fails, skip it and report the error; do not install browsers or expand verification merely to obtain more evidence. Never describe unviewed art or infer motion/performance from one still.
+Do not retry headless Chrome from the sandbox; earlier attempts all aborted with exit 134 and produced no image. Never describe unviewed art or infer motion/performance from one still.
 
 ## Query parameters
 

@@ -137,4 +137,4 @@ The gallery is static (time 0, fixed seeds). Each cat's registered `skillPreview
 - [ ] variation through `variant` / render hashes only
 - [ ] painter is pure if cached
 - [ ] art registered in `src/render/art-index.ts`; visible in `?gallery=1`
-- [ ] at most one static screenshot, if the environment allows; never call the art approved
+- [ ] no browser launched by the agent; the user runs `node output/playwright/open-work-shot.cjs`; never call the art approved

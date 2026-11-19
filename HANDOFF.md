@@ -50,7 +50,7 @@ Needs the user (cannot be finished by an agent):
 
 Blocked by the environment:
 
-8. **Browser frame time** (p50 / p95 / max) and any screenshot: Chrome headless cannot run in this sandbox. `output/playwright/frame-time.cjs` is ready for a machine where it does.
+8. **Browser frame time** (p50 / p95 / max) and any screenshot: the user runs these on their own machine (`node output/playwright/frame-time.cjs`, `node output/playwright/open-work-shot.cjs`). Agents must not launch any browser in the sandbox.
 
 ## Run
 
@@ -64,4 +64,4 @@ npm test        # builds, then runs node --test tests/*.test.mjs
 
 - `http://localhost:4173/?start=1` starts a run with the saved cat; add `&seed=N` (or `?seed=N`) to pin the seed.
 - `/?gallery=1` shows every registered entry; `&check=value` shows values only, `&check=gloss` flags gradients, blurred shadows and additive light.
-- Verification is build plus tests plus at most one static screenshot. No animation or recording checks unless the user asks.
+- Agent verification is build plus tests. Agents must never launch Chrome, Chromium or a Playwright browser in the sandbox (each crash shows the user a macOS dialog). The user takes screenshots with `node output/playwright/open-work-shot.cjs` and measures frame time with `node output/playwright/frame-time.cjs`; agents name the command and record the art as not viewed. No animation or recording checks unless the user asks.
