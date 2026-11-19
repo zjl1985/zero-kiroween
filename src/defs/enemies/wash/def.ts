@@ -6,9 +6,14 @@ import type { KiteLobParams } from "../behaviours.js";
 /** The wash drip stops at range and spits a water drop that lifts the colour where it lands. */
 export const WASH_DRIP = {
   range: 170,
-  windup: 0.7,
+  /**
+   * Telegraph and drop speed sit near the Smudge's (0.8 s, 115): simulated
+   * nights showed the faster, wider water drop dealing about twice the ink
+   * drop's damage at half its spawn share.
+   */
+  windup: 0.8,
   cooldown: 3.8,
-  dropSpeed: 140,
+  dropSpeed: 120,
   minFlight: 0.6,
   shot: "water",
   splashRadius: 30,
