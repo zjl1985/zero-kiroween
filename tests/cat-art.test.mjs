@@ -104,28 +104,33 @@ function draw(art, p = pose(art.id), look = art.body, alpha = 1) {
 }
 const torso = (ctx, look) => images(ctx).find((image) => fills(paint(image), look.body).some((c) => /M -1[01] -29/.test(pathText(c))));
 
-test("registered tailoring changes silhouettes, layered hems, collars and accessories", (t) => {
+test("registered outfits render either a split coat or a white tee with separate denim legs", (t) => {
   environment(t);
   const shapes = [];
   for (const art of CAT_ART.all()) {
     const ctx = draw(art), look = art.body, body = torso(ctx, look);
     assert.ok(body, `${art.id}: a tailored torso`);
     shapes.push(fills(paint(body), look.body)[0].args[0].ops);
-    const capes = images(ctx).filter((im) => fills(paint(im), look.lining).some((c) => /M 1 -2/.test(pathText(c))));
-    assert.equal(capes.length, 2, "separate cape panels");
-    for (const cape of capes) {
-      const calls = paint(cape);
-      assert.ok(fills(calls, look.cape).length > 0, "outer paper covers the lining");
-      assert.ok(fills(calls, look.capeFold).length > 0, "pleat has a shaded face, not just a line");
-      assert.ok(calls.some((c) => c.op === "stroke" && c.dash.length > 0 && c.strokeStyle === look.trim), "stitched hem");
-      assert.ok(calls.some((c) => c.op === "fill" && c.shadowBlur > 0), "baked contact shadows");
-    }
-    assert.ok(fills(paint(body), look.lining).length >= 2, "folded collar leaves");
-    assert.ok(images(ctx).length === 16, "articulated legs/boots and sleeve/forearm layers, plus the face");
     assert.ok(paint(images(ctx)[3]).some((c) => c.op === "stroke" && c.strokeStyle === look.pawEdge), "toes/sole stay separate from the leg");
-    if (look.accessory === "watch-chain")
+    if (look.tailoring === "split-coat") {
+      const capes = images(ctx).filter((im) => fills(paint(im), look.lining).some((c) => /M 1 -2/.test(pathText(c))));
+      assert.equal(capes.length, 2, "separate cape panels");
+      for (const cape of capes) {
+        const calls = paint(cape);
+        assert.ok(fills(calls, look.cape).length > 0, "outer paper covers the lining");
+        assert.ok(fills(calls, look.fold).length > 0, "pleat has a shaded face");
+        assert.ok(calls.some((c) => c.op === "stroke" && c.dash.length > 0 && c.strokeStyle === look.trim), "stitched hem");
+        assert.ok(calls.some((c) => c.op === "fill" && c.shadowBlur > 0), "baked contact shadows");
+      }
+      assert.ok(fills(paint(body), look.lining).length >= 2, "folded collar leaves");
       assert.ok(paint(body).some((c) => c.op === "stroke" && /M -6 -17 Q 0 -11 6 -17/.test(pathText(c))), "draped pocket-watch chain");
-    else assert.ok(paint(body).some((c) => c.op === "fill" && /M -14 -16/.test(pathText(c))), "layered moon satchel");
+      assert.equal(images(ctx).length, 15);
+    } else {
+      assert.ok(fills(paint(body), look.denim).length, "the trouser waist overlaps the leg cuts");
+      for (const index of [2, 4]) assert.ok(fills(paint(images(ctx)[index]), look.denim).length, "each leg is denim");
+      for (const index of [6, 9]) assert.ok(fills(paint(images(ctx)[index]), look.body).length, "the tee has short cloth sleeves");
+      assert.equal(images(ctx).length, 13);
+    }
   }
   assert.equal(shapes.length, 2);
   assert.notDeepEqual(shapes[0], shapes[1], "not merely recolours of one body");
@@ -196,18 +201,14 @@ test("layered face cuts retain a narrow rim, old head placement and shared paper
   }
 });
 
-test("accessories and lantern shapes are selected by appearance metadata, not the face id", (t) => {
+test("outfits share cached cuts by appearance metadata across face identities", (t) => {
   environment(t);
   const [a, b] = CAT_ART.all();
   const first = draw(a, pose(a.id), b.body), second = draw(b);
   assert.deepEqual(images(first).slice(0, -2).map((c) => c.args[0]), images(second).slice(0, -2).map((c) => c.args[0]), "same registered look shares every body part across identities");
-  const alternate = { ...a.body, accessory: b.body.accessory, lantern: b.body.lantern };
-  const standard = draw(a), changed = draw(a, pose(a.id), alternate);
-  assert.notDeepEqual(paint(torso(standard, a.body)).map(pathText), paint(torso(changed, alternate)).map(pathText));
-  assert.notDeepEqual(fills(paint(images(standard)[13]), "#e8b868").map(pathText), fills(paint(images(changed)[13]), "#e8b868").map(pathText), "lantern cut changes without changing cat id");
-  const recoloured = { ...a.body, lining: "#b5d8d0" }, recolour = draw(a, pose(a.id), recoloured);
-  assert.notEqual(torso(standard, a.body).args[0], torso(recolour, recoloured).args[0], "all appearance inputs participate in caching");
-  assert.ok(fills(paint(torso(recolour, recoloured)), recoloured.lining).length > 0);
+  const recoloured = { ...b.body, denim: "#40617e" }, recolour = draw(b, pose(b.id), recoloured);
+  assert.notEqual(torso(second, b.body).args[0], torso(recolour, recoloured).args[0], "the denim colour participates in caching");
+  assert.ok(fills(paint(torso(recolour, recoloured)), recoloured.denim).length > 0);
 });
 
 test("static poses are deterministic, articulated, mirrored/scaled and do not mutate caller data", (t) => {
@@ -217,11 +218,14 @@ test("static poses are deterministic, articulated, mirrored/scaled and do not mu
     const a = draw(art, p, look), b = draw(art, p, look);
     assert.deepEqual(signature(a), signature(b));
     assert.deepEqual(look, art.body);
-    const idle = draw(art), later = draw(art, pose(art.id, { time: 0.6 }));
-    for (const index of [1, 6, 7, 13]) assert.notDeepEqual(images(idle)[index].transform, images(later)[index].transform, "tail, cape and lamp have time-derived hinges");
+    const idle = draw(art), later = draw(art, pose(art.id, { moving: true, time: 0.6 }));
+    const hasCape = look.tailoring === "split-coat", arms = hasCape ? [9, 12] : [7, 10];
+    for (const index of [1, ...arms])
+      assert.notDeepEqual(images(a)[index].transform, images(later)[index].transform, "tail and forearms swing with the pose");
+    for (const index of arms) assert.ok(images(idle)[index].transform[1] > 0, "each paw hangs below its elbow");
     const dash = draw(art, pose(art.id, { dashing: true }));
-    assert.notEqual(images(idle)[6].args[0], images(dash)[6].args[0], "dash uses a swept cape cut");
-    assert.equal(images(idle)[10].args[0], images(dash)[10].args[0], "static torso is shared across poses");
+    if (hasCape) assert.notEqual(images(idle)[6].args[0], images(dash)[6].args[0], "dash uses a swept cape cut");
+    assert.equal(torso(idle, look).args[0], torso(dash, look).args[0], "static torso is shared across poses");
     const reflected = draw(art, pose(art.id, { moving: true, time: 0.31, facing: -1, scale: 0.32, x: 100, y: 80 }));
     images(a).forEach((image, i) => {
       const expected = multiply([-2, 0, 0, 2, 100, 80], image.transform);
@@ -240,32 +244,27 @@ test("finite cached parts exclude time, facing, opacity, placement and display s
     draw(art);
     draw(art, pose(art.id, { dashing: true }));
   }
-  assert.equal(spriteCacheSize(), 27, "eleven body cuts and two head sprites per cat, plus one ground shadow");
+  assert.equal(spriteCacheSize(), 21, "ten coat body cuts, six tee body cuts, four face cuts and the ground shadow");
   // Independent fixed inputs, not elapsed frames or a live animation test.
   for (const art of CAT_ART.all()) for (const time of [0.125, 0.7, 10, 10000]) for (const moving of [false, true]) {
     const ctx = draw(art, pose(art.id, { time, moving, dashing: time === 10, facing: -1, x: 123, y: -456, scale: 0.27, hurt: true }));
-    assert.equal(spriteCacheSize(), 27);
-    assert.equal(images(ctx).length, 16);
-    assert.equal(ctx.calls.filter((c) => c.op === "fillRect").length, 1, "only a low-opacity lamp halo is drawn live");
-    assert.ok(!ctx.calls.some((c) => c.op === "filter" || c.op === "fill" || c.op === "stroke"), "texturing, stitching and shadows are cached, not rebuilt per frame");
+    assert.equal(spriteCacheSize(), 21);
+    assert.equal(images(ctx).length, art.body.tailoring === "split-coat" ? 15 : 13);
+    assert.ok(!ctx.calls.some((c) => c.op === "filter" || c.op === "fill" || c.op === "fillRect" || c.op === "stroke"), "texturing, stitching and shadows are cached");
   }
 });
 
 function rectanglePoints(call) {
-  const [, x, y, w, h] = call.op === "drawImage" ? call.args : [null, ...call.args];
+  const [, x, y, w, h] = call.args;
   return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([x, y]) => new RecordingMatrix(call.transform).transformPoint({ x, y }));
 }
-test("cached body subparts and lamp halo fit the fixed local envelope in representative static poses", (t) => {
+test("cached body subparts fit the fixed local envelope in representative static poses", (t) => {
   environment(t);
   for (const art of CAT_ART.all()) for (const p of [pose(art.id), pose(art.id, { time: 0.13, moving: true }), pose(art.id, { time: 0.39, moving: true }), pose(art.id, { dashing: true })]) {
-    const ctx = draw(art, p), body = images(ctx).slice(0, -2), halo = ctx.calls.find((c) => c.op === "fillRect");
-    for (const command of [...body, halo]) for (const point of rectanglePoints(command)) {
-      assert.ok(point.x >= CAT_DETAIL_BOUNDS.l && point.x <= CAT_DETAIL_BOUNDS.r, `x ${point.x} fits body/halo envelope`);
-      assert.ok(point.y >= CAT_DETAIL_BOUNDS.t && point.y <= CAT_DETAIL_BOUNDS.b, `y ${point.y} fits body/halo envelope`);
-    }
-    if (!p.moving) {
-      const bottom = Math.max(...rectanglePoints(halo).map((point) => point.y));
-      assert.ok(bottom * 2.1 <= 10, "idle/skill lamp halo fits the gallery's existing ten-unit bottom inset");
+    const ctx = draw(art, p), body = images(ctx).slice(0, -2);
+    for (const command of body) for (const point of rectanglePoints(command)) {
+      assert.ok(point.x >= CAT_DETAIL_BOUNDS.l && point.x <= CAT_DETAIL_BOUNDS.r, `x ${point.x} fits body envelope`);
+      assert.ok(point.y >= CAT_DETAIL_BOUNDS.t && point.y <= CAT_DETAIL_BOUNDS.b, `y ${point.y} fits body envelope`);
     }
     const head = images(ctx).at(-1);
     assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55], "same head box at every pose");

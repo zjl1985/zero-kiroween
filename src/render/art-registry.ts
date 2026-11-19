@@ -19,28 +19,33 @@ import type { VariantBase } from "./variants.js";
 import type { MascotPalette } from "../cats/meow-wall-art.js";
 
 export type SkillIconKind = "attack" | "active" | "passive";
-/** Paper colours of the shared cat body (craft-cat.ts) for one cat. */
-export interface CatBodyPalette {
+/** Paper colours and clothing cut selected by the cat's art definition. */
+export type CatBodyPalette = {
   readonly rim: string;
   readonly tail: string;
   readonly paw: string;
   readonly pawEdge: string;
-  readonly cape: string;
-  readonly capeEdge: string;
-  readonly capeFold: string;
   readonly body: string;
   readonly bodyEdge: string;
-  readonly bib: string;
-  readonly belt: string;
   readonly arm: string;
-  /** Appearance only: tailored paper silhouettes, independent of the cat's kit. */
-  readonly tailoring: "split-coat" | "bell-coat";
-  readonly accessory: "watch-chain" | "moon-satchel";
-  readonly lantern: "shutter" | "petal";
-  readonly lining: string;
-  readonly trim: string;
-  readonly metal: string;
-}
+  readonly fold: string;
+} & (
+  | {
+      readonly tailoring: "split-coat";
+      readonly cape: string;
+      readonly capeEdge: string;
+      readonly bib: string;
+      readonly belt: string;
+      readonly lining: string;
+      readonly trim: string;
+      readonly metal: string;
+    }
+  | {
+      readonly tailoring: "tee-and-jeans";
+      readonly denim: string;
+      readonly denimEdge: string;
+    }
+);
 /** Accent colours the HUD, cards and cues use for this cat. */
 export interface CatColors {
   /** HUD badge accent. */
@@ -61,6 +66,8 @@ export interface CatArt {
   /** Authored paper silhouette and identity patches, in the shared 70 × 55 head box. */
   readonly face: {
     readonly outline: string;
+    /** The face-coloured cut inside the outer head silhouette. */
+    readonly stock?: string;
     readonly patches: readonly { readonly path: string; readonly color: keyof MascotPalette }[];
   };
   readonly body: CatBodyPalette;

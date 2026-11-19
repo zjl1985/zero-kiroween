@@ -105,7 +105,7 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   camera.ts           follow camera (deadzone, smoothing, clamp to WORLD)
   craft-scene.ts      screen-space sky, world-space hills and ground, trees, houses, start yard, dawn
   craft-cat.ts        official-derived layered paper head / narrow edge over the articulated body
-  cat-detail.ts       finite cached clothing / limb / lantern parts selected by appearance metadata
+  cat-detail.ts       finite cached clothing and limb parts selected by appearance metadata
   scenery-details.ts shared folded leaf, fern and flower painters for grouped scenery
   craft-combat.ts, combat-fx.ts, craft-enemies.ts, craft-juice.ts
                       shared painters the art files call (no per-kind switch)

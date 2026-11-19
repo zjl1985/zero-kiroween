@@ -143,12 +143,20 @@ export function scissorContour(points: readonly Point[], tolerance = 0.9): reado
 
 // Source contour helpers above remain for reference; runtime heads use authored curves.
 type FaceDesign = CatArt["face"];
-const paths = new WeakMap<FaceDesign, { outline: Path2D; layers: { color: FaceDesign["patches"][number]["color"]; path: Path2D }[] }>();
+const paths = new WeakMap<FaceDesign, {
+  outline: Path2D;
+  stock: Path2D;
+  layers: { color: FaceDesign["patches"][number]["color"]; path: Path2D }[];
+}>();
 function facePaths(id: CatId) {
   const design = catArt(id).face;
   let result = paths.get(design);
   if (!result) {
-    result = { outline: new Path2D(design.outline), layers: design.patches.map((patch) => ({ color: patch.color, path: new Path2D(patch.path) })) };
+    result = {
+      outline: new Path2D(design.outline),
+      stock: new Path2D(design.stock ?? FACE_STOCK),
+      layers: design.patches.map((patch) => ({ color: patch.color, path: new Path2D(patch.path) })),
+    };
     paths.set(design, result);
   }
   return result;
@@ -250,7 +258,7 @@ export function paperFace(id: CatId) {
     ctx.save();
     ctx.clip(face.outline);
     paintEars(ctx, p);
-    paperCut(ctx, new Path2D(FACE_STOCK), { color: p.head, edge: mix(p.head, p.headLight, 0.3), thickness: 0.48, shadow: 0.7, texture: 0.34 });
+    paperCut(ctx, face.stock, { color: p.head, edge: mix(p.head, p.headLight, 0.3), thickness: 0.48, shadow: 0.7, texture: 0.34 });
     for (const layer of face.layers) {
       const color = p[layer.color] ?? p.head;
       paperCut(ctx, layer.path, { color, edge: mix(color, p.head, 0.17), thickness: 0.3, shadow: 0.42, texture: 0.27 });

@@ -1,4 +1,4 @@
-/** Nicole's look: cream body, plum cape, moon-violet accents, fold-moon fields. */
+/** Nicole's look: a white tee, blue jeans, moon-violet accents and fold-moon fields. */
 import type { CatArt } from "../../../render/art-registry.js";
 import { drawOrbitStar, drawSkillEffect, ring, star } from "../../../render/combat-fx.js";
 import { drawCraftCat } from "../../../render/craft-cat.js";
@@ -11,16 +11,24 @@ export const NICOLE_ART: CatArt = {
   id: "nicole",
   face: {
     outline: PAPER_FACE_OUTLINE,
+    // A small inset leaves the chin's cut edge visible between the side locks.
+    stock: `
+      M 16 22.7 Q 21.5 19.1 29.3 20.1 Q 35 19.4 40.6 20.1 Q 48.5 19 53.4 23
+      L 54.6 24.1 Q 57.1 28.3 57.9 32.7 L 58.5 38.6 Q 58.7 41.1 55.45 42.45
+      L 52.15 45.9 Q 50.55 47.55 48.35 47.55 L 21.35 47.55 Q 19.05 47.55 17.7 45.93
+      L 14.45 42.43 Q 11.2 41.07 11.1 38.6 L 11.53 32.9 Q 12.6 27.8 14.7 24.1 Z`,
     patches: [
-      { color: "headDark", path: `M 15 16.4 Q 19.9 15.1 24.3 17.1 L 29.5 19.3 Q 31.8 20.7 31.3 24.5
-        L 29.7 25.4 Q 28.6 22.2 26.6 22.6 Q 23.4 22.7 21.4 26.1 L 18.9 25.5
-        L 17.5 27.5 L 15 23.1 L 16.3 20.3 Z` },
-      { color: "headDark", path: "M 34 19.1 Q 35.6 18.8 37 19.4 L 36.4 24.7 L 34.6 25 Z" },
-      // A heavier temple lock on one side, with the pale cheek still showing below it.
-      { color: "headDark", path: `M 40 19.7 Q 43.1 17 48.6 16.2 L 53.4 18.1 L 54.8 22.7 L 53 25.1
-        Q 56.2 31.5 54 36.8 L 51.4 40 Q 52.4 35.5 48.9 31.8 Q 47.5 27.7 43.2 27.2
-        Q 40.3 25.6 40 19.7 Z` },
-      { color: "headLight", path: "M 20.4 25.7 Q 22 24.4 23.5 22.7 L 25.1 23.2 L 24 24.7 L 26.3 25.9 Q 23.3 26.5 20.4 25.7 Z" },
+      // One crown cut sweeps out from the part and continues into both side locks.
+      { color: "headDark", path: `
+        M 15 20.6 Q 20.5 18.4 26.6 17.6 Q 34.4 16.6 42.3 17.6 Q 50.2 18 54.8 22.7 L 54.7 24.1
+        Q 58.9 28.3 60.5 34.6 L 60.8 39.2 Q 60.9 42 57.5 43.3 Q 55.5 44.4 52.55 44.7
+        Q 53.5 42.6 53.2 40.25 Q 51.8 42.35 49.7 42.75 Q 51.75 39.1 50.9 36.4
+        Q 49.7 31.4 43.1 27.95 Q 37.55 25.65 35.05 23.4 Q 33.5 24.45 30.5 24.7
+        Q 25.95 24.75 22.25 26.05 Q 19.15 27.1 17.5 28.8
+        Q 15.9 30.9 16.8 35.7 Q 16.7 39.9 19 42 Q 17.3 42.05 15.8 41.25
+        L 16.6 43.5 Q 13.1 42.05 10.65 40.1 L 9.8 36.3 Q 10.1 29.7 13.85 23.4 Z` },
+      { color: "head", path: "M 34.55 19.45 Q 34.15 21.45 34.37 23.8 L 35.12 23.5 Q 34.97 21.5 35.45 19.45 Z" },
+      { color: "headLight", path: "M 20.9 27.8 Q 22.9 26.35 24.15 26.5 L 25.1 25.9 L 24.6 27.05 L 26.05 27.65 Q 23.6 28.5 20.9 27.8 Z" },
     ],
   },
   body: {
@@ -28,20 +36,13 @@ export const NICOLE_ART: CatArt = {
     tail: "#a98e77",
     paw: "#ceb28f",
     pawEdge: "#ead4af",
-    cape: "#74536f",
-    capeEdge: "#a77d83",
-    capeFold: "#4c354f",
-    body: "#e0d1b8",
-    bodyEdge: "#f0dec1",
-    bib: "#f3e8ce",
-    belt: "#79556b",
-    arm: "#c6b498",
-    tailoring: "bell-coat",
-    accessory: "moon-satchel",
-    lantern: "petal",
-    lining: "#b58a9d",
-    trim: "#e2c8b0",
-    metal: "#e4d2a2",
+    body: "#f6f1e7",
+    bodyEdge: "#fffdf6",
+    arm: "#d3b69b",
+    fold: "#576174",
+    tailoring: "tee-and-jeans",
+    denim: "#547da2",
+    denimEdge: "#a4b9cb",
   },
   colors: {
     hud: "#c9b2f0",

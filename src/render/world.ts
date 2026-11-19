@@ -75,7 +75,7 @@ export interface ViewState {
   /** Presentation cues (timeline.ts) from main.ts. */
   cues?: readonly Cue[];
 }
-/** Box around the cat's base point that holds its body, head, tail and lantern (CAT_DETAIL_BOUNDS plus swing and bob margin). */
+/** Box around the cat's base point that holds its body, head and tail with swing and bob margin. */
 const CAT_BOX = { l: -54, r: 54, t: -106, b: 22 } as const;
 const YARD_PROP_BOUNDS = { l: -36, r: 36, t: -34, b: 8 } as const;
 export function drawWorld(
@@ -158,7 +158,6 @@ export function drawWorld(
   const playerDepth = sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0);
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
-      drawGroundLight(ctx, pose.x + pose.facing * 21, pose.y, view.time, 0.7);
       const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>
         Math.hypot(a.x - pose.x, a.y - pose.y) <
         Math.hypot(b.x - pose.x, b.y - pose.y)
