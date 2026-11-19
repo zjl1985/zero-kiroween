@@ -2,6 +2,57 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Checkpoint (costumes round, 2026-11-19, local commits only, not pushed)
+
+The user's answers: the meme cats are **costumes** ("就是 服装") that the chosen cat (Zero or Nicole) wears, so the single-cat rule stays; build all 14 ("都做"); cats only, distilled into a reusable workshop ("猫，而且要提炼成工坊"). A = b: the "workshop" is a production recipe in the dev skill ([add-costume.md](.kiro/skills/midnight-meow-dev/references/add-costume.md)), not an in-game screen. B = b: each costume carries one small auto skill adapted from that character's old assist idea; both cats' kits stay; balance re-tuned. C: costumes are unlocked by play (not all available at the start), and the head may get makeup the way Meow Wall did it (skin/markings, expression, accessories as layered overlays), drawn as a separate cached layer over the untouched approved head (`2d8b25e`); `src/cats/` is unchanged. Random helper cats as separate characters remain not built. No human faces, no real logos or trademarks. Player-facing names are cat nicknames without real names (an agent choice, open below).
+
+Commits on `main` after `0599dec`:
+
+| commit | change |
+| --- | --- |
+| `9439d52` | Framework: `CostumeDef` / `CostumeUnlock` / `CostumeSkill`, `COSTUME_DEFS` registered last, `SimConfig.costume`, `SimState.costume` (absent on a plain run), `stepCostume` after the auto weapons, Boss-safe primitives in `src/defs/costumes/skills.ts`, pure unlock progress in `src/game/costumes.ts`. |
+| `692ef9f` | The 14 costumes (`src/defs/costumes/<id>/def.ts`: tibo, poteto, musk, jensen, karpathy, linus, guido, eich, jobs, gates, zuckerberg, hassabis, levels, dario), their skills and unlocks, a `dawn` unlock kind, 88 i18n keys in en/zh, a real-name/brand blocklist test. |
+| `a48b08c` | Art: `paperFaceMakeup` makeup layer, `costume-accessories.ts` (Meow Wall accessory list as flat paper plus costume pieces), cached outfit parts for both tailorings, zone looks, gallery Wardrobe section. |
+| `88bfc2c` | Wardrobe strip under the cat tickets (locked tickets cannot be chosen), prefs with costume and unlock progress, `?costume=<id>` review pin (never saved), HUD costume tag with charge, result-page unlock line. |
+| `17fdbed` | Balance: jensen copy damage 0.5 → 0.6 and cap 12 → 40; jobs cooldown 28 → 20, radius 90 → 120, damage 3 → 6; musk cooldown 32 → 24, radius 60 → 130, damage 4 → 6; eich damage 1 → 2; unlocks dario kills 1800 → 1700, levels skill uses 120 → 100, zuckerberg props torn 60 → 45. |
+| docs commit | This checkpoint, the workshop recipe, SKILL, steering, AGENTS and PLAN v0.19. |
+
+Verification: `npm run build` ok, `npm test` **382 / 382 pass** (332 at the start; new suites `costumes`, `wardrobe`, new cases in `cat-art`, `gallery`, `paper-rules`, `paper-visuals`, `registry`). `git diff 2d8b25e -- src/cats/` is empty. Plain runs are unchanged: `baseline-snapshot.mjs` and `baseline-long.mjs` match the `*-pre-costumes` references byte for byte, and the plain balance matrix equals `balance-pre-costumes.json`.
+
+Unlocks (single-night stats unless noted; hit rate over 16 plain scripted nights): tibo nights ≥ 1; poteto treats eaten ≥ 2; eich dawn ≥ 1 (counts a boss-escaped dawn); jobs wins ≥ 1; musk distance ≥ 20000 (16/16); karpathy level ≥ 20, jensen damage ≥ 2000, linus chests ≥ 5, guido elites ≥ 6, gates shards ≥ 1500, hassabis best streak ≥ 1200, zuckerberg props torn ≥ 45 (12/16 each); levels skill uses ≥ 100, dario kills ≥ 1700 (11/16).
+
+**Costume balance** (`balance-run.mjs` with `COSTUMES=`, 4 seeds × 2 card policies × 2 cats = 16 nights per look, 240 nights; summary `balance-costumes-summary.mjs`, data `output/playwright/balance-costumes-full.json`). TTK = Boss seconds from arrival to defeat, averaged over defeats:
+
+| look | wins Zero / 8 | wins Nicole / 8 | deaths | boss escaped | boss TTK s | costume damage share | skill uses (avg) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| plain | 6 | 1 | 5 | 4 | 45 | 0% | 0 |
+| tibo | 4 | 0 | 8 | 4 | 49 | 0% | 16 |
+| poteto | 2 | 0 | 9 | 5 | 30 | 0% | 14 |
+| musk | 5 | 1 | 7 | 3 | 41 | 2.9% | 21 |
+| jensen | 4 | 0 | 7 | 5 | 32 | 1.9% | 14 |
+| karpathy | 2 | 0 | 9 | 5 | 26 | 0% | 16 |
+| linus | 4 | 0 | 8 | 4 | 36 | 0% | 15 |
+| guido | 5 | 1 | 5 | 5 | 38 | 0% | 16 |
+| eich | 5 | 1 | 7 | 3 | 32 | 2.9% | 16 |
+| jobs | 4 | 0 | 7 | 5 | 36 | 2.7% | 24 |
+| gates | 4 | 0 | 9 | 3 | 43 | 0% | 18 |
+| zuckerberg | 5 | 1 | 6 | 4 | 34 | 0% | 17 |
+| hassabis | 3 | 1 | 7 | 5 | 38 | 0% | 15 |
+| levels | 4 | 0 | 11 | 1 | 38 | 0% | 14 |
+| dario | 5 | 0 | 5 | 6 | 45 | 0% | 14 |
+
+Every look loses some nights; no costume makes the night unlosable. Poteto and karpathy (2/8 Zero wins) are mobility/pickup skills without damage; 12 extra nights on other seeds (plain 7, poteto 6, karpathy 5 Zero wins) and a no-op costume (6/8, same as plain) suggest seed noise from perturbing a chaotic deterministic run, not a weak skill. Levels' 11 deaths come from its speed pads leading the scripted bot into crowds. These were not retuned. Nicole wins 0 or 1 of 8 with every look; no costume closes her Boss-damage gap.
+
+**Not viewed, heard or measured.** No browser can run in this sandbox, so none of the costume art, head makeup, outfits, zone looks, wardrobe UI, locked covers, HUD tag, result unlock line or mobile layout was viewed. No animation, audio or browser FPS checks. Balance numbers come from a scripted Node probe, not a human playtest. The user reviews on their own machine: `node output/playwright/open-work-shot.cjs` (that review sheet does not stage costumes yet), `/?gallery=1` (Wardrobe section, also `&check=gloss`) and `/?start=1&seed=45&costume=<id>`.
+
+Open questions for the user:
+
+1. **Names.** Player-facing names are cat nicknames with no real names ("Roast Sweet Potato Cat", "Night Desk Cat"); the def comments and this doc keep the source ids. Is that the naming you want?
+2. **Unlock thresholds** above, and whether any costume should be free at the start (today all 14 are locked on a fresh save; tibo unlocks after the first night).
+3. **The `dawn` unlock** (eich) counts a boss-escaped dawn, which is a loss. Keep or require a win?
+4. **Poteto, karpathy and levels** probe results: seed noise or a real weakness? Only a playtest can tell.
+5. **Nicole's Boss damage** (0 to 1 of 8 wins with every look) is still the open balance question from the design-decisions round.
+
 ## Checkpoint (design decisions, 2026-11-19, local commits only, not pushed)
 
 The user answered the three open design questions: outrunning the Boss to dawn is not a win; a full passive bar gets a fallback; ink pinned under a Page Fold does not bite. Commits on `main` after `ca8ad06`:
@@ -52,7 +103,7 @@ Exactly one attempt was made with `output/playwright/open-work-shot.cjs` (review
 
 ## User verdict and P0
 
-The user rated the wash-out round "只能说凑合" (only passable). The art is **not approved**. The P0 is still that the game must look good. The approved paper heads (`2d8b25e`) stay as they are: proportions, rectangular eyewear, markings, narrow head edge.
+The user rated the wash-out round "只能说凑合" (only passable). The art is **not approved**. The P0 is still that the game must look good. The approved paper heads (`2d8b25e`) stay as they are: proportions, rectangular eyewear, markings, narrow head edge. Costume makeup is only a separate layer drawn on top while a costume is worn.
 
 ## Open work
 
@@ -62,7 +113,7 @@ Needs the user (cannot be finished by an agent):
 2. **Listen to the audio.** The new mix, the snip and fold cues and the limiter are unheard.
 3. **Human playtest** on a real device, including touch controls through retry. Paper Cut and bridge use are under-sampled by the scripted probe.
 4. **Design decisions: resolved** (see the design-decisions checkpoint). Dawn with a living Eraser is a loss (`boss-escaped`). A full passive bar counts in place of the missing partner passive, so a chest still evolves the maxed weapon. Ink pinned under a Page Fold deals no contact damage. Still open: whether Nicole needs more Boss damage now that 3 of her 4 brush-first dawns are losses (balance, not retuned).
-5. **Random helper cats.** Not built. They conflict with the single-cat rule unless the user redefines it; need the user's go-ahead.
+5. **Costumes instead of helper cats (decided 2026-11-19).** The meme cats are 14 unlockable costumes the chosen cat wears (see the costumes checkpoint); their art, UI and balance await the user's review. Random helper cats as separate characters remain not built and would need a new go-ahead.
 6. **Publishing.** All commits above are local. Push and deploy need explicit authorization (a GitHub push may trigger Vercel).
 7. **Devpost copy and promotional media: not touched, the user's own work.** Agents must not draft them. Deadline 2026-12-05 06:00 Beijing time.
 

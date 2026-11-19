@@ -61,7 +61,7 @@ Latest verification: **`npm run build && npm test` passed 295 tests** after the 
 - [x] 39. Horde pacing per minute with `HORDE.hardCap` 100 living enemies (tunable), ring spawns outside the view, leash (Req 7.2)
 - [x] 40. Crowned elites every 60 s from 60 s to 500 s, each dropping a chest (Req 7.3)
 - [x] 23. Eraser boss at 540 s, entering outside the view and hunting, with banner, HUD bar, telegraphed sweep / summon / charge, reward shards and a big chest (Req 7.4 to 7.6)
-- [ ] 24. Random helper cats (not built; confirm with the user first, must not break the single-cat rule)
+- [x] 24. Meme cats as costumes the chosen cat wears (user decision 2026-11-19: 14 costumes, unlocked by play, one small skill each, makeup layer over the untouched head; `src/defs/costumes/`). Random helper cats as separate characters stay unbuilt.
 - [x] 25. Procedural Web Audio effects and ambience with a remembered mute toggle (`src/audio/sfx.ts`; Req 10)
 - [x] 28. Interactions: pumpkins and moon-lanterns in the start yard and landmarks, fish treats near the cat (`interactions.ts`; Req 8.5 to 8.8)
 - [x] 29. Game feel: hit flash, damage tags, paper dissolve, camera shake, kill streaks, phase ribbons, level / evolve bursts, critical-health vignette, dawn sky (`craft-juice.ts`, `world.ts`, `hud.ts`; Req 9.1 to 9.4)

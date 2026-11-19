@@ -2,7 +2,7 @@
 
 A cat is a `CharacterDef` (sim) plus a `CatArt` (render) plus official head data and i18n copy. Interfaces: `CharacterDef` and `CatBaseStats` in `src/defs/types.ts`; `CatArt`, `CatBodyPalette`, `CatColors` in `src/render/art-registry.ts`. Use Nicole (`src/defs/cats/nicole/`) as the reference; she uses every optional hook.
 
-Hard rules: only the chosen cat is in a run (no companion), and every cat keeps its own kit: start weapon, skill, passive, exclusives and an evolution. Ask the user before adding helper cats. Every playable cat uses the shared paper-actor burn/wet system; do not add a fire immunity or bypass shields/invulnerability. See [paper-ecology.md](paper-ecology.md).
+Hard rules: only the chosen cat is in a run (no companion), and every cat keeps its own kit: start weapon, skill, passive, exclusives and an evolution. Meme cats are costumes the chosen cat wears ([add-costume.md](add-costume.md)); random helper cats as separate characters are not built, so ask the user first. Every playable cat uses the shared paper-actor burn/wet system; do not add a fire immunity or bypass shields/invulnerability. See [paper-ecology.md](paper-ecology.md).
 
 ## Steps
 

@@ -13,6 +13,7 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 - Houses need volume in walls and roof faces; tree crowns need grouped leaf clusters; ground details come in clusters, not evenly scattered.
 - Cold night tones should set off warm lamp and window light. Cats, ink blobs and danger must stay readable (check this on darker district ground such as graveyard-woods).
 - Keep official Meow Wall source data untouched (`src/cats/`). The user explicitly requested redrawn non-grid heads: each cat art entry supplies a curved `face.outline` and identity patches; `paper-face.ts` retains original palettes and accessory identities (gold hair/sunglasses/chain; dark hair/rectangular frames) in authored paper cuts. World heads and portraits share the same cached cuts, anchors and narrow rim. Do not restore pixel tracing as the active head design.
+- Approved heads (`2d8b25e`) and `src/cats/` stay untouched. Costume makeup is allowed only as a separate layer on top, in the Meow Wall manner: markings patches clipped to the outline, an expression, flat paper accessories (`paperFaceMakeup`, user decision 2026-11-19). Costume outfits are finite cached parts inside `CAT_BOX` for both tailorings; no human faces, no real logos or trademarks. Recipe: `.kiro/skills/midnight-meow-dev/references/add-costume.md`.
 - Fix shape design before adding more decoration. Uniform noise, plain geometric blocks and more props do not replace good shapes.
 
 ## Paper kit
@@ -61,5 +62,5 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 ## Review
 
 - Agents never launch Chrome, Chromium or a Playwright browser in the sandbox. For art review, ask the user to run `node output/playwright/open-work-shot.cjs` on their machine and record the art as not viewed; no animation or recording checks. The latest Chrome still shows a fixed graveyard combat scene in the running game ([combat-readability-2026-11-18.png](../../output/playwright/combat-readability-2026-11-18.png)).
-- Latest verification passed build and 327 tests at 7fe42d1 (325 at the open-work round, 392a631: lighter pencil second pass and fibre, one tide line, banded Paper Cut slit). The round's one screenshot failed (Chrome crashed in the sandbox), so none of it was viewed. Mobile, human playtest, audio listening and browser frame time remain open.
+- Latest verification passed build and 382 tests in the costumes round. No costume outfit, makeup, zone look, wardrobe ticket or HUD tag was viewed in a browser; the review sheet does not stage costumes yet, so also open `/?gallery=1` (Wardrobe section) and `/?start=1&seed=45&costume=<id>`. The open-work round (392a631) was not viewed either. Mobile, human playtest, audio listening and browser frame time remain open.
 - Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.

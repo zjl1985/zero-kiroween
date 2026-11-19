@@ -136,7 +136,7 @@ The town splits into a jittered 4 x 3 grid of district sites (`DISTRICTS` in `sr
 
 ## Townsfolk NPC
 
-Neutral paper townsfolk live beside landmarks and give a localized tip when the cat is near. They are **not cats** (only the chosen cat appears in a run; random helper cats stay unbuilt), and they are pure world data: no `SimState`, no step RNG, no colliders, no damage. Enemies and weapons never see them.
+Neutral paper townsfolk live beside landmarks and give a localized tip when the cat is near. They are **not cats** (only the chosen cat appears in a run; random helper cats as separate characters stay unbuilt; meme cats are costumes the chosen cat wears), and they are pure world data: no `SimState`, no step RNG, no colliders, no damage. Enemies and weapons never see them.
 
 1. **Def** `src/defs/townsfolk/<id>/def.ts`: `TownsfolkDef { id, homes, wander: { radius, speed, pause }, talkRadius, tips }`. `homes` are `LANDMARK_DEFS` ids; a landmark takes the first registered def whose homes list its kind. Shared numbers (cap 12, home ring, body clearance, court/spot pads, tip seconds) live in `src/defs/townsfolk/tuning.ts`. Append to the `TOWNSFOLK_DEFS` line in world-index.ts.
 2. **Placement and pose** come from `src/game/townsfolk.ts`: `townsfolk(seed)`, `townsfolkNear(seed, x, y, r)`, `townsfolkPose(npc, t)`, `nearestTownsfolk(seed, x, y, t)`, `townsfolkTip`. Homes and stroll waypoints come from `hash2`; every point and every sampled leg must pass `townsfolkSafeAt` (dry, off colliders, off spots and court circles), so any pose on the ping-pong route is safe. Callers pass `sim.elapsed` as `t`.

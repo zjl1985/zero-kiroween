@@ -16,7 +16,8 @@ site/                generated deployment output, git-ignored; npm start serves 
 .vercelignore        exclude local task state, development output and internal docs from CLI upload
 src/main.ts           boot, screen flow, resize, input wiring, follow camera, render loop, prefs,
                       audio cues and event timelines derived from sim counters; ?start=1, ?seed=N,
-                      ?gallery=1 (bootGallery)
+                      ?gallery=1 (bootGallery), ?costume=<id> (worn for that run, never saved),
+                      wardrobe strip, HUD costume tag, result unlock line
 src/engine/           content-agnostic, imports no other layer (tested)
   registry.ts         createRegistry: id -> def, registration order kept, clear errors
   events.ts           createEventBus: typed synchronous sim events
@@ -53,6 +54,10 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
   biomes/<id>.ts      + <id>.art.ts (5 districts); districts.ts (DISTRICTS, BASE_DECOR)
   townsfolk/<id>/     def.ts, art.ts (lamplighter-mouse, stargazer-owl, ferry-frog: neutral paper NPCs,
                       not cats); tuning.ts (TOWNSFOLK cap 12, placement pads, tip seconds)
+  costumes/<id>/      def.ts, art.ts (14 meme-cat costumes worn by the chosen cat, never a second
+                      character: tibo, poteto, musk, jensen, karpathy, linus, guido, eich, jobs, gates,
+                      zuckerberg, hassabis, levels, dario); index.ts COSTUME_LIST (wardrobe order,
+                      registered last); skills.ts shared Boss-safe primitives; tuning.ts COSTUME.maxZones
 src/game/             generic simulation, no DOM, no per-cat literals (tested)
   sim.ts              createSim, step, snapshot, chunk loading, ring spawning, makeRoom, weapons by
                       timing, shards, upgrades, elites, chests and evolution, Boss, interactions,
@@ -77,6 +82,8 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
                       EffectKind, Notice
   input.ts            keyboard input (WASD / arrows, Space skill, Esc / P pause, 1 / 2 / 3 cards)
   collision.ts, scenery.ts, rng.ts, clock.ts
+  costumes.ts         pure costume unlock progress (unlocksAfter, sanitizeProgress, isUnlocked) and
+                      the ?costume pin parser (registered ids only)
   seed.ts             pure decimal uint32 query-pin validation (invalid pins use fresh randomness)
 src/render/           Canvas drawing; reads SimState, never mutates it, never uses the sim RNG
   art-registry.ts     CatArt, EnemyArt, WeaponArt, PassiveArt, PropArt, LandmarkArt, DecorPiece, BiomeArt,
@@ -100,7 +107,12 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   paper-material.ts   low-level paper fiber, cut edges, thickness, shadows, stitching, glow
   paper-scraps.ts     scrap pieces, ash patch, torn stubs
   paper-face.ts       cached visible color contours / silhouette from untouched official data;
-                      shared world head and portrait cuts, original anchors and narrow rim
+                      shared world head and portrait cuts, original anchors and narrow rim;
+                      paperFaceMakeup: costume makeup as a separate cached layer over the head
+  costume-accessories.ts   Meow Wall-style head accessories and expressions as flat paper
+  costume-outfit.ts   costume garment palettes, cached outfit parts, cat-detail hooks
+  costume-fx.ts       costume zone looks, skill previews, wardrobe tickets, costume effects
+  wardrobe-art.ts     wardrobe portraits, locked covers, costume glyphs
   paper-status-art.ts read-only actor flame/char and wet overlays; steam, ink, regrow, reward cues
   water-art.ts        exact simulation shore/core/crossing vertices, layered paper water and dry decks
   craft-props.ts      prop phases, alpha-masked ink, deferred fold/regrow looks, real fire-cell marks
@@ -126,7 +138,8 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
                       not a second art style, do not delete blindly
 src/ui/               hud.ts, journal.ts, journal-geometry.ts (pure, tested), character-panel.ts (tickets
                       built from CATS), upgrade-cards.ts, gallery-layout.ts (pure, tested),
-                      environment-copy.ts (hazard-priority, court guidance, townsfolk tips), ink.ts, touch.ts
+                      environment-copy.ts (hazard-priority, court guidance, townsfolk tips), ink.ts, touch.ts,
+                      prefs.ts (pure prefs incl. costume + unlock progress), wardrobe.ts (pure entries, copy)
 src/content/          i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys, formatTime)
 src/audio/sfx.ts      procedural Web Audio sound effects and ambience (incl. tear, crackle), mute;
                       master compressor + hard limiter
@@ -137,8 +150,10 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,
                       world); ecology suites: environment-integration, fire-water, landmark-actions,
                       paper-elements, paper-visuals, water; wash-out round: paper-rules, wash,
-                      paper-verbs, paper-value; townsfolk, audio-mix (latest verification: 332 passing tests at 1d88912)
-.kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
+                      paper-verbs, paper-value; townsfolk, audio-mix; costumes round: costumes,
+                      wardrobe (latest verification: 382 passing tests in the costumes round)
+.kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes (references/add-costume.md
+                      is the costume workshop recipe)
 docs/archive/         obsolete history, not instructions
 output/playwright/    local screenshots/probes, git-ignored, not game assets; the wash-out round's
                       ?gallery=1 still was never produced (Chrome headless exit 134 in the sandbox)

@@ -1,6 +1,6 @@
 ---
 name: midnight-meow-dev
-description: Development workflow for Midnight Meow (猫猫守夜), the papercraft survivor-like browser game in this repo. Use it when adding or changing cats, weapons, passives, evolutions, enemies, props, reactions, landmarks, biomes, i18n strings or code-drawn art, or when verifying and committing a change.
+description: Development workflow for Midnight Meow (猫猫守夜), the papercraft survivor-like browser game in this repo. Use it when adding or changing cats, weapons, passives, evolutions, enemies, costumes, props, reactions, landmarks, biomes, i18n strings or code-drawn art, or when verifying and committing a change.
 ---
 
 # Midnight Meow development
@@ -18,13 +18,16 @@ src/defs/      content. types.ts (all def interfaces), registries.ts (empty regi
                index.ts (registers sim defs, gates hooks), world-index.ts (materials, reactions,
                props, landmarks, biomes; also imported by world-gen), plus data modules
                progression.ts, horde.ts, materials.ts, fire.ts, water.ts, wash.ts, ecology.ts,
-               landmark-activities.ts and one folder or file per def.
+               landmark-activities.ts and one folder or file per def. costumes/<id>/ (def + art),
+               costumes/index.ts (COSTUME_LIST, registered last), skills.ts (shared primitives),
+               tuning.ts.
                Sim def files import defs/types, other defs and low-level game helpers (game/types,
                rng, collision, scenery, world-gen); never game/sim.ts, the facades or render.
                Art files (art.ts / <id>.art.ts) sit beside their defs, import render helpers and may
                read pure helpers from game/sim.ts or the facades (enemyRadius, playerStats).
 src/game/      generic DOM-free simulation: sim.ts (createSim, step, snapshot), props.ts (reactions,
                fire/lifecycle), paper-status.ts, water.ts, wash.ts, landmark-actions.ts,
+               costumes.ts (pure unlock progress, ?costume pin),
                stats.ts (playerStats fold), world-gen.ts (pure seeded world), interactions.ts,
                types.ts (SimState, STATS, EFFECT_LIFE, FX_CAP, EffectKind, Notice). Facades
                characters.ts, upgrades.ts, enemies.ts keep the old export names. No per-cat literals.
@@ -32,23 +35,28 @@ src/render/    Canvas drawing. art-registry.ts (art interfaces and registries), 
                (registers every art entry; the sim never imports it), paper-kit.ts, paper-rules.ts,
                paper-value.ts, prop-kit.ts, paper-face.ts, paper-status-art.ts, water-art.ts,
                wash-art.ts, pencil.ts, sprite-sketch.ts, variants.ts, craft-*.ts,
-               world.ts, gallery.ts, timeline.ts. Reads SimState, never
+               world.ts, gallery.ts, timeline.ts. Costume layers: paper-face.ts paperFaceMakeup
+               (makeup over the untouched head), costume-accessories.ts, costume-outfit.ts,
+               costume-fx.ts (zones, tickets), wardrobe-art.ts. Reads SimState, never
                mutates it, never uses the sim RNG.
 src/ui/        DOM UI: hud.ts, upgrade-cards.ts, character-panel.ts, journal.ts, gallery-layout.ts
-               (pure, tested), environment-copy.ts (localized ecology guidance), touch.ts, ink.ts.
+               (pure, tested), environment-copy.ts (localized ecology guidance), touch.ts, ink.ts,
+               prefs.ts (costume + unlock progress), wardrobe.ts (pure wardrobe entries and copy).
 src/content/   i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys).
 src/audio/     sfx.ts, synthesized Web Audio cues; main.ts plays them from diffs of sim counters.
 src/cats/      Meow Wall official head data (meow-wall-art.ts CAT_VARIANTS, keyed by cat id).
-src/main.ts    boot, screens, camera, render loop, prefs, ?start=1 / ?seed=N / ?gallery=1.
+src/main.ts    boot, screens, camera, render loop, prefs, ?start=1 / ?seed=N / ?gallery=1 /
+               ?costume=<id> (worn for that run only, never saved).
 ```
 
-Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types and helpers, but the sim (`game/` plus sim def files) never imports `render`, `ui`, `content`, art files or the DOM. `render` and `ui` read defs and SimState; only `render/art-index.ts` imports art files. A test (`tests/registry.test.mjs`) fails if `src/engine` imports any other layer, if `src/game/*.ts` names a cat id literal, or if non-legacy `src/render`, `src/ui` or `main.ts` name a cat id literal.
+Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types and helpers, but the sim (`game/` plus sim def files) never imports `render`, `ui`, `content`, art files or the DOM. `render` and `ui` read defs and SimState; only `render/art-index.ts` imports art files. A test (`tests/registry.test.mjs`) fails if `src/engine` imports any other layer, if `src/game/*.ts` names a cat or costume id literal, or if non-legacy `src/render`, `src/ui` or `main.ts` name a cat or costume id literal.
 
 ## Hard constraints
 
 - **One art style: papercraft / cut paper.** No pixel mode, no style toggle. Legacy `render/scene.ts`, `layout.ts`, `pixel.ts`, `pixel-art.ts`, `cast.ts` are code dependencies; do not delete them blindly.
 - **Everything is drawn by Canvas code.** No images, sprites, textures, CSS `url()` or data URIs, no audio files. Offscreen canvases may cache procedural drawing (`cachedSprite`). The user's reference image is an art target only.
-- **Pick one cat.** Zero (male) or Nicole (female); only the chosen cat is in a run, never a companion. Random helper cats are not built; ask the user first.
+- **Pick one cat.** Zero (male) or Nicole (female); only the chosen cat is in a run, never a companion. The meme cats are **costumes** the chosen cat wears (user decision 2026-11-19): all 14 are built, unlocked by play, each with one small auto skill on top of the cat's own kit. Random helper cats as separate characters remain not built; ask the user first. Recipe: [references/add-costume.md](references/add-costume.md).
+- **Approved heads.** The paper heads (`2d8b25e`) and `src/cats/` stay untouched. Costume makeup is allowed only as a separate cached layer on top (`paperFaceMakeup`), in the Meow Wall manner: markings, expression, accessories.
 - **Distinct kits.** Zero: meow-bolt, mirror dash decoy, empowered fire, night-claw, long-shadow, Echo Legion = max meow-bolt + long-shadow. Nicole: moon-stars, fold-moon field and shields, rescue shield, star-fall, deep-fold, moon-shield, Full Moon = max moon-stars + deep-fold. Evolutions only on opening a chest; a full passive bar (`BUILD.passiveSlots`) counts in place of the missing partner passive. Dawn wins only if the Eraser was defeated; dawn with the Boss alive is a loss (`endReason` `'boss-escaped'`).
 - **i18n.** Every user-facing string goes through `t(locale, key)`. Add each key to `src/content/keys.ts`, `en.ts` and `zh.ts`. `en` is the default for new sessions; retain saved locale choices and ask before removing the Chinese pack.
 - **Deterministic sim.** Randomness only from the `Rng` the sim passes to `WeaponDef.step` and `EnemyBehaviour.steer`. World content is a pure hash (`hash2` in world-gen). Fire spread uses `hash2`, never the step RNG. Registration order is behaviour: append new defs at the end of a list unless you mean to change order.
@@ -66,7 +74,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 3. Never launch Chrome, Chromium or a Playwright browser in the sandbox (it aborts at launch and macOS shows the user a crash dialog). For art changes, tell the user to run `node output/playwright/open-work-shot.cjs` (screenshots) or `node output/playwright/frame-time.cjs` (frame time) on their machine, and record the art as not viewed.
 4. No animation or video-recording checks unless the user asks.
 
-Latest verification: build + **332 passing tests** at 1d88912 (the design-decisions round: boss-escaped dawn, evolution fallback, Page Fold pin; 327 at 7fe42d1; 325 after the open-work round, 2effc4a through 392a631, which added suites `townsfolk`, `audio-mix`). The new result and selector copy was not viewed in a browser. The open-work round's one allowed screenshot failed: system Chrome headless crashed at launch (SIGABRT, `kill EPERM`) in the sandbox, so no image exists. No animation, recording, audio listening or browser FPS checks; a scripted balance probe ran, but a human playtest, mobile review and user approval remain open.
+Latest verification: build + **382 passing tests** at the costumes round (9439d52 through 17fdbed plus the docs commit; new suites `costumes`, `wardrobe`; 332 at 1d88912 before the round). No costume art, makeup, wardrobe UI, HUD tag or result unlock line was viewed in a browser. Costume balance comes from a scripted Node probe (16 nights per look), not a human playtest. No animation, recording, audio listening or browser FPS checks; mobile review and user approval remain open.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).
 
@@ -81,6 +89,7 @@ Details: [references/testing-and-verification.md](references/testing-and-verific
 | Change water, fire/status, treatments, regrowth, wash-out or landmark activities | [references/paper-ecology.md](references/paper-ecology.md) |
 | Add a landmark or district biome | [references/add-landmark-biome.md](references/add-landmark-biome.md) |
 | Add a townsfolk NPC | [references/add-landmark-biome.md#townsfolk-npc](references/add-landmark-biome.md#townsfolk-npc) |
+| Add a costume (meme cat outfit, makeup, small skill, unlock) | [references/add-costume.md](references/add-costume.md) |
 | Add or change strings | [references/i18n.md](references/i18n.md) |
 | Draw art with the paper kit, check it in the gallery | [references/paper-kit-and-gallery.md](references/paper-kit-and-gallery.md) |
 | Build, test, probes, screenshot, commit | [references/testing-and-verification.md](references/testing-and-verification.md) |
@@ -100,5 +109,6 @@ Details: [references/testing-and-verification.md](references/testing-and-verific
 | Landmark | `src/defs/landmarks/<id>/def.ts` | `src/defs/landmarks/<id>/art.ts` | `LANDMARK_DEFS` in world-index; `LANDMARK_ART` | `landmark.<id>`, `notice.found-<id>` |
 | Biome | `src/defs/biomes/<id>.ts` | `src/defs/biomes/<id>.art.ts` | `BIOME_DEFS` in world-index; `BIOME_ART` | `biome.<id>.name` |
 | Townsfolk (neutral NPC, not a cat) | `src/defs/townsfolk/<id>/def.ts` (+ shared `tuning.ts`) | `src/defs/townsfolk/<id>/art.ts` | `TOWNSFOLK_DEFS` in world-index; `TOWNSFOLK_ART` | `townsfolk.<id>.name`, `townsfolk.<id>.tip.1..n` |
+| Costume (worn by the chosen cat) | `src/defs/costumes/<id>/def.ts` (+ `skills.ts`, `tuning.ts`) | `src/defs/costumes/<id>/art.ts` | `COSTUME_LIST` in `src/defs/costumes/index.ts`; costume list in `art-index.ts` (`COSTUME_ART`) | `costume.<id>.name/.skill/.desc/.line/.unlock`, `notice.costume-<id>` |
 
 New `EffectKind` or `Notice` values are string unions in `src/game/types.ts`; extend them when a def emits a new impact kind or notice.

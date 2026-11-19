@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 332 tests** at 1d88912. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 382 tests** in the costumes round (332 at 1d88912 before it). Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -38,6 +38,8 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `world.test.mjs` | 10 x 10 world and chunk tiling, pure chunk content, landmarks, start yard, exploring, edges, spawn ring, leash, discovery, camera, districts and biome props, prop cap |
 | `sim.test.mjs` | determinism, decoy without RNG, single player, hit feedback, `makeRoom` |
 | `characters.test.mjs` | Zero and Nicole kits |
+| `costumes.test.mjs` | costume framework and the 14 costumes: wardrobe order, skill schedule, determinism, Boss never pushed/stunned/slowed, zone cap, per-skill behaviour, unlock thresholds and progress sanitising, en/zh copy and the real-name/brand blocklist |
+| `wardrobe.test.mjs` | prefs sanitising and round trip, `?costume=` pin parser, wardrobe entries and lock state, costume copy and result unlock lines, HUD charge, page hooks |
 | `cat-art.test.mjs` | registered appearance metadata, official-source visible color contours / silhouette, preserved face details / rim / anchors, finite caches, deterministic pose geometry / bounds |
 | `scenery-art.test.mjs` | district motifs, seed determinism, patch / cottage / tree bounds, cached scenery reuse |
 | `upgrades.test.mjs` | build slots, steps, chest-only evolution and the full-bar fallback, snack, extra weapons, per-cat pools, names |
@@ -94,4 +96,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 332 passing tests at 1d88912; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs <out.json>` (16 simulated nights; latest `balance-after-decisions.json`: 7/16 wins under the boss-escaped dawn rule). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 382 passing tests in the costumes round (none of the costume art or UI viewed in a browser, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs <out.json>` (16 simulated nights; plain reference `balance-pre-costumes.json`: 7/16 wins under the boss-escaped dawn rule; costume matrix with `COSTUMES=` / `SEEDS=` / `POLICIES=` / `CATS=` env filters, summary by `balance-costumes-summary.mjs`, final `balance-costumes-full.json`). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
