@@ -5,7 +5,13 @@ import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { CATS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { closeLoop, insidePolygon, reflectAcross } from "../dist/defs/weapons/paper-geometry.js";
 import { PAPER_CUT } from "../dist/defs/weapons/paper-cut.js";
-import { PAGE_FOLD, PAPER_WALL } from "../dist/defs/weapons/page-fold.js";
+import { FOLD_BRIDGE, PAGE_FOLD, PAPER_WALL } from "../dist/defs/weapons/page-fold.js";
+import { bridgePath, drawFoldBridge } from "../dist/defs/weapons/page-fold.art.js";
+import { WORLD } from "../dist/game/world-gen.js";
+import { deepWaterBlocks, waterAt, waterRegionsNear } from "../dist/game/water.js";
+import { inWaterPolygon, waterBounds } from "../dist/defs/water.js";
+import { STATS } from "../dist/game/types.js";
+import { paperTouchesWater } from "../dist/game/paper-status.js";
 import { isEligible, UPGRADES } from "../dist/game/upgrades.js";
 import { washAt, washCellOf, washKey } from "../dist/game/wash.js";
 import { WASH } from "../dist/defs/wash.js";
@@ -232,4 +238,125 @@ test("cat wear: creases and tears follow lost hp, tape follows a heal and fades"
   s.treats = [{ id: 1, x: s.player.x, y: s.player.y, alive: true, life: 10 }];
   step(s, idle, DT);
   assert.ok(s.player.hp > 1 && Math.abs(s.player.healAt - s.elapsed) < 1e-6);
+});
+
+/** A generated canal with a deep core and no road crossings, and its core centre. */
+function canal(seed) {
+  const r = waterRegionsNear(seed, (WORLD.minX + WORLD.maxX) / 2, WORLD.maxY / 2, WORLD.width)
+    .find((r) => r.id.startsWith("canal:") && r.crossings.length === 0 && r.core.length);
+  const c = { x: r.core.reduce((s, p) => s + p.x, 0) / r.core.length, y: r.core.reduce((s, p) => s + p.y, 0) / r.core.length };
+  return { r, c, b: waterBounds(r.core) };
+}
+/** Nicole with Page Fold at `level` on the west bank of the canal, walking east. */
+function atCanal(level, seed = 5) {
+  const s = quiet("nicole", "page-fold", level, seed), { c, b } = canal(seed);
+  s.player.x = b.minX - 40;
+  s.player.y = c.y;
+  return { s, c, b };
+}
+const east = { ax: 1, ay: 0, dash: false };
+
+test("Page Fold at the bridge level lays a dry deck across deep water and Nicole walks over it", () => {
+  const { s, c, b } = atCanal(FOLD_BRIDGE.level);
+  assert.equal(waterAt(s.seed, c.x, c.y), "deep");
+  let deep = 0, dry = 0;
+  for (let i = 0; i < Math.round(5 / DT) && s.player.x < b.maxX + 40; i++) {
+    step(s, east, DT);
+    if (waterAt(s.seed, s.player.x, s.player.y) === "deep") {
+      deep++;
+      const decks = s.fold.bridges?.map((x) => x.polygon);
+      assert.equal(waterAt(s.seed, s.player.x, s.player.y, decks), "bridge");
+      // In the middle of the deck the water beside it is out of reach: dry contact, no wading.
+      if (Math.abs(s.player.x - c.x) < 40 && !paperTouchesWater(s.seed, s.player.x, s.player.y, STATS.playerRadius, decks)) dry++;
+    }
+    assert.ok(!deepWaterBlocks(s.seed, s.player.x, s.player.y, STATS.playerRadius, s.fold.bridges?.map((x) => x.polygon)),
+      "the cat never stands in uncovered deep water");
+  }
+  assert.equal(s.fold.bridges?.length, 1, "one bridge laid");
+  const deck = s.fold.bridges[0].polygon;
+  assert.ok(inWaterPolygon(c, deck), "the deck covers the core");
+  // It spans from the near bank to past the far end of the deep water.
+  const xs = deck.map((v) => v.x);
+  assert.ok(Math.min(...xs) < b.minX && Math.max(...xs) > b.maxX, `deck spans the core: ${Math.min(...xs)}..${Math.max(...xs)}`);
+  assert.equal(waterAt(s.seed, Math.max(...xs) - 1, c.y, [deck]), "bridge");
+  assert.notEqual(waterAt(s.seed, Math.max(...xs) + 2, c.y), "deep", "the far end lands on the bank");
+  assert.ok(s.player.x > b.maxX + 40, `Nicole reached the far bank: ${s.player.x}`);
+  assert.ok(deep > 10, "she walked over the deep part");
+  assert.ok(s.fold.folds >= 1, "the fold cue fires");
+  assert.ok(dry > 5, `a deck keeps her dry over the core: ${dry}`);
+});
+
+test("below the bridge level, or with no far bank in reach, no bridge is laid", () => {
+  const { s, b } = atCanal(FOLD_BRIDGE.level - 1);
+  for (let i = 0; i < Math.round(4 / DT); i++) step(s, east, DT);
+  assert.equal(s.fold.bridges, undefined);
+  assert.ok(s.player.x < b.minX + 20, `the core blocks: ${s.player.x}`);
+  assert.ok(FOLD_BRIDGE.length < 2 * WORLD.width, "the march is bounded");
+});
+
+test("bridge expiry waits while Nicole stands over deep water and never strands her", () => {
+  const { s, c, b } = atCanal(FOLD_BRIDGE.level);
+  for (let i = 0; i < Math.round(5 / DT) && s.player.x < c.x; i++) step(s, east, DT);
+  assert.equal(s.fold.bridges?.length, 1);
+  const bridge = s.fold.bridges[0], planned = bridge.until;
+  // Stand still in the middle of the deck past the planned removal.
+  const washed = s.wash.size;
+  while (s.elapsed < planned + 1) step(s, idle, DT);
+  assert.equal(s.fold.bridges?.length, 1, "kept while she stands over the deep part");
+  assert.ok(s.wash.size <= washed, "standing on the deck splashes no wash cells");
+  assert.ok(s.fold.bridges[0].until <= bridge.hold);
+  while (s.elapsed < bridge.hold + 0.1) step(s, idle, DT);
+  assert.equal(s.fold.bridges, undefined, "removed after the hold");
+  assert.ok(!deepWaterBlocks(s.seed, s.player.x, s.player.y, STATS.playerRadius), `set on a bank: ${s.player.x},${s.player.y}`);
+  assert.ok(s.player.x < b.minX + 40 || s.player.x > b.maxX - 40 || Math.abs(s.player.y - c.y) > 20);
+  // Walked off: removal comes on time.
+  const w = atCanal(FOLD_BRIDGE.level).s;
+  for (let i = 0; i < Math.round(5 / DT) && w.player.x < b.maxX + 40; i++) step(w, east, DT);
+  const until = w.fold.bridges[0].until;
+  while (w.elapsed < until + DT * 2) step(w, idle, DT);
+  assert.equal(w.fold.bridges, undefined, "removed on time once nobody is over the water");
+});
+
+test("bridge runs are deterministic and the deck is drawn from its exact vertices", (t) => {
+  const run = () => {
+    const { s } = atCanal(FOLD_BRIDGE.level);
+    for (let i = 0; i < Math.round(9 / DT); i++) step(s, i < 300 ? east : { ax: -1, ay: 0.2, dash: false }, DT);
+    return JSON.stringify(snapshot(s));
+  };
+  assert.equal(run(), run());
+  const { s } = atCanal(FOLD_BRIDGE.level);
+  for (let i = 0; i < Math.round(2 / DT) && !s.fold.bridges; i++) step(s, east, DT);
+  const bridge = s.fold.bridges[0];
+  class RecordingPath { constructor() { this.ops = []; } }
+  for (const name of ["moveTo", "lineTo", "closePath"])
+    RecordingPath.prototype[name] = function (...args) { this.ops.push([name, ...args]); };
+  const calls = [], stack = [];
+  let st = { globalAlpha: 1, fillStyle: "" };
+  const surface = { width: 64, height: 64 };
+  const ctx = new Proxy({}, {
+    get: (_, k) => k === "canvas" ? surface : k in st ? st[k] : ({
+      save() { stack.push({ ...st }); }, restore() { st = stack.pop(); },
+      createPattern() { return { setTransform() {} }; }, getTransform() { return new globalThis.DOMMatrix(); },
+      createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
+    })[k] ?? ((...args) => calls.push({ op: k, args, ...st })),
+    set: (_, k, v) => { st[k] = v; return true; },
+  });
+  surface.getContext = () => ctx;
+  class Matrix { scale() { return this; } inverse() { return this; } transformPoint(q) { return q; } }
+  for (const [key, value] of Object.entries({ Path2D: RecordingPath, DOMMatrix: Matrix, document: { createElement: () => surface } })) {
+    const old = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => old ? Object.defineProperty(globalThis, key, old) : delete globalThis[key]);
+  }
+  t.mock.method(Math, "random", () => assert.fail("bridge art used RNG"));
+  const before = JSON.stringify(bridge);
+  drawFoldBridge(ctx, bridge, bridge.at + 1);
+  const exact = [["moveTo", bridge.polygon[0].x, bridge.polygon[0].y],
+    ...bridge.polygon.slice(1).map((v) => ["lineTo", v.x, v.y]), ["closePath"]];
+  assert.deepEqual(bridgePath(bridge.polygon).ops, exact);
+  const card = calls.filter((c) => c.op === "fill" && c.fillStyle === "#d8c49a");
+  assert.equal(card.length, 1);
+  assert.deepEqual(card[0].args[0].ops, exact, "the deck card is the simulation polygon");
+  assert.equal(stack.length, 0);
+  assert.equal(JSON.stringify(bridge), before, "drawing never mutates the bridge");
 });

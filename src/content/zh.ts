@@ -316,5 +316,5 @@ export const ZH: Messages = {
     "走过的路会在纸上划开一道 {life}s 的切口。把切口绕成一圈就能把整块纸剪下：圈内墨影受到 {damage} 伤害，纸件被撕开。未闭合的切口也会划伤墨影 {edgeDamage}。",
   "upgrade.page-fold.name": "折页",
   "upgrade.page-fold.desc":
-    "每 {interval}s 纸页朝墨影折过去：{band} 内的墨影被翻到折线另一侧，压住 {pin}s 并受到 {damage} 伤害。3 级起折痕立起一道纸墙，持续 {wall}s。",
+    "每 {interval}s 纸页朝墨影折过去：{band} 内的墨影被翻到折线另一侧，压住 {pin}s 并受到 {damage} 伤害。2 级起走向深水时会折出一座干燥的纸桥横跨水面，持续 {bridge}s。3 级起折痕立起一道纸墙，持续 {wall}s。",
 };

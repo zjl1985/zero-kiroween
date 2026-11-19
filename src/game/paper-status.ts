@@ -2,7 +2,7 @@ import { FIRE } from "../defs/fire.js";
 import type { SimContext, WaterPolygon, WaterRegion } from "../defs/types.js";
 import { inWaterPolygon, nearestWaterEdge, prepareWater } from "../defs/water.js";
 import { EFFECT_LIFE, STATS, type PaperStatus, type SimState } from "./types.js";
-import { waterAt } from "./water.js";
+import { bridgeDecks, minusDecks, waterAt, type WaterDecks } from "./water.js";
 import { waterRegionsNear } from "./world-gen.js";
 import { washWetTouches } from "./wash.js";
 
@@ -12,9 +12,13 @@ type PaperActor = PaperStatus & { x: number; y: number };
 // Cache pure geometry by region identity, not actor state or simulation time.
 const wetShoreMemo = new WeakMap<WaterRegion, readonly WaterPolygon[]>();
 
-/** Radius contact with exposed water: bridge decks are subtracted, not whole actors exempted. */
-export function paperTouchesWater(seed: number, x: number, y: number, radius = 0): boolean {
-  const centre = waterAt(seed, x, y);
+/**
+ * Radius contact with exposed water: bridge decks (generated crossings and the
+ * runtime `decks`) are subtracted, not whole actors exempted. Standing wholly on
+ * a deck is dry; water within the radius beside it still counts.
+ */
+export function paperTouchesWater(seed: number, x: number, y: number, radius = 0, decks?: WaterDecks): boolean {
+  const centre = waterAt(seed, x, y, decks);
   if (centre === "shallow" || centre === "deep") return true;
   if (radius <= 0) return false;
   const point = { x, y };
@@ -24,7 +28,7 @@ export function paperTouchesWater(seed: number, x: number, y: number, radius = 0
       shore = prepareWater({ ...region, core: region.shore }).solids;
       wetShoreMemo.set(region, shore);
     }
-    return shore.some((polygon) => inWaterPolygon(point, polygon) || nearestWaterEdge(point, polygon).distance <= radius);
+    return minusDecks(shore, decks).some((polygon) => inWaterPolygon(point, polygon) || nearestWaterEdge(point, polygon).distance <= radius);
   });
 }
 
@@ -54,7 +58,7 @@ function extinguish(state: SimState, actor: PaperActor, ctx: SimContext, player:
 /** Latch contact immediately after movement, before a later knockback can erase it. No timer advances here. */
 export function touchPaperEnvironment(state: SimState, actor: PaperActor, radius: number, ctx: SimContext, player = false): "water" | "damp" | "dry" {
   // Wet washed paper soaks actors through the same path as exposed water.
-  if (paperTouchesWater(state.seed, actor.x, actor.y, radius) || washWetTouches(state, actor.x, actor.y, radius)) {
+  if (paperTouchesWater(state.seed, actor.x, actor.y, radius, bridgeDecks(state.fold.bridges)) || washWetTouches(state, actor.x, actor.y, radius)) {
     actor.wetTime = FIRE.wetTime;
     extinguish(state, actor, ctx, player);
     return "water";
@@ -126,7 +130,7 @@ export function stepPaperStatus(state: SimState, dt: number, ctx: SimContext): v
 export function spreadCarriedFire(state: SimState, ctx: SimContext): void {
   const spread = (actor: PaperActor, radius: number) => {
     if ((actor.burnTime ?? 0) <= 0 || (actor.wetTime ?? 0) > 0) return;
-    if (paperTouchesWater(state.seed, actor.x, actor.y, radius) || washWetTouches(state, actor.x, actor.y, radius)) return;
+    if (paperTouchesWater(state.seed, actor.x, actor.y, radius, bridgeDecks(state.fold.bridges)) || washWetTouches(state, actor.x, actor.y, radius)) return;
     ctx.ignite(state, actor.x, actor.y, radius + FIRE.carryReach);
   };
   if (state.ended !== "playing") return;

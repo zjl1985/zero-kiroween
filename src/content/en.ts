@@ -323,5 +323,5 @@ export const EN: Messages = {
     "Your path slits the page for {life}s. Close the line into a loop to cut the piece out: ink inside takes {damage}, paper tears. The open slit nicks ink for {edgeDamage}.",
   "upgrade.page-fold.name": "Page Fold",
   "upgrade.page-fold.desc":
-    "Every {interval}s the page folds over toward the ink: ink within {band} is flipped across, pinned for {pin}s and hit for {damage}. Level 3 raises a paper wall for {wall}s.",
+    "Every {interval}s the page folds over toward the ink: ink within {band} is flipped across, pinned for {pin}s and hit for {damage}. From level 2, walking into deep water folds a dry paper bridge across it for {bridge}s. Level 3 raises a paper wall for {wall}s.",
 };

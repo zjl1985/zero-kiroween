@@ -272,6 +272,21 @@ export function wallStand(life: number, maxLife: number): number {
   return easeOutBack(Math.min(up, 1), 1.2) * easeInOut(down);
 }
 /**
+ * Page Fold bridge. `unfold`: seconds the top sheet takes to unroll along the
+ * deck after it is laid. `warn`: seconds before the planned removal when the
+ * top sheet starts folding back toward the start (and while removal waits for
+ * an actor to step off, it stays at `folded`). The deck card itself, the
+ * walkable polygon, is always drawn whole.
+ */
+export const FOLD_BRIDGE_LOOK = { unfold: 0.36, warn: 1.2, folded: 0.18 } as const;
+/** Share of the deck the top sheet covers, `age` seconds after laying with `left` seconds planned. */
+export function bridgeCover(age: number, left: number): number {
+  const L = FOLD_BRIDGE_LOOK,
+    open = easeOutCubic(clamp01(age / L.unfold)),
+    close = left >= L.warn ? 1 : L.folded + (1 - L.folded) * easeInOut(clamp01(left / L.warn));
+  return Math.min(open, close);
+}
+/**
  * Cat wear: hp shares below which the body shows a crease, a first tear and a
  * second tear, and the seconds tape patches stay after a heal (the last
  * `tapeFade` seconds fading).

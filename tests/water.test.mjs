@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { WATER, inWaterPolygon, nearestWaterEdge, waterBounds } from "../dist/defs/water.js";
+import { WATER, inWaterPolygon, nearestWaterEdge, waterBounds, waterStrip } from "../dist/defs/water.js";
 import { POND } from "../dist/defs/landmarks/wishing-well/def.js";
 import { RIVER } from "../dist/defs/landmarks/stone-bridge/def.js";
 import { CHUNK, WORLD, clearWorldCache, chunkContent, landmarks, roads } from "../dist/game/world-gen.js";
-import { avoidDeepWater, resolveWaterMove, waterAt, waterRegionsNear } from "../dist/game/water.js";
+import { avoidDeepWater, deepWaterBlocks, resolveWaterMove, waterAt, waterRegionsNear } from "../dist/game/water.js";
 import { drawWaterGround, drawWaterCrossings, waterPath } from "../dist/render/water-art.js";
 
 const all = (seed) => waterRegionsNear(seed, (WORLD.minX + WORLD.maxX) / 2, WORLD.maxY / 2, WORLD.width);
@@ -132,6 +132,32 @@ test("diagonal dashes respect curved core corners and parallel motion can slide 
   }
   const from = { x: b.maxX + 10, y: b.minY - 15 }, to = { x: b.maxX + 10, y: b.maxY + 15 };
   assert.deepEqual(resolveWaterMove(seed, from, to, 9), to, "tangent bank path is not blocked by the core's AABB");
+});
+
+test("runtime decks are dry and passable; off the deck the core still blocks; no decks changes nothing", () => {
+  const seed = 7, r = all(seed).find((r) => r.id.startsWith("canal:") && r.crossings.length === 0 && r.core.length),
+    p = centre(r.core), b = waterBounds(r.core);
+  // A deck across the narrow (vertical) span of the core, through its centre.
+  const deck = waterStrip({ x: p.x, y: b.minY - 30 }, { x: p.x, y: b.maxY + 30 }, 20), decks = [deck];
+  assert.equal(waterAt(seed, p.x, p.y), "deep");
+  assert.equal(waterAt(seed, p.x, p.y, decks), "bridge", "inside the deck is dry");
+  assert.ok(inWaterPolygon(p, deck));
+  for (const q of [{ x: p.x + 30, y: p.y }, { x: p.x - 30, y: p.y }, { x: p.x, y: b.maxY + 200 }])
+    assert.equal(waterAt(seed, q.x, q.y, decks), waterAt(seed, q.x, q.y), "outside the deck: unchanged");
+  const from = { x: p.x, y: b.minY - 20 }, to = { x: p.x, y: b.maxY + 20 };
+  assert.ok(Math.abs(resolveWaterMove(seed, from, to, 12).y - to.y) > 30, "without the deck the core blocks");
+  assert.deepEqual(resolveWaterMove(seed, from, to, 12, decks), to, "along the deck the cat crosses");
+  const off = resolveWaterMove(seed, { x: b.minX - 20, y: p.y }, { x: p.x, y: p.y }, 12, decks);
+  assert.ok(off.x < b.minX, `off the deck the core still blocks: ${off.x}`);
+  assert.ok(deepWaterBlocks(seed, p.x, p.y, 12) && !deepWaterBlocks(seed, p.x, p.y, 12, decks));
+  assert.ok(deepWaterBlocks(seed, p.x + 15, p.y, 12, decks), "a circle hanging off the deck edge touches deep water");
+  assert.deepEqual(avoidDeepWater(seed, p.x, p.y, 12, decks), { x: p.x, y: p.y });
+  // Default calls (no decks, or an empty list) give exactly the generated-world answers.
+  for (const q of [p, from, to, { x: p.x + 7, y: p.y - 40 }, ...r.core]) {
+    assert.equal(waterAt(seed, q.x, q.y, []), waterAt(seed, q.x, q.y));
+    assert.deepEqual(avoidDeepWater(seed, q.x, q.y, 9, []), avoidDeepWater(seed, q.x, q.y, 9));
+    assert.deepEqual(resolveWaterMove(seed, q, to, 9, []), resolveWaterMove(seed, q, to, 9));
+  }
 });
 
 test("the stone deck is dry and passable; adjacent deep channel blocks a long crossing", () => {

@@ -261,7 +261,7 @@ Status: implemented at the user’s request on 2026-11-17. English is the defaul
 1. Paper Cut SHALL be offered only to Zero: closing the path into a loop cuts ink inside (Boss x0.35) and tears props and wash cells inside only; the open slit nicks ink.
 2. Page Fold SHALL be offered only to Nicole: when ink is near, the page folds toward it, flipping non-boss ink across the crease, pinning and hitting it; from level 3 it raises a short wall that blocks the cat and ink like scenery.
 3. Both SHALL be appended after existing weapons, keep runs deterministic and use `CharacterDef.exclusives` + `WeaponDef.pool` rather than cat ids in `src/game`.
-4. A temporary dry bridge is NOT built: the shared water contract (Requirement 17) has no runtime crossing API.
+4. From Page Fold level 2, walking into deep water SHALL fold a temporary dry paper bridge to the far bank. Its polygon SHALL be a runtime deck in the shared water contract (Requirement 17), drawn from the same vertices, and its removal SHALL never leave an actor in deep water.
 
 ## Deferred work and evidence limits
 

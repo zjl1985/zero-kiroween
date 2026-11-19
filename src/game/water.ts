@@ -1,32 +1,82 @@
 import type { Point, WaterPolygon, WaterRegion } from "../defs/types.js";
-import { WATER, inWaterPolygon, nearestWaterEdge } from "../defs/water.js";
+import { WATER, inWaterPolygon, nearestWaterEdge, subtractWater, waterBounds } from "../defs/water.js";
 import { waterRegionsNear } from "./world-gen.js";
 
 export { waterRegionsNear } from "./world-gen.js";
 export type { WaterRegion, WaterPolygon, WaterCrossing } from "../defs/types.js";
 export type WaterStatus = "dry" | "shallow" | "deep" | "bridge";
+/**
+ * Runtime dry decks laid over the water at play time (Page Fold's paper
+ * bridge). Every water query takes them as an optional last argument; with
+ * none (or an empty list) each query runs exactly the generated-world path.
+ */
+export type WaterDecks = readonly WaterPolygon[];
+
+type Bounds = WaterRegion["bounds"];
+const overlaps = (a: Bounds, b: Bounds) => a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY;
+const deckBounds = new WeakMap<WaterPolygon, Bounds>();
+function boundsOf(polygon: WaterPolygon): Bounds {
+  let b = deckBounds.get(polygon);
+  if (!b) { b = waterBounds(polygon); deckBounds.set(polygon, b); }
+  return b;
+}
+// (deck list, polygon list) -> polygons minus decks. Both keys are stable identities:
+// a deck list is replaced (not mutated) when decks change; region polygon lists are cached.
+const minusMemo = new WeakMap<WaterDecks, WeakMap<readonly WaterPolygon[], readonly WaterPolygon[]>>();
+/**
+ * Convex polygons minus the runtime decks, using the same convex subtraction
+ * that cuts generated crossings out of a core (prepareWater). A deck therefore
+ * blocks and wets exactly like a generated crossing: an actor on it collides
+ * only with the deep or shallow pieces left beside it.
+ */
+export function minusDecks(polygons: readonly WaterPolygon[], decks?: WaterDecks): readonly WaterPolygon[] {
+  if (!decks?.length || !polygons.length) return polygons;
+  let byList = minusMemo.get(decks);
+  if (!byList) { byList = new WeakMap(); minusMemo.set(decks, byList); }
+  let out = byList.get(polygons);
+  if (!out) {
+    out = polygons.flatMap((polygon) => {
+      let pieces: WaterPolygon[] = [polygon];
+      for (const deck of decks) {
+        const db = boundsOf(deck);
+        pieces = pieces.flatMap((q) => overlaps(boundsOf(q), db) ? subtractWater(q, deck) : [q]);
+      }
+      return pieces;
+    });
+    byList.set(polygons, out);
+  }
+  return out;
+}
+const onDeck = (p: Readonly<Point>, decks?: WaterDecks) => !!decks?.some((d) => inWaterPolygon(p, d));
 
 /** Bridges are dry for status even where their approach extends beyond the shore. */
-export function waterAt(seed: number, x: number, y: number): WaterStatus {
+export function waterAt(seed: number, x: number, y: number, decks?: WaterDecks): WaterStatus {
   const p = { x, y }, regions = waterRegionsNear(seed, x, y, 0);
+  if (onDeck(p, decks)) return "bridge";
   if (regions.some((r) => r.crossings.some((c) => inWaterPolygon(p, c.polygon)))) return "bridge";
   if (regions.some((r) => inWaterPolygon(p, r.core))) return "deep";
   return regions.some((r) => inWaterPolygon(p, r.shore)) ? "shallow" : "dry";
 }
-function blocked(p: Readonly<Point>, radius: number, regions: readonly WaterRegion[]): boolean {
+function blocked(p: Readonly<Point>, radius: number, regions: readonly WaterRegion[], decks?: WaterDecks): boolean {
+  if (radius === 0 && onDeck(p, decks)) return false;
   return regions.some((r) => {
     if (radius === 0 && r.crossings.some((c) => inWaterPolygon(p, c.polygon))) return false;
-    return r.solids.some((s) => inWaterPolygon(p, s) || nearestWaterEdge(p, s).distance < radius);
+    return minusDecks(r.solids, decks).some((s) => inWaterPolygon(p, s) || nearestWaterEdge(p, s).distance < radius);
   });
 }
+/** True when a circle at (x, y) overlaps deep water not covered by a crossing or one of `decks`. */
+export function deepWaterBlocks(seed: number, x: number, y: number, radius: number, decks?: WaterDecks): boolean {
+  radius = Math.max(0, radius);
+  return blocked({ x, y }, radius, waterRegionsNear(seed, x, y, radius), decks);
+}
 /** Deterministic spawn/recovery projection. Normal movement should use resolveWaterMove. */
-export function avoidDeepWater(seed: number, x: number, y: number, radius: number): Point {
+export function avoidDeepWater(seed: number, x: number, y: number, radius: number, decks?: WaterDecks): Point {
   radius = Math.max(0, radius);
   const p = { x, y }, regions = waterRegionsNear(seed, x, y, radius);
-  if (!blocked(p, radius, regions)) return p;
+  if (!blocked(p, radius, regions, decks)) return p;
   let best: Point | undefined, bestD = Infinity;
   // Test all edges, not just a core's centre or AABB; this also handles crossing corners.
-  for (const r of regions) for (const polygon of r.solids) for (let i = 0; i < polygon.length; i++) {
+  for (const r of regions) for (const polygon of minusDecks(r.solids, decks)) for (let i = 0; i < polygon.length; i++) {
     const a = polygon[i]!, b = polygon[(i + 1) % polygon.length]!, dx = b.x - a.x, dy = b.y - a.y,
       len = Math.hypot(dx, dy);
     if (len < 1e-8) continue;
@@ -37,7 +87,7 @@ export function avoidDeepWater(seed: number, x: number, y: number, radius: numbe
     if (away > 1e-8) candidates.push({ x: qx + (x - qx) / away * gap, y: qy + (y - qy) / away * gap });
     for (const q of candidates) {
       const d = Math.hypot(q.x - x, q.y - y);
-      if (d >= bestD || blocked(q, radius, waterRegionsNear(seed, q.x, q.y, radius))) continue;
+      if (d >= bestD || blocked(q, radius, waterRegionsNear(seed, q.x, q.y, radius), decks)) continue;
       best = q; bestD = d;
     }
   }
@@ -75,16 +125,21 @@ function sweep(p: Readonly<Point>, v: Readonly<Point>, radius: number, polygon: 
   }
   return best;
 }
-/** Swept movement, with bounded tangent sliding: a dash cannot tunnel across a core. */
-export function resolveWaterMove(seed: number, from: Readonly<Point>, to: Readonly<Point>, radius: number): Point {
+/**
+ * Swept movement, with bounded tangent sliding: a dash cannot tunnel across a core.
+ * With `decks`, the swept circle meets the deep solids minus the decks (the
+ * same subtraction as generated crossings), so a deck is a passable channel
+ * and the water beside it still blocks.
+ */
+export function resolveWaterMove(seed: number, from: Readonly<Point>, to: Readonly<Point>, radius: number, decks?: WaterDecks): Point {
   radius = Math.max(0, radius);
-  let p = avoidDeepWater(seed, from.x, from.y, radius), v = { x: to.x - from.x, y: to.y - from.y };
+  let p = avoidDeepWater(seed, from.x, from.y, radius, decks), v = { x: to.x - from.x, y: to.y - from.y };
   for (let pass = 0; pass < 3; pass++) {
     const length = Math.hypot(v.x, v.y);
     if (length < 1e-7) break;
     const regions = waterRegionsNear(seed, p.x + v.x / 2, p.y + v.y / 2, length / 2 + radius);
     let hit: Hit | null = null;
-    for (const r of regions) for (const polygon of r.solids) {
+    for (const r of regions) for (const polygon of minusDecks(r.solids, decks)) {
       const h = sweep(p, v, radius, polygon);
       if (h && (!hit || h.t < hit.t)) hit = h;
     }
@@ -95,4 +150,17 @@ export function resolveWaterMove(seed: number, from: Readonly<Point>, to: Readon
     v = { x: rest.x - hit.nx * Math.min(0, into), y: rest.y - hit.ny * Math.min(0, into) };
   }
   return p;
+}
+
+const deckLists = new WeakMap<readonly { polygon: WaterPolygon }[], WaterDecks>();
+/**
+ * The deck polygons of a bridge list, cached by list identity (the list is
+ * replaced whenever a bridge is added or removed), so per-actor water calls do
+ * not allocate. Undefined when there are none.
+ */
+export function bridgeDecks(bridges: readonly { polygon: WaterPolygon }[] | undefined): WaterDecks | undefined {
+  if (!bridges?.length) return undefined;
+  let decks = deckLists.get(bridges);
+  if (!decks) { decks = bridges.map((b) => b.polygon); deckLists.set(bridges, decks); }
+  return decks;
 }

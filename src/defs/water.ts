@@ -22,6 +22,18 @@ export function waterOval(x: number, y: number, rx: number, ry: number): WaterPo
 export function waterRect(x0: number, y0: number, x1: number, y1: number): WaterPolygon {
   return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 }
+/**
+ * A straight deck from `a` to `b`, `half` wide on each side, wound like
+ * waterRect (A, B along the near side, D across from A) so inWaterPolygon and
+ * the deck painters read it the same way.
+ */
+export function waterStrip(a: Readonly<Point>, b: Readonly<Point>, half: number): WaterPolygon {
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / len * half, ny = (b.x - a.x) / len * half;
+  return [
+    { x: a.x - nx, y: a.y - ny }, { x: b.x - nx, y: b.y - ny },
+    { x: b.x + nx, y: b.y + ny }, { x: a.x + nx, y: a.y + ny },
+  ];
+}
 export function waterSide(a: Readonly<Point>, b: Readonly<Point>, p: Readonly<Point>): number {
   return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 }
@@ -54,7 +66,7 @@ function clipSide(polygon: WaterPolygon, a: Readonly<Point>, b: Readonly<Point>,
   return area > 1e-5 ? out : [];
 }
 /** Convex subtraction: each outside slice is disjoint; only the inside proceeds. */
-function subtract(polygon: WaterPolygon, hole: WaterPolygon): WaterPolygon[] {
+export function subtractWater(polygon: WaterPolygon, hole: WaterPolygon): WaterPolygon[] {
   let rest = polygon;
   const out: WaterPolygon[] = [];
   for (let i = 0; i < hole.length && rest.length; i++) {
@@ -67,7 +79,7 @@ function subtract(polygon: WaterPolygon, hole: WaterPolygon): WaterPolygon[] {
 }
 export function prepareWater(shape: WaterShape): WaterRegion {
   let solids: WaterPolygon[] = shape.core.length ? [shape.core] : [];
-  for (const c of shape.crossings) solids = solids.flatMap((p) => subtract(p, c.polygon));
+  for (const c of shape.crossings) solids = solids.flatMap((p) => subtractWater(p, c.polygon));
   return { ...shape, solids, bounds: waterBounds(shape.shore) };
 }
 export function nearestWaterEdge(p: Readonly<Point>, polygon: WaterPolygon): { x: number; y: number; nx: number; ny: number; distance: number } {

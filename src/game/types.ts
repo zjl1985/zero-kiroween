@@ -1,7 +1,7 @@
 import type { BossAttack } from "../defs/enemies/eraser-boss/def.js";
 import { INK_BLOB_STATS } from "../defs/enemies/ink-blob/def.js";
 import { ZERO_STATS } from "../defs/cats/zero/stats.js";
-import type { CatId, EnemyKind } from "../defs/types.js";
+import type { CatId, EnemyKind, Point } from "../defs/types.js";
 export interface FrameInput {
   ax: number;
   ay: number;
@@ -236,6 +236,29 @@ export interface PageFoldState {
   /** Folds made so far (the audio layer diffs it). */
   folds: number;
   nextId: number;
+  /**
+   * Live paper bridges over water. Created on the first bridge (so runs that
+   * never lay one keep their old state shape) and replaced, never mutated in
+   * place, whenever a bridge is added or removed: the water queries cache the
+   * deck list by its identity.
+   */
+  bridges?: FoldBridge[];
+  /** Elapsed time from which the next bridge may be laid. */
+  bridgeReady?: number;
+}
+/**
+ * A folded paper strip laid over water by Page Fold. Its polygon is a dry deck
+ * for every water query (waterAt, resolveWaterMove, avoidDeepWater, wet
+ * contact) and the exact outline the renderer draws.
+ */
+export interface FoldBridge {
+  id: number;
+  polygon: Point[];
+  at: number;
+  /** Planned removal; pushed back while an actor still stands over its deep part. */
+  until: number;
+  /** Removal can be deferred up to here; after it actors are projected to the bank. */
+  hold: number;
 }
 /** A temporary standing paper wall: a solid capsule until its life runs out. */
 export interface PaperWall {

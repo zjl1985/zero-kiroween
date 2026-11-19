@@ -71,7 +71,7 @@ import { CHEST, FISH, MOON_LANTERN, PUMPKIN } from "./interactions.js";
 import { FIRE } from "../defs/fire.js";
 import { damageProp, elementHit, ignite, nearPropColliders, propBlocks, stepFire } from "./props.js";
 import { hitLandmarkActions, stepLandmarkActions } from "./landmark-actions.js";
-import { avoidDeepWater, resolveWaterMove, waterAt } from "./water.js";
+import { avoidDeepWater, bridgeDecks, resolveWaterMove, waterAt } from "./water.js";
 import { WATER } from "../defs/water.js";
 import { touchPaperEnvironment } from "./paper-status.js";
 import { WASH } from "../defs/wash.js";
@@ -529,7 +529,8 @@ function notify(state: SimState, kind: Notice): boolean {
   return true;
 }
 function safePosition(state: SimState, x: number, y: number, radius: number) {
-  const dry = avoidDeepWater(state.seed, x, y, radius);
+  const decks = bridgeDecks(state.fold.bridges);
+  const dry = avoidDeepWater(state.seed, x, y, radius, decks);
   const a = clampToWorld(dry.x, dry.y, radius);
   // Only the colliders of the chunks around the actor are tested.
   let b = avoidScenery(a.x, a.y, radius, nearStaticColliders(state.seed, a.x, a.y));
@@ -538,7 +539,7 @@ function safePosition(state: SimState, x: number, y: number, radius: number) {
     if (propBlocks(state, c.id)) b = avoidScenery(b.x, b.y, radius, c.caps);
   // Standing paper walls (page fold) block like scenery while they last.
   if (state.walls.length) b = avoidScenery(b.x, b.y, radius, state.walls);
-  const shore = avoidDeepWater(state.seed, b.x, b.y, radius);
+  const shore = avoidDeepWater(state.seed, b.x, b.y, radius, decks);
   return clampToWorld(shore.x, shore.y, radius);
 }
 /**
@@ -756,7 +757,7 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
   const unslowed = p.slow;
   for (const d of ENEMY_DEFS.all()) if (d.catSlow) p.slow *= d.catSlow(state);
   // One water slow at most: shallow water, or else wet washed paper (not on top of a puddle slow either).
-  if (waterAt(state.seed, p.x, p.y) === "shallow") p.slow *= WATER.shallowSlow;
+  if (waterAt(state.seed, p.x, p.y, bridgeDecks(state.fold.bridges)) === "shallow") p.slow *= WATER.shallowSlow;
   else if (p.slow >= unslowed && washWetTouches(state, p.x, p.y, 0)) p.slow *= WASH.wetSlow;
   if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
     const dir =
@@ -788,7 +789,7 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
     p.y += p.vy * dt;
     if (Math.abs(dir.x) > 0.1) p.facing = dir.x < 0 ? -1 : 1;
   }
-  const bank = resolveWaterMove(state.seed, from, p, STATS.playerRadius);
+  const bank = resolveWaterMove(state.seed, from, p, STATS.playerRadius, bridgeDecks(state.fold.bridges));
   const pos = safePosition(state, bank.x, bank.y, STATS.playerRadius);
   p.x = pos.x;
   p.y = pos.y;
@@ -1173,7 +1174,8 @@ function stepShots(state: SimState, dt: number): void {
       if (s.burst) seedBurst(state, s);
       s.alive = false;
       // A shot that drops into a pond splashes the paper around it.
-      if (waterAt(state.seed, s.x, s.y) !== "dry" && waterAt(state.seed, s.x, s.y) !== "bridge")
+      const under = waterAt(state.seed, s.x, s.y, bridgeDecks(state.fold.bridges));
+      if (under !== "dry" && under !== "bridge")
         washAt(state, s.x, s.y, WASH.splash.radius * 0.6, WASH.splash.amount);
     }
   }
@@ -1282,7 +1284,7 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     }
     let { dx, dy } = move;
     // Apply after steering: custom charge velocities must obey shallow water too.
-    if (waterAt(state.seed, e.x, e.y) === "shallow") {
+    if (waterAt(state.seed, e.x, e.y, bridgeDecks(state.fold.bridges)) === "shallow") {
       dx *= WATER.shallowSlow;
       dy *= WATER.shallowSlow;
     } else if (washWetTouches(state, e.x, e.y, 0)) {
@@ -1304,7 +1306,7 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
         dx += (ox / dist) * (gap - dist) * dt * 2;
         dy += (oy / dist) * (gap - dist) * dt * 2;
       }
-    const bank = resolveWaterMove(state.seed, e, { x: e.x + dx, y: e.y + dy }, radius);
+    const bank = resolveWaterMove(state.seed, e, { x: e.x + dx, y: e.y + dy }, radius, bridgeDecks(state.fold.bridges));
     const kept = def.throughScenery
       ? clampToWorld(bank.x, bank.y, radius)
       : safePosition(state, bank.x, bank.y, radius);
@@ -1415,12 +1417,14 @@ function stepWashWorld(state: SimState, dt: number): void {
 /** Actors wading in shallow water splash the page around them (a few per beat). */
 function washSplashes(state: SimState): void {
   const { radius, amount, perTick } = WASH.splash,
-    p = state.player;
-  if (p.hp > 0 && waterAt(state.seed, p.x, p.y) === "shallow") washAt(state, p.x, p.y, radius, amount);
+    p = state.player,
+    decks = bridgeDecks(state.fold.bridges);
+  // Nobody wades on a paper deck: it is dry like a generated crossing.
+  if (p.hp > 0 && waterAt(state.seed, p.x, p.y, decks) === "shallow") washAt(state, p.x, p.y, radius, amount);
   let n = 0;
   for (const e of state.enemies) {
     if (n >= perTick) break;
-    if (!e.alive || e.spawnTime > 0 || waterAt(state.seed, e.x, e.y) !== "shallow") continue;
+    if (!e.alive || e.spawnTime > 0 || waterAt(state.seed, e.x, e.y, decks) !== "shallow") continue;
     washAt(state, e.x, e.y, radius, amount);
     n++;
   }

@@ -6,12 +6,12 @@
  * only: one moon light from the top-right, hard shadows down-right, no
  * gradients or blur.
  */
-import type { FoldFlap, PaperWall, SimState } from "../../game/types.js";
+import type { FoldBridge, FoldFlap, PaperWall, SimState } from "../../game/types.js";
 import type { WeaponArt } from "../../render/art-registry.js";
 import { combatPart, paperFleck } from "../../render/craft-combat.js";
 import { crease, paperEmblem, PAPER_LIGHT, PAPER_SHADOW } from "../../render/paper-kit.js";
 import { grain, hash, line, mix, type Ctx, type Point } from "../../render/paper-material.js";
-import { foldTurn, PAPER_VERB_LOOK, wallStand } from "../../render/timeline.js";
+import { bridgeCover, foldTurn, PAPER_VERB_LOOK, wallStand } from "../../render/timeline.js";
 import { PAGE_FOLD } from "./page-fold.js";
 
 /** The flap sheet, with a muted violet face and a lighter ruled back. */
@@ -192,9 +192,106 @@ function drawWall(ctx: Ctx, w: PaperWall): void {
   ctx.restore();
 }
 
+/** Paper bridge: a cream card deck, a lilac folded top sheet with pleats, dark lip and shadow on the water. */
+const DECK = {
+  card: "#d8c49a",
+  sheet: "#c7bacd",
+  pleatDark: "#6f5f86",
+  lip: "#3a2c22",
+  /** Pleat spacing along the deck and the top sheet's inset from the card edge. */
+  pleat: 22,
+  inset: 3.5,
+  /** Shadow offset on the water, in PAPER_SHADOW steps. */
+  shadow: 3,
+} as const;
+
+/** The exact simulation polygon as a Canvas path (no smoothing, no offset). */
+export function bridgePath(polygon: readonly { x: number; y: number }[]): Path2D {
+  const p = new Path2D();
+  polygon.forEach((v, i) => (i ? p.lineTo(v.x, v.y) : p.moveTo(v.x, v.y)));
+  p.closePath();
+  return p;
+}
+
+/**
+ * One paper bridge, drawn from its exact deck vertices (A, B along one side, D
+ * across from A, as waterStrip winds them): a hard down-right shadow on the
+ * water, the whole deck card (the walkable surface), then the lilac top sheet
+ * unrolling from the start with pleat folds and a centre crease, folding back
+ * toward the start when the bridge is about to go. Read-only, no RNG.
+ */
+export function drawFoldBridge(ctx: Ctx, b: FoldBridge, elapsed: number): void {
+  const [a, bb, c, d] = b.polygon;
+  if (!a || !bb || !c || !d) return;
+  const deck = bridgePath(b.polygon),
+    lx = bb.x - a.x,
+    ly = bb.y - a.y,
+    len = Math.hypot(lx, ly) || 1,
+    wx = d.x - a.x,
+    wy = d.y - a.y,
+    wid = Math.hypot(wx, wy) || 1;
+  ctx.save();
+  // Hard cast shadow on the water: the same outline pushed down-right.
+  const sx = PAPER_SHADOW.dx * DECK.shadow,
+    sy = PAPER_SHADOW.dy * DECK.shadow;
+  ctx.globalAlpha = PAPER_SHADOW.alpha;
+  ctx.fillStyle = PAPER_SHADOW.color;
+  ctx.translate(sx, sy);
+  ctx.fill(deck);
+  ctx.translate(-sx, -sy);
+  // The deck card: one flat layer, exactly the dry polygon.
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = DECK.card;
+  ctx.fill(deck);
+  grain(ctx, deck, 0.4);
+  // Side cut edges: the lit rim on the side facing the moon, the dark lip on the other.
+  const outA = { x: -wx / wid, y: -wy / wid },
+    litA = outA.x * PAPER_LIGHT.dirX + outA.y * PAPER_LIGHT.dirY > 0;
+  line(ctx, a.x, a.y, bb.x, bb.y, litA ? PAPER_LIGHT.rim : DECK.lip, 1.1, 0.85);
+  line(ctx, d.x, d.y, c.x, c.y, litA ? DECK.lip : PAPER_LIGHT.rim, 1.1, 0.85);
+  // The folded top sheet, unrolled to `cover` of the deck length.
+  const cover = bridgeCover(elapsed - b.at, b.until - elapsed),
+    ix = (wx / wid) * DECK.inset,
+    iy = (wy / wid) * DECK.inset,
+    reach = Math.max(0, len * cover - DECK.inset),
+    ux = lx / len,
+    uy = ly / len,
+    s0 = { x: a.x + ix + ux * DECK.inset, y: a.y + iy + uy * DECK.inset },
+    s3 = { x: d.x - ix + ux * DECK.inset, y: d.y - iy + uy * DECK.inset },
+    s1 = { x: a.x + ix + ux * reach, y: a.y + iy + uy * reach },
+    s2 = { x: d.x - ix + ux * reach, y: d.y - iy + uy * reach };
+  if (reach > DECK.inset + 1) {
+    const sheet = new Path2D();
+    sheet.moveTo(s0.x, s0.y);
+    sheet.lineTo(s1.x, s1.y);
+    sheet.lineTo(s2.x, s2.y);
+    sheet.lineTo(s3.x, s3.y);
+    sheet.closePath();
+    ctx.fillStyle = DECK.sheet;
+    ctx.fill(sheet);
+    grain(ctx, sheet, 0.35);
+    // Pleats across the deck: valley then ridge, flat lines only.
+    for (let t = DECK.pleat, i = 0; t < reach - 4; t += DECK.pleat, i++) {
+      const x0 = s0.x + ux * (t - DECK.inset),
+        y0 = s0.y + uy * (t - DECK.inset),
+        x1 = s3.x + ux * (t - DECK.inset),
+        y1 = s3.y + uy * (t - DECK.inset);
+      line(ctx, x0, y0, x1, y1, i % 2 ? PAPER_LIGHT.rim : DECK.pleatDark, 0.7, 0.55);
+    }
+    // The leading fold of the sheet: lit if it faces the moon, else a dark lip.
+    const lead = ux * PAPER_LIGHT.dirX + uy * PAPER_LIGHT.dirY > 0;
+    line(ctx, s1.x, s1.y, s2.x, s2.y, lead ? PAPER_LIGHT.rim : DECK.lip, 1, 0.8);
+  }
+  ctx.restore();
+  // Centre crease along the whole deck: the strip was folded in half to lay it.
+  crease(ctx, (a.x + d.x) / 2, (a.y + d.y) / 2, (bb.x + c.x) / 2, (bb.y + c.y) / 2, 0.8);
+}
+
 export const PAGE_FOLD_ART: WeaponArt = {
   id: "page-fold",
   ground(ctx, state: SimState) {
+    // Bridges lie on the water under every flap and actor.
+    for (const b of state.fold.bridges ?? []) drawFoldBridge(ctx, b, state.elapsed);
     for (const f of state.fold.flaps) {
       const age = state.elapsed - f.at;
       if (age >= 0 && age < PAGE_FOLD.flapLife) drawFlap(ctx, f, age);
