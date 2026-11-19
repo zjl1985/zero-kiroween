@@ -194,7 +194,7 @@ export const ZH: Messages = {
   "stat.count": "数量 +{n}",
   "stat.pierce": "穿透 +{n}",
   "stat.area": "范围 +{n}",
-  "evolution.rule": "{weapon} 满级 + {passive}，再打开宝箱",
+  "evolution.rule": "{weapon} 满级 + {passive}（或被动槽已满），再打开宝箱",
   "hud.weapons": "武器",
   "hud.passives": "被动",
   "chest.title": "宝箱",

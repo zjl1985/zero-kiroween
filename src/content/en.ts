@@ -201,7 +201,7 @@ export const EN: Messages = {
   "stat.count": "+{n} at once",
   "stat.pierce": "+{n} pierce",
   "stat.area": "+{n} area",
-  "evolution.rule": "Max {weapon} + {passive}, then open a chest",
+  "evolution.rule": "Max {weapon} + {passive} (or a full passive bar), then open a chest",
   "hud.weapons": "Weapons",
   "hud.passives": "Passives",
   "chest.title": "CHEST",

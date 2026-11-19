@@ -90,12 +90,18 @@ export function evolutionFor(cat: CatId): UpgradeId {
 export function isEvolved(state: SimState): boolean {
   return levelOf(state, evolutionFor(state.player.id)) > 0;
 }
-/** The chosen cat's evolution when its weapon is maxed and its passive owned. */
+/**
+ * The chosen cat's evolution when its weapon is maxed and its partner passive
+ * owned. Fallback: a full passive bar without the partner also counts, since
+ * the partner can then never be picked. Still only opened by a chest, never a
+ * level-up card (isEligible), and only once.
+ */
 export function readyEvolution(state: SimState): EvolutionDef | undefined {
   const evo = evolutionDef(state.player.id);
   if (levelOf(state, evo.id) > 0) return undefined;
   if (levelOf(state, evo.weapon) < weaponMax(evo.weapon)) return undefined;
-  return levelOf(state, evo.passive) > 0 ? evo : undefined;
+  const barFull = state.build.passives.length >= BUILD.passiveSlots;
+  return levelOf(state, evo.passive) > 0 || barFull ? evo : undefined;
 }
 /** Sum of the weapon steps reached at `level` (level 1 adds nothing). */
 export function weaponBonus(id: WeaponId, level: number): Required<WeaponStep> {

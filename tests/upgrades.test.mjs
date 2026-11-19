@@ -244,6 +244,43 @@ test("evolution only comes from a chest, once the weapon is max and the passive 
   }
 });
 
+test("a full passive bar without the partner passive still lets a chest evolve the maxed weapon", () => {
+  for (const cat of ["zero", "nicole"]) {
+    const evo = EVOLUTIONS.find((e) => e.cat === cat),
+      max = upgradeDef(evo.weapon).maxLevel,
+      others = UPGRADES.filter(
+        (u) => u.slot === "passive" && (u.cat === cat || u.cat === "any") && u.id !== evo.passive,
+      ).map((u) => u.id);
+    assert.ok(others.length >= BUILD.passiveSlots, `${cat} has ${others.length} other passives`);
+    // One short of a full bar, partner missing, weapon max: not ready.
+    const s = quiet(cat);
+    for (const id of others.slice(0, BUILD.passiveSlots - 1)) {
+      s.pendingChoice = { options: [id] };
+      chooseUpgrade(s, 0);
+    }
+    s.upgrades[evo.weapon] = max;
+    assert.equal(s.build.passives.length, BUILD.passiveSlots - 1);
+    assert.equal(readyEvolution(s), undefined);
+    // Fill the bar with a non-partner passive: the partner is locked out for good.
+    s.pendingChoice = { options: [others[BUILD.passiveSlots - 1]] };
+    chooseUpgrade(s, 0);
+    assert.equal(s.build.passives.length, BUILD.passiveSlots);
+    assert.ok(!s.build.passives.includes(evo.passive));
+    assert.equal(isEligible(s, upgradeDef(evo.passive)), false);
+    assert.equal(readyEvolution(s)?.id, evo.id);
+    // Still never a level-up card; only a chest grants it.
+    for (let i = 0; i < 30; i++) assert.ok(!rollChoices(s, createRng(i + 1)).includes(evo.id));
+    assert.equal(isEvolved(s), false);
+    openChest(s, createRng(4), false);
+    assert.equal(isEvolved(s), true);
+    assert.equal(s.chestReveal.evolved, evo.id);
+    assert.equal(s.build.weapons[0], evo.id);
+    assert.ok(!s.build.weapons.includes(evo.weapon));
+    // Once only.
+    assert.equal(readyEvolution(s), undefined);
+  }
+});
+
 test("a chest with nothing left to grow hands out a snack", () => {
   const s = quiet("zero");
   s.upgrades["meow-bolt"] = upgradeDef("meow-bolt").maxLevel;

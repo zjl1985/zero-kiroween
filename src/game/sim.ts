@@ -1014,7 +1014,11 @@ function stepChests(state: SimState, dt: number, rng: Rng): void {
 }
 /** The filler card's id (the warm snack). */
 const FILLER_UPGRADE = PASSIVE_DEFS.all().find((p) => p.filler)!.id;
-/** Grants a chest's contents and records them in state.chestReveal for the HUD. */
+/**
+ * Grants a chest's contents and records them in state.chestReveal for the HUD.
+ * A chest is the only way to evolve: readyEvolution needs the maxed weapon plus
+ * its partner passive, or a full passive bar that locks the partner out.
+ */
 export function openChest(state: SimState, rng: Rng, big: boolean): void {
   let levels = big ? CHEST.bigLevels : CHEST.levels;
   const reveal: NonNullable<SimState["chestReveal"]> = {
