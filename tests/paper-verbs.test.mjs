@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createSim, snapshot, step } from "../dist/game/sim.js";
+import { createSim, enemyRadius, snapshot, step } from "../dist/game/sim.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { CATS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { closeLoop, insidePolygon, reflectAcross } from "../dist/defs/weapons/paper-geometry.js";
@@ -315,6 +315,43 @@ test("bridge expiry waits while Nicole stands over deep water and never strands 
   const until = w.fold.bridges[0].until;
   while (w.elapsed < until + DT * 2) step(w, idle, DT);
   assert.equal(w.fold.bridges, undefined, "removed on time once nobody is over the water");
+});
+
+test("contact knockback on a bridge keeps both actors on the deck", () => {
+  const { s, c } = atCanal(FOLD_BRIDGE.level);
+  for (let i = 0; i < Math.round(5 / DT) && s.player.x < c.x; i++) step(s, east, DT);
+  assert.equal(s.fold.bridges?.length, 1);
+  assert.equal(waterAt(s.seed, s.player.x, s.player.y), "deep", "she stands over the core");
+  s.weaponTimers["page-fold"] = 1e9;
+  s.player.invuln = 0;
+  const e = blob(s, s.player.x + 10, s.player.y, { stun: 0 });
+  const before = { x: s.player.x, y: s.player.y }, hp = s.player.hp;
+  step(s, idle, DT);
+  assert.ok(s.player.hp < hp, "the blob touched her");
+  const decks = s.fold.bridges.map((x) => x.polygon);
+  assert.ok(Math.abs(s.player.y - before.y) < 5 && Math.abs(s.player.x - before.x) < 30,
+    `pushed along the deck, not off it: ${before.x},${before.y} -> ${s.player.x},${s.player.y}`);
+  assert.equal(waterAt(s.seed, s.player.x, s.player.y, decks), "bridge", "the cat is still on the deck");
+  assert.ok(!deepWaterBlocks(s.seed, s.player.x, s.player.y, STATS.playerRadius, decks));
+  assert.equal(waterAt(s.seed, e.x, e.y, decks), "bridge", "the blob is still on the deck");
+  assert.ok(Math.abs(e.y - before.y) < 5, `the blob is pushed along the deck: ${e.y}`);
+});
+
+test("bridge expiry waits for an enemy over deep water, then sets it on a bank", () => {
+  const { s, c, b } = atCanal(FOLD_BRIDGE.level);
+  for (let i = 0; i < Math.round(5 / DT) && s.player.x < b.maxX + 40; i++) step(s, east, DT);
+  assert.ok(s.player.x > b.maxX + 40, "Nicole crossed");
+  s.weaponTimers["page-fold"] = 1e9;
+  const bridge = s.fold.bridges[0], planned = bridge.until;
+  // A frozen blob in the middle of the deck: it cannot walk off by itself.
+  const e = blob(s, c.x, c.y);
+  assert.equal(waterAt(s.seed, e.x, e.y), "deep");
+  while (s.elapsed < planned + 1) step(s, idle, DT);
+  assert.equal(s.fold.bridges?.length, 1, "kept while the blob is over the deep part");
+  while (s.elapsed < bridge.hold + 0.1) step(s, idle, DT);
+  assert.equal(s.fold.bridges, undefined, "removed after the hold");
+  assert.ok(e.alive);
+  assert.ok(!deepWaterBlocks(s.seed, e.x, e.y, enemyRadius(e)), `the blob was set on a bank: ${e.x},${e.y}`);
 });
 
 test("bridge runs are deterministic and the deck is drawn from its exact vertices", (t) => {

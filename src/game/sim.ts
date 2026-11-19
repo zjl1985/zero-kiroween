@@ -1329,14 +1329,16 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     )
       continue;
     hurtPlayer(state, def.stats.contactDamage);
-    const push = normalize(p.x - e.x, p.y - e.y),
-      playerBank = resolveWaterMove(state.seed, p, { x: p.x + push.x * def.contactPush, y: p.y + push.y * def.contactPush }, STATS.playerRadius),
+    // Knockback must see Page Fold decks too, or a hit on a bridge throws actors to the bank.
+    const decks = bridgeDecks(state.fold.bridges),
+      push = normalize(p.x - e.x, p.y - e.y),
+      playerBank = resolveWaterMove(state.seed, p, { x: p.x + push.x * def.contactPush, y: p.y + push.y * def.contactPush }, STATS.playerRadius, decks),
       pos = safePosition(state, playerBank.x, playerBank.y, STATS.playerRadius);
     p.x = pos.x;
     p.y = pos.y;
     touchPaperEnvironment(state, p, STATS.playerRadius, ctx, true);
     const back = 18 * knockOf(e),
-      enemyBank = resolveWaterMove(state.seed, e, { x: e.x - push.x * back, y: e.y - push.y * back }, radius),
+      enemyBank = resolveWaterMove(state.seed, e, { x: e.x - push.x * back, y: e.y - push.y * back }, radius, decks),
       enemyPos = safePosition(state, enemyBank.x, enemyBank.y, radius);
     e.x = enemyPos.x;
     e.y = enemyPos.y;

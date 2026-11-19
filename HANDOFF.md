@@ -8,15 +8,16 @@ Commits on `main` after `c9fee79`, in order:
 
 | commit | change |
 | --- | --- |
-| `2effc4a` | Nicole in a white tee and denim, lantern halo removed. Her authored face patches (crown cut into both side locks, part line, cheek patch, chin inset) were redrawn by the earlier session and are **not user-approved**. Official head data `src/cats/` is unchanged against `2d8b25e`. |
+| `2effc4a` | Nicole in a white tee and denim. This commit (the user's own pending work, committed as found) also removed the lantern for **both** cats: `cat-detail.ts` no longer has the `lantern` part, `paintLantern`, the lamp glow or the lantern swing, `world.ts` dropped `drawGroundLight` beside the cat, and `ZERO_ART` lost `lantern: "shutter"` and `accessory: "watch-chain"` (the watch chain is still drawn inside his coat). Zero no longer carries a lantern; this was not reverted and needs the user's review. Nicole's authored face patches (crown cut into both side locks, part line, cheek patch, chin inset) were redrawn by the earlier session and are **not user-approved**. Official head data `src/cats/` is unchanged against `2d8b25e`. |
 | `528c55e` | Fold protection shows for its whole 6 s (`drawFoldGuards`), cut holes have one edge, Paper Cut pieces pruned by age (`PAPER_CUT.maxOuts` 8). The cat box (±54 / −106..22) was measured unclipped in tests (part reach x ±38.9, y −75..13, also at cue zoom 1.1). |
-| `20a4c81` | Page Fold lays a dry paper bridge over water from level 2 (`FOLD_BRIDGE` in `page-fold.ts`, runtime decks in `src/game/water.ts`). |
+| `20a4c81` | Page Fold lays a dry paper bridge over water from level 2 (`FOLD_BRIDGE` in `page-fold.ts`, runtime decks in `src/game/water.ts`). Fire cells never occupy a deck (`props.ts` `wetCell` ignores decks), while a burning actor on a deck counts as dry and keeps burning until it reaches water. |
 | `996829e` | Neutral townsfolk: lamplighter mouse, stargazer owl, ferry frog (pure `src/game/townsfolk.ts`, cap 12, tips in en/zh). They are not cats. |
 | `06d5691` | Balance: Wash Drip windup 0.7 → 0.8 s, drop speed 140 → 120 u/s. |
 | `334b2da` | Audio mix table `src/audio/mix.ts`, every cue throttled, hard limiter after the compressor. |
 | `decb960` | Sim speed-ups (enemy separation early-out, flat water index, wash lookups), behaviour byte-identical. |
 | `3066542` | Pencil enemies use cached per-part pencil variants instead of scratch-canvas compositing. |
 | `392a631` | Art pass: lighter, sparser pencil second pass and fibre; one tide line per wash edge (`WASH_LOOK.tideWidth` 3, alpha 0.42) instead of a soft band plus a dark line; the Paper Cut slit is drawn in 4 continuous bands so round caps no longer bead along it. No change to enemy art on dark ground in this commit. |
+| review fixes (after `2ae1105`) | Contact knockback now passes the Page Fold decks to `resolveWaterMove` for the cat and the enemy, so a hit on a bridge no longer throws either actor about 53 units off the deck. New `paper-verbs` cases: knockback mid-deck keeps both on the deck (fails without the fix), and expiry waits for a frozen enemy over the core, then sets it on a bank. Sprite cache: the reviewer's "102 parts" was the sum of enemy radii; a dense Node sweep (8 kinds, painted plus both pencil steps, elites, hit flash, slow, stun, many ids, times and facings) caches 91 entries in the shared 256 LRU, now asserted at most 128 in `paper-visuals`. No separate cache budget was added. Scene-wide cache use with props, decor, cat and townsfolk together was not measured. Verified: `npm test` **327 / 327 pass**; `baseline-snapshot.mjs` and `baseline-long.mjs` outputs byte-identical to their references (those runs never lay a bridge). |
 
 Verification at `392a631`: `npm run build` ok, `npm test` **325 / 325 pass** (301 at the start of the round; new suites `townsfolk`, `audio-mix`, plus new cases in `paper-verbs`, `paper-visuals`, `cat-art`, `water`, `gallery`). `git diff 2d8b25e -- src/cats/` is empty.
 
@@ -39,7 +40,7 @@ The user rated the wash-out round "只能说凑合" (only passable). The art is 
 
 Needs the user (cannot be finished by an agent):
 
-1. **Art approval (P0).** View this round in a browser (the review sheet above can be rendered once Chrome runs, or play `/?start=1&seed=45`). Check pencil underdrawing, tide lines, Paper Cut / Page Fold, the bridge, townsfolk next to enemies, cat wear and Nicole's redrawn face patches. Enemy readability on graveyard ground was not changed in this round.
+1. **Art approval (P0).** View this round in a browser (the review sheet above can be rendered once Chrome runs, or play `/?start=1&seed=45`). Check pencil underdrawing, tide lines, Paper Cut / Page Fold, the bridge, townsfolk next to enemies, cat wear, Nicole's redrawn face patches and both cats without their lanterns (Zero lost his shutter lantern and its ground light in `2effc4a`; decide whether to keep that or restore it). Enemy readability on graveyard ground was not changed in this round.
 2. **Listen to the audio.** The new mix, the snip and fold cues and the limiter are unheard.
 3. **Human playtest** on a real device, including touch controls through retry. Paper Cut and bridge use are under-sampled by the scripted probe.
 4. **Design decisions.** Boss/dawn pressure policy (the Boss can be outrun and dawn still wins). Evolution slot lockout (a full passive bar blocks the partner passive; no hint or fallback). Whether ink pinned under a Page Fold should still deal contact damage (it does now; close-kiting Nicole walks into it).

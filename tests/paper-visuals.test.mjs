@@ -9,7 +9,7 @@ import { FIRE } from "../dist/defs/fire.js";
 import { LANDMARK_DEFS } from "../dist/defs/registries.js";
 import { landmarkActivityPoint } from "../dist/defs/landmark-activities.js";
 import { EFFECT_LIFE } from "../dist/game/types.js";
-import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
+import { clearSpriteCache, SPRITE_CACHE_LIMIT, spriteCacheSize } from "../dist/engine/sprite.js";
 import { CAT_ART, ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js";
 import { drawActorPaperStatus, drawPaperFlame, drawPaperStatusEffect } from "../dist/render/paper-status-art.js";
 import { drawFireGround, drawProp, fireSprites } from "../dist/render/craft-props.js";
@@ -677,9 +677,24 @@ test("pencil enemies stamp cached per-part pencil variants: one drawImage per pa
   };
   sweep();
   const size = spriteCacheSize();
+  t.diagnostic(`shared sprite cache after the enemy pencil sweep: ${size}`);
   sweep();
   assert.equal(spriteCacheSize(), size, "pencil part variants are finite (part key x step)");
   assert.ok(size < 256, `cache stays under the LRU limit (${size})`);
+  // Dense washed page: every kind, painted and both pencil steps, many ids, times,
+  // facings and states. The whole enemy working set (painted parts plus their
+  // sketch-live variants) must stay well inside the shared 256-entry LRU, so it
+  // cannot thrash the props, decor, cat and townsfolk sprites (measured 91).
+  for (const art of ENEMY_ART.all()) for (let i = 0; i < 60; i++) for (const amount of [0, 0.5, 1])
+    for (const lk of [{ x: -400, y: 60 }, { x: 400, y: 400 }]) {
+      const ctx = canvas().getContext("2d"),
+        e = enemy(art.id, i, { elite: i % 3 === 0, hitFlash: i % 5 === 0 ? 0.1 : 0, slowTime: i % 7 === 0 ? 1 : 0,
+          stun: i % 11 === 0 ? 1 : 0, hp: i % 2 ? 1 : 1e6, maxHp: 1e6 });
+      drawSketchedParts(ctx, amount, (c) => drawCraftEnemy(c, e, i * 0.173, lk));
+    }
+  const dense = spriteCacheSize();
+  t.diagnostic(`shared sprite cache after the dense enemy sweep: ${dense}`);
+  assert.ok(dense <= SPRITE_CACHE_LIMIT / 2, `enemy parts and pencil variants use at most half the LRU (${dense})`);
 });
 
 test("pencil chunk layers bake one tile at a time, inside the shared 14-tile budget", (t) => {
