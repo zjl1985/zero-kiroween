@@ -421,4 +421,6 @@ export const ZH: Messages = {
   "costume.dario.line": "这一片，今晚先收起来。",
   "costume.dario.unlock": "一晚清除 {at} 个墨团。",
   "notice.costume-dario": "今晚先收起来 · 封条落下",
+  "gallery.section.wardrobe": "衣橱",
+  "gallery.state.worn": "换装",
 };

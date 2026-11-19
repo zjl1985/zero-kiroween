@@ -1,15 +1,15 @@
 /**
  * The ?gallery=1 page contents and layout, as pure data: one section per
  * registry (cats, enemies, props, landmarks, townsfolk, district biomes, weapons,
- * passives), one item per
+ * passives, the costume wardrobe), one item per
  * registered entry and state, and a grid of cells for a page width. Nothing
  * here names a single id, so new defs appear automatically. No DOM, import-safe
  * in Node (tested in tests/gallery.test.mjs).
  */
 import type { MessageKey } from "../content/keys.js";
-import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../defs/index.js";
+import { BIOME_DEFS, CATS, COSTUME_DEFS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
-export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "townsfolk" | "biome" | "wash" | "weapon" | "passive";
+export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "townsfolk" | "biome" | "wash" | "weapon" | "passive" | "costume";
 export type GalleryState =
   | "idle"
   | "skill"
@@ -26,13 +26,16 @@ export type GalleryState =
   | "colourless"
   | "blank"
   | "tide"
-  | "icon";
+  | "icon"
+  | "worn";
 export interface GalleryItem {
   readonly kind: GalleryKind;
   /** Registry id (cat, enemy, prop, biome, weapon or passive id, or landmark kind). */
   readonly id: string;
   readonly label: MessageKey;
   readonly state: GalleryState;
+  /** Wardrobe cells: the cat wearing the costume `id`. */
+  readonly cat?: string;
 }
 export interface GallerySection {
   readonly kind: GalleryKind;
@@ -54,6 +57,7 @@ export const GALLERY_CELL: Readonly<Record<GalleryKind, { readonly w: number; re
   wash: { w: 220, h: 160 },
   weapon: { w: 116, h: 120 },
   passive: { w: 116, h: 120 },
+  costume: { w: 250, h: 210 },
 };
 export const PROP_STATES: readonly GalleryState[] = ["intact", "damaged", "scraps", "burning", "burnt"];
 /** Washed-paper swatches per district: painted, colourless pencil, erased blank and a mid-transition tide line. */
@@ -90,6 +94,10 @@ export function gallerySections(): GallerySection[] {
     section("wash", "wash", items("wash", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => WASH_STATES)),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
     section("passive", "passives", items("passive", PASSIVE_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),
+    // Every costume on every cat: full body, portrait with makeup and the skill preview.
+    section("costume", "wardrobe", COSTUME_DEFS.all().flatMap((def) => CATS.ids().map((cat) => ({
+      kind: "costume" as const, id: def.id, cat, label: `${def.i18n}.name` as MessageKey, state: "worn" as const,
+    })))),
   ];
 }
 

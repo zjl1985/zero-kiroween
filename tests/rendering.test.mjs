@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { CATS, LANDMARK_DEFS } from "../dist/defs/index.js";
+import { CATS, COSTUME_DEFS, LANDMARK_DEFS } from "../dist/defs/index.js";
 import { cachedSprite, clearSpriteCache } from "../dist/engine/sprite.js";
 import { MOON_LANTERN } from "../dist/game/interactions.js";
 import { FLAT_DECOR, landmarkParts, landmarks } from "../dist/game/world-gen.js";
@@ -75,7 +75,12 @@ test("gallery dispatches idle and skill cards through registered cat art", (t) =
     t.mock.method(art, "skillPreview", (_ctx, pose) => seen.push([art.id, "skill", { ...pose }]));
   }
   assert.ok(paintGallery(canvas(), "en", 760, 1) > 0);
-  assert.deepEqual(seen.map(([id, state]) => [id, state]), CATS.ids().flatMap((id) => [[id, "idle"], [id, "skill"]]));
+  const plain = seen.filter(([, , pose]) => pose.costume === undefined);
+  assert.deepEqual(plain.map(([id, state]) => [id, state]), CATS.ids().flatMap((id) => [[id, "idle"], [id, "skill"]]));
+  // The wardrobe draws every costume on every cat, in wardrobe order.
+  const worn = seen.filter(([, , pose]) => pose.costume !== undefined);
+  assert.deepEqual(worn.map(([id, state, pose]) => [pose.costume, id, state]),
+    COSTUME_DEFS.ids().flatMap((c) => CATS.ids().map((id) => [c, id, "idle"])));
   for (const [, , pose] of seen) assert.equal(pose.dashing, false, "generic gallery never chooses a dash");
 });
 

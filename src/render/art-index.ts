@@ -76,7 +76,21 @@ import { MOON_MEADOW_ART } from "../defs/biomes/moon-meadow.art.js";
 import { LAMPLIGHTER_MOUSE_ART } from "../defs/townsfolk/lamplighter-mouse/art.js";
 import { STARGAZER_OWL_ART } from "../defs/townsfolk/stargazer-owl/art.js";
 import { FERRY_FROG_ART } from "../defs/townsfolk/ferry-frog/art.js";
-import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-registry.js";
+import { TIBO_ART } from "../defs/costumes/tibo/art.js";
+import { POTETO_ART } from "../defs/costumes/poteto/art.js";
+import { MUSK_ART } from "../defs/costumes/musk/art.js";
+import { JENSEN_ART } from "../defs/costumes/jensen/art.js";
+import { KARPATHY_ART } from "../defs/costumes/karpathy/art.js";
+import { LINUS_ART } from "../defs/costumes/linus/art.js";
+import { GUIDO_ART } from "../defs/costumes/guido/art.js";
+import { EICH_ART } from "../defs/costumes/eich/art.js";
+import { JOBS_ART } from "../defs/costumes/jobs/art.js";
+import { GATES_ART } from "../defs/costumes/gates/art.js";
+import { ZUCKERBERG_ART } from "../defs/costumes/zuckerberg/art.js";
+import { HASSABIS_ART } from "../defs/costumes/hassabis/art.js";
+import { LEVELS_ART } from "../defs/costumes/levels/art.js";
+import { DARIO_ART } from "../defs/costumes/dario/art.js";
+import { BIOME_ART, CAT_ART, COSTUME_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-registry.js";
 
 export * from "./art-registry.js";
 
@@ -149,3 +163,21 @@ for (const a of [
   LANDMARK_ART.register(a);
 for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(a);
 for (const a of [LAMPLIGHTER_MOUSE_ART, STARGAZER_OWL_ART, FERRY_FROG_ART]) TOWNSFOLK_ART.register(a);
+// Costumes in wardrobe order (COSTUME_LIST); only the worn one is drawn in a run.
+for (const a of [
+  TIBO_ART,
+  POTETO_ART,
+  MUSK_ART,
+  JENSEN_ART,
+  KARPATHY_ART,
+  LINUS_ART,
+  GUIDO_ART,
+  EICH_ART,
+  JOBS_ART,
+  GATES_ART,
+  ZUCKERBERG_ART,
+  HASSABIS_ART,
+  LEVELS_ART,
+  DARIO_ART,
+])
+  COSTUME_ART.register(a);

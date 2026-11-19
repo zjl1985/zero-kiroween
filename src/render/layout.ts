@@ -21,6 +21,8 @@ export interface CatPose {
   scale?: number;
   /** Paper wear from the run: creases / tears (0..3) and fading heal tape (0..1). */
   wear?: { readonly marks: number; readonly tape: number };
+  /** Costume (def id) the cat wears; omitted on a plain run. */
+  costume?: string;
 }
 const cache = new Map<CatId, readonly MascotRect[]>();
 export function officialCatRects(id: CatId): readonly MascotRect[] {

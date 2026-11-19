@@ -927,3 +927,57 @@ test("washed-paper painters never read pixels or set a live filter", () => {
     assert.doesNotMatch(text, /getImageData|\.filter\s*=|shadowBlur|create(Linear|Radial|Conic)Gradient|Math\.random/, file);
   }
 });
+
+import { COSTUME_DEFS } from "../dist/defs/index.js";
+import { COSTUME_ART, costumeArt, effectPainter } from "../dist/render/art-index.js";
+import { drawCombatGround } from "../dist/render/combat-fx.js";
+
+test("costume zones draw friendly ground marks and standing pieces for the worn costume only, read-only", (t) => {
+  environment(t);
+  const plain = createSim({ cat: "zero", seed: 7 });
+  assert.equal(plain.costume, undefined);
+  assert.equal(costumeArt(plain), undefined, "a plain run has no costume art");
+  for (const id of COSTUME_DEFS.ids()) {
+    const state = createSim({ cat: "nicole", seed: 7, costume: id }), art = costumeArt(state);
+    assert.equal(art, COSTUME_ART.get(COSTUME_DEFS.get(id).art));
+    const { x, y } = state.player;
+    state.elapsed = 10;
+    state.costume.buff = 1;
+    state.costume.zones = [
+      { kind: "lane", x, y, x2: x + 120, y2: y, radius: 20, until: 11, power: 1 },
+      { kind: "circle", x, y, radius: 80, until: 11, power: 1, armed: 10.4 },
+      { kind: "circle", x: x + 40, y, radius: 80, until: 11, power: 1 },
+      { kind: "circle", x: x - 60, y, radius: 10, until: 11, power: 0 },
+      { kind: "burst", x: x + 60, y, radius: 50, until: 11, power: 1, armed: 10.5 },
+      { kind: "pad", x, y: y + 30, radius: 22, until: 11, power: 1, armed: 10 },
+    ];
+    const before = JSON.stringify(state), ctx = canvas().getContext("2d"), sprites = [];
+    drawCombatGround(ctx, state);
+    art.sprites(ctx, state, 3, (sy, draw) => sprites.push({ sy, draw }));
+    for (const s of sprites) s.draw();
+    restored(ctx);
+    assert.ok(ctx.calls.filter((c) => c.op === "stroke").length >= 6, `${id}: zone marks drawn`);
+    assert.ok(sprites.length >= 1, `${id}: go stone stands in the world`);
+    assert.equal(JSON.stringify(state), before, `${id}: rendering does not mutate the run`);
+    // Expired zones draw nothing.
+    state.elapsed = 12;
+    const later = canvas().getContext("2d");
+    art.ground(later, { ...state, costume: { ...state.costume, buff: 0 } });
+    assert.equal(later.calls.filter((c) => c.op === "stroke" || c.op === "drawImage").length, 0, `${id}: expired zones fade out`);
+  }
+});
+
+test("costume impacts have shared paper painters tinted by the worn costume", (t) => {
+  environment(t);
+  for (const kind of ["costume-burst", "costume-push", "costume-pull"]) {
+    const painter = effectPainter(kind);
+    assert.equal(typeof painter, "function", kind);
+    assert.ok(EFFECT_LIFE[kind] > 0);
+    const state = createSim({ cat: "zero", seed: 3, costume: COSTUME_DEFS.ids()[0] }), ctx = canvas().getContext("2d");
+    ctx.save();
+    painter(ctx, { kind, x: 100, y: 100, life: EFFECT_LIFE[kind] / 2, radius: 60 }, { t: 0.5, fade: 0.5, ease: 0.875 }, state);
+    ctx.restore();
+    restored(ctx);
+    assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === costumeArt(state).colors.ink || c.op === "drawImage"), `${kind} paints`);
+  }
+});

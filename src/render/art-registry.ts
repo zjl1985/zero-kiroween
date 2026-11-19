@@ -10,7 +10,7 @@
  */
 import { createRegistry } from "../engine/registry.js";
 import type { MessageKey } from "../content/keys.js";
-import { CATS } from "../defs/registries.js";
+import { CATS, COSTUME_DEFS } from "../defs/registries.js";
 import type { CatId, EnemyKind, LandmarkPlace, PropPhase, UpgradeId, WeaponId } from "../defs/types.js";
 import type { EnemyState, Impact, LandmarkEventState, ShotState, SimState } from "../game/types.js";
 import type { CatPose } from "./layout.js";
@@ -272,6 +272,72 @@ export interface TownsfolkArt {
 }
 export const TOWNSFOLK_ART = createRegistry<TownsfolkArt>("townsfolk art");
 
+/**
+ * Head makeup in the Meow Wall manner, on top of the untouched approved head
+ * (all coordinates in the shared 70 x 55 head box): face-paint patches,
+ * an expression overlay (the eye area is cleared with the cat's own fur
+ * cuts first, or marked on opaque lenses) and accessories. Painted once per
+ * (cat, costume) into its own cached sprite (`paper-face-makeup:<cat>:<costume>`).
+ */
+export type CostumeExpression = "smile" | "wink" | "closed";
+export interface CostumeMakeup {
+  /** Face paint / fur markings clipped to the head outline; `color` is #rrggbb or a palette role. */
+  readonly patches?: readonly { readonly path: string; readonly color: string; readonly alpha?: number }[];
+  readonly expression?: CostumeExpression;
+  /** Accessory painter ids from render/costume-accessories.ts, painted in order. */
+  readonly accessories?: readonly string[];
+}
+/** Where an outfit part hangs on the articulated body (render/cat-detail.ts hooks). */
+export type OutfitLayer = "under" | "back" | "torso" | "hand" | "front";
+/**
+ * One finite cached outfit cut. `box` (l, t, r, b) holds the cut and its
+ * shadows in local units around its anchor; `at` places the anchor in its
+ * layer's frame (x, y, angle). Painters are pure in (costume, part, tailoring).
+ */
+export interface OutfitPart {
+  readonly layer: OutfitLayer;
+  readonly box: readonly [number, number, number, number];
+  readonly at: readonly [number, number, number?];
+  /** The cut depends on the tailoring (coat or tee torso heights); keyed by it. */
+  readonly tailored?: boolean;
+  paint(ctx: Ctx, tailoring: CatBodyPalette["tailoring"]): void;
+}
+type CoatLook = Extract<CatBodyPalette, { tailoring: "split-coat" }>;
+type TeeLook = Extract<CatBodyPalette, { tailoring: "tee-and-jeans" }>;
+export interface CostumeOutfit {
+  /** Garment colours merged onto the cat's own tailoring (clothing only; fur and rim keep the cat's). */
+  readonly coat?: Partial<Omit<CoatLook, "tailoring" | "rim" | "tail" | "paw" | "pawEdge">>;
+  readonly tee?: Partial<Omit<TeeLook, "tailoring" | "rim" | "tail" | "paw" | "pawEdge" | "arm">>;
+  readonly parts: readonly OutfitPart[];
+}
+/** Art of one costume, same id as its CostumeDef art id. */
+export interface CostumeArt {
+  readonly id: string;
+  readonly makeup: CostumeMakeup;
+  readonly outfit: CostumeOutfit;
+  /** Wardrobe tag paper and ink; also the skill marks' colours. */
+  readonly colors: { readonly tag: string; readonly ink: string };
+  /** Impact kinds the costume skills leave (shared painters read the worn costume's colours). */
+  readonly effects?: Readonly<Record<string, EffectPainter>>;
+  /** Friendly ground marks of the worn costume's zones (under actors). */
+  ground?(ctx: Ctx, state: SimState): void;
+  /** Standing zone pieces (turret, stones, pads), y-sorted with actors. */
+  sprites?(ctx: Ctx, state: SimState, time: number, add: AddSprite): void;
+  /** Static skill preview around (0, 0) for the wardrobe gallery. */
+  preview(ctx: Ctx): void;
+  /** Small wardrobe glyph in a 32 x 32 box (flat paper ruleset). */
+  ticket(ctx: Ctx): void;
+}
+export const COSTUME_ART = createRegistry<CostumeArt>("costume art");
+/** Art of the costume worn this run (undefined on a plain run). */
+export function costumeArt(state: SimState | undefined): CostumeArt | undefined {
+  return costumeArtOf(state?.costume?.id);
+}
+/** Art of a costume def id (falls back to an art id of the same name). */
+export function costumeArtOf(id: string | undefined): CostumeArt | undefined {
+  return id === undefined ? undefined : COSTUME_ART.find(COSTUME_DEFS.find(id)?.art ?? id);
+}
+
 const pieceMemo = { size: -1, map: new Map<string, DecorPiece>() };
 /** The landmark decor piece of a decor kind, if a landmark art registers one. */
 export function decorPiece(kind: string): DecorPiece | undefined {
@@ -302,7 +368,7 @@ export function upgradeIcon(id: UpgradeId): ((ctx: Ctx, ink: string) => void) | 
 }
 /** The painter for an impact kind, from whichever weapon or enemy art owns it. */
 export function effectPainter(kind: string): EffectPainter | undefined {
-  for (const a of [...WEAPON_ART.all(), ...ENEMY_ART.all()]) {
+  for (const a of [...WEAPON_ART.all(), ...ENEMY_ART.all(), ...COSTUME_ART.all()]) {
     const p = a.effects?.[kind];
     if (p) return p;
   }

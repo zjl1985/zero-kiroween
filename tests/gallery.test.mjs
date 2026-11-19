@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BIOME_DEFS, CATS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../dist/defs/index.js";
+import { BIOME_DEFS, CATS, COSTUME_DEFS, ENEMY_DEFS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../dist/defs/index.js";
 import { LANDMARK_KINDS } from "../dist/game/world-gen.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
 import { GALLERY_GRID, galleryLayout, gallerySections, PROP_STATES, stateLabel, WASH_STATES } from "../dist/ui/gallery-layout.js";
@@ -11,7 +11,7 @@ import { tornEdge as legacyTornEdge } from "../dist/render/paper-scraps.js";
 
 const idsOf = (layout, kind) => new Set(layout.cells.filter((c) => c.kind === kind).map((c) => c.id));
 
-test("every registered cat, enemy, prop, landmark, townsfolk, biome, weapon and passive gets a gallery cell", () => {
+test("every registered cat, enemy, prop, landmark, townsfolk, biome, weapon, passive and costume gets a gallery cell", () => {
   for (const width of [320, 760, 1240]) {
     const layout = galleryLayout(gallerySections(), width);
     assert.deepEqual([...idsOf(layout, "cat")], CATS.ids());
@@ -23,8 +23,22 @@ test("every registered cat, enemy, prop, landmark, townsfolk, biome, weapon and 
     assert.deepEqual([...idsOf(layout, "passive")], PASSIVE_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "wash")], BIOME_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "townsfolk")], TOWNSFOLK_DEFS.ids());
-    assert.equal(layout.headers.length, 9);
+    assert.deepEqual([...idsOf(layout, "costume")], COSTUME_DEFS.ids());
+    assert.equal(layout.headers.length, 10);
   }
+});
+
+test("the wardrobe shows every costume on every cat (14 x 2 worn cards)", () => {
+  const sections = gallerySections(), wardrobe = sections.find((s) => s.kind === "costume");
+  assert.ok(wardrobe, "a wardrobe section");
+  assert.equal(wardrobe.title, "gallery.section.wardrobe");
+  assert.equal(COSTUME_DEFS.ids().length, 14);
+  assert.equal(wardrobe.items.length, COSTUME_DEFS.ids().length * CATS.ids().length);
+  assert.deepEqual(wardrobe.items.map((i) => [i.id, i.cat, i.state]),
+    COSTUME_DEFS.ids().flatMap((id) => CATS.ids().map((cat) => [id, cat, "worn"])));
+  for (const item of wardrobe.items) assert.equal(item.label, `${COSTUME_DEFS.get(item.id).i18n}.name`);
+  const cells = galleryLayout(sections, 1000).cells.filter((c) => c.kind === "costume");
+  assert.equal(cells.length, 28);
 });
 
 test("every district shows a washed-paper swatch: painted, colourless, blank and a mid tide line", () => {

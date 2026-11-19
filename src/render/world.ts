@@ -1,4 +1,4 @@
-import { activeWeaponArt, catArt, ENEMY_ART } from "./art-index.js";
+import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
 import { drawCraftShot, drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import {
   drawCraftEnemy,
@@ -236,6 +236,7 @@ export function drawWorld(
         hurt: false,
         decoy: true,
         time: view.time,
+        ...(sim.costume ? { costume: sim.costume.id } : {}),
       });
       light(ctx, sim.decoy.x, sim.decoy.y - 18, 35, "#91bacf", 0.12, 1);
     }
@@ -258,6 +259,8 @@ export function drawWorld(
     // Weapon pieces that stand in the world (orbit stars, echo shards).
     for (const w of activeWeaponArt(sim))
       w.sprites?.(ctx, sim, view.time, (y, draw) => sprites.push({ y, draw }));
+    // Standing pieces of the worn costume's skill (paper turret, go stones).
+    if (sim.costume) costumeArt(sim)?.sprites?.(ctx, sim, view.time, (y, draw) => sprites.push({ y, draw }));
     // Googly eyes follow the cat.
     const look = { x: sim.player.x, y: sim.player.y - 20 };
     // Off-screen ink is culled; the Eraser is large, so it gets a wider margin.
@@ -296,6 +299,7 @@ export function drawWorld(
         Math.floor(view.time * 16) % 2 === 0,
       time: view.time,
       wear: catWear(sim.player.hp / Math.max(1, sim.player.maxHp), sim.player.healAt, sim.elapsed),
+      ...(sim.costume ? { costume: sim.costume.id } : {}),
     });
   }
   drawWarningGround(ctx, warnings);

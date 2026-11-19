@@ -406,6 +406,8 @@ export const MESSAGE_KEYS = [
   "costume.dario.line",
   "costume.dario.unlock",
   "notice.costume-dario",
+  "gallery.section.wardrobe",
+  "gallery.state.worn",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

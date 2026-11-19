@@ -6,7 +6,8 @@ import type { CatPose } from "./layout.js";
 import { mix, stroke, type Ctx, type Point } from "./paper-material.js";
 
 import { paperCut } from "./paper-kit.js";
-import { catArt, type CatArt } from "./art-registry.js";
+import { catArt, costumeArtOf, type CatArt, type CostumeArt } from "./art-registry.js";
+import { EYEWEAR_ACCESSORIES, HEAD_ACCESSORIES, paintExpression, paintPlainEyes } from "./costume-accessories.js";
 
 export const PAPER_FACE_SCALE = 0.16;
 export const PAPER_FACE_RIM = 0.625;
@@ -304,5 +305,77 @@ export function drawPaperPortrait(ctx: Ctx, pose: CatPose, scale: number, rim: s
     y = -MASCOT_VIEWBOX_HEIGHT * PAPER_FACE_SCALE - 4;
   paperFaceEdge(pose.id, rim).draw(ctx, { x: x - 2, y: y - 2 });
   paperFace(pose.id).draw(ctx, { x, y });
+  const costume = costumeArtOf(pose.costume);
+  if (costume) paperFaceMakeup(pose.id, costume).draw(ctx, { x: x + MAKEUP_BOX.l, y: y + MAKEUP_BOX.t });
   ctx.restore();
+}
+
+/** The makeup sprite's box in head-box units: hats rise above the ears, collars hang below the chin. */
+export const MAKEUP_BOX = { l: -4, t: -8, r: 74, b: 60 } as const;
+/** Head-box rectangles that cover the printed eyes (frames and lenses) and their bridge. */
+function eyeCover(full: boolean, sunglasses: boolean): Path2D {
+  const p = new Path2D();
+  for (const side of [-1, 1]) {
+    const cx = FACE_CENTER + side * 11.76, cy = 32.65;
+    if (full) {
+      const hy = sunglasses ? 4.1 : 4.6;
+      p.rect(cx - 5.4, cy - hy, 10.7, hy * 2);
+    } else {
+      // Inside the clear frame's window only (paintEyes mirrors it with scale(-side, 1)).
+      const l = side < 0 ? -3.7 : -3.5;
+      p.rect(cx + l, cy - 3.05, 7.2, 6.35);
+    }
+  }
+  if (full) p.rect(27, 31, 15.6, 2.4);
+  return p;
+}
+/** Paints the cat's own fur cuts (stock, identity patches, muzzle, blush) flat inside `area`. */
+function refur(ctx: Ctx, id: CatId, area: Path2D): void {
+  const face = facePaths(id), { palette: p } = officialVariant(id);
+  ctx.save();
+  ctx.clip(face.outline);
+  ctx.clip(area);
+  fill(ctx, face.outline, p.headDark);
+  fill(ctx, face.stock, p.head);
+  for (const layer of face.layers) fill(ctx, layer.path, p[layer.color] ?? p.head);
+  fill(ctx, new Path2D(MUZZLE), p.headLight);
+  fill(ctx, new Path2D(BLUSH), p.blush);
+  ctx.restore();
+}
+const BLUSH = `
+      M 18.8 36.2 Q 21.7 35.2 25.1 36.5 Q 25.8 38.1 23.6 38.9 Q 20.4 39 18.8 36.2 Z
+      M 44.5 36.5 Q 47.8 35.2 50.8 36.2 Q 49.2 39 46 38.9 Q 43.8 38.1 44.5 36.5 Z`;
+
+/**
+ * A costume's head makeup for one cat, as a separate cached layer over the
+ * untouched `paperFace`: face-paint patches clipped to the head, an
+ * expression (opaque lenses get pale marks; clear frames keep their frame
+ * and are cleared inside; replacement eyewear clears the whole eye area with
+ * the cat's own fur cuts), then accessories. Markings outside the eye area
+ * (gold marks, dark hair) are never covered by the clearing.
+ */
+export function paperFaceMakeup(id: CatId, costume: CostumeArt) {
+  const { l, t, r, b } = MAKEUP_BOX;
+  return cachedSprite(`paper-face-makeup:${id}:${costume.id}`, r - l, b - t, FACE_CACHE_SCALE, (ctx) => {
+    ctx.translate(-l, -t);
+    const { palette: p, accessories = [] } = officialVariant(id), m = costume.makeup,
+      sunglasses = accessories.includes("sunglasses"), glasses = accessories.includes("glasses"),
+      worn = m.accessories ?? [],
+      replace = worn.some((a) => EYEWEAR_ACCESSORIES.has(a));
+    if (replace) refur(ctx, id, eyeCover(true, sunglasses));
+    else if (m.expression && !sunglasses) refur(ctx, id, eyeCover(!glasses, false));
+    if (m.patches?.length) {
+      ctx.save();
+      ctx.clip(facePaths(id).outline);
+      for (const patch of m.patches) {
+        const color = (p as unknown as Record<string, string | undefined>)[patch.color] ?? patch.color;
+        ctx.globalAlpha = patch.alpha ?? 1;
+        paperCut(ctx, new Path2D(patch.path), { color, edge: mix(color, p.head, 0.2), thickness: 0.3, shadow: 0, texture: 0.25 });
+      }
+      ctx.restore();
+    }
+    if (m.expression) paintExpression(ctx, m.expression, p.ink, sunglasses && !replace);
+    else if (replace) paintPlainEyes(ctx, p.ink, p.white);
+    for (const a of worn) HEAD_ACCESSORIES[a]?.(ctx, p);
+  });
 }

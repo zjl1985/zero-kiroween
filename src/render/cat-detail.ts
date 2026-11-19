@@ -199,8 +199,22 @@ function paintForearm(ctx: Ctx, look: CatBodyPalette): void {
   ink(ctx, "M 7 1 L 8.5 1.3 M 7 2 L 8.3 2.3", look.pawEdge, 0.4);
 }
 
+/**
+ * Optional costume layers, each called inside the matching body frame:
+ * `under` after the ground shadow, `back` behind the bobbing body, `torso`
+ * right after the torso cut, `hand` in the front forearm's frame (rotated
+ * so `upright` turns it back), `front` over the whole body. Plain cats pass none.
+ */
+export interface CatDetailHooks {
+  under?(): void;
+  back?(): void;
+  torso?(): void;
+  hand?(upright: number): void;
+  front?(): void;
+}
+
 /** Ten body sprites per look at most, shared by world, title and gallery sizes. */
-export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose): void {
+export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose, hooks?: CatDetailHooks): void {
   // All appearance inputs, not just the id: recolouring a registered look cannot hit stale art.
   const key = JSON.stringify(look);
   const part = (name: Part) => {
@@ -233,6 +247,7 @@ export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose)
     ctx.restore();
   };
   cachedSprite("cat-detail:ground", 56, 18, 2, (c) => shadow(c, 28, 6, 21, 4)).draw(ctx, { x: -28, y: -5 });
+  hooks?.under?.();
   stamp("tail", -9, -10 + pose.bob, pose.tail);
   for (const side of [-1, 1]) {
     const lift = Math.max(0, pose.stride * side) * 1.8;
@@ -242,6 +257,7 @@ export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose)
   }
   ctx.save();
   ctx.translate(0, pose.bob);
+  hooks?.back?.();
   const hasCape = look.tailoring === "split-coat";
   if (hasCape) {
     stamp("cape-back", -9, -31, pose.cape);
@@ -251,6 +267,7 @@ export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose)
   stamp("sleeve", -11, -26, 0.25 - pose.arm * 0.7, -1);
   stamp("forearm", -13, hasCape ? -20 : -18, -1.15 + pose.arm * 0.5, -1);
   stamp("torso", 0, 0);
+  hooks?.torso?.();
   ctx.save();
   ctx.translate(11, -27);
   ctx.rotate(pose.arm);
@@ -258,7 +275,9 @@ export function drawCatDetails(ctx: Ctx, look: CatBodyPalette, pose: DetailPose)
   ctx.translate(2, hasCape ? 6 : 8);
   ctx.rotate(1.15 - pose.arm * 0.55);
   stamp("forearm", 0, 0);
+  hooks?.hand?.(-(1.15 + pose.arm * 0.45));
   ctx.restore();
+  hooks?.front?.();
   ctx.restore();
 }
 

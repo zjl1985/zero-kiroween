@@ -340,3 +340,127 @@ test("scissor cuts simplify staircase edges without mutating small face details"
   assert.ok(cut.flat().every(Number.isFinite));
   for (const p of cut) assert.ok(stair.some(q => q[0] === p[0] && q[1] === p[1]), "no invented outward points");
 });
+
+// ---- Costumes: outfits and head makeup over the untouched approved heads ----
+import { CATS, COSTUME_DEFS } from "../dist/defs/index.js";
+import { COSTUME_ART } from "../dist/render/art-index.js";
+import { HEAD_ACCESSORIES } from "../dist/render/costume-accessories.js";
+import { SPRITE_CACHE_LIMIT } from "../dist/engine/sprite.js";
+
+const callSig = (calls) => calls.map((c) => ({ ...c, args: c.args.map(normalized), fillStyle: normalized(c.fillStyle) }));
+const wornPoses = (id, costume) => [
+  pose(id, { costume }), pose(id, { costume, time: 1.7 }),
+  ...[0.05, 0.13, 0.26, 0.39, 0.52].map((time) => pose(id, { costume, time, moving: true })),
+  pose(id, { costume, dashing: true }), pose(id, { costume, hurt: true }), pose(id, { costume, hurt: true, moving: true, time: 0.13 }),
+  pose(id, { costume, facing: -1, moving: true, time: 0.39 }), pose(id, { costume, wear: catWear(0.1, 9, 10), moving: true, time: 0.13 }),
+];
+
+test("every costume has registered art with makeup, outfit, skill painters, preview and ticket", () => {
+  assert.deepEqual(COSTUME_ART.ids(), COSTUME_DEFS.all().map((d) => d.art), "costume art follows wardrobe order");
+  assert.equal(COSTUME_ART.ids().length, 14);
+  for (const art of COSTUME_ART.all()) {
+    assert.ok(art.makeup.patches?.length || art.makeup.expression || art.makeup.accessories?.length, `${art.id}: head makeup`);
+    for (const a of art.makeup.accessories ?? []) assert.ok(HEAD_ACCESSORIES[a], `${art.id}: accessory ${a} has a painter`);
+    assert.ok(art.outfit.parts.length >= 1 || art.outfit.coat || art.outfit.tee, `${art.id}: outfit`);
+    for (const kind of ["costume-burst", "costume-push", "costume-pull"]) assert.equal(typeof art.effects?.[kind], "function");
+    assert.equal(typeof art.ground, "function");
+    assert.equal(typeof art.sprites, "function");
+    assert.equal(typeof art.preview, "function");
+    assert.equal(typeof art.ticket, "function");
+    assert.match(art.colors.tag, /^#[0-9a-f]{6}$/);
+    assert.match(art.colors.ink, /^#[0-9a-f]{6}$/);
+  }
+  // Meow Wall's accessory list is redrawn as paper, besides the costume pieces.
+  for (const a of ["headphones", "cap", "scarf", "round-glasses", "bowtie", "crown", "flower", "headband", "leaf", "party-hat", "wizard-hat", "mustache", "eyepatch", "ribbon"])
+    assert.equal(typeof HEAD_ACCESSORIES[a], "function", a);
+});
+
+test("no costume: the same draw calls and the same paper-face keys; a costume only adds a makeup layer on top", (t) => {
+  environment(t);
+  for (const art of CAT_ART.all()) {
+    const plain = draw(art), plainSig = signature(plain), faceCalls = JSON.stringify(callSig(paint(images(plain).at(-1))));
+    clearSpriteCache();
+    const again = draw(art, pose(art.id, { costume: undefined }));
+    assert.deepEqual(signature(again).map((c) => c.op), plainSig.map((c) => c.op), "an absent costume draws exactly like before");
+    for (const costume of COSTUME_DEFS.ids()) {
+      const worn = draw(art, pose(art.id, { costume })), [edge, head, makeup] = images(worn).slice(-3);
+      assert.deepEqual(head.args.slice(1), [-35, -71, 70, 55], "head box unchanged");
+      assert.deepEqual(edge.args.slice(1), [-37, -73, 74, 59], "head edge unchanged");
+      assert.equal(head.args[0], images(again).at(-1).args[0], `${costume}: the approved face sprite is reused unchanged`);
+      assert.equal(edge.args[0], images(again).at(-2).args[0], `${costume}: the approved edge sprite is reused unchanged`);
+      assert.deepEqual(makeup.args.slice(1), [-39, -79, 78, 68], "makeup layer box over the head");
+      assert.equal(worn.calls.at(-1), makeup, "makeup is drawn last, on top of the head");
+    }
+    // The face sprite painted after every costume still paints the same commands as before.
+    clearSpriteCache();
+    for (const costume of COSTUME_DEFS.ids()) draw(art, pose(art.id, { costume }));
+    const after = draw(art);
+    assert.equal(JSON.stringify(callSig(paint(images(after).at(-1)))), faceCalls);
+  }
+});
+
+test("makeup is one cached sprite per (cat, costume), keeps identity markings and never touches official data", (t) => {
+  environment(t);
+  const seen = new Set();
+  for (const art of CAT_ART.all()) {
+    const before = structuredClone(officialRects(art.id)), palette = officialVariant(art.id).palette;
+    for (const costume of COSTUME_DEFS.ids()) {
+      const makeup = images(draw(art, pose(art.id, { costume }))).at(-1).args[0];
+      assert.ok(!seen.has(makeup), `${art.id}/${costume}: a separate makeup sprite`);
+      seen.add(makeup);
+      assert.equal(images(draw(art, pose(art.id, { costume, time: 9, moving: true }))).at(-1).args[0], makeup, "makeup does not depend on time or pose");
+      const calls = paint({ args: [makeup] });
+      assert.ok(!calls.some((c) => c.op === "fill" && c.shadowBlur > 0), "makeup cuts follow the flat ruleset");
+      // Clearing the eye area repaints the cat's own fur and identity cuts rather than erasing them.
+      const cleared = calls.filter((c) => c.op === "fill" && c.fillStyle === palette.head);
+      if (cleared.length) for (const patch of art.face.patches)
+        assert.ok(calls.some((c) => c.op === "fill" && c.fillStyle === (palette[patch.color] ?? palette.head)), `${art.id}/${costume}: ${patch.color} kept`);
+    }
+    assert.deepEqual(officialRects(art.id), before, "official rectangles untouched");
+  }
+  assert.equal(seen.size, COSTUME_DEFS.ids().length * CATS.ids().length);
+});
+
+test("every costume part of both cats stays inside CAT_BOX in representative poses", (t) => {
+  environment(t);
+  let reach = { l: 0, r: 0, t: 0, b: 0 };
+  for (const art of CAT_ART.all()) for (const costume of COSTUME_DEFS.ids()) for (const p of wornPoses(art.id, costume)) {
+    const ctx = canvas().getContext("2d");
+    art.draw(ctx, p);
+    assert.equal(ctx.depth, 0);
+    for (const command of images(ctx)) for (const point of rectanglePoints(command)) {
+      reach = { l: Math.min(reach.l, point.x), r: Math.max(reach.r, point.x), t: Math.min(reach.t, point.y), b: Math.max(reach.b, point.y) };
+      assert.ok(point.x >= CAT_BOX.l && point.x <= CAT_BOX.r, `${art.id}/${costume}: x ${point.x} inside CAT_BOX`);
+      assert.ok(point.y >= CAT_BOX.t && point.y <= CAT_BOX.b, `${art.id}/${costume}: y ${point.y} inside CAT_BOX`);
+    }
+  }
+  t.diagnostic(`costume part reach ${JSON.stringify(reach)} inside ${JSON.stringify(CAT_BOX)}`);
+});
+
+test("costume parts are finite cached cuts: bounded per night and across the whole wardrobe", (t) => {
+  environment(t);
+  let most = 0;
+  for (const costume of COSTUME_DEFS.ids()) {
+    // One night wears one costume on one cat; count both cats to be safe.
+    clearSpriteCache();
+    for (const art of CAT_ART.all()) for (const p of wornPoses(art.id, costume)) draw(art, p);
+    const size = spriteCacheSize();
+    most = Math.max(most, size);
+    for (const art of CAT_ART.all()) for (const time of [0.125, 10, 10000]) draw(art, pose(art.id, { costume, time, moving: true, x: 77, y: -9, scale: 0.3 }));
+    assert.equal(spriteCacheSize(), size, `${costume}: no time, position or scale keys`);
+    assert.ok(size <= 44, `${costume}: ${size} sprites for both cats`);
+  }
+  t.diagnostic(`most sprites for one costume on both cats: ${most}`);
+  clearSpriteCache();
+  for (const art of CAT_ART.all()) for (const costume of COSTUME_DEFS.ids()) draw(art, pose(art.id, { costume }));
+  assert.ok(spriteCacheSize() <= SPRITE_CACHE_LIMIT, "the shared cache stays within its limit");
+  t.diagnostic(`whole wardrobe on both cats (one pose): ${spriteCacheSize()} sprites`);
+});
+
+test("costume rendering code names no cat or costume ids and reads no clock or randomness", () => {
+  for (const file of ["costume-outfit.ts", "costume-accessories.ts", "costume-fx.ts", "craft-cat.ts", "paper-face.ts"]) {
+    const text = readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8");
+    for (const id of [...CATS.ids(), ...COSTUME_DEFS.ids()]) assert.ok(!text.includes(`"${id}"`), `${file} names "${id}"`);
+    assert.doesNotMatch(text, /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b|url\(|data:image/);
+  }
+});

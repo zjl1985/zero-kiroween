@@ -13,7 +13,8 @@ import { ELITE } from "../game/enemies.js";
 import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryCheck, type GalleryKind } from "../ui/gallery-layout.js";
 import { clearSpriteCache } from "../engine/sprite.js";
 import { glossy, probeGloss } from "./paper-rules.js";
-import { BIOME_ART, CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-index.js";
+import { BIOME_ART, CAT_ART, costumeArtOf, ENEMY_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-index.js";
+import { CAT_BOX } from "./cat-detail.js";
 import { drawTownsfolk, drawTownsfolkTag } from "./craft-townsfolk.js";
 import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
@@ -165,6 +166,32 @@ const PAINTERS: Record<GalleryKind, Painter> = {
   },
   passive(ctx, cell, st) {
     icon(ctx, st, PASSIVE_ART.find(cell.id)?.icon);
+  },
+  costume(ctx, cell, st) {
+    const cat = cell.cat === undefined ? undefined : CAT_ART.find(cell.cat), art = costumeArtOf(cell.id);
+    if (!cat || !art) return;
+    const pose = { id: cat.id, x: 0, y: 0, facing: 1 as const, moving: false, dashing: false, hurt: false, time: 0, costume: cell.id };
+    // Full body on the left, fitted to the whole cat box (outfit and makeup included).
+    const k = Math.min(1.5, (st.h - 6) / (CAT_BOX.b - CAT_BOX.t));
+    ctx.save();
+    ctx.translate(st.x + st.w * 0.3, st.y + st.h - 3 - CAT_BOX.b * k);
+    ctx.scale(k, k);
+    cat.draw(ctx, pose);
+    ctx.restore();
+    // Head portrait with the makeup layer, top right.
+    cat.portrait(ctx, { ...pose, x: st.x + st.w * 0.77, y: st.y + 8 + 52 * 0.85 }, 0.16 * 0.85);
+    // The costume skill's ground marks, bottom right.
+    ctx.save();
+    ctx.translate(st.x + st.w * 0.77, st.y + st.h * 0.76);
+    ctx.scale(0.36, 0.36);
+    art.preview(ctx);
+    ctx.restore();
+    // The wardrobe tag glyph, top left.
+    ctx.save();
+    ctx.translate(st.x + 2, st.y + 2);
+    ctx.scale(0.8, 0.8);
+    art.ticket(ctx);
+    ctx.restore();
   },
 };
 /**

@@ -164,3 +164,25 @@ test("the gloss probe flags gradients, blurred shadows and additive light, then 
   assert.throws(() => probeGloss([FakeContext.prototype], () => { throw new Error("paint failed"); }), /paint failed/);
   assert.deepEqual(Object.getOwnPropertyDescriptors(FakeContext.prototype), before, "prototype restored");
 });
+
+import { CATS } from "../dist/defs/index.js";
+import { COSTUME_ART } from "../dist/render/art-index.js";
+import { outfitSprite } from "../dist/render/costume-outfit.js";
+import { paperFaceMakeup } from "../dist/render/paper-face.js";
+
+test("costume wardrobe tags, outfit cuts and head makeup are flat paper: no gradients, shadowBlur or gloss", (t) => {
+  const rec = drawingEnvironment(t);
+  assert.equal(COSTUME_ART.ids().length, 14);
+  for (const art of COSTUME_ART.all()) {
+    let from = rec.log.length;
+    art.ticket(rec.canvas().getContext("2d"));
+    const mine = rec.log.slice(from);
+    assert.deepEqual(glossIn(mine).map((e) => e.op), [], `${art.id} ticket stays flat paper`);
+    assert.ok(mine.some((e) => e.op === "translate" && e.args[0] > 0 && Math.abs(e.args[1] / e.args[0] - PAPER_SHADOW.dy / PAPER_SHADOW.dx) < 1e-9),
+      `${art.id} ticket casts its shadow down-right`);
+    from = rec.log.length;
+    for (const tailoring of ["split-coat", "tee-and-jeans"]) art.outfit.parts.forEach((_, i) => outfitSprite(art, i, tailoring));
+    for (const cat of CATS.ids()) paperFaceMakeup(cat, art);
+    assert.deepEqual(glossIn(rec.log.slice(from)).map((e) => e.op), [], `${art.id} outfit and makeup stay flat paper`);
+  }
+});

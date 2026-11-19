@@ -9,6 +9,7 @@ import type { CatId } from "../cats/types.js";
 import {
   activeWeaponArt,
   catArt,
+  costumeArt,
   effectPainter,
   shotArt,
   type SkillIconKind,
@@ -65,10 +66,11 @@ export function star(
   }).draw(ctx, { x: 0, y: 0, scale: r / 8 });
   ctx.restore();
 }
-/** Flat marks under the cat: its own ground art, then each active weapon's. */
+/** Flat marks under the cat: its own ground art, each active weapon's, then the worn costume's zones. */
 export function drawCombatGround(ctx: Ctx, state: SimState): void {
   catArt(state.player.id).ground?.(ctx, state);
   for (const w of activeWeaponArt(state)) w.ground?.(ctx, state);
+  if (state.costume) costumeArt(state)?.ground?.(ctx, state);
 }
 export function drawOrbitStar(
   ctx: Ctx,
