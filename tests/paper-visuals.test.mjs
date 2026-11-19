@@ -517,7 +517,7 @@ import { createSim, spillWater, paintColour } from "../dist/game/sim.js";
 import { WASH } from "../dist/defs/wash.js";
 import { sketchTile } from "../dist/render/craft-world.js";
 import { cellCode, clearWashRender, drawFoldGuards, drawWashGround, washFrame, washMaskRevision, washStep } from "../dist/render/wash-art.js";
-import { drawSketched, rasterScale, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
+import { drawSketched, drawSketchedParts, rasterScale, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
 import { cachedSprite } from "../dist/engine/sprite.js";
 import { WASH_LOOK, ZOOM, washBloom } from "../dist/render/timeline.js";
 
@@ -647,6 +647,59 @@ test("pieces and actors on colourless paper use finite pencil variants; painted 
   assert.notEqual(direct, ctx, "a colourless actor is composed on a scratch canvas");
   assert.ok(images(ctx).length >= 6, "outline, cut, pencil body and hatching");
   restored(ctx);
+});
+
+test("pencil enemies stamp cached per-part pencil variants: one drawImage per part, finite cache", (t) => {
+  environment(t);
+  const look = { x: 140, y: 60 };
+  const enemy = (kind, id, extra = {}) => ({ id, kind, x: 120, y: 120, hp: 1e6, alive: true, orbitCooldown: 0, slowTime: 0, spawnTime: 0, ...extra });
+  const draw = (amount, e, time) => {
+    const ctx = canvas().getContext("2d");
+    drawSketchedParts(ctx, amount, (c) => drawCraftEnemy(c, e, time, look));
+    restored(ctx);
+    return images(ctx);
+  };
+  for (const art of ENEMY_ART.all()) for (const extra of [{}, { elite: true }]) {
+    const e = enemy(art.id, 7, extra), painted = draw(0, e, 1.3), pencil = draw(1, e, 1.3);
+    assert.ok(painted.length > 0, `${art.id} draws cached parts`);
+    assert.ok(pencil.length <= painted.length + 1, `${art.id}: ${pencil.length} pencil stamps for ${painted.length} parts`);
+    const painted2d = new Set(painted.map((c) => c.args[0]));
+    assert.ok(pencil.some((c) => !painted2d.has(c.args[0])), `${art.id}: pencil parts are their own cached variants`);
+    for (const c of pencil) {
+      const inner = c.args[0].getContext("2d").calls;
+      assert.ok(!inner.some((op) => op.op === "getImageData" || op.op === "filter"), "no pixel reads or filters");
+    }
+  }
+  // Varying time, ids and steps adds no new entries once every part and step is cached.
+  const sweep = () => {
+    for (const art of ENEMY_ART.all()) for (let i = 0; i < 12; i++) for (const amount of [0.5, 1])
+      draw(amount, enemy(art.id, i, i % 4 === 0 ? { elite: true } : {}), i * 0.37);
+  };
+  sweep();
+  const size = spriteCacheSize();
+  sweep();
+  assert.equal(spriteCacheSize(), size, "pencil part variants are finite (part key x step)");
+  assert.ok(size < 256, `cache stays under the LRU limit (${size})`);
+});
+
+test("pencil chunk layers bake one tile at a time, inside the shared 14-tile budget", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  const sim = washedSim(), frame = washFrame(sim);
+  // Every visible chunk asks for a pencil layer, as in a paper-rain moment.
+  const cam = { x: WASH_AT.x, y: WASH_AT.y }, all = new Set();
+  for (let cy = -2; cy <= 6; cy++) for (let cx = -2; cx <= 8; cx++) all.add(`${cx},${cy}`);
+  for (const key of frame.chunks) all.add(key);
+  let before = cachedChunkCount();
+  for (let i = 0; i < 4000; i++) {
+    drawChunks(canvas().getContext("2d"), sim.seed, cam, false, all);
+    const now = cachedChunkCount();
+    assert.ok(now - before <= 1, "at most one tile finishes per frame");
+    assert.ok(now <= 14, `ready tiles stay within the budget (${now})`);
+    before = now;
+  }
 });
 
 /** A recording context that reports a live transform scale of `k` (as a cue-zoomed 2x back canvas would). */

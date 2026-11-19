@@ -91,7 +91,8 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
   wash-art.ts         wash-out masks per chunk, tide lines, wet film, blank, cut-hole blots, blooms,
                       splash / pigment / rain effects (no work when the grid is empty)
   pencil.ts           pencil primitives (raw paper, gapped lines, construction lines, hatching)
-  sprite-sketch.ts    cached sketched sprite variants and pooled scratch canvases for live actors
+  sprite-sketch.ts    cached sketched sprite variants, cached per-part pencil variants for enemies
+                      (drawSketchedParts), pooled scratch canvases for other live pieces
   prop-kit.ts         phasedPaint (intact / damaged / scraps from one painter), post
   variants.ts         variant(seed, base): seeded colour, scale, tilt, wear, mirror (render hash only)
   sprite-tint.ts      cached offscreen alpha-masked tints for burning props and folding decor

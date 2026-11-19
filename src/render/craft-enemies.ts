@@ -18,6 +18,7 @@ import {
 import { cachedSprite } from "../engine/sprite.js";
 import { flatLayer, flatShadow } from "./paper-kit.js";
 import { addLitRim } from "./paper-value.js";
+import { liveSketchStep, sketchedPart } from "./sprite-sketch.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
 import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
@@ -35,13 +36,16 @@ export interface Look {
  * reads against the ground; ground marks, eyes and rosettes pass `rim = false`.
  */
 export function enemyPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void, rim = true) {
-  return cachedSprite(`enemy-part:${key}`, w, h, 2, (ctx, canvas) => {
+  const part = cachedSprite(`enemy-part:${key}`, w, h, 2, (ctx, canvas) => {
     ctx.save();
     ctx.translate(w / 2, h / 2);
     paint(ctx);
     ctx.restore();
     if (rim) addLitRim(canvas, 2);
   }, { x: 0.5, y: 0.5 });
+  // On colourless paper (drawSketchedParts) the same part stamps its cached pencil variant.
+  const step = liveSketchStep();
+  return step > 0 ? sketchedPart(part, step) : part;
 }
 export function enemyShadow(ctx: Ctx, x: number, y: number, rx: number, ry: number): void {
   ctx.save();

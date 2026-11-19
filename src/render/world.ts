@@ -42,7 +42,7 @@ import { drawChunks, drawNavArrows, paperOccludesActor, worldSprites, type Visib
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
-import { beginSketchFrame, drawSketched, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
+import { beginSketchFrame, drawSketchedParts, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
@@ -270,9 +270,8 @@ export function drawWorld(
         sprites.push({
           y: e.y,
           draw: () => {
-            const r = enemyRadius(e), reach = r * 3 + 24;
-            drawSketched(ctx, pick && !pick.has(e.id) ? 0 : sketchOf(e), e.x, e.y,
-              { l: -reach, r: reach, t: -(r * 4.6 + 40), b: r + 16 }, (ctx) => drawCraftEnemy(ctx, e, view.time, look));
+            // Pencil enemies stamp cached pencil variants of their parts (one drawImage per part).
+            drawSketchedParts(ctx, pick && !pick.has(e.id) ? 0 : sketchOf(e), (ctx) => drawCraftEnemy(ctx, e, view.time, look));
             drawHitFlash(ctx, e);
             if (e.spawnTime <= 0) drawActorPaperStatus(ctx, e, view.time, enemyRadius(e));
             drawStun(ctx, e, view.time);

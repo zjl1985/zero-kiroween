@@ -186,6 +186,50 @@ let actorsThisFrame = 0;
 export function beginSketchFrame(): void {
   actorsThisFrame = 0;
 }
+/** The live pencil step while drawSketchedParts runs (0 otherwise); cached actor parts read it. */
+let liveStep = 0;
+export function liveSketchStep(): number {
+  return liveStep;
+}
+/**
+ * The cached pencil variant of a live actor part (an enemy cut): same size and
+ * anchor, keyed only by the part's own key and the quantised step, so it is as
+ * finite as the parts. Live parts keep the deeper graphite (LIVE_TONE) so eyes
+ * and folds stay readable against cream paper.
+ */
+export function sketchedPart(sprite: CanvasSprite, amount: number): CanvasSprite {
+  const q = sketchStep(amount);
+  if (q === 0 || !sprite.canvas) return sprite;
+  const src = sprite.canvas;
+  return cachedSprite(
+    `sketch-live:${sprite.id}:${q}`,
+    sprite.width,
+    sprite.height,
+    sprite.scale,
+    (ctx) => composeSketch(ctx, src, sprite.width, sprite.height, sprite.scale, q, idSalt(sprite.id), LIVE_TONE),
+    sprite.anchor,
+  );
+}
+/**
+ * Draws a live actor whose art is built from cached parts (enemies) straight
+ * onto the page: while `paint` runs, each part it stamps is swapped for its
+ * cached pencil variant, so a pencil enemy costs one drawImage per part, the
+ * same as a painted one. Painted actors (amount 0) draw exactly as before.
+ */
+export function drawSketchedParts(ctx: Ctx, amount: number, paint: (c: Ctx) => void): void {
+  const q = sketchStep(amount);
+  if (q === 0) {
+    paint(ctx);
+    return;
+  }
+  const was = liveStep;
+  liveStep = q;
+  try {
+    paint(ctx);
+  } finally {
+    liveStep = was;
+  }
+}
 /** Box around an actor's base point (units): left, right, top, bottom. */
 export interface SketchBox {
   readonly l: number;
