@@ -92,6 +92,8 @@ export interface EnemyState extends PaperStatus {
   hitFlash?: number;
   /** Seconds frozen by the moon-lantern pulse. */
   stun?: number;
+  /** Speed factor a costume zone puts on this enemy for the next move only (then cleared). */
+  costumeSlow?: number;
   /** Elite variant: bigger, tougher, drops a chest. */
   elite?: boolean;
 }

@@ -201,11 +201,12 @@ export type CostumeId = string;
  * When a costume unlocks: pure data checked against one finished night.
  * `stat` is a run stat of that night (booleans count as 0 / 1), the level
  * reached that night, or a lifetime count of nights played / nights won
- * (`nights`, `wins`, including the night just finished). Unlocks once
- * the value is at least `at`.
+ * (`nights`, `wins`, including the night just finished). `dawn` is 1 when
+ * the night lasted until dawn, won or not (the Eraser may have escaped).
+ * Unlocks once the value is at least `at`.
  */
 export interface CostumeUnlock {
-  readonly stat: keyof RunStats | "nights" | "wins" | "level";
+  readonly stat: keyof RunStats | "nights" | "wins" | "level" | "dawn";
   readonly at: number;
 }
 

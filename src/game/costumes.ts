@@ -30,6 +30,7 @@ function unlockValue(unlock: CostumeUnlock, night: FinishedNight, progress: Cost
   if (unlock.stat === "nights") return progress.nights;
   if (unlock.stat === "wins") return progress.wins;
   if (unlock.stat === "level") return night.level;
+  if (unlock.stat === "dawn") return night.endReason === "dawn" || night.endReason === "boss-escaped" ? 1 : 0;
   return Number(night.stats[unlock.stat]) || 0;
 }
 

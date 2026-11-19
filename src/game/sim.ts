@@ -1285,6 +1285,9 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i]!;
     if (!e.alive || e.spawnTime > 0) continue;
+    // A costume zone's slow lasts one move; read and clear it before any skip.
+    const zoneSlow = e.costumeSlow;
+    if (zoneSlow !== undefined) delete e.costumeSlow;
     // Stun covers the moon-lantern freeze and ink pinned under a Page Fold
     // (PAGE_FOLD pin): stunned ink neither moves, bites nor knocks the cat back.
     // This skip runs before the contact check; tests/paper-verbs.test.mjs guards it.
@@ -1330,6 +1333,10 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
       if (b.steer && b.steer(state, e, move, ref.params, rng, ctx) === "halt") return;
     }
     let { dx, dy } = move;
+    if (zoneSlow !== undefined) {
+      dx *= zoneSlow;
+      dy *= zoneSlow;
+    }
     // Apply after steering: custom charge velocities must obey shallow water too.
     if (waterAt(state.seed, e.x, e.y, bridgeDecks(state.fold.bridges)) === "shallow") {
       dx *= WATER.shallowSlow;
