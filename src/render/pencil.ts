@@ -58,7 +58,7 @@ export function rawPaper(ctx: Ctx, x0: number, y0: number, w: number, h: number)
       }
   ctx.lineCap = "round";
   ctx.lineWidth = 0.55;
-  ctx.globalAlpha = 0.34;
+  ctx.globalAlpha = 0.24;
   ctx.strokeStyle = PENCIL.fibre;
   ctx.stroke(dark);
   ctx.globalAlpha = 0.7;
@@ -128,11 +128,12 @@ export function pencilLine(ctx: Ctx, points: readonly Point[], seed: number, o: 
   ctx.globalAlpha *= alpha;
   ctx.lineWidth = weight;
   ctx.stroke(polyline(wobble(pts, 0.55, seed), closed));
-  // The second, lighter pass drifts a little and skips different stretches.
+  // The second, much lighter pass stays close to the first and skips different
+  // stretches, so the line reads hand-drawn without doubling into noise.
   if (o.gaps !== false) ctx.lineDashOffset += 37;
-  ctx.globalAlpha *= 0.55;
-  ctx.lineWidth = weight * 0.6;
-  ctx.stroke(polyline(wobble(pts, 1.1, seed + 17), closed));
+  ctx.globalAlpha *= 0.32;
+  ctx.lineWidth = weight * 0.55;
+  ctx.stroke(polyline(wobble(pts, 0.75, seed + 17), closed));
   ctx.restore();
 }
 /** A faint straight construction line, drawn past both ends. */

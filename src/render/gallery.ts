@@ -147,8 +147,7 @@ const PAINTERS: Record<GalleryKind, Painter> = {
       stroke(ctx, stain, PENCIL.blank, 2.4, 0.9);
       return;
     }
-    stroke(ctx, stain, look.tide, 4.2, WASH_LOOK.tideAlpha);
-    stroke(ctx, stain, look.tide, 1.1, 0.5);
+    stroke(ctx, stain, look.tide, WASH_LOOK.tideWidth, WASH_LOOK.tideAlpha);
     ctx.save();
     ctx.clip(stain);
     biomeSwatch(ctx, cell, st, true);

@@ -569,7 +569,7 @@ test("a washed chunk draws painted ground, its pencil layer through the mask and
   const draws = images(ctx);
   const sketchDraw = draws.findIndex((c) => c.args[0] === tile);
   assert.ok(sketchDraw >= 0, "pencil layer drawn through the mask");
-  const tide = ctx.calls.findIndex((c) => c.op === "stroke" && c.lineWidth === 4.2 && Math.abs(c.globalAlpha - WASH_LOOK.tideAlpha) < 1e-9);
+  const tide = ctx.calls.findIndex((c) => c.op === "stroke" && c.lineWidth === WASH_LOOK.tideWidth && Math.abs(c.globalAlpha - WASH_LOOK.tideAlpha) < 1e-9);
   assert.ok(tide >= 0, "a darker tide line dries along the wash edge");
   assert.ok(ctx.calls.indexOf(draws[sketchDraw]) > tide, "the tide ring lies under the pencil layer, so only its outer half shows");
   assert.ok(ctx.calls.some((c) => c.op === "clip"), "the pencil layer is clipped to the wash blots");

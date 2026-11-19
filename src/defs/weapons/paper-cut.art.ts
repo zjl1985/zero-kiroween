@@ -19,6 +19,8 @@ const SLIT = {
   width: 2.3,
   /** The open line's newest part is wider and brighter than its healing tail. */
   tail: 0.35,
+  /** Continuous bands the slit is drawn in, tail to head. */
+  bands: 4,
 } as const;
 /** The cut piece: the sheet's warm face, and its paler back once it turns over. */
 const PIECE = { face: "#cdb68a", back: "#f0e4c8", rise: 26, drift: 9, turn: 0.42 } as const;
@@ -53,9 +55,14 @@ function drawSlit(ctx: Ctx, state: SimState): void {
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  for (let i = 1; i < n; i++) {
-    const k = SLIT.tail + (1 - SLIT.tail) * (i / (n - 1)),
-      run: Point[] = [pts[i - 1]!, pts[i]!],
+  // A few continuous bands from the healing tail to the fresh head: one stroke
+  // per band and layer, so round caps never bead where short runs overlap.
+  const bands = Math.min(SLIT.bands, n - 1);
+  for (let b = 0; b < bands; b++) {
+    const i0 = Math.floor((b * (n - 1)) / bands),
+      i1 = Math.floor(((b + 1) * (n - 1)) / bands),
+      run = pts.slice(i0, i1 + 1),
+      k = SLIT.tail + (1 - SLIT.tail) * ((b + 1) / bands),
       w = SLIT.width * k;
     ctx.globalAlpha = 0.85 * k + 0.1;
     ctx.strokeStyle = SLIT.gap;
@@ -71,6 +78,9 @@ function drawSlit(ctx: Ctx, state: SimState): void {
     ctx.strokeStyle = SLIT.lip;
     ctx.lineWidth = 1.1;
     ctx.stroke(polyline(shift(run, dirX * w * 0.7, dirY * w * 0.7)));
+  }
+  for (let i = 1; i < n; i++) {
+    const k = SLIT.tail + (1 - SLIT.tail) * (i / (n - 1));
     // A torn fibre or two where the blade dragged.
     // Keyed by the sample itself, so fibres stay put while the tail heals.
     const q = src[Math.min(i, src.length - 1)]!,

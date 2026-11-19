@@ -367,10 +367,8 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
     clip.rect(x, y, W, H);
     ctx.save();
     ctx.clip(clip);
-    if (m.edge) {
-      stroke(ctx, m.edge, m.tide, 4.2, WASH_LOOK.tideAlpha);
-      stroke(ctx, m.edge, mix(m.tide, COLORS.tideInk, 0.24), 1.1, 0.32);
-    }
+    // One clean dried tide line; the pencil layer below covers its inner half.
+    if (m.edge) stroke(ctx, m.edge, m.tide, WASH_LOOK.tideWidth, WASH_LOOK.tideAlpha);
     const tile = sketchTile(frame.seed, cx, cy);
     m.levels.forEach((p, i) => {
       if (!p) return;
