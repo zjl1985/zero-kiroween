@@ -40,7 +40,7 @@ import {
 } from "./craft-scene.js";
 import { drawChunks, drawNavArrows, paperOccludesActor, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
-import { drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
+import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketched, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
 import { createCamera, inView, viewRect, type Camera } from "./camera.js";
@@ -60,7 +60,7 @@ import {
 import { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
-import { catWear } from "./cat-detail.js";
+import { CAT_BOX, catWear } from "./cat-detail.js";
 import { drawWithLitRim } from "./paper-value.js";
 import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
@@ -75,8 +75,6 @@ export interface ViewState {
   /** Presentation cues (timeline.ts) from main.ts. */
   cues?: readonly Cue[];
 }
-/** Box around the cat's base point that holds its body, head and tail with swing and bob margin. */
-const CAT_BOX = { l: -54, r: 54, t: -106, b: 22 } as const;
 const YARD_PROP_BOUNDS = { l: -36, r: 36, t: -34, b: 8 } as const;
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
@@ -123,6 +121,7 @@ export function drawWorld(
   beginSketchFrame();
   drawChunks(ctx, seed, cam, sim !== null, wash?.chunks);
   drawWashGround(ctx, cam, wash);
+  if (sim) drawFoldGuards(ctx, sim, cam);
   if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
   drawWind(ctx, view.time);
   if (sim) {

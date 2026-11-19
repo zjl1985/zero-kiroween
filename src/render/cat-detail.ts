@@ -8,6 +8,12 @@ import { box, line, mix, oval, path, shadow, stitch, stroke, type Ctx } from "./
 
 /** Body envelope at scale .16, including the articulated parts and cast shadows. */
 export const CAT_DETAIL_BOUNDS = { l: -42, r: 42, t: -43, b: 14 } as const;
+/**
+ * World-unit box around the cat's base point that holds every cached part
+ * (body, head, edge and ground shadow) with swing and bob margin. The lit-rim
+ * composition rasterises this box at the live scale, so cue zoom never clips it.
+ */
+export const CAT_BOX = { l: -54, r: 54, t: -106, b: 22 } as const;
 
 /** Smooth hinges use pose time; only the cape's two cut patterns enter the cache key. */
 export function catDetailPose(pose: CatPose) {

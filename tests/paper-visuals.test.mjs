@@ -516,10 +516,10 @@ test("neighbouring painted and pencil tiles use the same irregular lawn boundary
 import { createSim, spillWater, paintColour } from "../dist/game/sim.js";
 import { WASH } from "../dist/defs/wash.js";
 import { sketchTile } from "../dist/render/craft-world.js";
-import { cellCode, clearWashRender, drawWashGround, washFrame, washMaskRevision, washStep } from "../dist/render/wash-art.js";
-import { drawSketched, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
+import { cellCode, clearWashRender, drawFoldGuards, drawWashGround, washFrame, washMaskRevision, washStep } from "../dist/render/wash-art.js";
+import { drawSketched, rasterScale, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
 import { cachedSprite } from "../dist/engine/sprite.js";
-import { WASH_LOOK, washBloom } from "../dist/render/timeline.js";
+import { WASH_LOOK, ZOOM, washBloom } from "../dist/render/timeline.js";
 
 const WASH_AT = { x: 2180, y: 2150 };
 function washedSim() {
@@ -646,6 +646,79 @@ test("pieces and actors on colourless paper use finite pencil variants; painted 
   drawSketched(ctx, 1, 10, 20, { l: -20, r: 20, t: -40, b: 8 }, (c) => { direct = c; c.fillRect(0, 0, 4, 4); });
   assert.notEqual(direct, ctx, "a colourless actor is composed on a scratch canvas");
   assert.ok(images(ctx).length >= 6, "outline, cut, pencil body and hatching");
+  restored(ctx);
+});
+
+/** A recording context that reports a live transform scale of `k` (as a cue-zoomed 2x back canvas would). */
+const scaledContext = (ctx, k) => new Proxy(ctx, {
+  get: (o, key) => key === "getTransform" ? () => ({ a: k, b: 0 }) : o[key],
+  set: (o, key, value) => { o[key] = value; return true; },
+});
+test("offscreen pencil copies never rasterise below the live transform scale", (t) => {
+  environment(t);
+  // rasterScale: quarter steps at or above the live scale, floored at 1 and capped at 4.
+  for (const s of [0.4, 1, 1.01, 1.3, 2, 2.07, 2.2, 3.9, 4]) {
+    const k = rasterScale(s);
+    assert.ok(k >= s - 1e-9, `${s} -> ${k}`);
+    assert.ok(k - s < 0.25 || s < 1, "no more than one quarter step above");
+    assert.equal(k * 4, Math.round(k * 4), "quarter steps keep sizes few");
+  }
+  assert.equal(rasterScale(0.3), 1, "never below one pixel per unit");
+  assert.equal(rasterScale(9), 4, "capped above (far beyond any cue zoom)");
+  const peak = Math.max(...Object.values(ZOOM).flatMap((z) => Object.values(z)));
+  for (const s of [1, 2, 2 * peak, 0.5]) {
+    const ctx = scaledContext(canvas().getContext("2d"), s);
+    drawSketched(ctx, 1, 10, 20, { l: -20, r: 20, t: -40, b: 8 }, (c) => c.fillRect(0, 0, 4, 4));
+    const draws = images(ctx);
+    assert.ok(draws.length >= 6);
+    for (const d of draws) {
+      const density = d.args[0].width / d.args[3];
+      assert.ok(density >= Math.max(1, s) - 1e-9, `scale ${s}: copy at ${density} px/unit`);
+    }
+  }
+});
+
+test("fold protection shows for the whole fold life and draws nothing without folds", (t) => {
+  environment(t);
+  const sim = createSim({ cat: "nicole", seed: 7 }), cam = { x: WASH_AT.x, y: WASH_AT.y };
+  const empty = canvas().getContext("2d");
+  drawFoldGuards(empty, sim, cam);
+  assert.equal(empty.calls.length, 0, "no folds: no work");
+  sim.wash.folds.push({ x: WASH_AT.x, y: WASH_AT.y, radius: 60, until: sim.elapsed + WASH.fold.seconds });
+  const at = (dt) => {
+    const s = { ...sim, elapsed: sim.elapsed + dt }, ctx = canvas().getContext("2d");
+    drawFoldGuards(ctx, s, cam);
+    restored(ctx);
+    return ctx;
+  };
+  for (const dt of [0.3, 1, 3, 5, WASH.fold.seconds - 0.2]) {
+    const ctx = at(dt);
+    assert.ok(ctx.calls.some((c) => c.op === "fill") && ctx.calls.some((c) => c.op === "stroke"), `a mark at ${dt} s`);
+    assert.deepEqual(gloss(ctx.calls), []);
+  }
+  const late = at(WASH.fold.seconds - 0.1).calls.find((c) => c.op === "stroke"),
+    mid = at(5).calls.find((c) => c.op === "stroke");
+  assert.ok(late.globalAlpha < mid.globalAlpha, "it fades out at the end of the protection");
+  assert.equal(at(6.5).calls.length, 0, "gone once the protection ends");
+  const far = canvas().getContext("2d");
+  drawFoldGuards(far, sim, { x: WASH_AT.x + 3000, y: WASH_AT.y });
+  assert.equal(far.calls.length, 0, "culled outside the view");
+  assert.equal(sim.wash.size, 0, "the mark stores no wash cells");
+});
+
+test("a cut hole through colourless paper has one cut edge on its contour", (t) => {
+  const sim = washedSim();
+  environment(t);
+  clearWashRender();
+  for (const c of Object.values(sim.wash.cells)) if (c.level >= WASH.colourless) c.cutUntil = sim.elapsed + 2;
+  const ctx = canvas().getContext("2d");
+  drawWashGround(ctx, WASH_AT, washFrame(sim));
+  const holes = ctx.calls.filter((c) => c.op === "fill" && c.fillStyle === "#fffdf8").map((c) => c.args[0]);
+  assert.ok(holes.length > 0, "white cut-out blots");
+  for (const hole of new Set(holes)) {
+    const edges = ctx.calls.filter((c) => c.op === "stroke" && c.args[0] === hole);
+    assert.equal(edges.length, 1, "a single rim, not a lit rim and a dark lip at near-identical offsets");
+  }
   restored(ctx);
 });
 

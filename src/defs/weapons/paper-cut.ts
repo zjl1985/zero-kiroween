@@ -1,5 +1,6 @@
 import { EFFECT_LIFE, type SimState } from "../../game/types.js";
 import { ENEMY_DEFS } from "../registries.js";
+import { WASH } from "../wash.js";
 import type { SimContext, WeaponDef } from "../types.js";
 import { centroid, closeLoop, insidePolygon, polygonArea, segmentDistance, type Pt } from "./paper-geometry.js";
 import { stepBonus } from "./steps.js";
@@ -32,8 +33,14 @@ export const PAPER_CUT = {
   tearPower: 4,
   /** Seconds a cut-out piece stays drawn (lifting off, then the hole closes). */
   outLife: 1.4,
-  /** Most cut-out pieces kept for the renderer. */
-  maxOuts: 3,
+  /**
+   * Cut-out pieces are kept for WASH.cut.seconds (as long as their cells stay
+   * cut, so the renderer never shows a cell hole under a piece), at most this
+   * many. A loop needs at least 1800 units² (perimeter >= 150, at least ~120
+   * walked with the closing gap); at about 190 units/s with speed passives
+   * plus one 370 units/s dash, 2.5 s holds at most ~5 loops, so 8 never overflows.
+   */
+  maxOuts: 8,
   /** Most loop vertices kept on a cut-out piece. */
   outPoints: 40,
 } as const;
@@ -73,6 +80,10 @@ export function cutOutLoop(state: SimState, loop: readonly Pt[], damage: number,
   ctx.effect(state, c.x, c.y, "paper-cut", EFFECT_LIFE["paper-cut"], { radius: Math.sqrt(polygonArea(loop) / Math.PI) });
   const cut = state.cut,
     step = Math.max(1, Math.ceil(loop.length / PAPER_CUT.outPoints));
+  // Pieces older than their cut cells are no longer needed.
+  let old = 0;
+  while (old < cut.outs.length && state.elapsed - cut.outs[old]!.at >= WASH.cut.seconds) old++;
+  if (old) cut.outs.splice(0, old);
   cut.outs.push({
     id: cut.nextId++,
     points: loop.filter((_, i) => i % step === 0).map((p) => ({ x: p.x, y: p.y })),

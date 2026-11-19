@@ -4,8 +4,10 @@ import { test } from "node:test";
 import { officialVariant, officialRects } from "../dist/cats/official.js";
 import { clearSpriteCache, spriteCacheSize } from "../dist/engine/sprite.js";
 import { CAT_ART } from "../dist/render/art-index.js";
-import { CAT_DETAIL_BOUNDS, catDetailPose } from "../dist/render/cat-detail.js";
+import { CAT_BOX, CAT_DETAIL_BOUNDS, catDetailPose, catWear } from "../dist/render/cat-detail.js";
 import { drawCraftCat } from "../dist/render/craft-cat.js";
+import { drawWithLitRim } from "../dist/render/paper-value.js";
+import { ZOOM } from "../dist/render/timeline.js";
 import { officialFaceContours, traceFaceRects, scissorContour, PAPER_FACE_RIM } from "../dist/render/paper-face.js";
 
 // Static Canvas-command contracts, not pixel comparisons or an animation/capture loop.
@@ -22,6 +24,8 @@ function multiply(a, b) {
 }
 class RecordingMatrix {
   constructor(m = identity()) { this.m = m; }
+  get a() { return this.m[0]; }
+  get b() { return this.m[1]; }
   scale(k) { return new RecordingMatrix(multiply(this.m, [k, 0, 0, k, 0, 0])); }
   inverse() {
     const [a, b, c, d, e, f] = this.m, det = a * d - b * c;
@@ -272,6 +276,46 @@ test("cached body subparts fit the fixed local envelope in representative static
     assert.ok(Math.abs(x - c * 38) < 1e-9, "head tilts around the neck, without horizontal drift");
     assert.ok(Math.abs(y - d * 38 - (catDetailPose(p).bob - 38)) < 1e-9, "neck anchor keeps the existing bob");
     assert.ok(Math.abs(a * d - b * c - 1) < 1e-9, "head pose preserves scale");
+  }
+});
+
+test("every cached part of both cats fits CAT_BOX in representative poses, and cue zoom only raises the raster density", (t) => {
+  environment(t);
+  const poses = (id) => [
+    pose(id), pose(id, { time: 1.7 }),
+    ...[0.05, 0.13, 0.26, 0.39, 0.52].map((time) => pose(id, { time, moving: true })),
+    pose(id, { dashing: true }), pose(id, { hurt: true }), pose(id, { hurt: true, moving: true, time: 0.13 }),
+    pose(id, { facing: -1, moving: true, time: 0.39 }), pose(id, { wear: catWear(0.1, 9, 10), moving: true, time: 0.13 }),
+  ];
+  let reach = { l: 0, r: 0, t: 0, b: 0 };
+  for (const art of CAT_ART.all()) for (const p of poses(art.id)) {
+    const ctx = canvas().getContext("2d");
+    art.draw(ctx, p);
+    const parts = images(ctx);
+    assert.ok(parts.length >= 13, "body, head, edge and shadow");
+    for (const command of parts) for (const point of rectanglePoints(command)) {
+      reach = { l: Math.min(reach.l, point.x), r: Math.max(reach.r, point.x), t: Math.min(reach.t, point.y), b: Math.max(reach.b, point.y) };
+      assert.ok(point.x >= CAT_BOX.l && point.x <= CAT_BOX.r, `${art.id}: x ${point.x} inside CAT_BOX`);
+      assert.ok(point.y >= CAT_BOX.t && point.y <= CAT_BOX.b, `${art.id}: y ${point.y} inside CAT_BOX`);
+    }
+  }
+  t.diagnostic(`cat part reach ${JSON.stringify(reach)} inside ${JSON.stringify(CAT_BOX)}`);
+  // The rim composition rasterises CAT_BOX in world units at the live scale: the largest cue zoom
+  // on the 2x back canvas changes the copy's pixel density, never the box it covers.
+  const peak = Math.max(...Object.values(ZOOM).flatMap((z) => Object.values(z)));
+  assert.ok(peak > 1);
+  for (const scale of [2, 2 * peak]) {
+    const target = canvas().getContext("2d");
+    target.scale(scale, scale);
+    const art = CAT_ART.all()[0];
+    drawWithLitRim(target, 0, 0, CAT_BOX, (c) => art.draw(c, pose(art.id)));
+    const [copy] = images(target);
+    assert.deepEqual(copy.args.slice(1), [CAT_BOX.l, CAT_BOX.t, CAT_BOX.r - CAT_BOX.l, CAT_BOX.b - CAT_BOX.t], "same world-unit box at every zoom");
+    assert.ok(copy.args[0].width / copy.args[3] >= scale - 1e-9, `copy density keeps up with scale ${scale}`);
+    const posed = copy.args[0].getContext("2d").calls.filter((c) => c.op === "drawImage");
+    for (const command of posed) for (const point of rectanglePoints(command)) {
+      assert.ok(point.x >= 0 && point.x <= copy.args[0].width && point.y >= 0 && point.y <= copy.args[0].height, "every part lands inside the copy");
+    }
   }
 });
 

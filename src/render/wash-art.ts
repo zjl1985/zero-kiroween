@@ -9,8 +9,9 @@
  * along every wash edge; fresh changes bloom with pigment (WASH_LOOK timing
  * in timeline.ts). Cut holes through colourless paper are clean white
  * cut-out blots (cells under a live Paper Cut piece are left to its own
- * polygon hole). Fold protection stores no cells and draws nothing here (the
- * fold and flap art show it). Splashes, paper rain and pigment confetti are
+ * polygon hole). Fold protection stores no cells; `drawFoldGuards` shows a
+ * quiet folded sheet over each live fold circle for its whole protection
+ * time (nothing when there are no folds). Splashes, paper rain and pigment confetti are
  * small flat paper cuts.
  *
  * With no stored wash cells nothing here runs past one check. No per-frame
@@ -31,7 +32,7 @@ import { flatCut, placePoints, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js"
 import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { mix, stroke, type Ctx, type Point } from "./paper-material.js";
 import { PENCIL } from "./pencil.js";
-import { WASH_LOOK, washBloom } from "./timeline.js";
+import { FOLD_GUARD_LOOK, WASH_LOOK, foldGuardFade, washBloom } from "./timeline.js";
 
 /** Blot radius as a share of the wash cell: neighbours (also diagonal ones) merge into one stain. */
 const BLOT = 0.8;
@@ -287,7 +288,7 @@ function maskFor(seed: number, key: string, bucket: Bucket): Mask {
   return m;
 }
 
-/** Cut holes through colourless paper: clean white cut-out blots lifted a little off the page. */
+/** Cut holes through colourless paper: clean white cut-out blots lifted a little off the page, with one cut edge. */
 function drawCutHoles(ctx: Ctx, body: Path2D): void {
   ctx.save();
   ctx.save();
@@ -298,16 +299,54 @@ function drawCutHoles(ctx: Ctx, body: Path2D): void {
   ctx.restore();
   ctx.fillStyle = COLORS.cut;
   ctx.fill(body);
-  // The cut wall: a dark lip toward the shadow (down-left), a lit rim toward the moon (up-right).
-  ctx.save();
-  ctx.translate(-PAPER_LIGHT.dirX * 0.7, -PAPER_LIGHT.dirY * 0.7);
+  // A single cut wall on the blot's own contour: the dark lip (the lifted shadow already sets it off the page).
   stroke(ctx, body, COLORS.cutLip, 0.9, 0.6);
   ctx.restore();
-  ctx.save();
-  ctx.translate(PAPER_LIGHT.dirX * 0.6, PAPER_LIGHT.dirY * 0.6);
-  stroke(ctx, body, PAPER_LIGHT.rim, 1, 0.8);
-  ctx.restore();
-  ctx.restore();
+}
+/**
+ * Fold protection: a quiet folded paper sheet over every live fold circle
+ * (SimState.wash.folds), shown for its whole protection time and fading out
+ * at its end (FOLD_GUARD_LOOK). Stores nothing; no folds, no work.
+ */
+export function drawFoldGuards(ctx: Ctx, sim: SimState, cam: Camera): void {
+  const folds = sim.wash?.folds;
+  if (!folds?.length) return;
+  const view = viewRect(cam, 8), now = sim.elapsed;
+  for (const f of folds) {
+    const left = f.until - now;
+    if (!(left > 0)) continue;
+    const r = f.radius;
+    if (f.x + r < view.x0 || f.x - r > view.x1 || f.y + r < view.y0 || f.y - r > view.y1) continue;
+    const k = foldGuardFade(WASH.fold.seconds - left, left);
+    if (k <= 0) continue;
+    // A flat sheet: eight hashed corners on a squashed circle, one corner folded in along the crease.
+    const salt = Math.round(f.x * 3 + f.y * 7), sheet = new Path2D(), pts: Point[] = [];
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + visHash(salt) * 0.4, d = r * (0.9 + visHash(salt + i * 13) * 0.1);
+      pts.push([f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.62]);
+    }
+    pts.forEach(([x, y], i) => i ? sheet.lineTo(x, y) : sheet.moveTo(x, y));
+    sheet.closePath();
+    const crease = new Path2D(), u = pts[5]!, v = pts[1]!;
+    crease.moveTo(u[0], u[1]);
+    crease.lineTo(v[0], v[1]);
+    ctx.save();
+    ctx.globalAlpha *= k;
+    ctx.save();
+    ctx.translate(PAPER_SHADOW.dx, PAPER_SHADOW.dy);
+    ctx.globalAlpha *= FOLD_GUARD_LOOK.sheetAlpha * 0.6;
+    ctx.fillStyle = PAPER_SHADOW.color;
+    ctx.fill(sheet);
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha *= FOLD_GUARD_LOOK.sheetAlpha;
+    ctx.fillStyle = COLORS.cut;
+    ctx.fill(sheet);
+    ctx.restore();
+    stroke(ctx, sheet, PAPER_LIGHT.rim, 1.2, FOLD_GUARD_LOOK.edgeAlpha);
+    stroke(ctx, crease, COLORS.cutLip, 0.8, FOLD_GUARD_LOOK.creaseAlpha);
+    ctx.restore();
+  }
 }
 function forChunks(view: ViewRect, fn: (cx: number, cy: number) => void): void {
   for (let cy = Math.floor(view.y0 / CHUNK.height); cy <= Math.floor(view.y1 / CHUNK.height); cy++)

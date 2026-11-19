@@ -15,6 +15,7 @@ import { WEAPON_ART } from "../dist/render/art-registry.js";
 import "../dist/render/art-index.js";
 import { CAT_WEAR } from "../dist/render/timeline.js";
 import { catWear } from "../dist/render/cat-detail.js";
+import { clearWashRender, washFrame } from "../dist/render/wash-art.js";
 
 const idle = { ax: 0, ay: 0, dash: false };
 function quiet(cat, weapon, level = 1, seed = 5) {
@@ -160,6 +161,40 @@ test("each verb is only offered to its own cat, appended at the end with art and
     }
   assert.deepEqual(missingKeys("en"), []);
   assert.deepEqual(missingKeys("zh"), []);
+});
+
+test("four Paper Cut loops inside WASH.cut.seconds keep every hole under its own piece", () => {
+  const s = quiet("zero", "paper-cut");
+  washAt(s, 960, 480, 330, 1);
+  const squares = [0, 1, 2, 3].map((k) => 700 + k * 160);
+  for (const x0 of squares) {
+    if (x0 !== 700) walk(s, [[x0, 420]], 20);
+    walk(s, [[x0 + 120, 420], [x0 + 120, 540], [x0, 540], [x0, 420], [x0 + 10, 412]], 20);
+  }
+  assert.equal(s.cut.cuts, 4, "four loops closed");
+  assert.ok(s.elapsed - s.cut.outs[0].at < WASH.cut.seconds, "all inside the cut-hole time");
+  assert.equal(s.cut.outs.length, 4, "the oldest piece is still kept while its cells stay cut");
+  const cutCell = (x, y) => (s.wash.cells[washKey(...washCellOf(x, y))]?.cutUntil ?? 0) > s.elapsed;
+  for (const x0 of squares) assert.ok(cutCell(x0 + 60, 480), `square at ${x0} cut its cells`);
+  // An uncovered cut cell (outside every piece) still draws its own cell hole.
+  const [ox, oy] = washCellOf(960, 700), loose = s.wash.cells[washKey(ox, oy)];
+  assert.ok(loose && loose.level >= WASH.colourless);
+  loose.cutUntil = s.elapsed + 1;
+  clearWashRender();
+  const frame = washFrame(s), marks = new Map();
+  for (const b of frame.buckets.values()) for (const m of b.marks) marks.set(`${m.ix},${m.iy}`, m.code);
+  for (const x0 of squares) {
+    const [ix, iy] = washCellOf(x0 + 60, 480);
+    assert.ok(!((marks.get(`${ix},${iy}`) ?? 0) & 16), `no cell hole flashes back under the piece at ${x0}`);
+  }
+  assert.ok(marks.get(`${ox},${oy}`) & 16, "a cut cell outside every piece keeps its cell hole");
+  // Pieces older than the cut time are pruned at the next loop.
+  for (let i = 0; i < Math.round(WASH.cut.seconds / DT); i++) step(s, idle, DT);
+  walk(s, [[700, 420]], 20);
+  walk(s, [[820, 420], [820, 540], [700, 540], [700, 420], [710, 412]], 20);
+  assert.equal(s.cut.cuts, 5);
+  assert.equal(s.cut.outs.length, 1, "only the fresh piece is kept");
+  assert.ok(PAPER_CUT.maxOuts >= 4);
 });
 
 test("two identical runs with the verbs stay identical", () => {

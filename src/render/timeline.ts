@@ -223,6 +223,17 @@ export function popupStep(fold: number, target: number, dt: number, reduced: boo
  * that stays along every wash edge.
  */
 export const WASH_LOOK = { seconds: 1.2, bloomPeak: 0.16, tidePeak: 0.42, maxBlooms: 48, tideAlpha: 0.34 } as const;
+/**
+ * Fold protection mark (a quiet folded sheet over each live fold circle):
+ * fades in, holds for the whole protection time read from the fold's
+ * `until`, and fades out over its last `fadeOut` seconds.
+ */
+export const FOLD_GUARD_LOOK = { fadeIn: 0.2, fadeOut: 0.5, sheetAlpha: 0.1, edgeAlpha: 0.42, creaseAlpha: 0.3 } as const;
+/** Opacity share (0..1) of a fold mark `age` seconds after it was made, `left` seconds before it ends. */
+export function foldGuardFade(age: number, left: number): number {
+  if (!(left > 0) || age < 0) return 0;
+  return clamp01(Math.min(age / FOLD_GUARD_LOOK.fadeIn, left / FOLD_GUARD_LOOK.fadeOut));
+}
 export interface WashBloom {
   /** Progress 0..1. */
   readonly t: number;
