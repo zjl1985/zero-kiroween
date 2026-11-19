@@ -4,7 +4,7 @@
  * src/defs/index.ts, and act through their hooks with the SimContext below.
  */
 import "../defs/index.js";
-import { BEHAVIOURS, CATS, ENEMY_DEFS, EVOLUTION_DEFS, PASSIVE_DEFS, SIM_EVENTS, WEAPON_DEFS } from "../defs/registries.js";
+import { BEHAVIOURS, CATS, COSTUME_DEFS, ENEMY_DEFS, EVOLUTION_DEFS, PASSIVE_DEFS, SIM_EVENTS, WEAPON_DEFS } from "../defs/registries.js";
 import { moonStarPositions } from "../defs/weapons/moon-stars.js";
 import type {
   Element,
@@ -255,6 +255,11 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     walls: [],
     nextWallId: 1,
   };
+  if (config.costume != null) {
+    // Unknown ids throw like CATS.get; a plain run never gets the field.
+    const costume = COSTUME_DEFS.get(config.costume);
+    state.costume = { id: costume.id, timer: costume.skill.firstAt, uses: 0, buff: 0, vars: {}, zones: [] };
+  }
   for (const w of WEAPON_DEFS.all()) w.init?.(state);
   syncChunks(state);
   spawnBlob(state, world.width * 0.78, world.height * 0.62);
@@ -673,6 +678,9 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   stepStroke(state, dt);
   runWeapons(state, "aura", dt, rng);
   runWeapons(state, "auto", dt, rng);
+  // The worn costume acts after every weapon (so it sees this step's new shots)
+  // and before shots and enemies move. A plain run has no costume field.
+  if (state.costume) stepCostume(state, dt);
   stepShots(state, dt);
   stepEnemies(state, dt, rng);
   if (state.ended === "playing") leashEnemies(state, rng);
@@ -697,6 +705,26 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   prune(state.treats);
   prune(state.chests);
   state.rngState = rng.state();
+}
+/**
+ * The worn costume, once per step: its timed buff runs down, spent zones go,
+ * the skill triggers when its timer reaches 0 (then waits a full cooldown),
+ * then the costume's lingering step runs. Only called while a costume is worn.
+ */
+function stepCostume(state: SimState, dt: number): void {
+  const c = state.costume!,
+    def = COSTUME_DEFS.get(c.id),
+    ps = playerStats(state);
+  if (c.buff > 0) c.buff = Math.max(0, c.buff - dt);
+  if (c.zones.length) c.zones = c.zones.filter((z) => z.until > state.elapsed);
+  c.timer -= dt;
+  if (c.timer <= 0) {
+    c.timer = def.skill.cooldown;
+    c.uses++;
+    def.activate(state, ps, ctx);
+    notify(state, def.skill.notice);
+  }
+  def.step?.(state, ps, dt, ctx);
 }
 /** Removes dead entries in place, keeping order (stable ids, no new arrays). */
 function prune<T extends { alive: boolean }>(list: T[]): void {

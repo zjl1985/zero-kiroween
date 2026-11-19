@@ -10,6 +10,7 @@ import type { SimState } from "../game/types.js";
 import type {
   BiomeDef,
   CharacterDef,
+  CostumeDef,
   EnemyBehaviour,
   EnemyDef,
   EvolutionDef,
@@ -43,3 +44,5 @@ export const BIOME_DEFS = createRegistry<BiomeDef>("biome");
 export const SIM_EVENTS = createEventBus<SimState, SimEvents, SimContext>();
 /** Neutral townsfolk (src/defs/townsfolk), in the order a landmark picks its resident. */
 export const TOWNSFOLK_DEFS = createRegistry<TownsfolkDef>("townsfolk");
+/** Costumes the chosen cat can wear (src/defs/costumes), in wardrobe order. */
+export const COSTUME_DEFS = createRegistry<CostumeDef>("costume");

@@ -6,6 +6,7 @@
  *   (aura: Echo Legion, Moon Stars, then Full Moon after the stars it adds to);
  * - passives: card order and stat-fold order;
  * - enemies: renderer / test listing order.
+ * - costumes (src/defs/costumes/index.ts): wardrobe and unlock order, last.
  * Adding content means adding a def file and one line here.
  */
 import type { SimState } from "../game/types.js";
@@ -36,13 +37,15 @@ import { VITALITY } from "./passives/vitality.js";
 import {
   BEHAVIOURS,
   CATS,
+  COSTUME_DEFS,
   ENEMY_DEFS,
   EVOLUTION_DEFS,
   PASSIVE_DEFS,
   SIM_EVENTS,
   WEAPON_DEFS,
 } from "./registries.js";
-import type { SimEvents, SimHandler, SimHooks } from "./types.js";
+import type { CostumeDef, SimEvents, SimHandler, SimHooks } from "./types.js";
+import { COSTUME_LIST } from "./costumes/index.js";
 import { ECHO_LEGION } from "./weapons/echo-legion.js";
 import { FULL_MOON } from "./weapons/full-moon.js";
 import { MEOW_BOLT } from "./weapons/meow-bolt.js";
@@ -109,3 +112,14 @@ for (const cat of CATS.all()) subscribe(cat.hooks, (state) => state.player.id ==
 for (const w of WEAPON_DEFS.all())
   subscribe(w.hooks, (state) => owned(w.id)(state) || CATS.get(state.player.id).startWeapon === w.id);
 for (const p of PASSIVE_DEFS.all()) subscribe(p.hooks, owned(p.id));
+
+/**
+ * Registers a costume (appended: wardrobe order) and gates its hooks to the
+ * nights it is worn. Costumes come last, after every other def and hook.
+ */
+export function registerCostume(costume: CostumeDef): CostumeDef {
+  COSTUME_DEFS.register(costume);
+  subscribe(costume.hooks, (state) => state.costume?.id === costume.id);
+  return costume;
+}
+for (const c of COSTUME_LIST) registerCostume(c);

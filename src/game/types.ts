@@ -1,7 +1,7 @@
 import type { BossAttack } from "../defs/enemies/eraser-boss/def.js";
 import { INK_BLOB_STATS } from "../defs/enemies/ink-blob/def.js";
 import { ZERO_STATS } from "../defs/cats/zero/stats.js";
-import type { CatId, EnemyKind, Point } from "../defs/types.js";
+import type { CatId, CostumeId, EnemyKind, Point } from "../defs/types.js";
 export interface FrameInput {
   ax: number;
   ay: number;
@@ -314,7 +314,10 @@ export type EffectKind =
   | "splash"
   | "pigment"
   | "paper-cut"
-  | "page-fold";
+  | "page-fold"
+  | "costume-burst"
+  | "costume-push"
+  | "costume-pull";
 export interface Impact {
   x: number;
   y: number;
@@ -375,6 +378,12 @@ export const EFFECT_LIFE = {
   "paper-cut": 0.9,
   /** A page flap folds over the crease. */
   "page-fold": 0.8,
+  /** A costume skill bursts over an area (radius in the impact). */
+  "costume-burst": 0.6,
+  /** A costume skill pushes ink outward. */
+  "costume-push": 0.6,
+  /** A costume skill pulls shards in. */
+  "costume-pull": 0.7,
 } as const;
 /** Most live damage tags and dissolves at once, so a crowd of ~100 stays readable. */
 export const FX_CAP = { damage: 24, dissolve: 20 } as const;
@@ -444,7 +453,9 @@ export type Notice =
   | "landmark-observatory"
   | "landmark-windmill"
   | "paper-rain"
-  | "eraser-wipe";
+  | "eraser-wipe"
+  /** A worn costume's skill triggered (one per costume id). */
+  | `costume-${string}`;
 export interface UpgradeChoice {
   options: string[];
 }
@@ -550,6 +561,40 @@ export interface LandmarkEventState {
 }
 /** "dawn": survived with no Boss loose; "fallen": hp hit 0; "boss-escaped": dawn with the Boss alive. */
 export type EndReason = "dawn" | "fallen" | "boss-escaped";
+/**
+ * A small area a costume skill leaves on the page, shared by every costume:
+ * a lane from (x, y) to (x2, y2) with half width `radius`, or a circle /
+ * pad / turret / burst of `radius` at (x, y). Removed once `elapsed`
+ * reaches `until` (at most COSTUME.maxZones live at once).
+ */
+export interface CostumeZone {
+  kind: "lane" | "circle" | "pad" | "turret" | "burst";
+  x: number;
+  y: number;
+  x2?: number;
+  y2?: number;
+  radius: number;
+  until: number;
+  /** Skill-specific strength (slow factor, damage, speed bonus). */
+  power: number;
+  /** Elapsed time from which the zone acts (telegraphs before it); a used pad is disarmed. */
+  armed?: number;
+  /** Seconds banked toward the next action (turret shots). */
+  clock?: number;
+}
+/** The costume the chosen cat wears this night. */
+export interface CostumeState {
+  id: CostumeId;
+  /** Seconds until the skill triggers next. */
+  timer: number;
+  /** Skill triggers so far. */
+  uses: number;
+  /** Seconds left on the skill's timed buff (the costume's stats hook reads it). */
+  buff: number;
+  /** Per-costume scratch numbers (generic; each def names its own). */
+  vars: Record<string, number>;
+  zones: CostumeZone[];
+}
 export interface SimState {
   seed: number;
   rngState: number;
@@ -629,12 +674,19 @@ export interface SimState {
   /** Temporary paper walls; they block like scenery while they stand. */
   walls: PaperWall[];
   nextWallId: number;
+  /**
+   * The worn costume. Absent (not null) for a plain run, so a night without a
+   * costume keeps exactly its old state shape and snapshot.
+   */
+  costume?: CostumeState;
 }
 export interface SimConfig {
   cat: CatId;
   seed: number;
   world: WorldBounds;
   sessionSeconds: number;
+  /** Costume the cat wears (null / omitted: plain). Unlock checks belong to the UI. */
+  costume: CostumeId | null;
 }
 /** The start yard frame; the explorable bounds are WORLD in src/game/world-gen.ts. */
 export const DEFAULT_WORLD: WorldBounds = { width: 960, height: 540 };

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   BEHAVIOURS,
   CATS,
+  COSTUME_DEFS,
   ENEMY_DEFS,
   EVOLUTION_DEFS,
   PASSIVE_DEFS,
@@ -133,6 +134,8 @@ test("the engine stays content-free and src/game has no per-cat literals", () =>
     const text = readFileSync(new URL(`game/${file}`, src), "utf8");
     for (const cat of CATS.ids())
       assert.ok(!text.includes(`"${cat}"`), `game/${file} names "${cat}"`);
+    for (const costume of COSTUME_DEFS.ids())
+      assert.ok(!text.includes(`"${costume}"`), `game/${file} names costume "${costume}"`);
   }
 });
 
@@ -202,6 +205,8 @@ test("render, UI and main draw cats and enemies through registries, not literals
   for (const file of files) {
     const text = readFileSync(new URL(file, src), "utf8");
     for (const cat of CATS.ids()) assert.ok(!text.includes(`"${cat}"`), `${file} names "${cat}"`);
+    for (const costume of COSTUME_DEFS.ids())
+      assert.ok(!text.includes(`"${costume}"`), `${file} names costume "${costume}"`);
   }
   const enemies = readFileSync(new URL("render/craft-enemies.ts", src), "utf8");
   assert.doesNotMatch(enemies, /switch \(/, "craft-enemies.ts has no switch over kinds");

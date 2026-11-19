@@ -9,7 +9,7 @@
  * and take randomness only from the Rng argument the sim passes in.
  */
 import type { Rng } from "../game/rng.js";
-import type { EffectKind, EnemyState, Impact, Notice, ShotState, SimState } from "../game/types.js";
+import type { EffectKind, EnemyState, Impact, Notice, RunStats, ShotState, SimState } from "../game/types.js";
 import type { Capsule } from "../game/scenery.js";
 
 export type CatId = string;
@@ -193,6 +193,57 @@ export interface CharacterDef<K extends CatBaseStats = CatBaseStats> {
   kitStats?(s: PlayerStats, q: StatQuery): void;
   /** Passive hooks, only called while this cat is the one in the run. */
   readonly hooks?: SimHooks;
+}
+
+export type CostumeId = string;
+
+/**
+ * When a costume unlocks: pure data checked against one finished night.
+ * `stat` is a run stat of that night (booleans count as 0 / 1), the level
+ * reached that night, or a lifetime count of nights played / nights won
+ * (`nights`, `wins`, including the night just finished). Unlocks once
+ * the value is at least `at`.
+ */
+export interface CostumeUnlock {
+  readonly stat: keyof RunStats | "nights" | "wins" | "level";
+  readonly at: number;
+}
+
+/** The one small skill a costume carries; it triggers on its own timer. */
+export interface CostumeSkill {
+  /** Seconds between triggers. */
+  readonly cooldown: number;
+  /** Seconds into the night before the first trigger. */
+  readonly firstAt: number;
+  /** Banner shown when the skill triggers. */
+  readonly notice: Notice;
+}
+
+/**
+ * A costume the chosen cat wears for the whole night: clothing and head
+ * makeup on that same cat, never a second character. It carries one small
+ * auto-triggered skill on top of the cat's own kit. Numbers live in the
+ * costume's def file; shared costume numbers in src/defs/costumes/tuning.ts.
+ * Every hook is deterministic and takes no randomness.
+ */
+export interface CostumeDef {
+  readonly id: CostumeId;
+  /** i18n key prefix (`costume.<id>`): `.name`, `.skill`, `.desc`, `.line`, `.unlock`. */
+  readonly i18n: string;
+  /** Art id the renderer looks up. */
+  readonly art: string;
+  readonly skill: CostumeSkill;
+  readonly unlock: CostumeUnlock;
+  /** The skill effect; runs when the skill timer reaches 0. */
+  activate(state: SimState, ps: PlayerStats, ctx: SimContext): void;
+  /** Lingering effects, once per step while worn (after the skill timer). */
+  step?(state: SimState, ps: PlayerStats, dt: number, ctx: SimContext): void;
+  /** Temporary buffs folded into the stat view after weapons (only while worn). */
+  stats?(s: PlayerStats, q: StatQuery): void;
+  /** Event hooks, only called while this costume is worn. */
+  readonly hooks?: SimHooks;
+  /** Named numbers the skill copy interpolates. */
+  copyParams?(): Readonly<Record<string, number>>;
 }
 
 /**
