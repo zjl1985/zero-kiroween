@@ -185,12 +185,15 @@ export function washWetTouches(state: SimState, x: number, y: number, radius: nu
   if (washEmpty(state)) return false;
   const cells = state.wash.cells,
     r = Math.max(0, radius),
-    [ax, ay] = washCellOf(x - r, y - r),
-    [bx, by] = washCellOf(x + r, y + r);
+    now = state.elapsed,
+    ax = Math.floor((x - r) / WASH.cell),
+    ay = Math.floor((y - r) / WASH.cell),
+    bx = Math.floor((x + r) / WASH.cell),
+    by = Math.floor((y + r) / WASH.cell);
   for (let iy = ay; iy <= by; iy++)
     for (let ix = ax; ix <= bx; ix++) {
       const c = cells[washKey(ix, iy)];
-      if (!c || !((c.wetUntil ?? 0) > state.elapsed)) continue;
+      if (!c || !((c.wetUntil ?? 0) > now)) continue;
       // Circle against the whole square cell, not just its centre.
       const dx = Math.max(ix * WASH.cell - x, 0, x - (ix + 1) * WASH.cell),
         dy = Math.max(iy * WASH.cell - y, 0, y - (iy + 1) * WASH.cell);

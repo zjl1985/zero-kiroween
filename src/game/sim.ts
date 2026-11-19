@@ -1237,6 +1237,11 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     enemies = state.enemies,
     radii = enemies.map(enemyRadius),
     phaseSpeed = nightPhase(state) * HORDE.speedPerPhase;
+  // Widest radius at the start of the step: |ox| or |oy| at or past the widest possible gap
+  // means no overlap, so most pairs are skipped before the exact test (same result, same order).
+  const listed = radii.length;
+  let widest = 0;
+  for (const r of radii) if (r > widest) widest = r;
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i]!;
     if (!e.alive || e.spawnTime > 0) continue;
@@ -1293,19 +1298,24 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
     }
     // Keep separation in enemy order. Radius lookups are shared across all pairs,
     // with a lazy entry for summons appended while a Boss steers.
-    if (def.crowd !== false)
+    if (def.crowd !== false) {
+      const reach = Math.max(20, (radius + widest) * 0.9),
+        ex = e.x,
+        ey = e.y;
       for (let j = 0; j < enemies.length; j++) {
-        const other = enemies[j]!;
+        const other = enemies[j]!,
+          ox = ex - other.x,
+          oy = ey - other.y;
+        if (j < listed && (ox >= reach || ox <= -reach || oy >= reach || oy <= -reach)) continue;
         if (other.id === e.id || !other.alive) continue;
-        const ox = e.x - other.x,
-          oy = e.y - other.y,
-          gap = Math.max(20, (radius + (radii[j] ??= enemyRadius(other))) * 0.9),
+        const gap = Math.max(20, (radius + (radii[j] ??= enemyRadius(other))) * 0.9),
           d2 = ox * ox + oy * oy;
         if (d2 <= 0 || d2 >= gap * gap) continue;
         const dist = Math.sqrt(d2);
         dx += (ox / dist) * (gap - dist) * dt * 2;
         dy += (oy / dist) * (gap - dist) * dt * 2;
       }
+    }
     const bank = resolveWaterMove(state.seed, e, { x: e.x + dx, y: e.y + dy }, radius, bridgeDecks(state.fold.bridges));
     const kept = def.throughScenery
       ? clampToWorld(bank.x, bank.y, radius)

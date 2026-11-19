@@ -505,9 +505,23 @@ const NO_WATER: readonly WaterRegion[] = Object.freeze([]);
 function touchesWaterBounds(bounds: WaterRegion["bounds"], left: number, top: number, right: number, bottom: number): boolean {
   return right >= bounds.minX - 24 && left <= bounds.maxX + 24 && bottom >= bounds.minY - 24 && top <= bounds.maxY + 24;
 }
+// In-range buckets of waterIndex by chunkIndex: queries clamp to the chunk range, so a flat
+// array answers them without building a string key per lookup (actors query every step).
+let gridSeed: number | undefined, gridIndex: Map<string, readonly WaterRegion[]> | undefined,
+  grid: (readonly WaterRegion[] | undefined)[] = [];
+function waterGrid(seed: number): (readonly WaterRegion[] | undefined)[] {
+  const index = waterIndex(seed);
+  if (gridSeed === seed && gridIndex === index) return grid;
+  grid = [];
+  for (let cy = CHUNK.minCy; cy <= CHUNK.maxCy; cy++)
+    for (let cx = CHUNK.minCx; cx <= CHUNK.maxCx; cx++) grid[chunkIndex(cx, cy)] = index.get(chunkKey(cx, cy));
+  gridSeed = seed;
+  gridIndex = index;
+  return grid;
+}
 /** Local cached convex polygons, shared by water simulation and chunk-ground rendering. */
 export function waterRegionsNear(seed: number, x: number, y: number, reach: number): readonly WaterRegion[] {
-  const index = waterIndex(seed), r = Math.max(0, reach);
+  const index = waterGrid(seed), r = Math.max(0, reach);
   const left = x - r, right = x + r, top = y - r, bottom = y + r;
   const x0 = Math.max(CHUNK.minCx, Math.floor(left / CHUNK.width)),
     x1 = Math.min(CHUNK.maxCx, Math.floor(right / CHUNK.width)),
@@ -515,14 +529,14 @@ export function waterRegionsNear(seed: number, x: number, y: number, reach: numb
     y1 = Math.min(CHUNK.maxCy, Math.floor(bottom / CHUNK.height));
   // Most actor queries stay in one chunk. Empty ground need not allocate anything.
   if (x0 === x1 && y0 === y1) {
-    const bucket = index.get(chunkKey(x0, y0));
+    const bucket = index[chunkIndex(x0, y0)];
     if (!bucket?.length) return NO_WATER;
     if (bucket.length === 1)
       return touchesWaterBounds(bucket[0]!.bounds, left, top, right, bottom) ? bucket : NO_WATER;
   }
   let found: Map<string, WaterRegion> | undefined;
   for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++)
-    for (const region of index.get(chunkKey(cx, cy)) ?? NO_WATER)
+    for (const region of index[chunkIndex(cx, cy)] ?? NO_WATER)
       if (touchesWaterBounds(region.bounds, left, top, right, bottom))
         (found ??= new Map()).set(region.id, region);
   return found ? [...found.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : NO_WATER;
