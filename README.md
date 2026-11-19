@@ -6,7 +6,7 @@ Choose a cat and keep watch until dawn in a town made of paper. Midnight Meow is
 
 ## How to play
 
-Weapons attack automatically. Collect ink shards from defeated enemies to level up and choose upgrades. Elites and the Eraser drop treasure chests. Survive until dawn to win.
+Weapons attack automatically. Collect ink shards from defeated enemies to level up and choose upgrades. Elites and the Eraser drop treasure chests. Defeat the Eraser and survive until dawn to win; if the Eraser is still loose at dawn, the night is lost.
 
 | Action | Desktop control |
 | --- | --- |

@@ -151,7 +151,7 @@ export const <ID>_EVOLUTION: EvolutionDef = {
 
 Evolutions are never offered on level-up cards; `openChest` in `src/game/sim.ts` grants them when `readyEvolution` holds. Keep that rule.
 
-Known gap (not fixed): if all passive slots fill before the paired passive is taken, the evolution can never happen, and there is no in-run hint.
+`readyEvolution` (`src/game/upgrades.ts`) holds when the base weapon is at max and either the partner passive is owned or the passive bar is full (`build.passives.length >= BUILD.passiveSlots`), so a full bar can no longer lock the evolution out. The selector copy `evolution.rule` names the fallback. Covered in `tests/upgrades.test.mjs`.
 
 ## Tests to extend
 

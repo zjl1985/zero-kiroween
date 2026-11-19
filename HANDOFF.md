@@ -2,6 +2,24 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Checkpoint (design decisions, 2026-11-19, local commits only, not pushed)
+
+The user answered the three open design questions: outrunning the Boss to dawn is not a win; a full passive bar gets a fallback; ink pinned under a Page Fold does not bite. Commits on `main` after `ca8ad06`:
+
+| commit | change |
+| --- | --- |
+| `63e8928` | Dawn with the Eraser still alive ends the night as a loss. `SimState.endReason` is `'dawn' \| 'fallen' \| 'boss-escaped'` (null while playing). Beating the Boss does not end the night early. A run without a registered Boss still wins at dawn. New keys `result.heading_boss_escaped` / `result.boss_escaped`; `result.boss_left` now reads "Still loose" / "仍在游荡"; the Boss notice reads "The Eraser is coming · Wear it down before dawn" / "橡皮擦来了 · 天亮前把它磨平". |
+| `6e7d657` | Evolution fallback in `readyEvolution`: the weapon at max plus either the partner passive or a full passive bar (`BUILD.passiveSlots`). Still granted only by opening a chest, never as a level-up card, once. Selector copy `evolution.rule` mentions the full bar. |
+| `1d88912` | Test only: ink pinned under a Page Fold neither moves nor bites, through the shared stun skip in `stepEnemies` (the moon-lantern freeze uses the same skip). The earlier note that pinned ink still bites was a misreading. |
+| docs commit | Records these rules in HANDOFF, PLAN, steering and the skill. |
+
+Verification: `npm test` **332 / 332 pass** (327 plus 5 new cases). The new result heading, result line, Boss notice and selector copy were not viewed in a browser.
+
+Probes (Node only, git-ignored references in `output/playwright/`, old ones kept as `*-reference-pre-decisions.txt`):
+
+- `baseline-snapshot.mjs` and `baseline-long.mjs`: every checkpoint differs only by the new `endReason` field; kills, levels, builds and evolution timing are identical. The four long-run finals change from `won` to `lost` (`boss-escaped`), because none of those scripted runs defeats the Eraser.
+- **Balance** (`balance-run.mjs`, same 16 runs, `balance-after-decisions.json` against `balance-pre-decisions.json`): wins 11/16 → 7/16 (Zero 6/8 → 6/8, Nicole 5/8 → 1/8). The 4 lost wins are Nicole runs that reached dawn with the Eraser alive (exclusive-first seed 91, brush-first seeds 45, 91, 2026); they now end `boss-escaped`. Boss defeats stay 7, and every win now defeats the Boss. Evolutions 11 → 12: brush-first Nicole seed 45 filled her bar without Deep Fold and now evolves Full Moon at 323 s through the fallback (she still loses at dawn). Every other evolution time is unchanged (265 to 375 s). No numbers were retuned; Nicole's Boss damage is the open balance question for a playtest.
+
 ## Checkpoint (open-work round, 2026-11-19, local commits only, not pushed)
 
 Commits on `main` after `c9fee79`, in order:
@@ -25,7 +43,7 @@ Verification at `392a631`: `npm run build` ok, `npm test` **325 / 325 pass** (30
 
 - **Sim step time** (`output/playwright/step-timing.mjs`, seed 7, 100 enemies, fire and water every 0.5 s, median of 3 runs): Zero 0.449 → 0.357 ms, Nicole 0.427 → 0.344 ms per step (before = `334b2da`, after = `decb960`). Older references: 0.453 / 0.418 at the round start, 0.386 / 0.352 at `e85365d`.
 - **Browser frame time: not measured.** System Chrome headless crashed at launch every time in this OS sandbox (`signal=SIGABRT`, the exit-134 crash, with `kill EPERM`); the bundled `chromium_headless_shell-1248` hung until timeout.
-- **Balance** (`output/playwright/balance-run.mjs`, simulated full 600 s nights, seeds 7 / 45 / 91 / 2026, two scripted card-pick policies, 16 runs). Before the Wash Drip change it dealt 60 damage against Smudge's 28 at about half the spawn share and caused 4 of 9 deaths. After: Zero wins 2/8 → 6/8, all runs 7/16 → 11/16. First chest at 69 to 110 s in every run; evolution at 265 to 375 s, or none when passive slots locked it out; levels 16 to 18 at 5 min, 31 to 35 at 10 min; peak 92 enemies (cap 100 never hit). Page Fold 18 to 34% of Nicole's damage, Watercolour Brush 12 to 15% of Nicole's and 0 to 1% of Zero's. Paper Cut shows 0% damage only because the scripted kiting keeps Zero 145 units from ink (probe limitation, not a measured weakness). Exclusive-first Nicole dies before the Boss on 3 of 4 seeds; brush-first Nicole wins 4/4. No other numbers were changed.
+- **Balance** (`output/playwright/balance-run.mjs`, simulated full 600 s nights, seeds 7 / 45 / 91 / 2026, two scripted card-pick policies, 16 runs). Before the Wash Drip change it dealt 60 damage against Smudge's 28 at about half the spawn share and caused 4 of 9 deaths. After: Zero wins 2/8 → 6/8, all runs 7/16 → 11/16 (under the old rule that dawn always wins; 7/16 under the design-decisions rule, see above). First chest at 69 to 110 s in every run; evolution at 265 to 375 s, or none when passive slots locked it out (fixed by the fallback); levels 16 to 18 at 5 min, 31 to 35 at 10 min; peak 92 enemies (cap 100 never hit). Page Fold 18 to 34% of Nicole's damage, Watercolour Brush 12 to 15% of Nicole's and 0 to 1% of Zero's. Paper Cut shows 0% damage only because the scripted kiting keeps Zero 145 units from ink (probe limitation, not a measured weakness). Exclusive-first Nicole dies before the Boss on 3 of 4 seeds; brush-first Nicole wins 4/4. No other numbers were changed.
 - **Audio levels** (`mixTable()` envelope peaks, not perceived loudness): the loudest frequent cue is now 0.074, below the quietest event cue 0.087 (defeat was 0.128 before). Snip and fold sit in the 0.060 to 0.080 band. Nobody has listened to it.
 
 ### The single screenshot of this round
@@ -43,7 +61,7 @@ Needs the user (cannot be finished by an agent):
 1. **Art approval (P0).** View this round in a browser (the review sheet above can be rendered once Chrome runs, or play `/?start=1&seed=45`). Check pencil underdrawing, tide lines, Paper Cut / Page Fold, the bridge, townsfolk next to enemies, cat wear, Nicole's redrawn face patches and both cats without their lanterns (Zero lost his shutter lantern and its ground light in `2effc4a`; decide whether to keep that or restore it). Enemy readability on graveyard ground was not changed in this round.
 2. **Listen to the audio.** The new mix, the snip and fold cues and the limiter are unheard.
 3. **Human playtest** on a real device, including touch controls through retry. Paper Cut and bridge use are under-sampled by the scripted probe.
-4. **Design decisions.** Boss/dawn pressure policy (the Boss can be outrun and dawn still wins). Evolution slot lockout (a full passive bar blocks the partner passive; no hint or fallback). Whether ink pinned under a Page Fold should still deal contact damage (it does now; close-kiting Nicole walks into it).
+4. **Design decisions: resolved** (see the design-decisions checkpoint). Dawn with a living Eraser is a loss (`boss-escaped`). A full passive bar counts in place of the missing partner passive, so a chest still evolves the maxed weapon. Ink pinned under a Page Fold deals no contact damage. Still open: whether Nicole needs more Boss damage now that 3 of her 4 brush-first dawns are losses (balance, not retuned).
 5. **Random helper cats.** Not built. They conflict with the single-cat rule unless the user redefines it; need the user's go-ahead.
 6. **Publishing.** All commits above are local. Push and deploy need explicit authorization (a GitHub push may trigger Vercel).
 7. **Devpost copy and promotional media: not touched, the user's own work.** Agents must not draft them. Deadline 2026-12-05 06:00 Beijing time.

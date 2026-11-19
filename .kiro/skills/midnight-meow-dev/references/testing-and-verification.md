@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 327 tests** at 7fe42d1. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 332 tests** at 1d88912. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -27,7 +27,7 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `water.test.mjs` | pure local polygons, negative coordinates, shared render vertices, shallow/deep/deck classification, swept movement/corners, spawn recovery, explicit road crossings, placement clearance and teaching basin |
 | `paper-rules.test.mjs` | ruleset light/shadow directions, 1 to 3 layer limit, gloss-free weapon/passive icons and mounts, `?check=` parsing, the gloss probe |
 | `wash.test.mjs` | deterministic capped grid without step RNG, water element rows and fire block, tear ease, sources (bucket, wash drip, smudge, rain, Eraser), unstacked wet slow, pigment/lantern/pumpkin/dawn restoration, fold protection and dash cut holes, sketch wakes and caps, the brush, strings in both packs, no state without wash |
-| `paper-verbs.test.mjs` | Paper Cut loop closing, inside-only cut and white cells, partial Boss cut, slit expiry, age-pruned cut pieces; Page Fold flip and pin; level-3 walls; level-2 dry bridge (deck, expiry hold, determinism, exact vertices); per-cat offers; determinism; cat wear creases/tears/tape |
+| `paper-verbs.test.mjs` | Paper Cut loop closing, inside-only cut and white cells, partial Boss cut, slit expiry, age-pruned cut pieces; Page Fold flip and pin (pinned ink never bites); level-3 walls; level-2 dry bridge (deck, expiry hold, determinism, exact vertices); per-cat offers; determinism; cat wear creases/tears/tape |
 | `townsfolk.test.mjs` | pure townsfolk placement and cap, safe homes/routes off water and colliders, poses, nearest talker and tips, hint priority, no SimState or RNG use |
 | `audio-mix.test.mjs` | cue tiers and throttles, envelope peak math, frequent cues below event cues, snip/fold in band, limiter and bus headroom |
 | `paper-value.test.mjs` | no render `ctx.filter` except the one-off gallery value check, value hierarchy data (ground below decor, rim, dark shot outlines), half lamp chance and road-side lamps |
@@ -40,8 +40,8 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `characters.test.mjs` | Zero and Nicole kits |
 | `cat-art.test.mjs` | registered appearance metadata, official-source visible color contours / silhouette, preserved face details / rim / anchors, finite caches, deterministic pose geometry / bounds |
 | `scenery-art.test.mjs` | district motifs, seed determinism, patch / cottage / tree bounds, cached scenery reuse |
-| `upgrades.test.mjs` | build slots, steps, chest-only evolution, snack, extra weapons, per-cat pools, names |
-| `enemies.test.mjs` | horde ramp and hard cap, phases, crumple split, elites, chests, Boss arrival, sweep, reward, dawn win |
+| `upgrades.test.mjs` | build slots, steps, chest-only evolution and the full-bar fallback, snack, extra weapons, per-cat pools, names |
+| `enemies.test.mjs` | horde ramp and hard cap, phases, crumple split, elites, chests, Boss arrival, sweep, reward, dawn win only after the Boss falls (`endReason` dawn / fallen / boss-escaped) |
 | `interactions.test.mjs` | pumpkins, fish treats, moon-lantern, streaks, notices, spot kinds per landmark |
 | `journal.test.mjs`, `timeline.test.mjs`, `scenery.test.mjs`, `official.test.mjs`, `tokens.test.mjs`, `viewport.test.mjs` | HUD geometry, cue timelines and slow-motion determinism, collision, Meow Wall head data, viewport |
 
@@ -94,4 +94,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 327 passing tests at 7fe42d1; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs` (16 simulated nights). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 332 passing tests at 1d88912; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs <out.json>` (16 simulated nights; latest `balance-after-decisions.json`: 7/16 wins under the boss-escaped dawn rule). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
