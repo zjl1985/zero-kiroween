@@ -557,6 +557,27 @@ export interface BiomeProp {
   /** Placed in a band beside the roads instead of anywhere in the chunk. */
   readonly roadside?: boolean;
 }
+// ---------------------------------------------------------------- townsfolk
+
+/**
+ * A neutral paper townsfolk (never a cat, never in combat): lives beside the
+ * landmark kinds in `homes`, strolls a few safe waypoints and gives a
+ * localized tip (`townsfolk.<id>.tip.1..tips`) while the cat is near.
+ * Placement and poses are pure world data (src/game/townsfolk.ts); the sim
+ * never sees them, so they cannot block, fight or take damage.
+ */
+export interface TownsfolkDef {
+  readonly id: string;
+  /** Landmark kinds (LANDMARK_DEFS ids) this townsfolk lives at. */
+  readonly homes: readonly string[];
+  /** Strolling: waypoints within `radius` of home, walked at `speed`, resting `pause` s at each. */
+  readonly wander: { readonly radius: number; readonly speed: number; readonly pause: number };
+  /** The tip shows while the cat is this close. */
+  readonly talkRadius: number;
+  /** How many tip keys it has. */
+  readonly tips: number;
+}
+
 /** A district of the town: its decor mix and prop mix (ground art lives in BIOME_ART). */
 export interface BiomeDef {
   readonly id: string;

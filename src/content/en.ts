@@ -324,4 +324,18 @@ export const EN: Messages = {
   "upgrade.page-fold.name": "Page Fold",
   "upgrade.page-fold.desc":
     "Every {interval}s the page folds over toward the ink: ink within {band} is flipped across, pinned for {pin}s and hit for {damage}. From level 2, walking into deep water folds a dry paper bridge across it for {bridge}s. Level 3 raises a paper wall for {wall}s.",
+  "gallery.section.townsfolk": "Townsfolk",
+  "townsfolk.say": "{name}: “{tip}”",
+  "townsfolk.lamplighter-mouse.name": "Lamplighter Mouse",
+  "townsfolk.lamplighter-mouse.tip.1": "If your coat catches fire, step into water. It puts the flame out and keeps you damp for a moment.",
+  "townsfolk.lamplighter-mouse.tip.2": "Washed-out paper takes its colour back from lit pumpkins, full moon lanterns and fallen ink.",
+  "townsfolk.lamplighter-mouse.tip.3": "Card and cloth burn here. Ink-coated paper won't catch for a while.",
+  "townsfolk.stargazer-owl.name": "Stargazer Owl",
+  "townsfolk.stargazer-owl.tip.1": "Stand on the observatory's star chart a few breaths and the stars freeze the ink around it.",
+  "townsfolk.stargazer-owl.tip.2": "Send wind across the windmill court and its sails push out a pulse that stuns the ink.",
+  "townsfolk.stargazer-owl.tip.3": "Pencil sketches only wake on paper that lost its colour. Keep the page painted and they sleep.",
+  "townsfolk.ferry-frog.name": "Ferry Frog",
+  "townsfolk.ferry-frog.tip.1": "Shallow water slows you. Deep water can't be waded, so take the bridges and the dry road crossings.",
+  "townsfolk.ferry-frog.tip.2": "A page fold can lay a dry paper bridge across deep water for a short while.",
+  "townsfolk.ferry-frog.tip.3": "Water lifts colour off the page. Wet washed paper slows you and tears easily, but it won't burn.",
 };

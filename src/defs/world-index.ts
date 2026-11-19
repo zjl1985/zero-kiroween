@@ -70,6 +70,10 @@ import { WASH_CARD } from "./reactions/wash-card.js";
 import { WASH_CLOTH } from "./reactions/wash-cloth.js";
 import { WASH_STRAW } from "./reactions/wash-straw.js";
 import { WATER_BUCKET } from "./props/water-bucket/def.js";
+import { LAMPLIGHTER_MOUSE } from "./townsfolk/lamplighter-mouse/def.js";
+import { STARGAZER_OWL } from "./townsfolk/stargazer-owl/def.js";
+import { FERRY_FROG } from "./townsfolk/ferry-frog/def.js";
+import { TOWNSFOLK_DEFS } from "./registries.js";
 
 for (const m of [THIN_PAPER, CARD, INK, CLOTH, WAX, STRAW]) MATERIALS.register(m);
 for (const r of [
@@ -142,6 +146,8 @@ for (const l of [
   LANDMARK_DEFS.register(l);
 // District biomes; the first is also the start yard's district.
 for (const b of [OLD_TOWN, PUMPKIN_FARM, GRAVEYARD_WOODS, LANTERN_CANAL, MOON_MEADOW]) BIOME_DEFS.register(b);
+// Neutral townsfolk; a landmark takes the first one whose homes list its kind.
+for (const f of [LAMPLIGHTER_MOUSE, STARGAZER_OWL, FERRY_FROG]) TOWNSFOLK_DEFS.register(f);
 
 /** The reaction row for a material and element, if any. */
 export function reactionFor(material: string, element: string) {

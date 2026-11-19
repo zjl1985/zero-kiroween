@@ -40,6 +40,7 @@ import {
 } from "./craft-scene.js";
 import { drawChunks, drawNavArrows, paperOccludesActor, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
+import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketched, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
@@ -140,6 +141,8 @@ export function drawWorld(
   const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean) => sprites.push({ y, draw, occludesPlayer });
   propSprites(ctx, sim, seed, cam, view.time, addSprite);
   if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
+  if (sim) townsfolkSprites(ctx, sim, cam, view.time, addSprite,
+    wash ? (x: number, y: number) => sketchAmount(sim, x, y) : undefined, reduced);
   const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
     if (!inView(near, l.x, l.y)) continue;

@@ -20,6 +20,7 @@ import type {
   ReactionDef,
   SimContext,
   SimEvents,
+  TownsfolkDef,
   WeaponDef,
 } from "./types.js";
 
@@ -40,3 +41,5 @@ export const LANDMARK_DEFS = createRegistry<LandmarkDef>("landmark");
 /** District biomes (src/defs/biomes): decor and prop mixes per region. */
 export const BIOME_DEFS = createRegistry<BiomeDef>("biome");
 export const SIM_EVENTS = createEventBus<SimState, SimEvents, SimContext>();
+/** Neutral townsfolk (src/defs/townsfolk), in the order a landmark picks its resident. */
+export const TOWNSFOLK_DEFS = createRegistry<TownsfolkDef>("townsfolk");

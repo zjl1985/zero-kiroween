@@ -51,6 +51,8 @@ src/defs/             content definitions (numbers + hooks); sim defs never impo
                       (riverbank, fence yard, furrows, boards, tiles, fringed mounds, stone ring);
                       night-workshop-kit.art.ts shared beams, folded plants, pots and star motifs
   biomes/<id>.ts      + <id>.art.ts (5 districts); districts.ts (DISTRICTS, BASE_DECOR)
+  townsfolk/<id>/     def.ts, art.ts (lamplighter-mouse, stargazer-owl, ferry-frog: neutral paper NPCs,
+                      not cats); tuning.ts (TOWNSFOLK cap 12, placement pads, tip seconds)
 src/game/             generic simulation, no DOM, no per-cat literals (tested)
   sim.ts              createSim, step, snapshot, chunk loading, ring spawning, makeRoom, weapons by
                       timing, shards, upgrades, elites, chests and evolution, Boss, interactions,
@@ -59,6 +61,8 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
   paper-status.ts     radius fire/water contact, carried burn, normal damage hooks and wet protection
   water.ts            shared region queries, dry/shallow/deep/bridge status, swept movement/recovery
   landmark-actions.ts   per-site activity charge/cooldowns, bounded renewal and integrated wind turn
+  townsfolk.ts        pure townsfolk placement (hash2, safe homes/legs), townsfolkPose(npc, t), nearest
+                      talker and tip; never touches SimState or the step RNG
   wash.ts             sparse wash-out colour grid: water lifts colour, Eraser blanks, pigment / lanterns /
                       pumpkins / brush / dawn repaint; paper rain, sketch wakes, colourKept; pure readers
                       (washLevelAt, washCellAt, isColourless, washEmpty ...)
@@ -75,7 +79,8 @@ src/game/             generic simulation, no DOM, no per-cat literals (tested)
   collision.ts, scenery.ts, rng.ts, clock.ts
   seed.ts             pure decimal uint32 query-pin validation (invalid pins use fresh randomness)
 src/render/           Canvas drawing; reads SimState, never mutates it, never uses the sim RNG
-  art-registry.ts     CatArt, EnemyArt, WeaponArt, PassiveArt, PropArt, LandmarkArt, DecorPiece, BiomeArt
+  art-registry.ts     CatArt, EnemyArt, WeaponArt, PassiveArt, PropArt, LandmarkArt, DecorPiece, BiomeArt,
+                      TownsfolkArt
                       and their registries; catArt, activeWeaponArt, upgradeIcon, effectPainter, shotArt
   art-index.ts        registers every art file (the only module that imports them)
   paper-kit.ts        paperCut, paperStack, foldLine, stitchAlong, charEdge, tornEdge, warmGlow; flat
@@ -102,6 +107,8 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
                       shared water/decks, pop-up folding, bounds-based occlusion, live pieces and activity
                       progress, culling, nav arrows, landmarkPreview
   gallery.ts          paintGallery for ?gallery=1
+  craft-townsfolk.ts  townsfolk sprites per (kind, facing, frame), live shadow/bob, speech tag;
+                      townsfolk-kit.ts mirrors figure points (shadow stays down-right)
   camera.ts           follow camera (deadzone, smoothing, clamp to WORLD)
   craft-scene.ts      screen-space sky, world-space hills and ground, trees, houses, start yard, dawn
   craft-cat.ts        official-derived layered paper head / narrow edge over the articulated body
@@ -118,7 +125,7 @@ src/render/           Canvas drawing; reads SimState, never mutates it, never us
                       not a second art style, do not delete blindly
 src/ui/               hud.ts, journal.ts, journal-geometry.ts (pure, tested), character-panel.ts (tickets
                       built from CATS), upgrade-cards.ts, gallery-layout.ts (pure, tested),
-                      environment-copy.ts (hazard-priority and court guidance), ink.ts, touch.ts
+                      environment-copy.ts (hazard-priority, court guidance, townsfolk tips), ink.ts, touch.ts
 src/content/          i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys, formatTime)
 src/audio/sfx.ts      procedural Web Audio sound effects and ambience (incl. tear, crackle), mute
 src/cats/             Meow Wall official cat head data (meow-wall-art.ts CAT_VARIANTS), composition
@@ -126,7 +133,7 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,
                       world); ecology suites: environment-integration, fire-water, landmark-actions,
                       paper-elements, paper-visuals, water; wash-out round: paper-rules, wash,
-                      paper-verbs, paper-value (latest verification: 295 passing tests)
+                      paper-verbs, paper-value; townsfolk (latest verification: 318 passing tests)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
 docs/archive/         obsolete history, not instructions
 output/playwright/    local screenshots/probes, git-ignored, not game assets; the wash-out round's

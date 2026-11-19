@@ -134,12 +134,22 @@ The town splits into a jittered 4 x 3 grid of district sites (`DISTRICTS` in `sr
 
 4. **i18n**: `biome.<id>.name`.
 
+## Townsfolk NPC
+
+Neutral paper townsfolk live beside landmarks and give a localized tip when the cat is near. They are **not cats** (only the chosen cat appears in a run; random helper cats stay unbuilt), and they are pure world data: no `SimState`, no step RNG, no colliders, no damage. Enemies and weapons never see them.
+
+1. **Def** `src/defs/townsfolk/<id>/def.ts`: `TownsfolkDef { id, homes, wander: { radius, speed, pause }, talkRadius, tips }`. `homes` are `LANDMARK_DEFS` ids; a landmark takes the first registered def whose homes list its kind. Shared numbers (cap 12, home ring, body clearance, court/spot pads, tip seconds) live in `src/defs/townsfolk/tuning.ts`. Append to the `TOWNSFOLK_DEFS` line in world-index.ts.
+2. **Placement and pose** come from `src/game/townsfolk.ts`: `townsfolk(seed)`, `townsfolkNear(seed, x, y, r)`, `townsfolkPose(npc, t)`, `nearestTownsfolk(seed, x, y, t)`, `townsfolkTip`. Homes and stroll waypoints come from `hash2`; every point and every sampled leg must pass `townsfolkSafeAt` (dry, off colliders, off spots and court circles), so any pose on the ping-pong route is safe. Callers pass `sim.elapsed` as `t`.
+3. **Art** `src/defs/townsfolk/<id>/art.ts`: `TownsfolkArt { id, bounds, foot, paint(ctx, facing, frame) }`. Author facing right with feet at (0, 0), build each emblem from 1 to 3 `paperEmblem` layers with `figure(f, b => ...)` from `src/render/townsfolk-kit.ts` (mirrors points, not the context, so the shadow stays down-right), and add ink dots with `inkDot`. Calm colours, no threat tones, no glowing eyes. `render/craft-townsfolk.ts` caches `townsfolk:<id>:<facing>:<frame>`, adds the flat shadow and bob live, uses `sketchedSprite` on colourless paper, and draws the speech tag over the one talking. Append to the `TOWNSFOLK_ART` line in art-index.ts.
+4. **i18n**: `townsfolk.<id>.name` and `townsfolk.<id>.tip.1..tips` in keys.ts, en.ts and zh.ts. Tips must match current mechanics. `ui/environment-copy.ts` shows `townsfolk.say` after fire, court actions and wet hints and before the colourless and routine hints.
+5. **Tests**: `tests/townsfolk.test.mjs` (registry/art parity, keys, pure capped placement, safe routes and poses over several seeds, identical sim snapshots with the helpers called, hint priority, in-view drawing). The gallery shows a "Townsfolk" card per def automatically.
+
 ## Tests to extend
 
 - `tests/registry.test.mjs`: landmark / biome art ids match defs and names exist; landmark layouts only place generic decor or registered pieces; biome prop mixes reference props with art.
 - `tests/world.test.mjs`: every biome owns chunks for several seeds; biome props stay in their biome and differ between biomes; new landmark kinds are placed for several seeds and kinds fit the super-cells; chunk content stays pure across `clearWorldCache()` and under `DISTRICTS.propCap`.
 - `tests/interactions.test.mjs` lists interaction spot kinds per landmark; update it if your layout adds `b.spot` calls.
-- `tests/gallery.test.mjs` counts gallery sections (7 today); new entries in an existing registry need no change.
+- `tests/gallery.test.mjs` counts gallery sections (9 today); new entries in an existing registry need no change.
 - `tests/water.test.mjs`: shared vertices, explicit crossings, shallow shelves, swept dashes, spawn projection, negative coordinates, teaching basin and placement clearance.
 - `tests/landmark-actions.test.mjs` / `environment-integration.test.mjs`: reachable anchors, charge/cooldown persistence, finite rewards, safe greenhouse tending, real element dispatch and deterministic rotor integration.
 - `tests/paper-visuals.test.mjs` / `rendering.test.mjs`: read-only progress marks, bounds-based building occlusion and finite live-part caches (not animation/FPS checks).

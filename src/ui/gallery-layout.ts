@@ -1,15 +1,15 @@
 /**
  * The ?gallery=1 page contents and layout, as pure data: one section per
- * registry (cats, enemies, props, landmarks, district biomes, weapons,
+ * registry (cats, enemies, props, landmarks, townsfolk, district biomes, weapons,
  * passives), one item per
  * registered entry and state, and a grid of cells for a page width. Nothing
  * here names a single id, so new defs appear automatically. No DOM, import-safe
  * in Node (tested in tests/gallery.test.mjs).
  */
 import type { MessageKey } from "../content/keys.js";
-import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, WEAPON_DEFS } from "../defs/index.js";
+import { BIOME_DEFS, CATS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
-export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "biome" | "wash" | "weapon" | "passive";
+export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "townsfolk" | "biome" | "wash" | "weapon" | "passive";
 export type GalleryState =
   | "idle"
   | "skill"
@@ -49,6 +49,7 @@ export const GALLERY_CELL: Readonly<Record<GalleryKind, { readonly w: number; re
   enemy: { w: 170, h: 170 },
   prop: { w: 170, h: 140 },
   landmark: { w: 340, h: 300 },
+  townsfolk: { w: 150, h: 150 },
   biome: { w: 260, h: 170 },
   wash: { w: 220, h: 160 },
   weapon: { w: 116, h: 120 },
@@ -84,6 +85,7 @@ export function gallerySections(): GallerySection[] {
         ? PROP_STATES : ["intact", "damaged", "scraps"];
     })),
     section("landmark", "landmarks", items("landmark", LANDMARK_DEFS.ids(), (id) => `landmark.${id}`, () => ["building"])),
+    section("townsfolk", "townsfolk", items("townsfolk", TOWNSFOLK_DEFS.ids(), (id) => `townsfolk.${id}.name`, () => ["idle"])),
     section("biome", "biomes", items("biome", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => ["ground"])),
     section("wash", "wash", items("wash", BIOME_DEFS.ids(), (id) => `biome.${id}.name`, () => WASH_STATES)),
     section("weapon", "weapons", items("weapon", WEAPON_DEFS.ids(), (id) => `upgrade.${id}.name`, () => ["icon"])),

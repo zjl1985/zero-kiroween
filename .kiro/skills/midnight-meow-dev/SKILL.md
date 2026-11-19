@@ -80,6 +80,7 @@ Details: [references/testing-and-verification.md](references/testing-and-verific
 | Add a prop, material or reaction row | [references/add-prop-and-reaction.md](references/add-prop-and-reaction.md) |
 | Change water, fire/status, treatments, regrowth, wash-out or landmark activities | [references/paper-ecology.md](references/paper-ecology.md) |
 | Add a landmark or district biome | [references/add-landmark-biome.md](references/add-landmark-biome.md) |
+| Add a townsfolk NPC | [references/add-landmark-biome.md#townsfolk-npc](references/add-landmark-biome.md#townsfolk-npc) |
 | Add or change strings | [references/i18n.md](references/i18n.md) |
 | Draw art with the paper kit, check it in the gallery | [references/paper-kit-and-gallery.md](references/paper-kit-and-gallery.md) |
 | Build, test, probes, screenshot, commit | [references/testing-and-verification.md](references/testing-and-verification.md) |
@@ -98,5 +99,6 @@ Details: [references/testing-and-verification.md](references/testing-and-verific
 | Prop | `src/defs/props/<id>/def.ts` | `src/defs/props/<id>/art.ts` | `PROP_DEFS` in world-index; `PROP_ART` in art-index | `prop.<id>.name` |
 | Landmark | `src/defs/landmarks/<id>/def.ts` | `src/defs/landmarks/<id>/art.ts` | `LANDMARK_DEFS` in world-index; `LANDMARK_ART` | `landmark.<id>`, `notice.found-<id>` |
 | Biome | `src/defs/biomes/<id>.ts` | `src/defs/biomes/<id>.art.ts` | `BIOME_DEFS` in world-index; `BIOME_ART` | `biome.<id>.name` |
+| Townsfolk (neutral NPC, not a cat) | `src/defs/townsfolk/<id>/def.ts` (+ shared `tuning.ts`) | `src/defs/townsfolk/<id>/art.ts` | `TOWNSFOLK_DEFS` in world-index; `TOWNSFOLK_ART` | `townsfolk.<id>.name`, `townsfolk.<id>.tip.1..n` |
 
 New `EffectKind` or `Notice` values are string unions in `src/game/types.ts`; extend them when a def emits a new impact kind or notice.

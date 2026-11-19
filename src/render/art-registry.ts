@@ -257,6 +257,21 @@ export const PROP_ART = createRegistry<PropArt>("prop art");
 export const LANDMARK_ART = createRegistry<LandmarkArt>("landmark art");
 export const BIOME_ART = createRegistry<BiomeArt>("biome art");
 
+/**
+ * Art of one neutral townsfolk, same id as its TownsfolkDef. `paint` draws the
+ * figure with its feet at (0, 0) facing `facing`, in step frame `frame`; it is
+ * cached per (id, facing, frame), so it must be pure. Mirror the points, not
+ * the context, so the hard shadow keeps falling down-right.
+ */
+export interface TownsfolkArt {
+  readonly id: string;
+  readonly bounds: ArtBounds;
+  paint(ctx: Ctx, facing: 1 | -1, frame: 0 | 1): void;
+  /** Ground shadow half width at the feet. */
+  readonly foot: number;
+}
+export const TOWNSFOLK_ART = createRegistry<TownsfolkArt>("townsfolk art");
+
 const pieceMemo = { size: -1, map: new Map<string, DecorPiece>() };
 /** The landmark decor piece of a decor kind, if a landmark art registers one. */
 export function decorPiece(kind: string): DecorPiece | undefined {

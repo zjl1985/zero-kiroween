@@ -317,4 +317,18 @@ export const ZH: Messages = {
   "upgrade.page-fold.name": "折页",
   "upgrade.page-fold.desc":
     "每 {interval}s 纸页朝墨影折过去：{band} 内的墨影被翻到折线另一侧，压住 {pin}s 并受到 {damage} 伤害。2 级起走向深水时会折出一座干燥的纸桥横跨水面，持续 {bridge}s。3 级起折痕立起一道纸墙，持续 {wall}s。",
+  "gallery.section.townsfolk": "镇上居民",
+  "townsfolk.say": "{name}：“{tip}”",
+  "townsfolk.lamplighter-mouse.name": "点灯鼠",
+  "townsfolk.lamplighter-mouse.tip.1": "身上着火就踩进水里，火会熄灭，还能湿上一小会儿。",
+  "townsfolk.lamplighter-mouse.tip.2": "褪色的纸会从点亮的南瓜、满月灯和落下的墨里找回颜色。",
+  "townsfolk.lamplighter-mouse.tip.3": "这里的卡纸和布都会烧起来。涂了墨的纸一时半会儿点不着。",
+  "townsfolk.stargazer-owl.name": "观星猫头鹰",
+  "townsfolk.stargazer-owl.tip.1": "在星象台的星图上站一会儿，星光会冻住周围的墨影。",
+  "townsfolk.stargazer-owl.tip.2": "让风吹过风车场地，风车叶会推出一圈震波，把墨影定住。",
+  "townsfolk.stargazer-owl.tip.3": "铅笔草稿只会在褪了色的纸上醒来。保住纸上的颜色，它们就一直睡着。",
+  "townsfolk.ferry-frog.name": "摆渡蛙",
+  "townsfolk.ferry-frog.tip.1": "浅水会拖慢脚步，深水蹚不过去，走桥和干燥的路口吧。",
+  "townsfolk.ferry-frog.tip.2": "折一下纸页，就能在深水上铺出一座短暂的干纸桥。",
+  "townsfolk.ferry-frog.tip.3": "水会把纸上的颜色洗掉。湿透的褪色纸会拖慢你、很容易撕破，但不会着火。",
 };

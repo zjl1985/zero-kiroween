@@ -6,6 +6,7 @@ import type { SimState } from "../game/types.js";
 import { landmarks } from "../game/world-gen.js";
 import { WASH } from "../defs/wash.js";
 import { washLevelAt, washWetAt } from "../game/wash.js";
+import { nearestTownsfolk } from "../game/townsfolk.js";
 
 /** Pure status/help copy shared by desktop and touch HUDs, independent of drawing. */
 export function environmentCopy(locale: Locale, state: SimState): { status: string | null; hint: string | null; danger: boolean } {
@@ -35,6 +36,12 @@ export function environmentCopy(locale: Locale, state: SimState): { status: stri
   const level = washLevelAt(state, p.x, p.y);
   if (level > 0 && washWetAt(state, p.x, p.y)) return { status, danger: false, hint: t(locale, "hint.washed") };
   if (status) return { status, danger: false, hint: t(locale, "hint.wet") };
+  // A nearby townsfolk's tip yields to danger and court actions, but beats routine hints.
+  const talk = nearestTownsfolk(state.seed, p.x, p.y, state.elapsed);
+  if (talk) return { status, danger: false, hint: t(locale, "townsfolk.say", {
+    name: t(locale, `townsfolk.${talk.npc.kind}.name` as MessageKey),
+    tip: t(locale, `townsfolk.${talk.npc.kind}.tip.${talk.tip}` as MessageKey),
+  }) };
   if (level >= WASH.colourless) return { status, danger: false, hint: t(locale, "hint.colourless") };
   return { status, danger: false, hint: state.elapsed >= 6 && state.elapsed < 30 ? t(locale, "hint.paper-world") : null };
 }

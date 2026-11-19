@@ -13,7 +13,8 @@ import { ELITE } from "../game/enemies.js";
 import { galleryLayout, gallerySections, stateLabel, type GalleryCell, type GalleryCheck, type GalleryKind } from "../ui/gallery-layout.js";
 import { clearSpriteCache } from "../engine/sprite.js";
 import { glossy, probeGloss } from "./paper-rules.js";
-import { BIOME_ART, CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-index.js";
+import { BIOME_ART, CAT_ART, ENEMY_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-index.js";
+import { drawTownsfolk, drawTownsfolkTag } from "./craft-townsfolk.js";
 import { drawCraftEnemy } from "./craft-enemies.js";
 import { drawProp } from "./craft-props.js";
 import { landmarkPreview, type Bounds } from "./craft-world.js";
@@ -111,6 +112,18 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     ctx.translate(f.x, f.y);
     ctx.scale(f.k, f.k);
     art.draw(ctx, 0);
+    ctx.restore();
+  },
+  townsfolk(ctx, cell, st) {
+    const art = TOWNSFOLK_ART.find(cell.id);
+    if (!art) return;
+    // Room above the head for the speech tag it shows while talking.
+    const f = fit({ ...art.bounds, t: art.bounds.t - 22 }, st, 2);
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.scale(f.k, f.k);
+    drawTownsfolk(ctx, art, 0, 0, { facing: 1, frame: 0 });
+    drawTownsfolkTag(ctx, art, 0, 0);
     ctx.restore();
   },
   biome(ctx, cell, st) {

@@ -302,6 +302,20 @@ export const MESSAGE_KEYS = [
   "upgrade.paper-cut.desc",
   "upgrade.page-fold.name",
   "upgrade.page-fold.desc",
+  "gallery.section.townsfolk",
+  "townsfolk.say",
+  "townsfolk.lamplighter-mouse.name",
+  "townsfolk.lamplighter-mouse.tip.1",
+  "townsfolk.lamplighter-mouse.tip.2",
+  "townsfolk.lamplighter-mouse.tip.3",
+  "townsfolk.stargazer-owl.name",
+  "townsfolk.stargazer-owl.tip.1",
+  "townsfolk.stargazer-owl.tip.2",
+  "townsfolk.stargazer-owl.tip.3",
+  "townsfolk.ferry-frog.name",
+  "townsfolk.ferry-frog.tip.1",
+  "townsfolk.ferry-frog.tip.2",
+  "townsfolk.ferry-frog.tip.3",
 ] as const;
 
 export type MessageKey = (typeof MESSAGE_KEYS)[number];

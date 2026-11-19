@@ -73,7 +73,10 @@ import { PUMPKIN_FARM_ART } from "../defs/biomes/pumpkin-farm.art.js";
 import { GRAVEYARD_WOODS_ART } from "../defs/biomes/graveyard-woods.art.js";
 import { LANTERN_CANAL_ART } from "../defs/biomes/lantern-canal.art.js";
 import { MOON_MEADOW_ART } from "../defs/biomes/moon-meadow.art.js";
-import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, WEAPON_ART } from "./art-registry.js";
+import { LAMPLIGHTER_MOUSE_ART } from "../defs/townsfolk/lamplighter-mouse/art.js";
+import { STARGAZER_OWL_ART } from "../defs/townsfolk/stargazer-owl/art.js";
+import { FERRY_FROG_ART } from "../defs/townsfolk/ferry-frog/art.js";
+import { BIOME_ART, CAT_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-registry.js";
 
 export * from "./art-registry.js";
 
@@ -145,3 +148,4 @@ for (const a of [
 ])
   LANDMARK_ART.register(a);
 for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(a);
+for (const a of [LAMPLIGHTER_MOUSE_ART, STARGAZER_OWL_ART, FERRY_FROG_ART]) TOWNSFOLK_ART.register(a);
