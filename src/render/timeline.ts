@@ -221,9 +221,11 @@ export function popupStep(fold: number, target: number, dt: number, reduced: boo
  * and `tidePeak` the fractions where pigment and tide line are strongest;
  * `maxBlooms` caps live blooms per frame; `tideAlpha` is the dried tide line
  * that stays along every wash edge, drawn once at `tideWidth` (the pencil
- * layer covers its inner half, so one clean watercolour edge shows).
+ * layer covers its inner half, so one clean watercolour edge about half that
+ * wide shows); `tideInk` is how far the district sheet colour is pushed
+ * toward dark pigment for it, so it reads on every (dark, graded) district.
  */
-export const WASH_LOOK = { seconds: 1.2, bloomPeak: 0.16, tidePeak: 0.42, maxBlooms: 48, tideAlpha: 0.42, tideWidth: 3 } as const;
+export const WASH_LOOK = { seconds: 1.2, bloomPeak: 0.16, tidePeak: 0.42, maxBlooms: 48, tideAlpha: 0.64, tideWidth: 6, tideInk: 0.7 } as const;
 /**
  * Fold protection mark (a quiet folded sheet over each live fold circle):
  * fades in, holds for the whole protection time read from the fold's

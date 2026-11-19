@@ -40,7 +40,8 @@ import { drawInteractable } from "./craft-juice.js";
 import { tintedSprite } from "./sprite-tint.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
-import { constructionLine, hatch, pencilFootprint, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
+import { constructionLine, hatch, pencilFootprint, pencilGround, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
+import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
 import { drawRoadNetwork } from "./road-art.js";
@@ -411,7 +412,8 @@ function offsetRun(pts: readonly Point[], off: number): Point[] {
  * with construction axes, both road edges plus a construction centreline
  * and shadow-side hatching, flat decor marks and hatched footings under tall
  * pieces. Baked only for chunks that have washed cells (worker or budgeted
- * fallback, same generator), at the painted tile's resolution.
+ * fallback, same generator), at the painted tile's resolution, then graded by
+ * PAPER_VALUE.washed so raw paper sits one value step above painted ground.
  */
 function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number): Generator<void> {
   const c = chunkContent(seed, cx, cy),
@@ -425,24 +427,55 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
     ctx.save();
     clipOutsideLawn(ctx, { x0, y0, x1, y1 });
     for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
-      const pts = sheetOutline(s.corners, s.art.sheet, s.sd);
-      pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26 * s.opacity, closed: true, color: PENCIL.soft });
+      const pts = sheetOutline(s.corners, s.art.sheet, s.sd),
+        // Sheets that fade out near the yard still show their outline in pencil.
+        k = Math.max(SKETCH_SEAM_FLOOR, s.opacity);
+      pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26 * k, closed: true, color: PENCIL.soft });
       const [, , br, bl] = s.corners as [Point, Point, Point, Point];
-      shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16 * s.opacity, s.sd);
+      shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16 * k, s.sd);
     }
     ctx.restore();
   }
   yield;
   for (const p of patchSpots(seed, x0, y0, x1, y1)) pencilPatch(ctx, p.x, p.y, p.r, p.seed);
   yield;
-  const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
+  const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24),
+    roadRuns = roads(seed).flatMap((r) => runsNear(r.points, r.width + 30, x0, y0, x1, y1).map((run) => ({ run, width: r.width }))),
+    courts = landmarks(seed).filter((l) => {
+      const reach = landmarkReach(l);
+      return !(l.x + reach < x0 || l.x - reach > x1 || l.y + reach < y0 || l.y - reach > y1);
+    });
+  // Open ground: loose tufts and hatch clusters, never on roads, water or landmark footprints.
+  pencilGround(ctx, x0, y0, x1, y1, (x, y) =>
+    roadRuns.some(({ run, width }) => run.some((a, i) => i > 0 && segmentDistance(x, y, run[i - 1]!, a) < width + 6)) ||
+    waters.some((w) => insidePolygon(w.shore, x, y)) ||
+    courts.some((l) => ((x - l.x) / (l.radius * 0.98)) ** 2 + ((y - l.y) / (l.radius * 0.56)) ** 2 < 1));
+  yield;
   for (const water of waters) {
     const shore = water.shore.map((v) => [v.x, v.y] as Point);
     pencilLine(ctx, subdivide(shore, 16, true), water.seed, { weight: 0.95, alpha: 0.62, closed: true });
+    // Shallow water in pencil: short loose ripple dashes inside the shore (world-anchored).
+    const { minX, minY, maxX, maxY } = water.bounds, ripples = new Path2D();
+    for (let ry = Math.floor(Math.max(minY, y0 - 20) / 18) * 18; ry < Math.min(maxY, y1 + 20); ry += 18)
+      for (let rx = Math.floor(Math.max(minX, x0 - 40) / 40) * 40; rx < Math.min(maxX, x1 + 40); rx += 40) {
+        const h = (n: number) => hash(rx * 3 + ry * 7919 + n * 131 + water.seed);
+        if (h(0) > 0.7) continue;
+        const sx = rx + h(1) * 24, sy = ry + h(2) * 8, len = 9 + h(3) * 10;
+        ripples.moveTo(sx, sy);
+        ripples.quadraticCurveTo(sx + len * 0.25, sy - 2, sx + len * 0.5, sy);
+        ripples.quadraticCurveTo(sx + len * 0.75, sy + 2, sx + len, sy);
+      }
+    ctx.save();
+    ctx.clip(path(shore));
+    ctx.globalAlpha = 0.34;
+    ctx.strokeStyle = PENCIL.soft;
+    ctx.lineWidth = 0.6;
+    ctx.lineCap = "round";
+    ctx.stroke(ripples);
+    ctx.restore();
     if (water.core.length) {
       const core = water.core.map((v) => [v.x, v.y] as Point), corePath = path(core);
       pencilLine(ctx, subdivide(core, 16, true), water.seed + 5, { weight: 0.7, alpha: 0.48, closed: true });
-      const { minX, minY, maxX, maxY } = water.bounds;
       hatch(ctx, corePath, minX, minY, maxX, maxY, 4.2, 0.22, water.seed);
     }
     for (const crossing of water.crossings) {
@@ -451,9 +484,7 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
     }
     yield;
   }
-  for (const l of landmarks(seed)) {
-    const reach = landmarkReach(l);
-    if (l.x + reach < x0 || l.x - reach > x1 || l.y + reach < y0 || l.y - reach > y1) continue;
+  for (const l of courts) {
     const rx = l.radius * 0.92, ry = l.radius * 0.5;
     constructionLine(ctx, l.x - rx, l.y, l.x + rx, l.y, 22, 0.18);
     constructionLine(ctx, l.x, l.y - ry * 1.3, l.x, l.y + ry * 1.3, 18, 0.16);
@@ -506,6 +537,15 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   if (x0 < WORLD.minX + 80) scallops([WORLD.minX + 16, Math.max(190, y0)], [WORLD.minX + 16, y1], 1);
   if (x1 > WORLD.maxX - 80) scallops([WORLD.maxX - 16, Math.max(190, y0)], [WORLD.maxX - 16, y1], 2);
   if (y1 > WORLD.maxY - 80) scallops([x0, WORLD.maxY - 14], [x1, WORLD.maxY - 14], 3);
+  // Washed paper is raw paper under the moon: one value step above painted ground, below decor.
+  gradeCanvas(canvas, PAPER_VALUE.washed);
+}
+/** Lowest share of the sheet-seam pencil strength (sheets faded near the yard still show in pencil). */
+const SKETCH_SEAM_FLOOR = 0.6;
+function segmentDistance(px: number, py: number, a: Point, b: Point): number {
+  const dx = b[0] - a[0], dy = b[1] - a[1], d = dx * dx + dy * dy,
+    t = d <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / d));
+  return Math.hypot(px - (a[0] + dx * t), py - (a[1] + dy * t));
 }
 function releaseChunk(image: ChunkImage): void {
   if ("close" in image) image.close();

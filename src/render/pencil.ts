@@ -8,7 +8,8 @@
  * Flat strokes only: no gradients, no filters, no blur, no random numbers.
  */
 import { visHash } from "./hash.js";
-import { PAPER_LIGHT } from "./paper-rules.js";
+import { PAPER_LIGHT, PAPER_VALUE } from "./paper-rules.js";
+import { gradeColour } from "./paper-value.js";
 import type { Ctx, Point } from "./paper-material.js";
 
 /** The pencil palette: raw paper, clean (erased) paper and graphite weights. */
@@ -30,41 +31,129 @@ export function spot(x: number, y: number, salt: number): number {
   return visHash(Math.round(x) * 73856093 ^ Math.round(y) * 19349663 ^ salt * 83492791);
 }
 
+/** The colours of one raw paper look (paper, pressed-pulp flecks, dark and light fibre). */
+export interface PaperTone {
+  readonly paper: string;
+  readonly shade: string;
+  readonly fibre: string;
+  readonly light: string;
+}
+/** Raw paper as baked into the pencil layer (the whole tile is value-graded afterwards). */
+export const RAW_PAPER: PaperTone = Object.freeze({
+  paper: PENCIL.paper,
+  shade: PENCIL.paperShade,
+  fibre: PENCIL.fibre,
+  light: PENCIL.fibreLight,
+});
 /**
- * Raw cream paper over a rectangle with world-anchored fibre: short curled
- * hairs in two tones, denser than the painted sheets show.
+ * The same raw paper already graded by PAPER_VALUE.washed, for flat paper drawn
+ * straight onto the page (the wash fallback before a pencil tile is baked and
+ * the gallery swatches), so it matches the baked tile.
  */
-export function rawPaper(ctx: Ctx, x0: number, y0: number, w: number, h: number): void {
+export const WASHED_PAPER: PaperTone = Object.freeze({
+  paper: gradeColour(PENCIL.paper, PAPER_VALUE.washed),
+  shade: gradeColour(PENCIL.paperShade, PAPER_VALUE.washed),
+  fibre: gradeColour(PENCIL.fibre, PAPER_VALUE.washed),
+  light: gradeColour(PENCIL.fibreLight, PAPER_VALUE.washed),
+});
+/** Raw paper fibre numbers: hairs per fibre cell, their length and the pressed-pulp flecks. */
+const FIBRE = Object.freeze({ hairs: 4, minLength: 4, length: 9, darkShare: 0.6, darkAlpha: 0.42, lightAlpha: 0.7, fleckChance: 0.55, fleckAlpha: 0.55 });
+
+/**
+ * Raw paper over a rectangle with world-anchored fibre: a sparse mottling of
+ * pressed-pulp flecks and short curled hairs in two tones, dense enough to
+ * read as paper at game scale. `tone` picks the raw (to be graded) or the
+ * already graded look.
+ */
+export function rawPaper(ctx: Ctx, x0: number, y0: number, w: number, h: number, tone: PaperTone = RAW_PAPER): void {
+  const base = ctx.globalAlpha;
   ctx.save();
-  ctx.fillStyle = PENCIL.paper;
+  ctx.fillStyle = tone.paper;
   ctx.fillRect(x0, y0, w, h);
   const c = PENCIL.fibreCell,
     dark = new Path2D(),
-    light = new Path2D();
+    light = new Path2D(),
+    flecks = new Path2D();
   for (let gy = Math.floor(y0 / c) - 1; gy * c < y0 + h + c; gy++)
-    for (let gx = Math.floor(x0 / c) - 1; gx * c < x0 + w + c; gx++)
-      for (let k = 0; k < 2; k++) {
+    for (let gx = Math.floor(x0 / c) - 1; gx * c < x0 + w + c; gx++) {
+      const f = (n: number) => visHash(gx * 40503 + gy * 27449 + n * 613);
+      if (f(0) < FIBRE.fleckChance) {
+        const fx = (gx + f(1)) * c, fy = (gy + f(2)) * c, rx = 2.5 + f(3) * 5;
+        flecks.moveTo(fx + rx, fy);
+        flecks.ellipse(fx, fy, rx, rx * (0.45 + f(4) * 0.35), f(5) * Math.PI, 0, Math.PI * 2);
+      }
+      for (let k = 0; k < FIBRE.hairs; k++) {
         const r = (n: number) => visHash(gx * 92821 + gy * 68917 + k * 7919 + n * 131),
           x = (gx + r(1)) * c,
           y = (gy + r(2)) * c,
           a = r(3) * Math.PI,
-          len = 3 + r(4) * 6,
+          len = FIBRE.minLength + r(4) * FIBRE.length,
           bend = (r(5) - 0.5) * 3,
-          p = r(6) < 0.62 ? dark : light,
+          p = r(6) < FIBRE.darkShare ? dark : light,
           dx = Math.cos(a) * len,
           dy = Math.sin(a) * len;
         p.moveTo(x - dx * 0.5, y - dy * 0.5);
         p.quadraticCurveTo(x - dy * bend * 0.1, y + dx * bend * 0.1, x + dx * 0.5, y + dy * 0.5);
       }
+    }
+  ctx.globalAlpha = base * FIBRE.fleckAlpha;
+  ctx.fillStyle = tone.shade;
+  ctx.fill(flecks);
   ctx.lineCap = "round";
-  ctx.lineWidth = 0.55;
-  ctx.globalAlpha = 0.24;
-  ctx.strokeStyle = PENCIL.fibre;
+  ctx.lineWidth = 0.6;
+  ctx.globalAlpha = base * FIBRE.darkAlpha;
+  ctx.strokeStyle = tone.fibre;
   ctx.stroke(dark);
-  ctx.globalAlpha = 0.7;
-  ctx.strokeStyle = PENCIL.fibreLight;
+  ctx.globalAlpha = base * FIBRE.lightAlpha;
+  ctx.strokeStyle = tone.light;
   ctx.lineWidth = 0.8;
   ctx.stroke(light);
+  ctx.restore();
+}
+
+/** World grid and strength of the open-ground pencil underdrawing (grass ticks and short hatch clusters). */
+export const PENCIL_GROUND = Object.freeze({ cell: 36, chance: 0.85, alpha: 0.44, weight: 0.6 });
+/**
+ * The pencil underdrawing of open ground over a box: on a world grid, hashed
+ * clusters of loose grass-tuft ticks or short "/" hatch strokes, so any
+ * washed patch of open ground shows graphite marks. `skip` leaves out roads,
+ * water and landmark footprints. World-anchored: tiles join without seams.
+ */
+export function pencilGround(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, skip: (x: number, y: number) => boolean): void {
+  const c = PENCIL_GROUND.cell, ticks = new Path2D(), strokes = new Path2D();
+  for (let gy = Math.floor(y0 / c) - 1; gy * c < y1 + c; gy++)
+    for (let gx = Math.floor(x0 / c) - 1; gx * c < x1 + c; gx++) {
+      const h = (n: number) => visHash(gx * 15731 + gy * 789221 + n * 1013 + 7);
+      if (h(0) > PENCIL_GROUND.chance) continue;
+      const x = (gx + 0.15 + h(1) * 0.7) * c, y = (gy + 0.15 + h(2) * 0.7) * c;
+      if (x < x0 - 12 || x > x1 + 12 || y < y0 - 12 || y > y1 + 12 || skip(x, y)) continue;
+      if (h(3) < 0.58) {
+        // A loose tuft: three ticks leaning a little, the middle one tallest.
+        const n = 3 + Math.floor(h(4) * 2), lean = (h(5) - 0.5) * 2;
+        for (let i = 0; i < n; i++) {
+          const tx = x + (i - (n - 1) / 2) * 2.6, tall = (i === Math.floor(n / 2) ? 6.5 : 4.2) + h(6 + i) * 2;
+          ticks.moveTo(tx, y);
+          ticks.lineTo(tx + lean + (i - (n - 1) / 2) * 0.6, y - tall);
+        }
+      } else {
+        // A short shading cluster: a few "/" strokes of uneven length.
+        const n = 4 + Math.floor(h(4) * 3);
+        for (let i = 0; i < n; i++) {
+          const sx = x + (i - n / 2) * 2.4, len = 4 + h(6 + i) * 4;
+          strokes.moveTo(sx, y + len * 0.5);
+          strokes.lineTo(sx + len * 0.6, y - len * 0.5);
+        }
+      }
+    }
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineWidth = PENCIL_GROUND.weight;
+  ctx.globalAlpha *= PENCIL_GROUND.alpha;
+  ctx.strokeStyle = PENCIL.graphite;
+  ctx.stroke(ticks);
+  ctx.globalAlpha *= 0.85;
+  ctx.strokeStyle = PENCIL.soft;
+  ctx.stroke(strokes);
   ctx.restore();
 }
 

@@ -31,7 +31,7 @@ import { visHash } from "./hash.js";
 import { flatCut, placePoints, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
 import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { mix, stroke, type Ctx, type Point } from "./paper-material.js";
-import { PENCIL } from "./pencil.js";
+import { PENCIL, rawPaper, WASHED_PAPER } from "./pencil.js";
 import { FOLD_GUARD_LOOK, WASH_LOOK, foldGuardFade, washBloom } from "./timeline.js";
 
 /** Blot radius as a share of the wash cell: neighbours (also diagonal ones) merge into one stain. */
@@ -69,6 +69,8 @@ interface Mask {
   sig: number;
   /** Sketch blots by quantised level (index 0 = step 1). */
   levels: (Path2D | null)[];
+  /** World bounds [x0, y0, x1, y1] of each level's blots (bounds the fallback paper). */
+  boxes: ([number, number, number, number] | null)[];
   /** Every colourless or fading blot: where the tide line dries. */
   edge: Path2D | null;
   wet: Path2D | null;
@@ -228,7 +230,7 @@ function chunkLook(seed: number, cx: number, cy: number): { tide: string; pigmen
 /** Tide-line and bloom pigment colours of a district (also used by the gallery swatches). */
 export function washLook(art: BiomeArt | undefined): { tide: string; pigment: string } {
   const base = art?.sheet.colors[2] ?? "#6f6a5a";
-  return { tide: mix(base, COLORS.tideInk, 0.35), pigment: art?.swatch[1] ?? "#7a8f6a" };
+  return { tide: mix(base, COLORS.tideInk, WASH_LOOK.tideInk), pigment: art?.swatch[1] ?? "#7a8f6a" };
 }
 /** A free-standing watercolour stain of a few merged blots around (x, y) (gallery swatches). */
 export function swatchBlot(x: number, y: number, r: number, seed: number, scale = 1): Path2D {
@@ -264,13 +266,19 @@ function appendBlot(p: Path2D, x: number, y: number, k: number, salt: number): v
 function buildMask(seed: number, key: string, bucket: Bucket): Mask {
   const [cx, cy] = key.split(",").map(Number) as [number, number],
     levels: (Path2D | null)[] = [null, null, null, null],
+    boxes: ([number, number, number, number] | null)[] = [null, null, null, null],
     look = chunkLook(seed, cx, cy),
-    m: Mask = { sig: bucket.sig, levels, edge: null, wet: null, blank: null, cut: null, ...look };
+    m: Mask = { sig: bucket.sig, levels, boxes, edge: null, wet: null, blank: null, cut: null, ...look },
+    reach = WASH.cell * (0.5 + BLOT * 1.1);
   for (const { ix, iy, code } of bucket.marks) {
     const step = code & 7;
     if (step > 0) {
       blot(levels[step - 1] ??= new Path2D(), ix, iy);
       blot(m.edge ??= new Path2D(), ix, iy);
+      const x = ix * WASH.cell + WASH.cell / 2 - reach, y = iy * WASH.cell + WASH.cell / 2 - reach,
+        b = boxes[step - 1] ??= [x, y, x + 2 * reach, y + 2 * reach];
+      b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y);
+      b[2] = Math.max(b[2], x + 2 * reach); b[3] = Math.max(b[3], y + 2 * reach);
     }
     if (code & 8) blot(m.blank ??= new Path2D(), ix, iy, 0.94);
     if (code & 16) blot(m.cut ??= new Path2D(), ix, iy, 0.84);
@@ -377,8 +385,9 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
       ctx.globalAlpha *= (i + 1) / 4;
       if (tile) ctx.drawImage(tile, x, y, W, H);
       else {
-        ctx.fillStyle = PENCIL.paper;
-        ctx.fillRect(x, y, W, H);
+        // Until the pencil tile is baked: the same graded raw paper with its fibre, over the blots only.
+        const b = m.boxes[i]!, bx = Math.max(x, b[0]), by = Math.max(y, b[1]);
+        rawPaper(ctx, bx, by, Math.min(x + W, b[2]) - bx, Math.min(y + H, b[3]) - by, WASHED_PAPER);
       }
       ctx.restore();
     });

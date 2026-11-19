@@ -23,7 +23,7 @@ import { visHash } from "./hash.js";
 import { paintSheet, sheetOutline } from "./paper-ground.js";
 import { paperCut } from "./paper-kit.js";
 import { box, glow, stroke, type Ctx, type Point } from "./paper-material.js";
-import { pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
+import { pencilGround, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide, WASHED_PAPER } from "./pencil.js";
 import { WASH_LOOK, washBloom } from "./timeline.js";
 import { swatchBlot, washLook } from "./wash-art.js";
 
@@ -214,7 +214,8 @@ function biomeSwatch(ctx: Ctx, cell: GalleryCell, st: { x: number; y: number; w:
   ctx.save();
   ctx.clip(g);
   if (pencil) {
-    rawPaper(ctx, st.x, st.y, st.w, st.h);
+    rawPaper(ctx, st.x, st.y, st.w, st.h, WASHED_PAPER);
+    pencilGround(ctx, st.x, st.y, st.x + st.w, st.y + st.h, () => false);
     for (const [corners, sd] of sheets) {
       pencilLine(ctx, sheetOutline(corners, art.sheet, sd), sd, { weight: 0.6, alpha: 0.32, closed: true, color: PENCIL.soft });
       shadeAlong(ctx, subdivide([corners[3]!, corners[2]!], 30), 0.5, 6, 0.18, sd);

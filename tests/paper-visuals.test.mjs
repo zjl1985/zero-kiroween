@@ -981,3 +981,121 @@ test("costume impacts have shared paper painters tinted by the worn costume", (t
     assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === costumeArt(state).colors.ink || c.op === "drawImage"), `${kind} paints`);
   }
 });
+
+// ---------------------------------------------------------------- washed paper look (task-wash-and-seam-fix)
+import { biomeAt, roads } from "../dist/game/world-gen.js";
+import { waterRegionsNear } from "../dist/game/water.js";
+import { landmarkReach } from "../dist/render/art-registry.js";
+import { PAPER_VALUE } from "../dist/render/paper-rules.js";
+import { gradeColour, relativeLuminance } from "../dist/render/paper-value.js";
+import { PENCIL, PENCIL_GROUND, WASHED_PAPER } from "../dist/render/pencil.js";
+import { mix } from "../dist/render/paper-material.js";
+import { washLook } from "../dist/render/wash-art.js";
+
+/** A chunk of seed 7 with no road, water or landmark near it: open district ground only. */
+function openChunk(seed) {
+  for (let cy = 1; cy < 9; cy++)
+    for (let cx = 1; cx < 18; cx++) {
+      const x0 = cx * CHUNK.width, y0 = cy * CHUNK.height, x1 = x0 + CHUNK.width, y1 = y0 + CHUNK.height, pad = 60;
+      const roadNear = roads(seed).some((r) => r.points.some((p) => p.x > x0 - r.width - pad && p.x < x1 + r.width + pad && p.y > y0 - r.width - pad && p.y < y1 + r.width + pad));
+      if (roadNear) continue;
+      if (waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(CHUNK.width, CHUNK.height) / 2 + 24).length) continue;
+      if (landmarks(seed).some((l) => { const r = landmarkReach(l) + pad; return l.x + r > x0 && l.x - r < x1 && l.y + r > y0 && l.y - r < y1; })) continue;
+      return { cx, cy, x0, y0, x1, y1 };
+    }
+  return null;
+}
+/** Start points of every graphite mark stroked in a recorded stream. */
+function graphiteMarks(calls) {
+  const out = [];
+  for (const c of calls) {
+    if (c.op !== "stroke" || !(c.args[0] instanceof Path) || (c.strokeStyle !== PENCIL.graphite && c.strokeStyle !== PENCIL.soft)) continue;
+    for (const [op, x, y] of c.args[0].ops) if (op === "moveTo") out.push([x, y]);
+  }
+  return out;
+}
+
+test("the washed grade sits between graded painted ground and graded decor", () => {
+  const L = (hex) => relativeLuminance(hex),
+    washed = L(gradeColour(PENCIL.paper, PAPER_VALUE.washed)),
+    pulp = L(gradeColour("#52574b", PAPER_VALUE.ground)),
+    decor = L(gradeColour(PENCIL.paper, PAPER_VALUE.decor));
+  assert.ok(washed > pulp * 2, `washed paper (${washed.toFixed(3)}) clearly lighter than painted ground (${pulp.toFixed(3)})`);
+  assert.ok(washed < decor, `washed paper (${washed.toFixed(3)}) no brighter than decor (${decor.toFixed(3)})`);
+  assert.equal(WASHED_PAPER.paper, gradeColour(PENCIL.paper, PAPER_VALUE.washed), "the flat fallback paper is the graded tile colour");
+  assert.deepEqual(PAPER_VALUE.ground, { desaturate: 0.36, multiply: "#c3bfcf" }, "painted ground grade unchanged");
+  assert.deepEqual(PAPER_VALUE.decor, { desaturate: 0.24, multiply: "#dcd8e3" }, "decor grade unchanged");
+});
+
+test("an open-ground pencil tile is value-graded, fibrous and carries a world-anchored pencil underdrawing", (t) => {
+  environment(t);
+  const seed = 7, open = openChunk(seed);
+  assert.ok(open, "seed 7 has an open-ground chunk");
+  const ctx = buildChunk(seed, open.cx, open.cy, "sketch").getContext("2d"), calls = allPaint(ctx);
+  assert.ok(calls.some((c) => c.op === "fillRect" && c.globalCompositeOperation === "multiply" && c.fillStyle === PAPER_VALUE.washed.multiply),
+    "the bake ends with the washed value grade");
+  // Fibre: at least two dark hairs per fibre cell, plus pressed-pulp flecks.
+  const cells = (CHUNK.width / PENCIL.fibreCell) * (CHUNK.height / PENCIL.fibreCell),
+    hairs = ctx.calls.filter((c) => c.op === "stroke" && c.strokeStyle === PENCIL.fibre)
+      .reduce((n, c) => n + c.args[0].ops.filter(([op]) => op === "quadraticCurveTo").length, 0);
+  assert.ok(hairs / cells >= 2, `dense paper fibre (${(hairs / cells).toFixed(2)} dark hairs per cell)`);
+  assert.ok(ctx.calls.some((c) => c.op === "fill" && c.fillStyle === PENCIL.paperShade), "pressed-pulp mottling");
+  // Underdrawing: nearly every 64 x 64 window of open ground shows several graphite marks.
+  const marks = graphiteMarks(ctx.calls);
+  let windows = 0, marked = 0;
+  for (let y = open.y0; y + 64 <= open.y1; y += 64)
+    for (let x = open.x0; x + 64 <= open.x1; x += 64) {
+      windows++;
+      if (marks.filter(([mx, my]) => mx >= x && mx < x + 64 && my >= y && my < y + 64).length >= 3) marked++;
+    }
+  assert.ok(marked / windows >= 0.85, `${marked}/${windows} open-ground windows show at least three pencil marks`);
+  // World-anchored: the neighbouring tile draws the same marks along their shared edge.
+  const right = graphiteMarks(buildChunk(seed, open.cx + 1, open.cy, "sketch").getContext("2d").calls),
+    edge = (list) => list.filter(([x, y]) => Math.abs(x - open.x1) <= 4 && y > open.y0 + 30 && y < open.y1 - 30).map((p) => p.join(","));
+  assert.ok(edge(marks).length > 0, "marks reach the shared tile edge");
+  assert.ok(edge(marks).every((p) => edge(right).includes(p)), "neighbouring tiles draw the same marks across their edge");
+  restored(ctx);
+});
+
+test("before the pencil tile is baked, washed cells show graded raw paper with fibre, never a flat cream fill", (t) => {
+  const sim = washedSim(), before = structuredClone(sim);
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  const { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
+  assert.equal(sketchTile(sim.seed, cx, cy), undefined, "no pencil tile yet");
+  const ctx = canvas().getContext("2d");
+  drawWashGround(ctx, WASH_AT, washFrame(sim));
+  assert.ok(!ctx.calls.some((c) => (c.op === "fillRect" || c.op === "fill") && c.fillStyle === PENCIL.paper), "no flat ungraded cream");
+  const paper = ctx.calls.filter((c) => c.op === "fillRect" && c.fillStyle === WASHED_PAPER.paper);
+  assert.ok(paper.length > 0, "graded raw paper under the blots");
+  for (const p of paper) assert.ok(p.args[2] < CHUNK.width && p.args[3] < CHUNK.height, "bounded to the blots, not the whole chunk");
+  assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === WASHED_PAPER.fibre), "dark paper fibre");
+  assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === WASHED_PAPER.light), "light paper fibre");
+  assert.deepEqual(gloss(allPaint(ctx)), []);
+  restored(ctx);
+  assert.deepEqual(sim, before, "rendering never mutates SimState");
+});
+
+test("the tide line is one clear dark edge on every district", (t) => {
+  assert.ok(WASH_LOOK.tideWidth >= 5 && WASH_LOOK.tideAlpha >= 0.55, "wide and strong enough that its outer half shows");
+  for (const art of BIOME_ART.all()) {
+    const ground = gradeColour(art.sheet.colors[2], PAPER_VALUE.ground),
+      seen = mix(ground, washLook(art).tide, WASH_LOOK.tideAlpha);
+    assert.ok(relativeLuminance(seen) <= relativeLuminance(ground) * 0.8,
+      `${art.id}: the tide line reads darker than the graded ground it dries on`);
+  }
+  const sim = washedSim();
+  environment(t);
+  clearWorldRenderCache();
+  clearWashRender();
+  t.after(clearWorldRenderCache);
+  const ctx = canvas().getContext("2d"), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y),
+    tide = washLook(BIOME_ART.find(biomeAt(sim.seed, cx, cy).id)).tide;
+  drawWashGround(ctx, WASH_AT, washFrame(sim));
+  const line = ctx.calls.find((c) => c.op === "stroke" && c.strokeStyle === tide);
+  assert.ok(line && line.lineWidth >= 5 && line.globalAlpha >= 0.55, "the recorded tide stroke is wide and strong");
+  assert.ok(ctx.calls.indexOf(line) < ctx.calls.findIndex((c) => c.op === "fillRect"), "stroked before the paper fill, so only its outer half shows");
+  restored(ctx);
+});

@@ -49,6 +49,11 @@ export const PAPER_VALUE = Object.freeze({
   ground: Object.freeze({ desaturate: 0.36, multiply: "#c3bfcf" }),
   /** Plain decor sprites (trees, cottages, bushes, fences, stones, decor pumpkins, candles, lamps). */
   decor: Object.freeze({ desaturate: 0.24, multiply: "#dcd8e3" }),
+  /**
+   * Washed paper (the baked pencil layer and its fallback): raw paper under
+   * moonlight, clearly lighter than painted ground yet no brighter than decor.
+   */
+  washed: Object.freeze({ desaturate: 0.3, multiply: "#a9a5b8" }),
   /** Light cut-edge rim on the moon side of actors (cats and ink), in drawing units. */
   rim: Object.freeze({ width: 1.15, color: "#fff1cf", alpha: 0.78 }),
   /** Dark paper outline under every player shot. */

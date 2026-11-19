@@ -30,6 +30,30 @@ export interface ValueGrade {
   /** Multiplied paper tone (lower = darker), as #rrggbb. */
   readonly multiply: string;
 }
+function rgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const hex2 = (v: number) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0");
+/**
+ * The colour `gradeCanvas` turns an opaque `hex` into: the "saturation" pass
+ * with grey (a share `desaturate` of the colour replaced by its own
+ * luminosity), then the "multiply" pass. Pure colour math, for flat fills
+ * that must match a graded tile and for value tests.
+ */
+export function gradeColour(hex: string, grade: ValueGrade): string {
+  const [r, g, b] = rgb(hex), m = rgb(grade.multiply), k = grade.desaturate,
+    lum = 0.3 * r + 0.59 * g + 0.11 * b;
+  return "#" + [r, g, b].map((c, i) => hex2(((c + (lum - c) * k) * m[i]!) / 255)).join("");
+}
+/** WCAG relative luminance (0 black .. 1 white) of an sRGB `#rrggbb` colour. */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = rgb(hex).map((c) => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
 /** Lowers and greys everything already painted in `canvas`, keeping its alpha. */
 export function gradeCanvas(canvas: CanvasSurface | undefined, grade: ValueGrade): void {
   const c = composable(canvas);
