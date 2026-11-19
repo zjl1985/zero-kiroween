@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 325 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 327 tests** at 7fe42d1. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -93,4 +93,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 325 passing tests; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs` (16 simulated nights). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 327 passing tests at 7fe42d1; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs` (16 simulated nights). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.

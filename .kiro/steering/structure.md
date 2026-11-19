@@ -137,7 +137,7 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,
                       world); ecology suites: environment-integration, fire-water, landmark-actions,
                       paper-elements, paper-visuals, water; wash-out round: paper-rules, wash,
-                      paper-verbs, paper-value; townsfolk, audio-mix (latest verification: 325 passing tests)
+                      paper-verbs, paper-value; townsfolk, audio-mix (latest verification: 327 passing tests at 7fe42d1)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes
 docs/archive/         obsolete history, not instructions
 output/playwright/    local screenshots/probes, git-ignored, not game assets; the wash-out round's
