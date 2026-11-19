@@ -151,7 +151,7 @@ tests/*.test.mjs      node:test suites against dist/ (characters, enemies, galle
                       world); ecology suites: environment-integration, fire-water, landmark-actions,
                       paper-elements, paper-visuals, water; wash-out round: paper-rules, wash,
                       paper-verbs, paper-value; townsfolk, audio-mix; costumes round: costumes,
-                      wardrobe (latest verification: 382 passing tests in the costumes round)
+                      wardrobe; seam fix: ground-seams (latest verification: 391 passing tests)
 .kiro/skills/midnight-meow-dev/   the development workflow skill and its recipes (references/add-costume.md
                       is the costume workshop recipe)
 docs/archive/         obsolete history, not instructions

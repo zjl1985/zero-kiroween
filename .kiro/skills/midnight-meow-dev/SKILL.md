@@ -74,7 +74,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 3. Never launch Chrome, Chromium or a Playwright browser in the sandbox (it aborts at launch and macOS shows the user a crash dialog). For art changes, tell the user to run `node output/playwright/open-work-shot.cjs` (screenshots) or `node output/playwright/frame-time.cjs` (frame time) on their machine, and record the art as not viewed.
 4. No animation or video-recording checks unless the user asks.
 
-Latest verification: build + **382 passing tests** at the costumes round (9439d52 through 17fdbed plus the docs commit; new suites `costumes`, `wardrobe`; 332 at 1d88912 before the round). No costume art, makeup, wardrobe UI, HUD tag or result unlock line was viewed in a browser. Costume balance comes from a scripted Node probe (16 nights per look), not a human playtest. No animation, recording, audio listening or browser FPS checks; mobile review and user approval remain open.
+Latest verification: build + **391 passing tests** after the wash and lawn seam fixes (57a1e7e, 9c8e91b; new suite `ground-seams`, new cases in `paper-visuals`; nothing viewed in a browser). Before that, **382 passing tests** at the costumes round (9439d52 through 17fdbed plus the docs commit; new suites `costumes`, `wardrobe`; 332 at 1d88912 before the round). No costume art, makeup, wardrobe UI, HUD tag or result unlock line was viewed in a browser. Costume balance comes from a scripted Node probe (16 nights per look), not a human playtest. No animation, recording, audio listening or browser FPS checks; mobile review and user approval remain open.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).
 
