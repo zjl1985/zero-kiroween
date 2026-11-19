@@ -13,7 +13,10 @@ const BASE = {
   /** How deep the folded flap reaches past the crease. */
   band: 92,
   damage: 2,
-  /** Seconds flipped ink stays pinned under the fold. */
+  /**
+   * Seconds flipped ink stays pinned under the fold. Pinned ink is stunned: it
+   * does not move and deals no contact damage or knockback (stepEnemies skips it).
+   */
   pin: 1.3,
   /** Seconds the standing paper wall lasts (from level WALL.fromLevel). */
   wall: 3,

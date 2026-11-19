@@ -1257,7 +1257,9 @@ function stepEnemies(state: SimState, dt: number, rng: Rng): void {
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i]!;
     if (!e.alive || e.spawnTime > 0) continue;
-    // Moon-lantern stun: frozen ink neither moves nor bites.
+    // Stun covers the moon-lantern freeze and ink pinned under a Page Fold
+    // (PAGE_FOLD pin): stunned ink neither moves, bites nor knocks the cat back.
+    // This skip runs before the contact check; tests/paper-verbs.test.mjs guards it.
     if ((e.stun ?? 0) > 0) continue;
     const def = enemyDef(e.kind),
       radius = radii[i] ??= enemyRadius(e);

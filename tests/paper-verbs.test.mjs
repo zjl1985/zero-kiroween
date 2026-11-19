@@ -132,6 +132,36 @@ test("the page fold flips ink inside the band across the crease and pins it; ink
   assert.equal(s.walls.length, 0, "no wall below level 3");
 });
 
+test("ink pinned under a Page Fold never bites, even overlapping Nicole; unpinned it does", () => {
+  const s = quiet("nicole", "page-fold");
+  s.player.invuln = 0;
+  s.player.shield = 0;
+  const e = blob(s, 740, 420, { stun: 0 });
+  // A real fold through step flips and pins the blob.
+  step(s, idle, DT);
+  assert.equal(s.fold.folds, 1);
+  assert.ok(e.stun >= 1.2, `pinned: ${e.stun}`);
+  s.weaponTimers["page-fold"] = 1e9;
+  const hp = s.player.hp, reach = enemyRadius(e) + STATS.playerRadius;
+  let pinnedSteps = 0;
+  // Hold the pinned blob right on top of the cat for every step the pin still covers
+  // (stun counts down at the start of a step, so the last covered step leaves it > 0).
+  while (e.stun > DT + 1e-9) {
+    e.x = s.player.x + 4;
+    e.y = s.player.y;
+    assert.ok(Math.hypot(e.x - s.player.x, e.y - s.player.y) < reach, "overlapping");
+    step(s, idle, DT);
+    pinnedSteps++;
+    assert.equal(s.player.hp, hp, `pinned ink bit after ${pinnedSteps} steps`);
+  }
+  assert.ok(pinnedSteps * DT >= 1.2, `held for the pin: ${pinnedSteps} steps`);
+  // The pin is over: the same overlapping blob reaches the contact check and bites.
+  e.x = s.player.x + 4;
+  e.y = s.player.y;
+  for (let i = 0; i < 10 && s.player.hp === hp; i++) step(s, idle, DT);
+  assert.ok(s.player.hp < hp, "unpinned ink bites");
+});
+
 test("from level 3 the crease raises a paper wall that blocks and is removed after its life", () => {
   const s = quiet("nicole", "page-fold", PAPER_WALL.fromLevel);
   blob(s, 740, 420, { stun: 0 });
