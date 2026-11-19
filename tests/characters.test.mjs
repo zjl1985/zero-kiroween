@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createSim,
+  bossEnemy,
   step,
   orbitPositions,
   snapshot,
@@ -222,7 +223,11 @@ test("a full night reaches dawn once, with finite state and enemies under the ha
       assert.ok(s.enemies.length <= HORDE.hardCap);
       assert.ok(Number.isFinite(s.player.x) && Number.isFinite(s.player.y));
     }
-    assert.equal(s.ended, "won");
+    // An idle, invulnerable cat never wears the Eraser down, so dawn ends the
+    // night as the boss-escaped loss whenever the Boss is still on the page.
+    const escaped = bossEnemy(s) !== undefined;
+    assert.equal(s.ended, escaped ? "lost" : "won");
+    assert.equal(s.endReason, escaped ? "boss-escaped" : "dawn");
     assert.equal(s.timeLeft, 0);
     assert.equal(nightPhase(s), 3);
     const before = snapshot(s);

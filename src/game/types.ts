@@ -548,6 +548,8 @@ export interface LandmarkEventState {
   /** Integrated rotor angle; rendering never advances it. */
   turn?: number;
 }
+/** "dawn": survived with no Boss loose; "fallen": hp hit 0; "boss-escaped": dawn with the Boss alive. */
+export type EndReason = "dawn" | "fallen" | "boss-escaped";
 export interface SimState {
   seed: number;
   rngState: number;
@@ -555,6 +557,11 @@ export interface SimState {
   elapsed: number;
   sessionSeconds: number;
   ended: "playing" | "won" | "lost";
+  /**
+   * Why the night ended; null while playing. Dawn is a win only when no Boss is
+   * left on the page: dawn with the Eraser still loose is a "boss-escaped" loss.
+   */
+  endReason: EndReason | null;
   player: PlayerState;
   decoy: DecoyState;
   enemies: EnemyState[];

@@ -139,6 +139,8 @@ export const MESSAGE_KEYS = [
   "result.boss",
   "result.boss_down",
   "result.boss_left",
+  "result.heading_boss_escaped",
+  "result.boss_escaped",
   "notice.phase1",
   "notice.phase2",
   "notice.phase3",

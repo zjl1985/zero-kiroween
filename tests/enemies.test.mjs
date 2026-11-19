@@ -84,7 +84,9 @@ test("the living crowd ramps up over the night and never passes the hard cap", (
     if (s.elapsed < 60) early = Math.max(early, living);
     if (s.elapsed > 480) late = Math.max(late, living);
   }
-  assert.equal(s.ended, "won");
+  // The night ran to dawn; with the Eraser still loose that is the boss-escaped loss.
+  assert.equal(s.timeLeft, 0);
+  assert.equal(s.endReason, bossEnemy(s) ? "boss-escaped" : "dawn");
   assert.ok(late > early * 2, `early ${early}, late ${late}`);
   assert.ok(late >= 60, `late peak ${late}`);
   assert.ok(peak <= HORDE.hardCap);
@@ -213,6 +215,69 @@ test("dawn at 600 s is a win", () => {
   assert.ok(s.elapsed >= NIGHT - 1e-6);
 });
 
+/** Steps to dawn (or an earlier end), keeping the cat alive. */
+function toDawn(s) {
+  s.elapsed = NIGHT - 0.5;
+  s.timeLeft = 0.5;
+  for (let i = 0; i < 120 && s.ended === "playing"; i++) {
+    s.player.hp = s.player.maxHp;
+    step(s, idle, DT);
+  }
+}
+
+test("dawn with the Eraser still loose ends the night as a boss-escaped loss", () => {
+  const s = quietBoss(9),
+    boss = untilBoss(s);
+  assert.ok(boss, "the Boss spawned");
+  assert.equal(s.endReason, null);
+  // Keep it far away so it cannot reach the cat before sunrise.
+  boss.x = s.player.x + 2000;
+  boss.timer = 1e6;
+  toDawn(s);
+  assert.equal(s.ended, "lost");
+  assert.equal(s.endReason, "boss-escaped");
+  assert.equal(s.timeLeft, 0);
+  assert.equal(bossEnemy(s), boss);
+  assert.equal(s.stats.bossDefeated, false);
+});
+
+test("dawn after the Eraser is worn down is a win, and its defeat does not end the night early", () => {
+  const s = quietBoss(9),
+    boss = untilBoss(s);
+  assert.ok(boss);
+  boss.spawnTime = 0;
+  boss.hp = 0.1;
+  boss.timer = 1e6;
+  boss.x = s.player.x + 60;
+  boss.y = s.player.y;
+  s.shots.push({ id: 999, x: boss.x, y: boss.y, vx: 0, vy: 0, life: 1, alive: true });
+  step(s, idle, DT);
+  assert.equal(boss.alive, false);
+  assert.equal(s.boss.defeated, true);
+  assert.equal(s.ended, "playing");
+  assert.equal(s.endReason, null);
+  toDawn(s);
+  assert.equal(s.ended, "won");
+  assert.equal(s.endReason, "dawn");
+});
+
+test("falling before dawn ends the night with the fallen reason", () => {
+  const s = createSim({ cat: "zero", seed: 2, sessionSeconds: NIGHT });
+  s.enemies = [];
+  s.spawnTimer = 1e6;
+  s.player.hp = 1;
+  s.player.invuln = 0;
+  s.player.shield = 0;
+  s.enemies.push({
+    id: s.nextEnemyId++, kind: "ink-blob", x: s.player.x, y: s.player.y,
+    hp: 500, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0,
+  });
+  for (let i = 0; i < 120 && s.ended === "playing"; i++) step(s, idle, DT);
+  assert.equal(s.ended, "lost");
+  assert.equal(s.endReason, "fallen");
+  assert.ok(s.timeLeft > 0);
+});
+
 test("a full 600 s night steps in node within a generous budget", () => {
   const s = createSim({ cat: "nicole", seed: 5, sessionSeconds: NIGHT }),
     t0 = performance.now();
@@ -222,7 +287,8 @@ test("a full 600 s night steps in node within a generous budget", () => {
     step(s, { ax: Math.cos(s.elapsed / 5), ay: Math.sin(s.elapsed / 6), dash: s.elapsed % 7 < DT, choose: 0 }, DT);
   }
   const ms = performance.now() - t0;
-  assert.equal(s.ended, "won");
+  assert.equal(s.timeLeft, 0);
+  assert.equal(s.endReason, bossEnemy(s) ? "boss-escaped" : "dawn");
   assert.ok(ms < 20000, `took ${ms.toFixed(0)} ms`);
 });
 

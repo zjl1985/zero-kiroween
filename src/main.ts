@@ -375,13 +375,19 @@ function boot(): void {
         "active.desc",
       );
       if (screen === "result") {
+        // Dawn with the Eraser still loose is its own loss, not a fall.
+        const escaped = sim.endReason === "boss-escaped";
         must("result-title").textContent = t(
           locale,
-          sim.ended === "won" ? "result.heading_win" : "result.heading_lose",
+          sim.ended === "won"
+            ? "result.heading_win"
+            : escaped
+              ? "result.heading_boss_escaped"
+              : "result.heading_lose",
         );
         must("result-text").textContent = t(
           locale,
-          sim.ended === "won" ? "result.win" : "result.lose",
+          sim.ended === "won" ? "result.win" : escaped ? "result.boss_escaped" : "result.lose",
         );
         must("result-cat").textContent =
           `${catName(locale, id).toUpperCase()} · ${characterCopy(locale, id, "role")}`;

@@ -160,6 +160,7 @@ export function createSim(config: Partial<SimConfig> = {}): SimState {
     sessionSeconds: seconds,
     elapsed: 0,
     ended: "playing",
+    endReason: null,
     player: {
       id,
       x: world.width * 0.54,
@@ -624,7 +625,11 @@ export function step(state: SimState, input: FrameInput, dt: number): void {
   state.elapsed += dt;
   state.timeLeft = Math.max(0, state.timeLeft - dt);
   if (state.timeLeft <= 0) {
-    state.ended = "won";
+    // Dawn only wins once the Boss is off the page; outrunning a live Eraser loses.
+    // Defeating it never ends the night early, and a night without one still wins.
+    const escaped = bossEnemy(state) !== undefined;
+    state.ended = escaped ? "lost" : "won";
+    state.endReason = escaped ? "boss-escaped" : "dawn";
     return;
   }
   for (const e of state.impacts) e.life -= dt;
@@ -1227,7 +1232,10 @@ function hurtPlayer(state: SimState, damage: number): boolean {
   state.stats.damageTaken += damage;
   effect(state, p.x, p.y, "hurt", 0.35);
   emit("damaged", state, { damage });
-  if (p.hp <= 0) state.ended = "lost";
+  if (p.hp <= 0) {
+    state.ended = "lost";
+    state.endReason = "fallen";
+  }
   return true;
 }
 function stepEnemies(state: SimState, dt: number, rng: Rng): void {
