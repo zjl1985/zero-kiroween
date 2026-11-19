@@ -45,7 +45,7 @@ import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
 import { drawRoadNetwork } from "./road-art.js";
-import { clipOutsideLawn, drawLawnVerge } from "./start-lawn.js";
+import { clipOutsideLawn, drawLawnEdge, drawLawnVerge, lawnContour, reachesLawn, yardDistance } from "./start-lawn.js";
 import {
   bush,
   candles,
@@ -342,8 +342,12 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   // Large district paper sheets over the pulp, clipped to the ground silhouette (horizon row).
   ctx.save();
   ctx.clip(groundOutline(x0, y0, c.w, c.h, cy === 0));
+  ctx.save();
   clipOutsideLawn(ctx, tile);
   yield* sheetGround(ctx, seed, x0, y0, x1, y1);
+  ctx.restore();
+  // The stock is cut around the lawn: shadow, card side, rim, lip and fringe, not a raw clip line.
+  drawLawnEdge(ctx, tile, seed);
   ctx.restore();
   drawLawnVerge(ctx, tile, seed);
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
@@ -435,6 +439,9 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
       shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16 * k, s.sd);
     }
     ctx.restore();
+    // The same torn cut around the lawn, drawn in graphite.
+    if (reachesLawn({ x0, y0, x1, y1 }, 24))
+      pencilLine(ctx, lawnContour(), 1931, { weight: 0.7, alpha: 0.5, closed: false, color: PENCIL.soft });
   }
   yield;
   for (const p of patchSpots(seed, x0, y0, x1, y1)) pencilPatch(ctx, p.x, p.y, p.r, p.seed);
@@ -648,14 +655,16 @@ function tilesIn(seed: number, rect: ViewRect): ChunkTile[] {
     for (let cx = a.cx; cx <= b.cx; cx++) tiles.push({ cx, cy, key: cacheKey(seed, cx, cy) });
   return tiles;
 }
-function drawMissingGround(ctx: Ctx, cx: number, cy: number): void {
+function drawMissingGround(ctx: Ctx, seed: number, cx: number, cy: number): void {
   const x = cx * CHUNK.width, y = cy * CHUNK.height;
   const clip = new Path2D();
   clip.rect(x, y, CHUNK.width, CHUNK.height);
   ctx.save();
   ctx.clip(clip);
   if (cy === 0) horizonHills(ctx, x, x + CHUNK.width);
-  groundUnderlay(ctx, x, y, CHUNK.width, CHUNK.height, cy === 0);
+  const stock = BIOME_ART.find(biomeAt(seed, cx, cy).id)?.sheet.colors[0],
+    opacity = Math.min(1, 0.48 + yardDistance(x + CHUNK.width / 2, y + CHUNK.height / 2) / 580);
+  groundUnderlay(ctx, x, y, CHUNK.width, CHUNK.height, cy === 0, stock, opacity);
   ctx.restore();
 }
 /**
@@ -697,7 +706,7 @@ export function drawChunks(ctx: Ctx, seed: number, cam: Camera, prefetch = true,
       keepChunk(key, image);
     }
     if (image) ctx.drawImage(image, cx * CHUNK.width, cy * CHUNK.height, CHUNK.width, CHUNK.height);
-    else drawMissingGround(ctx, cx, cy);
+    else drawMissingGround(ctx, seed, cx, cy);
   }
   warmChunk(seed, wanted.find((tile) => !chunkCache.has(tile.key)));
 }

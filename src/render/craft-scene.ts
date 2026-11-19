@@ -19,9 +19,9 @@ import {
   type Point,
 } from "./paper-material.js";
 import { PAPER_VALUE } from "./paper-rules.js";
-import { gradeCanvas } from "./paper-value.js";
+import { gradeCanvas, gradeColour } from "./paper-value.js";
 import { ROAD_STOCK } from "./road-art.js";
-import { yardDistance } from "./start-lawn.js";
+import { clipOutsideLawn, yardDistance } from "./start-lawn.js";
 import {
   LAMPS,
   YARD_PROPS,
@@ -214,10 +214,57 @@ export function groundOutline(x0: number, y0: number, w: number, h: number, top:
   return p;
 }
 
-/** The base colour and silhouette while a tile's detailed paper is being baked. */
-export function groundUnderlay(ctx: Ctx, x: number, y: number, w: number, h: number, top: boolean): void {
-  ctx.fillStyle = "#414538";
-  ctx.fill(groundOutline(x, y, w, h, top));
+/**
+ * The look of a tile whose detailed paper is still being baked: the pressed
+ * pulp and (outside the lawn) the district stock, both in the graded ground
+ * value of a baked tile, plus a world-anchored fibre, so the tile never shows
+ * as a flat block with a straight edge against its baked neighbours. `stock`
+ * is the district sheet colour, `opacity` its strength at the tile.
+ */
+export function groundUnderlay(
+  ctx: Ctx, x: number, y: number, w: number, h: number, top: boolean, stock?: string, opacity = 1,
+): void {
+  const p = groundOutline(x, y, w, h, top);
+  ctx.save();
+  ctx.fillStyle = underlayTone(PULP_MEAN);
+  ctx.fill(p);
+  ctx.clip(p);
+  if (stock) {
+    ctx.save();
+    clipOutsideLawn(ctx, { x0: x, y0: y, x1: x + w, y1: y + h });
+    ctx.globalAlpha *= 0.9 * opacity;
+    ctx.fillStyle = underlayTone(stock);
+    ctx.fill(p);
+    ctx.restore();
+  }
+  const fibre = [new Path2D(), new Path2D()], cell = UNDERLAY_FIBRE;
+  for (let gy = Math.floor(y / cell); gy * cell < y + h; gy++)
+    for (let gx = Math.floor(x / cell); gx * cell < x + w; gx++) {
+      const sd = gx * 92821 + gy * 68917 + 5,
+        px = (gx + hash(sd)) * cell, py = (gy + hash(sd + 1)) * cell, len = 3 + hash(sd + 2) * 8;
+      const f = fibre[hash(sd + 3) > 0.55 ? 1 : 0]!;
+      f.moveTo(px, py);
+      f.lineTo(px + len, py + (hash(sd + 4) - 0.5) * 2.4);
+    }
+  ctx.lineCap = "round";
+  ctx.lineWidth = 0.6;
+  ctx.globalAlpha *= 0.4;
+  ctx.strokeStyle = underlayTone("#272a21");
+  ctx.stroke(fibre[0]!);
+  ctx.globalAlpha *= 0.7;
+  ctx.strokeStyle = underlayTone("#868a6c");
+  ctx.stroke(fibre[1]!);
+  ctx.restore();
+}
+/** Mean colour of the pressed pulp that groundTilePasses bakes (before the sheets and the grade). */
+const PULP_MEAN = "#3f4236";
+/** Fibre grid of the bake placeholder, in world units. */
+const UNDERLAY_FIBRE = 26;
+const underlayTones = new Map<string, string>();
+function underlayTone(hex: string): string {
+  let tone = underlayTones.get(hex);
+  if (!tone) underlayTones.set(hex, (tone = gradeColour(hex, PAPER_VALUE.ground)));
+  return tone;
 }
 
 /**
@@ -304,29 +351,34 @@ export function* groundTilePasses(
   ctx.restore();
   // Quiet, short hatching follows patches of moss; it never becomes confetti.
   // Kept sparse: the district paper sheets laid over it carry the structure.
-  const hatchingReach = 150;
-  const nearYard = x0 < W + hatchingReach && x0 + w > -hatchingReach && gy0 < H + hatchingReach;
-  const moss = [new Path2D(), new Path2D()],
-    area = w * (y0 + h - Math.max(gy0, 205)),
-    count = Math.round(area * (nearYard ? 0.0208 : 0.006)),
-    salt = Math.floor(x0 * 3 + y0 * 7);
-  for (let i = 0; i < count; i++) {
-    if (i > 0 && i % 512 === 0) yield;
-    const x = x0 + hash(i * 17 + salt) * w,
-      y = Math.max(gy0, 205) + hash(i * 37 + salt) * (y0 + h - Math.max(gy0, 205));
-    if (yard && y > 225 && Math.abs(x - pathCenter(y)) < 24) continue;
-    if (nearYard) {
+  // One possible mark per world cell (hashed from the cell, never the tile),
+  // so the start yard and the tiles around it place identical marks along
+  // their shared edges, and the density only feathers with the yard distance.
+  const hatchingReach = 150, cell = MOSS_CELL,
+    ys = Math.max(gy0, 205), ye = y0 + h;
+  const moss = [new Path2D(), new Path2D()];
+  let rows = 0;
+  for (let gy = Math.floor((ys - 2) / cell); gy * cell < ye + 2; gy++) {
+    if (++rows % 12 === 0) yield;
+    for (let gx = Math.floor((x0 - 2) / cell); gx * cell < x0 + w + 2; gx++) {
+      const sd = gx * 92821 + gy * 68917,
+        x = (gx + hash(sd)) * cell,
+        y = (gy + hash(sd + 1)) * cell;
+      if (x < x0 - 2 || x > x0 + w + 2 || y < ys - 2 || y > ye + 2) continue;
+      if (yard && y > 225 && Math.abs(x - pathCenter(y)) < 24) continue;
       const lawn = 1 - Math.min(1, yardDistance(x, y) / hatchingReach);
-      if (hash(i * 43 + salt) > 0.29 + 0.71 * lawn) continue;
+      if (hash(sd + 2) > 0.29 + 0.71 * lawn) continue;
+      if (noise(x, y, 30, 65) < 0.43) continue;
+      const m = moss[hash(sd + 3) > 0.85 ? 1 : 0]!;
+      m.moveTo(x, y);
+      m.lineTo(x + 1.2, y - 1.5);
     }
-    if (noise(x, y, 30, 65) < 0.43) continue;
-    const m = moss[hash(i * 29 + salt) > 0.85 ? 1 : 0]!;
-    m.moveTo(x, y);
-    m.lineTo(x + 1.2, y - 1.5);
   }
   stroke(ctx, moss[0]!, "#6c7358", 0.35, 0.32);
   stroke(ctx, moss[1]!, "#92906a", 0.35, 0.32);
 }
+/** World cell of the moss hatching: one possible mark per cell (about the old 0.0208 marks per unit²). */
+const MOSS_CELL = 7;
 function road(ctx: Ctx): void {
   const left: Point[] = [],
     right: Point[] = [];
