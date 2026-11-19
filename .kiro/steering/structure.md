@@ -127,7 +127,10 @@ src/ui/               hud.ts, journal.ts, journal-geometry.ts (pure, tested), ch
                       built from CATS), upgrade-cards.ts, gallery-layout.ts (pure, tested),
                       environment-copy.ts (hazard-priority, court guidance, townsfolk tips), ink.ts, touch.ts
 src/content/          i18n: keys.ts (MESSAGE_KEYS), en.ts, zh.ts, i18n.ts (t, missingKeys, formatTime)
-src/audio/sfx.ts      procedural Web Audio sound effects and ambience (incl. tear, crackle), mute
+src/audio/sfx.ts      procedural Web Audio sound effects and ambience (incl. tear, crackle), mute;
+                      master compressor + hard limiter
+src/audio/mix.ts      pure cue mix data: CUE_LAYERS, CUE_TIER, THROTTLE (voice caps), MASTER, mixTable
+                      (peak / duration / band per cue, guarded by tests/audio-mix.test.mjs)
 src/cats/             Meow Wall official cat head data (meow-wall-art.ts CAT_VARIANTS), composition
 tests/*.test.mjs      node:test suites against dist/ (characters, enemies, gallery, interactions, journal,
                       official, reactions, registry, scenery, sim, timeline, tokens, upgrades, viewport,

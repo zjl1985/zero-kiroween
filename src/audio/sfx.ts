@@ -3,47 +3,9 @@
  * noise, no audio files. The AudioContext is created on the first user gesture.
  * Audio never reads the sim RNG; ambience timing uses Math.random freely.
  */
-export type Cue =
-  | "shot"
-  | "hit"
-  | "defeat"
-  | "pickup"
-  | "levelup"
-  | "evolve"
-  | "hurt"
-  | "shield"
-  | "boss"
-  | "win"
-  | "lose"
-  | "pumpkin"
-  | "treat"
-  | "moon"
-  | "streak"
-  | "skill"
-  | "card"
-  | "tear"
-  | "crackle"
-  | "splash"
-  | "pigment"
-  | "rain"
-  | "snip"
-  | "fold";
+import { CUE_LAYERS, ENVELOPE, MASTER, THROTTLE, type Cue, type Layer } from "./mix.js";
 
-/** Minimum seconds between repeats of the busiest cues. */
-const THROTTLE: Partial<Record<Cue, number>> = {
-  shot: 0.07,
-  hit: 0.045,
-  defeat: 0.05,
-  pickup: 0.05,
-  tear: 0.08,
-  // Repeats while anything burns; the gap sets the crackle's pace.
-  crackle: 0.28,
-  splash: 0.12,
-  pigment: 0.08,
-  rain: 0.6,
-  snip: 0.1,
-  fold: 0.2,
-};
+export type { Cue } from "./mix.js";
 
 export interface Sfx {
   /** Call from a user gesture; creates or resumes the AudioContext. */
@@ -83,12 +45,18 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     if (!Ctor) return null;
     ac = new Ctor();
     master = ac.createGain();
-    master.gain.value = muted ? 0 : 0.55;
-    // A gentle compressor keeps crowded fights from clipping.
-    const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -18;
-    comp.ratio.value = 4;
-    master.connect(comp).connect(ac.destination);
+    master.gain.value = muted ? 0 : MASTER.gain;
+    // A gentle compressor glues crowded fights; the limiter after it stops stacked cues clipping.
+    const comp = ac.createDynamicsCompressor(),
+      limiter = ac.createDynamicsCompressor();
+    comp.threshold.value = MASTER.compressor.threshold;
+    comp.ratio.value = MASTER.compressor.ratio;
+    limiter.threshold.value = MASTER.limiter.threshold;
+    limiter.knee.value = MASTER.limiter.knee;
+    limiter.ratio.value = MASTER.limiter.ratio;
+    limiter.attack.value = MASTER.limiter.attack;
+    limiter.release.value = MASTER.limiter.release;
+    master.connect(comp).connect(limiter).connect(ac.destination);
     noiseBuffer = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -107,13 +75,13 @@ export function createSfx(initiallyMuted: boolean): Sfx {
       osc = ac.createOscillator(),
       g = ac.createGain(),
       peak = opts.gain ?? 0.1,
-      attack = opts.attack ?? 0.005;
+      attack = opts.attack ?? ENVELOPE.toneAttack;
     osc.type = opts.type ?? "sine";
     osc.frequency.setValueAtTime(freq, t0);
     if (opts.to) osc.frequency.exponentialRampToValueAtTime(opts.to, t0 + dur);
-    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.setValueAtTime(ENVELOPE.floor, t0);
     g.gain.exponentialRampToValueAtTime(peak, t0 + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    g.gain.exponentialRampToValueAtTime(ENVELOPE.floor, t0 + dur);
     osc.connect(g).connect(master);
     osc.onended = () => { osc.disconnect(); g.disconnect(); osc.onended = null; };
     osc.start(t0);
@@ -135,9 +103,9 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     f.frequency.setValueAtTime(opts.freq ?? 1500, t0);
     if (opts.to) f.frequency.exponentialRampToValueAtTime(opts.to, t0 + dur);
     f.Q.value = opts.q ?? 1;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(opts.gain ?? 0.1, t0 + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    g.gain.setValueAtTime(ENVELOPE.floor, t0);
+    g.gain.exponentialRampToValueAtTime(opts.gain ?? 0.1, t0 + ENVELOPE.noiseAttack);
+    g.gain.exponentialRampToValueAtTime(ENVELOPE.floor, t0 + dur);
     src.connect(f).connect(g).connect(master);
     src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); src.buffer = null; src.onended = null; };
     src.start(t0, Math.random() * 1.5);
@@ -148,7 +116,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     if (!ac || !master || !noiseBuffer || !ambienceOn || muted || ambienceBus) return;
     ambienceBus = ac.createGain();
     ambienceBus.gain.value = 0;
-    ambienceBus.gain.setTargetAtTime(0.1, ac.currentTime, 0.6);
+    ambienceBus.gain.setTargetAtTime(MASTER.ambience, ac.currentTime, 0.6);
     ambienceBus.connect(master);
     // Soft wind: looped noise through a low, slowly wandering filter.
     const wind = ac.createBufferSource(),
@@ -213,108 +181,11 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     }, 1400 + Math.random() * 3200);
   }
 
-  const voices: Record<Cue, (k: number) => void> = {
-    shot: () => tone(980, 0.07, { type: "triangle", gain: 0.035, to: 1500 }),
-    hit: () => noise(0.05, { freq: 2200, q: 2, gain: 0.07 }),
-    defeat: (k) => {
-      // Paper tear plus a soft drop.
-      noise(0.14, { type: "highpass", freq: 2600, gain: 0.08 });
-      tone(320 + k * 40, 0.14, { gain: 0.05, to: 120 });
-    },
-    pickup: (k) => tone(1150 + Math.min(k, 8) * 60, 0.08, { gain: 0.04, to: 1800 }),
-    levelup: () =>
-      [523.3, 659.3, 784, 1046.5].forEach((f, i) =>
-        tone(f, 0.22, { type: "triangle", gain: 0.07, delay: i * 0.08 }),
-      ),
-    evolve: () => {
-      [392, 493.9, 587.3, 784].forEach((f, i) => {
-        tone(f, 1.1, { gain: 0.05, delay: i * 0.05, attack: 0.04 });
-        tone(f * 1.005, 1.1, { gain: 0.03, delay: i * 0.05 + 0.02, attack: 0.05 });
-      });
-      noise(0.9, { freq: 6000, q: 0.7, gain: 0.03, to: 2000 });
-    },
-    hurt: () => {
-      tone(220, 0.2, { type: "square", gain: 0.05, to: 90 });
-      noise(0.12, { type: "lowpass", freq: 900, gain: 0.08 });
-    },
-    shield: () => {
-      tone(660, 0.35, { gain: 0.06 });
-      tone(990, 0.35, { gain: 0.04, delay: 0.02 });
-    },
-    boss: () => {
-      for (let i = 0; i < 2; i++) {
-        tone(98, 0.5, { type: "sawtooth", gain: 0.05, delay: i * 0.6, attack: 0.08, to: 82 });
-        tone(147, 0.5, { type: "triangle", gain: 0.035, delay: i * 0.6, attack: 0.08 });
-      }
-    },
-    win: () =>
-      [784, 987.8, 1174.7, 1568].forEach((f, i) => {
-        tone(f, 1.4, { gain: 0.06, delay: i * 0.18 });
-        tone(f * 2, 0.9, { gain: 0.015, delay: i * 0.18 });
-      }),
-    lose: () =>
-      [392, 329.6, 261.6, 196].forEach((f, i) =>
-        tone(f, 0.45, { type: "triangle", gain: 0.06, delay: i * 0.16 }),
-      ),
-    pumpkin: () => {
-      noise(0.45, { type: "lowpass", freq: 300, to: 1400, gain: 0.08 });
-      tone(330, 0.4, { type: "triangle", gain: 0.04, to: 495, attack: 0.05 });
-    },
-    treat: () => {
-      tone(520, 0.09, { type: "triangle", gain: 0.06 });
-      tone(700, 0.12, { type: "triangle", gain: 0.06, delay: 0.09 });
-    },
-    moon: () => {
-      tone(523.3, 1.6, { gain: 0.07, attack: 0.02 });
-      tone(784, 1.6, { gain: 0.05, delay: 0.04 });
-      tone(1046.5, 1.2, { gain: 0.03, delay: 0.08 });
-      noise(1.0, { freq: 800, to: 5000, q: 0.6, gain: 0.04 });
-    },
-    streak: (k) => tone(1320 + Math.min(k, 50) * 6, 0.12, { type: "square", gain: 0.025 }),
-    skill: () => noise(0.18, { freq: 900, to: 3000, q: 1.4, gain: 0.07 }),
-    card: () => noise(0.08, { type: "highpass", freq: 3000, gain: 0.05 }),
-    // A short rip: band-passed noise sweeping down, then a dry flap.
-    tear: () => {
-      noise(0.16, { freq: 4200, to: 1400, q: 2.2, gain: 0.09 });
-      noise(0.05, { type: "lowpass", freq: 700, gain: 0.05, delay: 0.12 });
-    },
-    // Fire: a few tiny pops over a low hiss, scaled by how much is burning.
-    crackle: (k) => {
-      noise(0.3, { type: "lowpass", freq: 520, gain: 0.025 + Math.min(k, 20) * 0.001 });
-      const pops = 2 + Math.min(3, Math.floor(k / 8));
-      for (let i = 0; i < pops; i++)
-        noise(0.018, { type: "highpass", freq: 2600 + Math.random() * 2400, gain: 0.05, delay: Math.random() * 0.24 });
-    },
-    // Water lands: a low wet plop, then a short bright spray.
-    splash: () => {
-      tone(180, 0.12, { type: "sine", gain: 0.05, to: 90 });
-      noise(0.18, { type: "highpass", freq: 3200, gain: 0.04, delay: 0.03, to: 1800 });
-    },
-    // Pigment splashes back: a soft round pop that rises with the count.
-    pigment: (k) => {
-      tone(620 + Math.min(k, 6) * 50, 0.1, { type: "triangle", gain: 0.035, to: 880 });
-      noise(0.05, { freq: 1800, q: 1.2, gain: 0.025, delay: 0.02 });
-    },
-    // Scissors: two bright blade clicks with a dry paper shear between them.
-    snip: () => {
-      noise(0.025, { type: "highpass", freq: 5200, gain: 0.07 });
-      noise(0.12, { freq: 3600, to: 2200, q: 3, gain: 0.06, delay: 0.02 });
-      noise(0.02, { type: "highpass", freq: 6000, gain: 0.06, delay: 0.13 });
-      tone(1900, 0.05, { type: "triangle", gain: 0.02, delay: 0.13, to: 1500 });
-    },
-    // A page turning over: a soft rising air whoosh, then a low flat slap and a crease rub.
-    fold: () => {
-      noise(0.26, { type: "lowpass", freq: 600, to: 1800, gain: 0.05 });
-      noise(0.06, { type: "lowpass", freq: 420, gain: 0.07, delay: 0.24 });
-      noise(0.09, { freq: 2600, q: 2, gain: 0.025, delay: 0.27 });
-    },
-    // Paper rain: a patter of tiny ticks over a soft hiss.
-    rain: () => {
-      noise(0.9, { type: "lowpass", freq: 1400, gain: 0.03 });
-      for (let i = 0; i < 9; i++)
-        noise(0.015, { type: "highpass", freq: 3800 + Math.random() * 2600, gain: 0.03, delay: Math.random() * 0.8 });
-    },
-  };
+  function layer(l: Layer): void {
+    if (l.kind === "tone")
+      tone(l.freq, l.dur, { type: l.type, gain: l.gain, to: l.to, delay: l.delay, attack: l.attack });
+    else noise(l.dur, { type: l.filter, freq: l.freq, q: l.q, gain: l.gain, delay: l.delay, to: l.to });
+  }
 
   return {
     unlock() {
@@ -326,7 +197,7 @@ export function createSfx(initiallyMuted: boolean): Sfx {
       if (muted) stopAmbience();
       else buildAmbience();
       scheduleCrickets();
-      if (ac && master) master.gain.setTargetAtTime(muted ? 0 : 0.55, ac.currentTime, 0.03);
+      if (ac && master) master.gain.setTargetAtTime(muted ? 0 : MASTER.gain, ac.currentTime, 0.03);
     },
     setAmbience(on) {
       if (ambienceOn === on) return;
@@ -337,13 +208,10 @@ export function createSfx(initiallyMuted: boolean): Sfx {
     },
     play(cue, intensity = 0) {
       if (!ac || muted || ac.state !== "running") return;
-      const gap = THROTTLE[cue];
-      if (gap) {
-        const prev = last.get(cue) ?? -1;
-        if (ac.currentTime - prev < gap) return;
-        last.set(cue, ac.currentTime);
-      }
-      voices[cue](intensity);
+      const prev = last.get(cue) ?? -1;
+      if (ac.currentTime - prev < THROTTLE[cue]) return;
+      last.set(cue, ac.currentTime);
+      for (const l of CUE_LAYERS[cue](intensity, Math.random)) layer(l);
     },
   };
 }

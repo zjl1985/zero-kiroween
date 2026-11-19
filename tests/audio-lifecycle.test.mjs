@@ -9,7 +9,8 @@ test("audio releases ended voices and stops ambient sources/timers when disabled
   class Node {
     constructor() {
       this.gain = param(); this.frequency = param(); this.Q = param();
-      this.threshold = param(); this.ratio = param(); this.stopped = false;
+      this.threshold = param(); this.ratio = param(); this.knee = param();
+      this.attack = param(); this.release = param(); this.stopped = false;
       this.disconnected = false; nodes.push(this);
     }
     connect(target) { return target; }
