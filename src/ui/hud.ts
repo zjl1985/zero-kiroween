@@ -14,6 +14,8 @@ import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./
 import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc, paintWick } from "../render/journal-ui.js";
 import { DEAL } from "../render/timeline.js";
 import { environmentCopy } from "./environment-copy.js";
+import { COSTUME_DEFS } from "../defs/index.js";
+import { costumeCharge, costumeCopy } from "./wardrobe.js";
 
 export interface HudRefs {
   time: HTMLElement;
@@ -44,6 +46,25 @@ export interface HudRefs {
   bannerKicker: HTMLElement;
   bannerName: HTMLElement;
   bannerLine: HTMLElement;
+  /** The worn costume's skill tag (hidden on a plain run). */
+  costume: HTMLElement;
+}
+/** The worn costume's skill tag with a recharge fill; stays hidden on a plain run. */
+function renderCostume(el: HTMLElement, locale: Locale, sim: SimState): void {
+  const worn = sim.costume;
+  if (!worn) {
+    if (!el.classList.contains("hidden")) el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  const def = COSTUME_DEFS.get(worn.id),
+    charge = costumeCharge(worn.timer, def.skill.cooldown),
+    skill = costumeCopy(locale, worn.id, "skill");
+  text(el, skill);
+  const fill = `${Math.round(charge * 100)}%`;
+  if (el.style.getPropertyValue("--charge") !== fill) el.style.setProperty("--charge", fill);
+  el.classList.toggle("ready", charge >= 1);
+  el.title = `${costumeCopy(locale, worn.id, "name")} · ${skill}`;
 }
 /** The badge line when no shield or empower is up: the cat's own status, or its role. */
 function statusLine(locale: Locale, sim: SimState): string {
@@ -286,10 +307,12 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
     `${t(locale, "hud.hearts")} ${p.hp}/${p.maxHp}${p.shield > 0 ? ` · ${t(locale, "hud.shield", { count: p.shield })}` : ""}`,
   );
   text(refs.name, catName(locale, p.id).toUpperCase());
-  if (refs.portrait.dataset.cat !== p.id) {
-    paintPortrait(refs.portrait, p.id);
-    refs.portrait.dataset.cat = p.id;
+  const look = sim.costume ? `${p.id}|${sim.costume.id}` : p.id;
+  if (refs.portrait.dataset.cat !== look) {
+    paintPortrait(refs.portrait, p.id, sim.costume?.id);
+    refs.portrait.dataset.cat = look;
   }
+  renderCostume(refs.costume, locale, sim);
   text(refs.kills, `${t(locale, "hud.kills")} ${sim.stats.kills}`);
   const environment = environmentCopy(locale, sim);
   const buff = environment.status ?? (

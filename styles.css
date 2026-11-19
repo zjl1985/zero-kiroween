@@ -430,6 +430,160 @@ h1 {
   opacity: 1;
   transform: rotate(-14deg);
 }
+/* Wardrobe: a strip of small costume tags under the cat tickets; it scrolls sideways. */
+.wardrobe {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.wardrobe-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a4b36;
+  margin-bottom: 3px;
+}
+.wardrobe-strip {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: #b99a6c transparent;
+  padding: 3px 2px 6px;
+}
+.wardrobe-ticket {
+  position: relative;
+  flex: 0 0 158px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-height: 52px;
+  padding: 5px 20px 5px 5px;
+  text-align: left;
+  color: var(--ink-soft);
+  border: 0;
+  background:
+    linear-gradient(165deg, #fff3da66, transparent 86%),
+    #eadcbc;
+  box-shadow: inset 0 -1px #9a785d99, inset 0 1px #fff1d7, 1px 2px 0 #896249;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 6% 100%, 0 88%);
+  scroll-snap-align: start;
+}
+.wardrobe-ticket .wardrobe-portrait {
+  width: 38px;
+  height: 31px;
+  flex-shrink: 0;
+}
+.wardrobe-copy {
+  min-width: 0;
+}
+.wardrobe-ticket strong {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--ink-dark);
+}
+.wardrobe-ticket small {
+  display: block;
+  font-size: 9px;
+  line-height: 1.3;
+}
+.wardrobe-skill {
+  color: #9a4b36;
+}
+.wardrobe-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 1px;
+}
+.wardrobe-desc:empty {
+  display: none;
+}
+.wardrobe-glyph {
+  position: absolute;
+  right: 3px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+}
+.wardrobe-ticket[aria-pressed="true"] {
+  background:
+    repeating-linear-gradient(90deg, #75574488 0 1px, transparent 1px 4px) left 4px bottom 2px / calc(100% - 8px) 1px no-repeat,
+    linear-gradient(165deg, #fff3da77, transparent),
+    #f2d9a6;
+  box-shadow: inset 0 -1px #9a785d99, inset 0 0 0 2px #9b3e36aa, 1px 2px 0 #896249;
+}
+.wardrobe-ticket.locked {
+  cursor: not-allowed;
+  background: #d7c3a0;
+  color: #7a6a5c;
+}
+.wardrobe-ticket.locked strong {
+  color: #6a5a4e;
+}
+.wardrobe-ticket.locked .wardrobe-glyph {
+  opacity: 0.35;
+}
+.wardrobe-ticket:focus-visible {
+  outline: 2px solid #9b3e36;
+  outline-offset: -3px;
+}
+/* Small menus: shorter tags without the skill description. */
+@media (max-aspect-ratio: 1/1), (max-height: 650px) {
+  .wardrobe-ticket {
+    flex-basis: 128px;
+    min-height: 40px;
+  }
+  .wardrobe-ticket .wardrobe-desc {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 1/1) {
+  .wardrobe-label {
+    display: none;
+  }
+  .wardrobe-ticket .wardrobe-portrait {
+    width: 30px;
+    height: 24px;
+  }
+  .wardrobe-strip {
+    padding-bottom: 4px;
+  }
+}
+/* The worn costume's skill tag in the watch badge; its fill grows as the skill recharges. */
+.costume-tag {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 6px;
+  font-size: 9px;
+  color: var(--ink-dark);
+  white-space: nowrap;
+  background:
+    linear-gradient(90deg, #e2b77a var(--charge, 0%), #e8dcc0 var(--charge, 0%));
+  box-shadow: inset 0 -1px #9a785d99;
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%);
+}
+.costume-tag.ready {
+  color: #7a2e28;
+}
+.journal-unlocked {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.journal-unlocked span {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #6a2f28;
+  background: #f2d9a6;
+  box-shadow: inset 0 -1px #a07a58;
+  clip-path: polygon(0 0, 100% 0, 97% 50%, 100% 100%, 0 100%, 3% 50%);
+}
 .profile {
   display: flex;
   align-items: center;

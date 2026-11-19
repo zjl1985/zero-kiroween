@@ -75,11 +75,14 @@ export function drawPlaybillStage(ctx: Ctx, pose: CatPose): void {
 }
 
 /** On narrow screens, fill the small stage with the whole actor and its paper base. */
-export function paintPlaybillPortrait(canvas: HTMLCanvasElement, id: CatId): void {
+export function paintPlaybillPortrait(canvas: HTMLCanvasElement, id: CatId, costume?: string | null): void {
   const ctx = canvas.getContext("2d")!;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const zoom = Math.min(canvas.width / 220, canvas.height / 194);
   ctx.setTransform(zoom, 0, 0, zoom, canvas.width / 2, canvas.height * 0.83);
-  drawPlaybillStage(ctx, { id, x: 0, y: 0, scale: 0.3, facing: 1, moving: false, dashing: false, hurt: false, time: 0 });
+  drawPlaybillStage(ctx, {
+    id, x: 0, y: 0, scale: 0.3, facing: 1, moving: false, dashing: false, hurt: false, time: 0,
+    ...(costume ? { costume } : {}),
+  });
 }

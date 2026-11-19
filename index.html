@@ -34,6 +34,12 @@
           >
             <!-- One ticket per registered cat, built by src/ui/character-panel.ts. -->
           </div>
+          <div class="wardrobe">
+            <p id="wardrobe-label" class="wardrobe-label"></p>
+            <div class="wardrobe-strip" role="group" aria-labelledby="wardrobe-label">
+              <!-- Plain, then one ticket per registered costume, built by src/ui/character-panel.ts. -->
+            </div>
+          </div>
           <div class="profile">
             <div class="mini-stage" aria-hidden="true">
               <canvas id="profile-portrait" width="232" height="186"></canvas>
@@ -118,6 +124,7 @@
               <strong id="hud-name"></strong>
               <span id="hud-kills"></span>
               <span id="hud-buff" class="buff"></span>
+              <span id="hud-costume" class="costume-tag hidden"></span>
             </div>
           </div>
           <div class="night-sky">
@@ -259,6 +266,7 @@
           ></canvas>
           <dl id="result-stats" class="result-stats"></dl>
           <p id="result-landmarks" class="journal-landmarks"></p>
+          <p id="result-unlocked" class="journal-unlocked hidden" role="status"></p>
           <div class="actions">
             <button type="button" id="btn-retry" class="btn primary"></button
             ><button type="button" id="btn-result-back" class="btn"></button>

@@ -1,18 +1,24 @@
 import {
   buildCatTickets,
+  buildWardrobe,
   catName,
   paintCharacterPanel,
   characterCopy,
   characterValues,
+  wardrobeTicketId,
 } from "./ui/character-panel.js";
 import { CATS } from "./defs/index.js";
 import "./render/art-index.js";
 import type { CatId } from "./cats/types.js";
-import { t, isLocale, DEFAULT_LOCALE } from "./content/i18n.js";
+import { t } from "./content/i18n.js";
 import type { Locale } from "./content/keys.js";
 import { createClock, FIXED_DT } from "./game/clock.js";
 import { createInput } from "./game/input.js";
 import { parseSeed } from "./game/seed.js";
+import { isUnlocked, parseCostumePin, unlocksAfter } from "./game/costumes.js";
+import type { CostumeId } from "./defs/types.js";
+import { PREF_KEY, readPrefs, type Prefs } from "./ui/prefs.js";
+import { wardrobeEntries } from "./ui/wardrobe.js";
 import { bossEnemy, chooseUpgrade, createSim, step } from "./game/sim.js";
 import { evolutionFor, playerStats } from "./game/upgrades.js";
 import { paintUpgradeCards } from "./ui/upgrade-cards.js";
@@ -45,35 +51,26 @@ import {
 } from "./render/timeline.js";
 
 type Screen = "title" | "play" | "pause" | "upgrade" | "result";
-const PREF_KEY = "midnight-meow-prefs";
 function must<T extends Element>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`missing #${id}`);
   return el as unknown as T;
 }
-interface Prefs {
-  locale: Locale;
-  cat: CatId;
-  muted: boolean;
-}
-/** The first registered cat: the default pick. */
-const firstCat = (): CatId => CATS.ids()[0]!;
 function initialPrefs(): Prefs {
   try {
-    const value = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
-    return {
-      locale: isLocale(value.locale) ? value.locale : DEFAULT_LOCALE,
-      cat: typeof value.cat === "string" && CATS.has(value.cat) ? value.cat : firstCat(),
-      muted: value.muted === true,
-    };
+    return readPrefs(JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}"));
   } catch {
-    return { locale: DEFAULT_LOCALE, cat: firstCat(), muted: false };
+    return readPrefs({});
   }
 }
 function savePrefs(prefs: Prefs): void {
   try {
     localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
   } catch {}
+}
+/** `?costume=<id>` wears that costume for review runs only; it is never saved. */
+function pinnedCostume(): CostumeId | null {
+  return parseCostumePin(new URLSearchParams(location.search).get("costume"));
 }
 /**
  * A fresh night per run; `?seed=N` (a decimal uint32) pins the seed so a
@@ -165,6 +162,22 @@ function boot(): void {
     screen: Screen = "title",
     hiddenPause = false,
     sim: SimState | null = null;
+  // Wardrobe: the chosen costume (null = plain) and lifetime unlock progress, both saved.
+  let selectedCostume: CostumeId | null = prefs.costume,
+    progress = prefs.progress,
+    unlockedTonight: CostumeId[] = [],
+    nightCounted = false;
+  const persist = () =>
+    savePrefs({ locale, cat: selectedCat, muted, costume: selectedCostume, progress });
+  /** Counts a finished night once per run (pinned review runs count too) and saves the unlocks. */
+  const finishNight = (s: SimState) => {
+    if (nightCounted) return;
+    nightCounted = true;
+    const r = unlocksAfter(progress, s);
+    progress = r.progress;
+    unlockedTonight = r.newly;
+    persist();
+  };
   const stage = must<HTMLCanvasElement>("game"),
     overlay = must<HTMLElement>("overlay"),
     skillButton = must<HTMLButtonElement>("dash-btn");
@@ -230,6 +243,7 @@ function boot(): void {
     bannerKicker: must<HTMLElement>("boss-banner-kicker"),
     bannerName: must<HTMLElement>("boss-banner-name"),
     bannerLine: must<HTMLElement>("boss-banner-line"),
+    costume: must<HTMLElement>("hud-costume"),
   };
   // Presentation cues (timeline.ts): derived from sim counters like the audio
   // cues above, aged in real time, never stored in the sim.
@@ -342,7 +356,7 @@ function boot(): void {
       locale,
       useTouch ? "title.controls_touch" : "title.controls",
     );
-    paintCharacterPanel(locale, selectedCat);
+    paintCharacterPanel(locale, selectedCat, selectedCostume, progress);
     stage.setAttribute(
       "aria-label",
       `${t(locale, "title.name")} · ${catName(locale, sim?.player.id ?? selectedCat)}`,
@@ -392,7 +406,7 @@ function boot(): void {
         must("result-cat").textContent =
           `${catName(locale, id).toUpperCase()} · ${characterCopy(locale, id, "role")}`;
         must("btn-result-back").textContent = t(locale, "result.change");
-        paintJournal(locale, sim);
+        paintJournal(locale, sim, unlockedTonight);
       }
     }
   };
@@ -427,9 +441,12 @@ function boot(): void {
   };
   const start = () => {
     releaseRun();
+    nightCounted = false;
+    unlockedTonight = [];
     sim = createSim({
       cat: selectedCat,
       seed: runSeed(),
+      costume: pinnedCostume() ?? selectedCostume,
       sessionSeconds: STATS.sessionSeconds,
     });
     clock.acc = 0;
@@ -478,14 +495,14 @@ function boot(): void {
   };
   const language = () => {
     locale = locale === "zh" ? "en" : "zh";
-    savePrefs({ locale, cat: selectedCat, muted });
+    persist();
     paint();
   };
   const toggleMute = () => {
     muted = !muted;
     sfx.unlock();
     sfx.setMuted(muted);
-    savePrefs({ locale, cat: selectedCat, muted });
+    persist();
     paint();
   };
   must("btn-mute").addEventListener("click", toggleMute);
@@ -514,10 +531,43 @@ function boot(): void {
     ticket.addEventListener("click", () => {
       if (screen !== "title") return;
       selectedCat = id;
-      savePrefs({ locale, cat: selectedCat, muted });
+      persist();
       paint();
     });
   }
+  // Wardrobe tickets: a locked costume cannot be chosen (aria-disabled, the click is ignored).
+  const wardrobe = buildWardrobe();
+  for (const ticket of wardrobe) {
+    const costume = ticket.dataset.costume || null;
+    ticket.addEventListener("click", () => {
+      if (screen !== "title") return;
+      if (costume !== null && !isUnlocked(progress, costume)) return;
+      selectedCostume = costume;
+      persist();
+      paint();
+    });
+  }
+  // Arrows move the focus along the strip (locked tags stay readable); Enter / Space choose.
+  document
+    .querySelector(".wardrobe-strip")!
+    .addEventListener("keydown", (event) => {
+      const key = (event as KeyboardEvent).key;
+      if (screen !== "title" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const ids = wardrobeEntries(progress).map((e) => e.id),
+        focused = wardrobe.findIndex((b) => b === document.activeElement),
+        at = focused >= 0 ? focused : Math.max(0, ids.indexOf(selectedCostume)),
+        next =
+          key === "Home"
+            ? 0
+            : key === "End"
+              ? ids.length - 1
+              : (at + (key === "ArrowLeft" ? -1 : 1) + ids.length) % ids.length;
+      const button = must<HTMLButtonElement>(wardrobeTicketId(ids[next]!));
+      button.focus();
+      button.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
   document
     .querySelector(".cat-choices")!
     .addEventListener("keydown", (event) => {
@@ -595,6 +645,7 @@ function boot(): void {
         for (let i = 0; i < count; i++) {
           step(sim, input.sample(touch.stick), FIXED_DT);
           if (sim.ended !== "playing") {
+            finishNight(sim);
             if (sim.ended === "won") {
               finale = true;
               cue("finale");
@@ -644,6 +695,7 @@ function boot(): void {
         screen === "title" && size.w > size.h
           ? {
               id: selectedCat,
+              ...(selectedCostume ? { costume: selectedCostume } : {}),
               x: 705,
               y: 418,
               facing: 1,

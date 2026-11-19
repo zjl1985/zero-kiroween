@@ -82,3 +82,11 @@ export function sanitizeProgress(raw: unknown): CostumeProgress {
 export function isUnlocked(progress: CostumeProgress, id: CostumeId): boolean {
   return progress.unlocked.includes(id);
 }
+
+/**
+ * The `?costume=<id>` review pin: a registered costume id, worn for that run
+ * regardless of unlocks and never saved. Anything else is ignored (null).
+ */
+export function parseCostumePin(value: string | null): CostumeId | null {
+  return value !== null && COSTUME_DEFS.has(value) ? value : null;
+}

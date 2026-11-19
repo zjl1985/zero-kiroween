@@ -7,6 +7,10 @@ import { paintSkillIcon } from "../render/combat-fx.js";
 import { paintPaw } from "../render/journal-ui.js";
 import { paintPlaybillPortrait } from "../render/playbill-stage.js";
 import { evolutionDef, type UpgradeId } from "../game/upgrades.js";
+import type { CostumeId } from "../defs/types.js";
+import type { CostumeProgress } from "../game/costumes.js";
+import { paintCatPortrait, paintCostumeGlyph, paintLockedCover } from "../render/wardrobe-art.js";
+import { costumeCopy, wardrobeEntries } from "./wardrobe.js";
 
 /** The cat's display name, through i18n (`<prefix>.name`). */
 export function catName(locale: Locale, id: CatId): string {
@@ -50,23 +54,8 @@ export function buildPath(locale: Locale, id: CatId): string {
     passive: name(evo.passive),
   })}`;
 }
-export function paintPortrait(canvas: HTMLCanvasElement, id: CatId): void {
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, 64, 52);
-  catArt(id).portrait(
-    ctx,
-    {
-      id,
-      x: 32,
-      y: 48,
-      facing: 1,
-      moving: false,
-      dashing: false,
-      hurt: false,
-      time: 0,
-    },
-    0.15,
-  );
+export function paintPortrait(canvas: HTMLCanvasElement, id: CatId, costume?: CostumeId | null): void {
+  paintCatPortrait(canvas, id, costume);
 }
 /**
  * One playbill ticket per registered cat, in registration order, inside the
@@ -106,7 +95,12 @@ export function buildCatTickets(): readonly HTMLButtonElement[] {
     return b;
   });
 }
-export function paintCharacterPanel(locale: Locale, id: CatId): void {
+export function paintCharacterPanel(
+  locale: Locale,
+  id: CatId,
+  costume: CostumeId | null = null,
+  progress?: CostumeProgress,
+): void {
   const set = (key: string, text: string) => {
     document.getElementById(key)!.textContent = text;
   };
@@ -135,11 +129,13 @@ export function paintCharacterPanel(locale: Locale, id: CatId): void {
       portrait.dataset.cat = candidate;
     }
   }
-  const stage = document.getElementById("profile-portrait") as HTMLCanvasElement;
-  if (stage.dataset.cat !== id) {
-    paintPlaybillPortrait(stage, id);
-    stage.dataset.cat = id;
+  const stage = document.getElementById("profile-portrait") as HTMLCanvasElement,
+    stageSig = costume ? `${id}|${costume}` : id;
+  if (stage.dataset.cat !== stageSig) {
+    paintPlaybillPortrait(stage, id, costume);
+    stage.dataset.cat = stageSig;
   }
+  if (progress) paintWardrobe(locale, id, costume, progress);
   for (const kind of ["attack", "active", "passive"] as const) {
     set(`skill-${kind}-type`, t(locale, `selector.${kind}`));
     set(`skill-${kind}-name`, characterCopy(locale, id, `${kind}.name`));
@@ -147,4 +143,76 @@ export function paintCharacterPanel(locale: Locale, id: CatId): void {
     paintSkillIcon(document.getElementById(`icon-${kind}`) as HTMLCanvasElement, id, kind);
   }
   set("btn-start", t(locale, "title.start", characterValues(locale, id)));
+}
+
+/** Ticket element id of a wardrobe entry (null is the plain look). */
+export const wardrobeTicketId = (costume: CostumeId | null) => `btn-costume-${costume ?? "none"}`;
+/**
+ * One wardrobe ticket per entry (plain first, then the costumes in wardrobe
+ * order) inside `.wardrobe-strip`. Safe to call again; existing tickets are kept.
+ * `dataset.costume` is the costume id, empty for the plain look.
+ */
+export function buildWardrobe(): readonly HTMLButtonElement[] {
+  const strip = document.querySelector<HTMLElement>(".wardrobe-strip")!;
+  return wardrobeEntries({ nights: 0, wins: 0, unlocked: [] }).map(({ id: costume }) => {
+    const id = wardrobeTicketId(costume);
+    let b = document.getElementById(id) as HTMLButtonElement | null;
+    if (b) return b;
+    b = document.createElement("button");
+    b.type = "button";
+    b.id = id;
+    b.className = "wardrobe-ticket";
+    b.dataset.costume = costume ?? "";
+    const portrait = document.createElement("canvas");
+    portrait.width = 64;
+    portrait.height = 52;
+    portrait.className = "wardrobe-portrait";
+    portrait.setAttribute("aria-hidden", "true");
+    const copy = document.createElement("span"),
+      name = document.createElement("strong"),
+      skill = document.createElement("small"),
+      desc = document.createElement("small");
+    copy.className = "wardrobe-copy";
+    name.className = "wardrobe-name";
+    skill.className = "wardrobe-skill";
+    desc.className = "wardrobe-desc";
+    copy.append(name, skill, desc);
+    b.append(portrait, copy);
+    if (costume) {
+      const glyph = document.createElement("canvas");
+      glyph.width = glyph.height = 64;
+      glyph.className = "wardrobe-glyph";
+      glyph.setAttribute("aria-hidden", "true");
+      paintCostumeGlyph(glyph, costume);
+      b.append(glyph);
+    }
+    strip.append(b);
+    return b;
+  });
+}
+/** Wardrobe copy, pressed / locked states and portraits of the chosen cat in each costume. */
+export function paintWardrobe(locale: Locale, cat: CatId, worn: CostumeId | null, progress: CostumeProgress): void {
+  document.getElementById("wardrobe-label")!.textContent = t(locale, "selector.wardrobe");
+  const entries = wardrobeEntries(progress),
+    tickets = buildWardrobe();
+  tickets.forEach((b, i) => {
+    const { id, unlocked } = entries[i]!,
+      name = costumeCopy(locale, id, "name"),
+      skill = id === null ? characterCopy(locale, cat, "role") : unlocked ? costumeCopy(locale, id, "skill") : t(locale, "costume.locked"),
+      desc = id === null ? "" : unlocked ? costumeCopy(locale, id, "desc") : costumeCopy(locale, id, "unlock");
+    b.setAttribute("aria-pressed", String(id === worn));
+    b.setAttribute("aria-disabled", String(!unlocked));
+    b.classList.toggle("locked", !unlocked);
+    b.querySelector(".wardrobe-name")!.textContent = name;
+    b.querySelector(".wardrobe-skill")!.textContent = skill;
+    b.querySelector(".wardrobe-desc")!.textContent = desc;
+    b.setAttribute("aria-label", [name, skill, desc].filter(Boolean).join(" · "));
+    const portrait = b.querySelector<HTMLCanvasElement>(".wardrobe-portrait")!,
+      sig = unlocked ? `${cat}|${id ?? ""}` : "locked";
+    if (portrait.dataset.sig !== sig) {
+      portrait.dataset.sig = sig;
+      if (unlocked) paintPortrait(portrait, cat, id);
+      else paintLockedCover(portrait);
+    }
+  });
 }

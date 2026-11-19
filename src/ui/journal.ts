@@ -7,6 +7,8 @@ import { paintPaw } from "../render/journal-ui.js";
 import { paces } from "./journal-geometry.js";
 import { upgradeName } from "./upgrade-cards.js";
 import { catName } from "./character-panel.js";
+import type { CostumeId } from "../defs/types.js";
+import { unlockedLines } from "./wardrobe.js";
 
 function must<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -17,7 +19,7 @@ function must<T extends HTMLElement>(id: string): T {
 const PAW_INK = { won: "#b8453f", lost: "#3e4a78" } as const;
 
 /** The result screen as a night-watch journal entry: date line, logged numbers, landmarks and a paw stamp. */
-export function paintJournal(locale: Locale, sim: SimState): void {
+export function paintJournal(locale: Locale, sim: SimState, unlocked: readonly CostumeId[] = []): void {
   const id = sim.player.id,
     name = catName(locale, id),
     all = landmarks(sim.seed),
@@ -68,6 +70,16 @@ export function paintJournal(locale: Locale, sim: SimState): void {
   must("result-landmarks").textContent = found.length
     ? t(locale, "result.landmarks_line", { names: found.join(t(locale, "result.sep")) })
     : t(locale, "result.landmarks_none");
+  const unlockedEl = must("result-unlocked"),
+    lines = unlockedLines(locale, unlocked);
+  unlockedEl.classList.toggle("hidden", lines.length === 0);
+  unlockedEl.replaceChildren(
+    ...lines.map((line) => {
+      const s = document.createElement("span");
+      s.textContent = line;
+      return s;
+    }),
+  );
   const paw = must<HTMLCanvasElement>("result-paw"),
     ink = sim.ended === "won" ? PAW_INK.won : PAW_INK.lost,
     sig = `${sim.seed}|${sim.elapsed}|${ink}`;
