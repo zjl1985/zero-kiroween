@@ -126,7 +126,7 @@ Details and source contracts: [design.md](design.md), [requirements.md](requirem
 - [x] 80. District paper sheets (`paper-ground.ts`), fringe-cut verges, a distinct base per landmark kind (`ground-kit.art.ts`; `plaza.art.ts` removed) (8a42c20).
 - [x] 81. Wash-out sim: colour grid, `water` element and rows, Water Bucket, Wash Drip and Pencil Sketch, paper rain, Eraser blanks, restoration, `colourKept`, Watercolour Brush, dash cut holes, fold protection (f06b3a8; Req 19).
 - [x] 82. Pencil underdrawing, wash masks, tide lines, blooms, sketched sprites and actors, splash/pigment/rain effects, brush ribbon, gallery "Washed paper" section (39c10c9, caa24a4).
-- [x] 83. Paper Cut (Zero) and Page Fold (Nicole) with walls from level 3, cat tear/tape wear, snip/fold audio (3437a1b; Req 20). Dry bridge not built.
+- [x] 83. Paper Cut (Zero) and Page Fold (Nicole) with walls from level 3, cat tear/tape wear, snip/fold audio (3437a1b; Req 20). Dry paper bridge added later in 20a4c81 (Page Fold from level 2).
 - [x] 84. Value hierarchy (bake-time grade, lit rims, solid shots), halved road-side lamps, flat cached shadows, no per-frame blur filter (b92920e).
 - [x] 85. Docs. The one allowed `?gallery=1` screenshot was attempted and failed (Chrome headless exit 134 in the sandbox); no image exists.
 - [ ] 86. User visual review of tasks 78 to 84 (P0: it must look good), then authorized playtest/balance of wash-out and verbs, and browser FPS.

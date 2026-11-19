@@ -66,7 +66,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 3. At most one static screenshot for art changes (`npm start` serves `site/` on port 4173; check `lsof -i :4173` first) with system Chrome headless. If an authorized attempt fails, report the actual error without expanding verification.
 4. No animation or video-recording checks unless the user asks.
 
-Latest verification: build + **295 passing tests** after the wash-out round. The one allowed `?gallery=1` screenshot failed: the attempt aborted (system Chrome headless exit code 134, no output) in the sandbox, so no image exists. No animation, recording, audio or FPS checks; balance of wash-out and the paper verbs, full gameplay-screen/mobile review and user approval remain open.
+Latest verification: build + **325 passing tests** after the open-work round (2effc4a through 392a631; new suites `townsfolk`, `audio-mix`). The round's one allowed screenshot failed: system Chrome headless crashed at launch (SIGABRT, `kill EPERM`) in the sandbox, so no image exists. No animation, recording, audio listening or browser FPS checks; a scripted balance probe ran, but a human playtest, mobile review and user approval remain open.
 
 Details: [references/testing-and-verification.md](references/testing-and-verification.md).
 

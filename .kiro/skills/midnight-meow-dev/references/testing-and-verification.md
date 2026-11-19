@@ -11,7 +11,7 @@ npm test         # npm run build && node --test tests/*.test.mjs
 npm start        # python3 -m http.server 4173 --directory site
 ```
 
-Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 295 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
+Tests import compiled modules from `dist/`, and deployment tests inspect `site/`, so `npm test` always runs the full build first. Latest verification: **`npm run build && npm test` passed 325 tests**. Vercel runs `npm ci` and `npm run build`, then serves only `site/` (`vercel.json`); it needs no Python or runtime server. Do not publish the repository root or `dist/` directly. The user confirmed the previous Vercel deployment works, not that the latest ecology is deployed or approved.
 
 ## Test suites (`tests/*.test.mjs`, node:test)
 
@@ -27,7 +27,9 @@ Tests import compiled modules from `dist/`, and deployment tests inspect `site/`
 | `water.test.mjs` | pure local polygons, negative coordinates, shared render vertices, shallow/deep/deck classification, swept movement/corners, spawn recovery, explicit road crossings, placement clearance and teaching basin |
 | `paper-rules.test.mjs` | ruleset light/shadow directions, 1 to 3 layer limit, gloss-free weapon/passive icons and mounts, `?check=` parsing, the gloss probe |
 | `wash.test.mjs` | deterministic capped grid without step RNG, water element rows and fire block, tear ease, sources (bucket, wash drip, smudge, rain, Eraser), unstacked wet slow, pigment/lantern/pumpkin/dawn restoration, fold protection and dash cut holes, sketch wakes and caps, the brush, strings in both packs, no state without wash |
-| `paper-verbs.test.mjs` | Paper Cut loop closing, inside-only cut and white cells, partial Boss cut, slit expiry; Page Fold flip and pin; level-3 walls; per-cat offers; determinism; cat wear creases/tears/tape |
+| `paper-verbs.test.mjs` | Paper Cut loop closing, inside-only cut and white cells, partial Boss cut, slit expiry, age-pruned cut pieces; Page Fold flip and pin; level-3 walls; level-2 dry bridge (deck, expiry hold, determinism, exact vertices); per-cat offers; determinism; cat wear creases/tears/tape |
+| `townsfolk.test.mjs` | pure townsfolk placement and cap, safe homes/routes off water and colliders, poses, nearest talker and tips, hint priority, no SimState or RNG use |
+| `audio-mix.test.mjs` | cue tiers and throttles, envelope peak math, frequent cues below event cues, snip/fold in band, limiter and bus headroom |
 | `paper-value.test.mjs` | no render `ctx.filter` except the one-off gallery value check, value hierarchy data (ground below decor, rim, dark shot outlines), half lamp chance and road-side lamps |
 | `gallery.test.mjs` | gallery sections, base preview states, labels, layout bounds, seeded variants without `Math.random` |
 | `rendering.test.mjs` | Canvas command recording: registered skill previews, landmark markers / depth order, cached alpha-mask tinting (not pixel or performance checks) |
@@ -91,4 +93,4 @@ Only commit when the user explicitly authorizes it; a documentation update is no
 
 ## Reporting
 
-Report verification accurately. Latest verification: build and 295 passing tests, plus the one `?gallery=1` still described in `HANDOFF.md`, and a Node step probe (0.453 / 0.426 ms per step for Zero / Nicole at 100 enemies with fire and water, against 0.386 / 0.352 at e85365d). State what is still unreviewed: full gameplay screen/mobile, motion, audio (including snip/fold), balance of wash-out and the paper verbs, and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.
+Report verification accurately. Latest verification: build and 325 passing tests; the open-work round's one screenshot failed (Chrome crashed in the sandbox, see `HANDOFF.md`); Node step probe 0.357 / 0.344 ms per step for Zero / Nicole at 100 enemies with fire and water (0.386 / 0.352 at e85365d); scripted balance probe `output/playwright/balance-run.mjs` (16 simulated nights). State what is still unreviewed: every art change of the round, full gameplay screen/mobile, motion, audio listening, a human playtest and browser FPS. Passing tests and a static image do not mean the user approved the art or that the entry is finished.

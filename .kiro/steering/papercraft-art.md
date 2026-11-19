@@ -61,5 +61,5 @@ Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`
 ## Review
 
 - At most one static screenshot for authorized art verification; no animation or recording checks. The latest Chrome still shows a fixed graveyard combat scene in the running game ([combat-readability-2026-11-18.png](../../output/playwright/combat-readability-2026-11-18.png)).
-- Latest verification passed build and 301 tests. Mobile, full-run balance, audio and browser performance remain open.
+- Latest verification passed build and 325 tests (open-work round, 392a631: lighter pencil second pass and fibre, one tide line, banded Paper Cut slit). The round's one screenshot failed (Chrome crashed in the sandbox), so none of it was viewed. Mobile, human playtest, audio listening and browser frame time remain open.
 - Do not report the art as approved; only the user can accept it. The user's P0 is that it must look good.
