@@ -15,12 +15,12 @@ import type { CostumeDef } from "../../types.js";
 import { addZone, fireArmedBursts, heading } from "../skills.js";
 
 export const JOBS_SKILL = {
-  cooldown: 28,
+  cooldown: 20,
   firstAt: 36,
   /** Warning seconds before the star lands. */
   telegraph: 1.2,
-  radius: 90,
-  damage: 3,
+  radius: 120,
+  damage: 6,
   /** The star aims at the nearest ink within this range, else lands ahead of the cat. */
   aim: 260,
   ahead: 80,

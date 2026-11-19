@@ -19,11 +19,11 @@ export const JENSEN_SKILL = {
   /** Seconds of parallel work. */
   duration: 6,
   /** Damage factor of a copy. */
-  damage: 0.5,
+  damage: 0.6,
   /** Sideways offset of a copy, world units. */
   offset: 10,
   /** Most copies per trigger. */
-  cap: 12,
+  cap: 40,
 } as const;
 
 export const JENSEN: CostumeDef = {

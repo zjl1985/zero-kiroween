@@ -16,7 +16,7 @@ import type { CostumeDef } from "../../types.js";
 import { addZone, fireArmedBursts, heading, pushOutOfLane } from "../skills.js";
 
 export const MUSK_SKILL = {
-  cooldown: 32,
+  cooldown: 24,
   firstAt: 24,
   /** Lane length ahead of the cat. */
   length: 170,
@@ -25,8 +25,8 @@ export const MUSK_SKILL = {
   /** Seconds the car keeps the lane clear; the rocket lands when it ends. */
   drive: 1,
   /** Rocket burst radius and damage. */
-  radius: 60,
-  damage: 4,
+  radius: 130,
+  damage: 6,
 } as const;
 
 export const MUSK: CostumeDef = {

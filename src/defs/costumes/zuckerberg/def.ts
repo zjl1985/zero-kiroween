@@ -30,7 +30,7 @@ export const ZUCKERBERG: CostumeDef = {
   i18n: "costume.zuckerberg",
   art: "zuckerberg",
   skill: { cooldown: ZUCKERBERG_SKILL.cooldown, firstAt: ZUCKERBERG_SKILL.firstAt, notice: "costume-zuckerberg" },
-  unlock: { stat: "propsTorn", at: 60 },
+  unlock: { stat: "propsTorn", at: 45 },
   activate(state) {
     const { x, y } = state.player;
     addZone(state, {

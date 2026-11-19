@@ -5,6 +5,9 @@ import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { playerStats } from "../dist/game/stats.js";
 import { CATS, COSTUME_DEFS, ENEMY_DEFS, registerCostume } from "../dist/defs/index.js";
 import { COSTUME } from "../dist/defs/costumes/tuning.js";
+import { JENSEN_SKILL } from "../dist/defs/costumes/jensen/def.js";
+import { EICH_SKILL } from "../dist/defs/costumes/eich/def.js";
+import { JOBS_SKILL } from "../dist/defs/costumes/jobs/def.js";
 import {
   addZone,
   burst,
@@ -404,17 +407,18 @@ test("jensen copies new shots once, never copies a copy and respects its cap", (
   shot();
   linger(b, DT);
   assert.equal(state.shots.length, 3);
-  assert.equal(state.shots[2].damage, 1, "a copy hits for half");
+  assert.equal(state.shots[2].damage, 2 * JENSEN_SKILL.damage, "a copy hits for the copy factor");
   linger(b, DT * 5);
   assert.equal(state.shots.length, 3, "copies are never copied");
-  for (let i = 0; i < 20; i++) shot();
+  const burst = JENSEN_SKILL.cap + 5;
+  for (let i = 0; i < burst; i++) shot();
   linger(b, DT);
-  assert.equal(state.costume.vars.copies, 12);
-  assert.equal(state.shots.length, 3 + 20 + 11);
+  assert.equal(state.costume.vars.copies, JENSEN_SKILL.cap);
+  assert.equal(state.shots.length, 3 + burst + JENSEN_SKILL.cap - 1);
   linger(b, 6);
   shot();
   linger(b, DT);
-  assert.equal(state.costume.vars.copies, 12, "nothing is copied after the skill ends");
+  assert.equal(state.costume.vars.copies, JENSEN_SKILL.cap, "nothing is copied after the skill ends");
 });
 
 test("karpathy draws its lane away from the ink and speeds the cat on it", () => {
@@ -479,7 +483,7 @@ test("eich keeps at most one turret, which shoots and folds away when left", () 
   assert.equal(state.costume.zones.filter((z) => z.kind === "turret").length, 1);
   linger(b, 0.65);
   assert.equal(state.shots.length, 1);
-  assert.equal(state.shots[0].damage, 1);
+  assert.equal(state.shots[0].damage, EICH_SKILL.damage);
   assert.ok(state.shots[0].vx > 0, "aimed at the nearest ink");
   target.alive = false;
   state.player.x += 500;
@@ -495,9 +499,9 @@ test("jobs bursts only after its telegraph", () => {
   linger(b, 1.1);
   assert.equal(blob.hp, 50, "nothing before the star lands");
   linger(b, 0.2);
-  assert.equal(blob.hp, 47);
+  assert.equal(blob.hp, 50 - JOBS_SKILL.damage);
   linger(b, 1);
-  assert.equal(blob.hp, 47, "one star per trigger");
+  assert.equal(blob.hp, 50 - JOBS_SKILL.damage, "one star per trigger");
 });
 
 test("zuckerberg's trail slows ordinary ink on it and speeds the cat", () => {

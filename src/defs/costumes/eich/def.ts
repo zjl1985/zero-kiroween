@@ -21,7 +21,7 @@ export const EICH_SKILL = {
   /** Turret seconds, shot gap, damage and range. */
   life: 6,
   every: 0.6,
-  damage: 1,
+  damage: 2,
   range: 260,
   /** Shot speed, world units per second. */
   shotSpeed: 320,

@@ -36,7 +36,7 @@ export const LEVELS: CostumeDef = {
   i18n: "costume.levels",
   art: "levels",
   skill: { cooldown: LEVELS_SKILL.cooldown, firstAt: LEVELS_SKILL.firstAt, notice: "costume-levels" },
-  unlock: { stat: "skillUses", at: 120 },
+  unlock: { stat: "skillUses", at: 100 },
   activate(state) {
     const c = state.costume!;
     c.vars.left = LEVELS_SKILL.pads;

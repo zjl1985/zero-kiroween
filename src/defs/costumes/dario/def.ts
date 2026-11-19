@@ -30,7 +30,7 @@ export const DARIO: CostumeDef = {
   i18n: "costume.dario",
   art: "dario",
   skill: { cooldown: DARIO_SKILL.cooldown, firstAt: DARIO_SKILL.firstAt, notice: "costume-dario" },
-  unlock: { stat: "kills", at: 1800 },
+  unlock: { stat: "kills", at: 1700 },
   activate(state) {
     const { x, y } = state.player,
       armed = state.elapsed + DARIO_SKILL.telegraph;
