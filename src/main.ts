@@ -310,6 +310,7 @@ function boot(): void {
     const v = boardLayout(width, height, devicePixelRatio || 1, !!sim);
     const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
     if (turned) touch.reset();
+    else touch.invalidateGeometry();
     const w = Math.round(v.viewWidth * 2), h = Math.round(v.viewHeight * 2);
     if (stage.width !== w) stage.width = w;
     if (stage.height !== h) stage.height = h;
@@ -471,9 +472,10 @@ function boot(): void {
     else show("play");
   };
   const openCards = () => {
-    cardsArmedAt = performance.now() + 320;
+    cardsArmedAt = performance.now() + (useTouch ? DEAL.touchGuardMs : DEAL.settleMs);
     show("upgrade");
-    // Replay the deal-in animation for every new hand.
+    // Touch shows readable cards immediately; only desktop replays the deal.
+    if (useTouch) return;
     const hand = must<HTMLElement>("upgrade-screen");
     hand.style.setProperty("--stagger", `${DEAL.staggerMs}ms`);
     hand.style.setProperty("--flight", `${DEAL.flightMs}ms`);

@@ -51,7 +51,7 @@ export const TREMBLE: Readonly<Record<CueKind, Beat>> = {
   finale: { anticipation: 0, reveal: 0, burst: 1.2, settle: 0 },
 };
 /** Card dealing: stagger between cards, flight with overshoot, then the paper stack settles. */
-export const DEAL = { staggerMs: 70, flightMs: 460, settleMs: 320 } as const;
+export const DEAL = { staggerMs: 70, flightMs: 460, settleMs: 320, touchGuardMs: 120 } as const;
 
 export const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 export const lerp = (a: number, b: number, k: number): number => a + (b - a) * k;

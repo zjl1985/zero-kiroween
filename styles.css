@@ -1692,6 +1692,26 @@ body[data-cat="nicole"] .profile-title span {
   animation: card-title 0.4s ease-out both;
 }
 
+/* Touch keeps text on a flat, stationary card, including sticky mobile hover. */
+.has-touch .upgrade-cards {
+  perspective: none;
+}
+.has-touch .upgrade-card,
+.has-touch .upgrade-card:hover:not(:disabled),
+.has-touch .upgrade-card:focus-visible,
+.has-touch .upgrade-cards:hover .upgrade-card:not(:hover):not(:focus-visible) {
+  transform: none;
+  filter: none;
+  transition: none;
+}
+.has-touch .upgrade-card:active {
+  color: #542821;
+}
+.has-touch .upgrade-card:focus-visible {
+  outline: 2px solid #f8ecd0;
+  outline-offset: 2px;
+}
+
 /* ===================================================== touch */
 .touch {
   position: absolute;
@@ -1727,7 +1747,14 @@ body[data-cat="nicole"] .profile-title span {
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #f8ecd0, #d8bf8f);
   box-shadow: 0 2px 0 #8d6f4b;
-  transform: translate(calc(-50% + var(--kx, 0px)), calc(-50% + var(--ky, 0px)));
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.stick.is-active {
+  outline-color: #f8ecd0b3;
+}
+.stick.is-active i {
+  will-change: translate;
 }
 .dash-btn {
   width: 78px;
