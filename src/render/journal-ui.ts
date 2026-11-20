@@ -7,6 +7,7 @@ import { glow, hash, line, mix, oval, path, piece, stitch, stroke, type Ctx } fr
 import { crescent } from "./craft-combat.js";
 import { arcHeight, chunkCoords, mapPoint, type ArcPoint } from "../ui/journal-geometry.js";
 import { CHUNK, SCREEN, WORLD, type Landmark } from "../game/world-gen.js";
+import { viewRect, type Camera } from "./camera.js";
 import { LANDMARK_ART } from "./art-registry.js";
 
 /** Every journal canvas is drawn at 2x its CSS size. */
@@ -226,6 +227,7 @@ export function paintWick(canvas: HTMLCanvasElement, charge: number, ready: bool
 const landmarkInk = (kind: string) => LANDMARK_ART.find(kind)?.ink ?? "#c9a35f";
 export interface MinimapView {
   player: { x: number; y: number };
+  camera?: Camera;
   accent: string;
   explored: ReadonlySet<number>;
   landmarks: readonly Landmark[];
@@ -311,9 +313,9 @@ export function paintMinimap(canvas: HTMLCanvasElement, v: MinimapView): void {
     ctx.fillRect(bx - 3.4, by - 2.2, 2.4, 4.4);
   }
   // The camera view and the cat.
-  const vw = (SCREEN.width / WORLD.width) * mw,
-    vh = (SCREEN.height / WORLD.height) * mh;
-  stroke(ctx, path([[px - vw / 2, py - vh / 2], [px + vw / 2, py - vh / 2], [px + vw / 2, py + vh / 2], [px - vw / 2, py + vh / 2], [px - vw / 2, py - vh / 2]]), "#1d1626", 0.7, 0.5);
+  const rect = viewRect(v.camera ?? v.player);
+  const [left, top] = at(rect.x0, rect.y0), [right, bottom] = at(rect.x1, rect.y1);
+  stroke(ctx, path([[left, top], [right, top], [right, bottom], [left, bottom], [left, top]]), "#1d1626", 0.7, 0.5);
   glow(ctx, px, py, 7, v.accent, 0.7);
   piece(ctx, oval(px, py, 2.1, 2.1, 4), v.accent, { shadow: 0.4, thickness: 0.6, texture: 0 });
   // Fold creases: one down the middle, two across thirds.

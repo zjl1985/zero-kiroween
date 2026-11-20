@@ -55,9 +55,9 @@ export function mapPoint(x: number, y: number, w: number, h: number): { x: numbe
   };
 }
 /** Chunk indices the camera view around (x, y) overlaps: what the cat has seen. */
-export function viewChunks(x: number, y: number): number[] {
-  const a = chunkOf(x - SCREEN.width / 2, y - SCREEN.height / 2),
-    b = chunkOf(x + SCREEN.width / 2 - 1, y + SCREEN.height / 2 - 1),
+export function viewChunks(x: number, y: number, width: number = SCREEN.width, height: number = SCREEN.height): number[] {
+  const a = chunkOf(x - width / 2, y - height / 2),
+    b = chunkOf(Math.ceil(x + width / 2) - 1, Math.ceil(y + height / 2) - 1),
     out: number[] = [];
   for (let cy = a.cy; cy <= b.cy; cy++)
     for (let cx = a.cx; cx <= b.cx; cx++) out.push(chunkIndex(cx, cy));

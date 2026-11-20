@@ -1,6 +1,20 @@
 export const VIEW_WIDTH = 960;
 export const VIEW_HEIGHT = 540;
 
+/** The portrait camera trades horizontal reach for vertical reach at the same scale on both axes. */
+const PORTRAIT_HEIGHT = 720;
+
+export function boardLayout(width: number, height: number, dpr: number, inRun: boolean) {
+  if (inRun && width <= height) {
+    return {
+      cssX: 0, cssY: 0, cssW: width, cssH: height,
+      viewWidth: PORTRAIT_HEIGHT * width / height, viewHeight: PORTRAIT_HEIGHT,
+    };
+  }
+  const { cssX, cssY, cssW, cssH } = viewport(width, height, dpr, false);
+  return { cssX, cssY, cssW, cssH, viewWidth: VIEW_WIDTH, viewHeight: VIEW_HEIGHT };
+}
+
 /** One viewport for presentation and DOM controls, measured in device pixels first. */
 export function viewport(
   width: number,

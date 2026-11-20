@@ -1614,18 +1614,31 @@ export function drawForeground(
   ctx: Ctx,
   viewer?: { x: number; y: number },
   withFrame = true,
+  width = W,
+  height = H,
 ): void {
   foreground ??= buildForeground();
+  const scale = Math.min(1, width / W);
   ctx.save();
-  ctx.globalAlpha =
-    viewer && viewer.y > 485 && (viewer.x < 390 || viewer.x > 620) ? 0.35 : 1;
-  ctx.drawImage(foreground, 0, 0, W, H);
+  ctx.globalAlpha = viewer && viewer.y > height - 55 * scale &&
+    (viewer.x < 390 * scale || viewer.x > width - 340 * scale) ? 0.35 : 1;
+  if (width === W && height === H) {
+    ctx.drawImage(foreground, 0, 0, W, H);
+  } else {
+    // Keep the branch in the top corner and both flower beds at the foot of the screen.
+    ctx.drawImage(foreground, 0, 0, 280, 220, 0, 0, 140 * scale, 110 * scale);
+    const bedHeight = 80, half = W / 2;
+    for (const side of [0, 1]) {
+      ctx.drawImage(foreground, side * half * 2, (H - bedHeight) * 2, half * 2, bedHeight * 2,
+        side * (width - half * scale), height - bedHeight * scale, half * scale, bedHeight * scale);
+    }
+  }
   ctx.restore();
-  if (withFrame) drawFrame(ctx);
+  if (withFrame) drawFrame(ctx, width, height);
 }
 let frame: CanvasSurface | undefined;
 /** The torn paper border; drawn outside the camera shake so edges never show. */
-export function drawFrame(ctx: Ctx): void {
+export function drawFrame(ctx: Ctx, width = W, height = H): void {
   if (!frame) {
     frame = surface(W * 2, H * 2);
     const c = frame.getContext("2d")!;
@@ -1657,7 +1670,18 @@ export function drawFrame(ctx: Ctx): void {
       line(c, x, y, x + 3, y + (hash(i) - 0.5) * 2, "#f6e4c6", 0.6, 0.5);
     }
   }
-  ctx.drawImage(frame, 0, 0, W, H);
+  if (width === W && height === H) {
+    ctx.drawImage(frame, 0, 0, W, H);
+    return;
+  }
+  // Stretch along each edge only so the paper keeps an even thickness after rotation.
+  const edge = 12;
+  for (const side of [0, 1]) {
+    ctx.drawImage(frame, 0, side * (H - edge) * 2, W * 2, edge * 2,
+      0, side * (height - edge), width, edge);
+    ctx.drawImage(frame, side * (W - edge) * 2, edge * 2, edge * 2, (H - edge * 2) * 2,
+      side * (width - edge), edge, edge, height - edge * 2);
+  }
 }
 /** 0 for most of the night, rising to 1 over the last STATS.dawnSeconds of the session. */
 export function dawnAmount(progress: number, sessionSeconds: number = STATS.sessionSeconds): number {

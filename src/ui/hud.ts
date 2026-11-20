@@ -6,6 +6,7 @@ import { inkReveal } from "./ink.js";
 import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { catName, characterCopy, paintPortrait } from "./character-panel.js";
 import { catArt } from "../render/art-index.js";
+import type { Camera } from "../render/camera.js";
 import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { paintCardEmblem, paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
@@ -242,14 +243,17 @@ function renderSeam(refs: HudRefs, locale: Locale, sim: SimState): void {
   refs.xp.setAttribute("aria-label", t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }));
 }
 /** Folded paper minimap: explored chunks, landmarks, chests and the Eraser. */
-function renderMap(refs: HudRefs, locale: Locale, sim: SimState): void {
+function renderMap(refs: HudRefs, locale: Locale, sim: SimState, camera: Camera): void {
   const p = sim.player;
   let seen = explored.get(sim);
   if (!seen) explored.set(sim, (seen = new Set()));
-  for (const i of viewChunks(p.x, p.y)) seen.add(i);
+  for (const i of viewChunks(camera.x, camera.y, camera.width, camera.height)) seen.add(i);
   const boss = bossEnemy(sim),
     chests = sim.chests.filter((c) => c.alive),
     sig = [
+      sim.seed,
+      camera.width, camera.height,
+      Math.round(camera.x / 40), Math.round(camera.y / 40),
       Math.round(p.x / 40),
       Math.round(p.y / 40),
       seen.size,
@@ -261,6 +265,7 @@ function renderMap(refs: HudRefs, locale: Locale, sim: SimState): void {
   paintIf(refs.map, sig, () =>
     paintMinimap(refs.map, {
       player: p,
+      camera,
       accent: catArt(p.id).colors.hud,
       explored: seen,
       landmarks: landmarks(sim.seed),
@@ -277,7 +282,7 @@ function renderMap(refs: HudRefs, locale: Locale, sim: SimState): void {
 function text(el: HTMLElement, value: string) {
   if (el.textContent !== value) el.textContent = value;
 }
-export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
+export function renderHud(refs: HudRefs, locale: Locale, sim: SimState, camera: Camera = sim.player): void {
   const p = sim.player,
     ready = p.dashCooldown <= 0,
     still = reduced(),
@@ -329,7 +334,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState): void {
   renderOwned(refs.upgrades, locale, sim);
   renderChest(refs.chest, locale, sim);
   renderBoss(refs, locale, sim);
-  renderMap(refs, locale, sim);
+  renderMap(refs, locale, sim, camera);
   // Wick: the flame grows back as the signature skill recharges.
   const charge = wickCharge(p.dashCooldown, playerStats(sim).cooldown);
   paintIf(refs.wick, `${Math.round(charge * 40)}|${ready}|${Math.floor(clock * 10)}`, () =>

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { viewport, VIEW_WIDTH, VIEW_HEIGHT } from "../dist/render/viewport.js";
+import { boardLayout, viewport, VIEW_WIDTH, VIEW_HEIGHT } from "../dist/render/viewport.js";
+import { clampCamera, followCamera, viewRect } from "../dist/render/camera.js";
+import { viewChunks } from "../dist/ui/journal-geometry.js";
+import { chunkIndex, chunkOf, WORLD } from "../dist/game/world-gen.js";
 test("pixel viewport fits 28 size / DPR combinations without stretching or wasting half the screen", () => {
   for (const [width, height] of [
     [1280, 720],
@@ -29,4 +32,36 @@ test("integer physical pixels are preferred when the size penalty is small", () 
   assert.equal(viewport(1440, 900, 2).scale, 3);
   assert.equal(viewport(1280, 720, 1).scale, 1280 / 960);
   assert.equal(viewport(390, 844, 3).scale, (390 * 3) / 960);
+});
+
+test("a portrait run uses the whole app as Safari's bars expand, collapse, or the device rotates", () => {
+  for (const [w, h] of [[320, 568], [390, 664], [390, 844], [430, 932], [414, 414], [768, 1024]]) {
+    for (const dpr of [1, 2, 3]) {
+      const play = boardLayout(w, h, dpr, true);
+      assert.deepEqual([play.cssX, play.cssY, play.cssW, play.cssH], [0, 0, w, h]);
+      assert.ok(Math.abs(w / play.viewWidth - h / play.viewHeight) < 1e-9, "square world units stay square");
+      const title = boardLayout(w, h, dpr, false);
+      assert.deepEqual([title.viewWidth, title.viewHeight], [960, 540]);
+      assert.ok(play.cssW / play.viewWidth > title.cssW / title.viewWidth, "the cat becomes easier to see");
+    }
+  }
+  assert.deepEqual(boardLayout(844, 390, 3, true), boardLayout(844, 390, 3, false));
+});
+
+test("following the cat near the town edges preserves portrait framing and the minimap's visible chunks", () => {
+  const { viewWidth, viewHeight } = boardLayout(390, 844, 3, true);
+  let cam = clampCamera(480, 270, viewWidth, viewHeight);
+  for (const [x, y] of [[WORLD.minX + 36, WORLD.playTop], [WORLD.maxX - 36, WORLD.maxY - 36]]) {
+    cam = followCamera(cam, { x, y }, 5);
+    const r = viewRect(cam);
+    assert.ok(Math.abs(r.x1 - r.x0 - viewWidth) < 1e-9);
+    assert.equal(r.y1 - r.y0, viewHeight);
+    assert.ok(r.x0 >= WORLD.minX && r.x1 <= WORLD.maxX && r.y0 >= WORLD.minY && r.y1 <= WORLD.maxY);
+    assert.ok(x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1);
+    const seen = viewChunks(cam.x, cam.y, cam.width, cam.height);
+    for (const [cx, cy] of [[r.x0, r.y0], [r.x1 - 0.001, r.y1 - 0.001]]) {
+      const corner = chunkOf(cx, cy);
+      assert.ok(seen.includes(chunkIndex(corner.cx, corner.cy)));
+    }
+  }
 });

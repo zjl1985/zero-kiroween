@@ -8,8 +8,7 @@ import { bossEnemy } from "../game/sim.js";
 import { glow, path, piece, type Ctx, type Point } from "./paper-material.js";
 import { visHash } from "./hash.js";
 import { catArt } from "./art-registry.js";
-import { VIEW_HEIGHT, VIEW_WIDTH } from "./viewport.js";
-import type { Camera } from "./camera.js";
+import { cameraProjection, type Camera, type ViewSize } from "./camera.js";
 import {
   beatFor,
   clamp01,
@@ -193,39 +192,39 @@ export function drawCueWorld(ctx: Ctx, cues: readonly Cue[], sim: SimState, time
   }
 }
 
-function fill(ctx: Ctx, color: string, alpha: number, mode: GlobalCompositeOperation = "source-over"): void {
+function fill(ctx: Ctx, view: ViewSize, color: string, alpha: number, mode: GlobalCompositeOperation = "source-over"): void {
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalCompositeOperation = mode;
   ctx.globalAlpha = Math.min(1, alpha);
   ctx.fillStyle = color;
-  ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+  ctx.fillRect(0, 0, view.width, view.height);
   ctx.restore();
 }
 /** Darkens the edges and leaves a clear hole around (x, y) so the fight stays readable. */
-function vignette(ctx: Ctx, x: number, y: number, inner: number, color: string, alpha: number): void {
+function vignette(ctx: Ctx, view: ViewSize, x: number, y: number, inner: number, color: string, alpha: number): void {
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = Math.min(1, alpha);
-  const g = ctx.createRadialGradient(x, y, inner, x, y, Math.max(VIEW_WIDTH, VIEW_HEIGHT) * 0.75);
+  const g = ctx.createRadialGradient(x, y, inner, x, y, Math.max(view.width, view.height) * 0.75);
   g.addColorStop(0, color + "00");
   g.addColorStop(1, color);
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+  ctx.fillRect(0, 0, view.width, view.height);
   ctx.restore();
 }
 /** A paper chevron pinned to the view edge, pointing at an off-screen world point. */
-function edgeArrow(ctx: Ctx, sx: number, sy: number, time: number, alpha: number): void {
+function edgeArrow(ctx: Ctx, view: ViewSize, sx: number, sy: number, time: number, alpha: number): void {
   const m = 30,
-    inside = sx > m && sx < VIEW_WIDTH - m && sy > m && sy < VIEW_HEIGHT - m;
-  const cx = VIEW_WIDTH / 2,
-    cy = VIEW_HEIGHT / 2,
+    inside = sx > m && sx < view.width - m && sy > m && sy < view.height - m;
+  const cx = view.width / 2,
+    cy = view.height / 2,
     a = Math.atan2(sy - cy, sx - cx),
-    kx = (VIEW_WIDTH / 2 - m) / Math.max(1e-6, Math.abs(Math.cos(a))),
-    ky = (VIEW_HEIGHT / 2 - m) / Math.max(1e-6, Math.abs(Math.sin(a))),
+    kx = (cx - m) / Math.max(1e-6, Math.abs(Math.cos(a))),
+    ky = (cy - m) / Math.max(1e-6, Math.abs(Math.sin(a))),
     r = Math.min(kx, ky),
     x = inside ? sx : cx + Math.cos(a) * r,
-    y = inside ? sy - 46 : cy + Math.sin(a) * r,
+    y = inside ? Math.max(m, sy - 46) : cy + Math.sin(a) * r,
     dir = inside ? Math.PI / 2 : a,
     s = 1 + Math.max(0, Math.sin(time * 12)) * 0.3;
   ctx.save();
@@ -238,11 +237,9 @@ function edgeArrow(ctx: Ctx, sx: number, sy: number, time: number, alpha: number
 }
 
 /** Screen-space cue layers, drawn after the world and before the HUD frame. */
-export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: Camera, time: number, reduced: boolean): void {
-  const ox = cam.x - VIEW_WIDTH / 2,
-    oy = cam.y - VIEW_HEIGHT / 2,
-    px = sim.player.x - ox,
-    py = sim.player.y - 20 - oy;
+export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: Camera, time: number, reduced: boolean, view = cameraProjection(cam)): void {
+  const px = sim.player.x * view.zoom + view.x,
+    py = (sim.player.y - 20) * view.zoom + view.y;
   for (const c of cues) {
     const env = cueEnvelope(c, reduced),
       p = cuePhase(c, reduced);
@@ -250,36 +247,36 @@ export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam
     if (reduced) {
       // Short fades only: a tint that clears in REDUCED_BEAT time.
       const tint = { evolution: "#f0cf83", boss: "#7d1f2e", "boss-down": "#f6dc9a", dawn: "#ffcf8a", finale: "#ffcf8a" }[c.kind];
-      fill(ctx, tint, (c.kind === "finale" ? 0.35 : 0.14) * (c.kind === "finale" ? 1 : env));
+      fill(ctx, view, tint, (c.kind === "finale" ? 0.35 : 0.14) * (c.kind === "finale" ? 1 : env));
       continue;
     }
     switch (c.kind) {
       case "evolution":
         // The world dims around the cat, then a warm flash at the burst.
-        vignette(ctx, px, py, 50, "#070b16", 0.55 * env);
-        if (p.phase === "burst") fill(ctx, "#ffe2a6", 0.18 * (1 - p.local), "screen");
+        vignette(ctx, view, px, py, 50, "#070b16", 0.55 * env);
+        if (p.phase === "burst") fill(ctx, view, "#ffe2a6", 0.18 * (1 - p.local), "screen");
         break;
       case "boss": {
-        vignette(ctx, px, py, 110, "#3a0f22", 0.5 * env);
+        vignette(ctx, view, px, py, 110, "#3a0f22", 0.5 * env);
         const boss = bossEnemy(sim),
-          bx = (boss?.x ?? c.x ?? cam.x) - ox,
-          by = (boss?.y ?? c.y ?? cam.y) - oy;
-        if (p.phase === "anticipation" || p.phase === "reveal") edgeArrow(ctx, bx, by, time, Math.min(1, env * 1.4));
-        if (p.phase === "burst") fill(ctx, "#f0a3b1", 0.12 * (1 - p.local), "screen");
+          bx = (boss?.x ?? c.x ?? cam.x) * view.zoom + view.x,
+          by = (boss?.y ?? c.y ?? cam.y) * view.zoom + view.y;
+        if (p.phase === "anticipation" || p.phase === "reveal") edgeArrow(ctx, view, bx, by, time, Math.min(1, env * 1.4));
+        if (p.phase === "burst") fill(ctx, view, "#f0a3b1", 0.12 * (1 - p.local), "screen");
         break;
       }
       case "boss-down":
-        if (p.phase === "burst") fill(ctx, "#fff1cc", 0.3 * (1 - p.local), "screen");
-        vignette(ctx, px, py, 120, "#1a0f1d", 0.25 * env);
+        if (p.phase === "burst") fill(ctx, view, "#fff1cc", 0.3 * (1 - p.local), "screen");
+        vignette(ctx, view, px, py, 120, "#1a0f1d", 0.25 * env);
         break;
       case "dawn": {
         // A cool breath, then warm light sweeps across the town from the east.
-        if (p.phase === "anticipation") fill(ctx, "#0b1430", 0.14 * p.local);
+        if (p.phase === "anticipation") fill(ctx, view, "#0b1430", 0.14 * p.local);
         const sweep = since(c, "reveal");
         if (sweep >= 0) {
           const beat = beatFor("dawn", false),
             k = easeInOut(sweep / (beat.reveal + beat.burst * 0.5)),
-            x = -220 + k * (VIEW_WIDTH + 440);
+            x = -220 + k * (view.width + 440);
           ctx.save();
           ctx.globalCompositeOperation = "screen";
           ctx.globalAlpha = 0.45 * env;
@@ -288,14 +285,14 @@ export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam
           g.addColorStop(0.7, "#ffcf8a");
           g.addColorStop(1, "#ffcf8a00");
           ctx.fillStyle = g;
-          ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+          ctx.fillRect(0, 0, view.width, view.height);
           ctx.restore();
           // The light stays behind the sweep as a warm wash.
           ctx.save();
           ctx.globalAlpha = 0.12 * env;
           ctx.fillStyle = "#f6b866";
           ctx.globalCompositeOperation = "soft-light";
-          ctx.fillRect(0, 0, Math.max(0, Math.min(VIEW_WIDTH, x)), VIEW_HEIGHT);
+          ctx.fillRect(0, 0, Math.max(0, Math.min(view.width, x)), view.height);
           ctx.restore();
         }
         break;
@@ -303,9 +300,9 @@ export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam
       case "finale": {
         // The sun rises over the town; the wash holds so the result page opens on warm paper.
         const rise = p.phase === "anticipation" ? easeInOut(p.local) : 1,
-          sx = VIEW_WIDTH * 0.5,
-          sy = VIEW_HEIGHT * (0.32 - 0.12 * rise);
-        fill(ctx, "#ffcf8a", 0.12 + 0.3 * p.total, "screen");
+          sx = view.width * 0.5,
+          sy = view.height * (0.32 - 0.12 * rise);
+        fill(ctx, view, "#ffcf8a", 0.12 + 0.3 * p.total, "screen");
         const b = since(c, "reveal");
         if (b >= 0) rays(ctx, sx, sy, 160 + easeOutCubic(clamp01(b / 0.8)) * 380, 16, time * 0.1, 0.16, "#ffe2a6");
         glow(ctx, sx, sy, 110 + rise * 40, "#fff1cc", 0.7 * rise);

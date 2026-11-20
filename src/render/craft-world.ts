@@ -34,7 +34,7 @@ import { bossEnemy } from "../game/sim.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
-import { viewRect } from "./camera.js";
+import { cameraProjection, viewRect } from "./camera.js";
 import { popupStep, popupTarget } from "./timeline.js";
 import { drawInteractable } from "./craft-juice.js";
 import { tintedSprite } from "./sprite-tint.js";
@@ -868,20 +868,19 @@ export function navTargets(sim: SimState): NavTarget[] {
 }
 const NAV_INSET = { side: 44, top: 78, bottom: 70 } as const;
 /** Paper arrow tabs on the screen edge, pointing at off-screen targets. Screen space. */
-export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Locale, time: number): void {
-  const W = 960,
-    H = 540;
+export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Locale, time: number, projection = cameraProjection(cam)): void {
+  const { width: W, height: H, zoom } = projection;
   for (const target of navTargets(sim)) {
-    const sx = target.x - cam.x + W / 2,
-      sy = target.y - cam.y + H / 2;
+    const sx = target.x * zoom + projection.x,
+      sy = target.y * zoom + projection.y;
     if (sx > 0 && sx < W && sy > 0 && sy < H) continue;
     const cx = W / 2,
       cy = H / 2,
       dx = sx - cx,
       dy = sy - cy,
       hw = cx - NAV_INSET.side,
-      top = cy - NAV_INSET.top,
-      bottom = H - NAV_INSET.bottom - cy,
+      top = cy - (H > W ? H * 0.19 : NAV_INSET.top),
+      bottom = cy - (H > W ? H * 0.22 : NAV_INSET.bottom),
       k = Math.min(Math.abs(hw / (dx || 1e-6)), dy < 0 ? top / -dy : bottom / (dy || 1e-6)),
       ax = cx + dx * k,
       ay = cy + dy * k,
@@ -890,7 +889,8 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
       chest = target.kind === "chest",
       bob = Math.sin(time * 3 + (boss ? 1 : 0)) * 1.5;
     ctx.save();
-    ctx.translate(ax + Math.cos(ang) * bob, ay + Math.sin(ang) * bob);
+    const arrowX = ax + Math.cos(ang) * bob;
+    ctx.translate(arrowX, ay + Math.sin(ang) * bob);
     // The pointer: a folded paper triangle.
     ctx.save();
     ctx.rotate(ang);
@@ -905,7 +905,8 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
     const label = t(locale, target.label);
     ctx.font = "700 10px Allo, sans-serif";
     const tw = ctx.measureText(label).width + 14,
-      lx = -Math.cos(ang) * (tw / 2 + 10) - tw / 2,
+      idealLeft = -Math.cos(ang) * (tw / 2 + 10) - tw / 2,
+      lx = Math.max(8 - arrowX, Math.min(W - arrowX - tw - 8, idealLeft)),
       ly = -Math.sin(ang) * 16 - 8;
     const tab = box(lx, ly, tw, 16, label.length);
     piece(ctx, tab, boss ? "#5a2f37" : "#e8d5ad", { shadow: 1.8, edge: boss ? "#a65a4d" : "#fff1cf", texture: 0.7, thickness: 0.9 });

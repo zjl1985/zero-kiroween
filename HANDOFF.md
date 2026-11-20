@@ -2,6 +2,12 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Portrait gameplay (2026-11-20)
+
+The user's iPhone screenshot showed the fight confined to a 16:9 strip, with controls in the black space above and below. At a 390 × 844 CSS viewport the old strip was only 219 px high. Runs now use the full portrait app rectangle and a proportional camera 720 world units tall. This also applies behind the pause, upgrade and result screens. The town, enemies and cats use a uniform scale. The HUD uses the device safe areas and anchors the two thumb controls at the bottom. On a browser without the Fullscreen API the fullscreen control is hidden.
+
+The board, camera bounds, minimap, navigation tabs, cue effects and paper frame use the run's current dimensions. Simulation still uses its original spawn distances, so distant enemies can become visible entering the taller view. Coverage includes 320 × 568, 390 × 664 and 390 × 844, rotation framing, map bounds and portrait frame drawing commands. `npm run build` succeeded and `npm test` passed 394/394 on the portrait release. The previous phone screenshot was the reference. The new portrait HUD, thumb reach, Safari toolbar transitions and frame time are pending device review. On the user's phone open the game at `/?start=1&seed=7` in portrait, then rotate mid-run. The six-panel desktop art sheet does not verify this layout.
+
 ## Checkpoint (wash and lawn seam fixes, 2026-11-20, local commits only, not pushed)
 
 The user sent a screenshot of the pushed build `b83b5f0` with two defects and asked to fix them ("改"). Commits on `main` after `b83b5f0`:

@@ -855,6 +855,17 @@ test("the gallery washed-paper swatches show pencil on cream, clean blank paper 
 
 import { drawWorld } from "../dist/render/world.js";
 
+test("the paper world draws all the way to the bottom and right of a portrait camera", (t) => {
+  environment(t);
+  const sim = createSim({ cat: "zero", seed: 7 });
+  const ctx = canvas().getContext("2d");
+  const width = 360, height = 720;
+  drawWorld(ctx, sim, { time: 0, camera: { x: sim.player.x, y: 360, width, height } });
+  const edge = (...rect) => ctx.calls.some(c => c.op === "fillRect" && rect.every((n, i) => c.args[i] === n));
+  assert.ok(edge(0, height - 1, width, 1), "bottom cut edge");
+  assert.ok(edge(width - 1, 0, 1, height), "right cut edge");
+});
+
 test("warning tint stays below actors while its edge passes above raised skills and around the cat's face", (t) => {
   environment(t);
   const sim = createSim({ cat: "nicole", seed: 7 });

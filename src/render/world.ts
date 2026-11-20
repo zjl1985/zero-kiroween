@@ -44,7 +44,7 @@ import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketchedParts, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
-import { createCamera, inView, viewRect, type Camera } from "./camera.js";
+import { cameraProjection, createCamera, inView, viewRect, type Camera } from "./camera.js";
 import type { Locale } from "../content/keys.js";
 import {
   cameraShake,
@@ -58,8 +58,8 @@ import {
   drawChest,
   drawLandmarkActivity,
 } from "./craft-juice.js";
-import { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 import { light, polygon, line } from "./pixel-art.js";
+import { VIEW_WIDTH } from "./viewport.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
 import { CAT_BOX, catWear } from "./cat-detail.js";
 import { drawWithLitRim } from "./paper-value.js";
@@ -90,7 +90,15 @@ export function drawWorld(
     tremble = cueTremble(cues, view.time, reduced),
     shake = { x: base.x + tremble.x, y: base.y + tremble.y },
     zoom = presentationZoom(cues, reduced);
-  const cam = view.camera ?? createCamera(),
+  const camera = view.camera ?? createCamera(),
+    focus = sim ? { x: sim.player.x, y: sim.player.y - 20 } : camera,
+    projection = cameraProjection(camera, focus, zoom, shake),
+    { width, height } = projection,
+    cam = {
+      x: (width / 2 - projection.x) / zoom,
+      y: (height / 2 - projection.y) / zoom,
+      width: width / zoom, height: height / zoom,
+    },
     seed = sim?.seed ?? 0,
     progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
     session = sim?.sessionSeconds,
@@ -99,31 +107,25 @@ export function drawWorld(
     warnings = sim ? enemyWarnings(sim) : [];
   // Screen-space sky behind the world; hidden once the camera is far south.
   ctx.save();
-  ctx.translate(shake.x, shake.y);
-  // Cue zoom (presentation only) centres on the cat so it stays in place.
-  if (sim && zoom !== 1) {
-    const fx = sim.player.x - view0.x0,
-      fy = sim.player.y - 20 - view0.y0;
-    ctx.translate(fx, fy);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-fx, -fy);
-  }
   if (view0.y0 < 250) {
+    // The moon keeps its shape and its place on the right as the screen narrows.
+    const skyWidth = Math.max(VIEW_WIDTH, width);
+    ctx.save();
+    ctx.translate((width - skyWidth) * 0.8, 0);
+    ctx.scale(skyWidth / VIEW_WIDTH, skyWidth / VIEW_WIDTH);
     drawSky(ctx);
     if (sim) drawNightShift(ctx, progress, session);
+    ctx.restore();
   }
-  // World space, snapped to device pixels so cached chunks stay crisp.
-  ctx.translate(
-    Math.round((VIEW_WIDTH / 2 - cam.x) * 2) / 2,
-    Math.round((VIEW_HEIGHT / 2 - cam.y) * 2) / 2,
-  );
+  ctx.translate(projection.x, projection.y);
+  ctx.scale(zoom, zoom);
   // Washed paper: chunks with lifted colour get their pencil layer (nothing runs when nothing was washed).
   const wash = sim ? washFrame(sim) : null;
   beginSketchFrame();
   drawChunks(ctx, seed, cam, sim !== null, wash?.chunks);
   drawWashGround(ctx, cam, wash);
   if (sim) drawFoldGuards(ctx, sim, cam);
-  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, VIEW_WIDTH, VIEW_HEIGHT, session);
+  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, cam.width, cam.height, session);
   drawWind(ctx, view.time);
   if (sim) {
     drawCombatGround(ctx, sim);
@@ -348,26 +350,26 @@ export function drawWorld(
   }
   if (!sim && titleCat) drawPlaybillStage(ctx, titleCat);
   ctx.restore();
-  if (sim && cues.length) drawCueScreen(ctx, cues, sim, cam, view.time, reduced);
+  if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
-  if (sim) drawNavArrows(ctx, sim, cam, view.locale ?? "zh", view.time);
+  if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);
   drawForeground(
     ctx,
     sim
-      ? { x: sim.player.x - view0.x0, y: sim.player.y - view0.y0 }
+      ? { x: sim.player.x * zoom + projection.x, y: sim.player.y * zoom + projection.y }
       : undefined,
-    false,
+    false, width, height,
   );
-  drawFrame(ctx);
+  drawFrame(ctx, width, height);
   // Subtle four-sided depth, leaving all gameplay visible.
   ctx.save();
   ctx.globalAlpha = 0.04;
   for (let i = 0; i < 8; i++) {
     ctx.fillStyle = "#070e20";
-    ctx.fillRect(i, 0, 1, VIEW_HEIGHT);
-    ctx.fillRect(VIEW_WIDTH - 1 - i, 0, 1, VIEW_HEIGHT);
-    ctx.fillRect(0, i, VIEW_WIDTH, 1);
-    ctx.fillRect(0, VIEW_HEIGHT - 1 - i, VIEW_WIDTH, 1);
+    ctx.fillRect(i, 0, 1, height);
+    ctx.fillRect(width - 1 - i, 0, 1, height);
+    ctx.fillRect(0, i, width, 1);
+    ctx.fillRect(0, height - 1 - i, width, 1);
   }
   ctx.restore();
 }

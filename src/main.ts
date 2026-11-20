@@ -25,12 +25,12 @@ import { paintUpgradeCards } from "./ui/upgrade-cards.js";
 import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
-import { drawWorld, VIEW_HEIGHT, VIEW_WIDTH } from "./render/world.js";
-import { viewport } from "./render/viewport.js";
+import { drawWorld } from "./render/world.js";
+import { boardLayout } from "./render/viewport.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
-import { createCamera, followCamera, type Camera } from "./render/camera.js";
+import { clampCamera, createCamera, followCamera, type Camera } from "./render/camera.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
@@ -178,12 +178,10 @@ function boot(): void {
     unlockedTonight = r.newly;
     persist();
   };
-  const stage = must<HTMLCanvasElement>("game"),
+  const app = must<HTMLElement>("app"),
+    stage = must<HTMLCanvasElement>("game"),
     overlay = must<HTMLElement>("overlay"),
     skillButton = must<HTMLButtonElement>("dash-btn");
-  // The visible board is also the 2× drawing surface. CSS scales it into the viewport.
-  stage.width = VIEW_WIDTH * 2;
-  stage.height = VIEW_HEIGHT * 2;
   const ctx = stage.getContext("2d")!;
   const input = createInput();
   input.attach(window);
@@ -211,7 +209,7 @@ function boot(): void {
   };
   layoutPlaybill();
   compactPlaybill.addEventListener("change", layoutPlaybill);
-  let size = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
+  let layout = boardLayout(app.clientWidth, app.clientHeight, devicePixelRatio || 1, false);
   let worldNeedsPaint = true;
   reducedMotion.addEventListener("change", () => { worldNeedsPaint = true; });
   const hudRefs = {
@@ -307,13 +305,17 @@ function boot(): void {
   // Cards ignore input briefly so a held key or tap cannot pick blindly.
   let cardsArmedAt = 0;
   const resize = () => {
-    touch.reset();
-    size = {
-      w: innerWidth,
-      h: innerHeight,
-      dpr: Math.max(1, devicePixelRatio || 1),
-    };
-    const v = viewport(size.w, size.h, size.dpr, false);
+    const width = app.clientWidth, height = app.clientHeight;
+    if (!width || !height) return;
+    const v = boardLayout(width, height, devicePixelRatio || 1, !!sim);
+    const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
+    if (turned) touch.reset();
+    const w = Math.round(v.viewWidth * 2), h = Math.round(v.viewHeight * 2);
+    if (stage.width !== w) stage.width = w;
+    if (stage.height !== h) stage.height = h;
+    const center = turned && sim ? sim.player : camera;
+    camera = clampCamera(center.x, center.y, v.viewWidth, v.viewHeight);
+    layout = v;
     for (const layer of [stage, overlay]) {
       layer.style.left = `${v.cssX}px`;
       layer.style.top = `${v.cssY}px`;
@@ -322,7 +324,8 @@ function boot(): void {
     }
     worldNeedsPaint = true;
   };
-  resize();
+  // The app tracks 100dvh, including Safari's moving toolbars and fullscreen changes.
+  new ResizeObserver(resize).observe(app);
   window.addEventListener("resize", resize);
   const paint = () => {
     worldNeedsPaint = true;
@@ -374,7 +377,7 @@ function boot(): void {
       "aria-label",
       t(locale, "hud.fullscreen"),
     );
-    if (sim) renderHud(hudRefs, locale, sim);
+    if (sim) renderHud(hudRefs, locale, sim, camera);
     if (sim && screen === "upgrade") paintUpgradeCards(locale, sim, useTouch);
     if (sim) {
       const id = sim.player.id;
@@ -426,6 +429,7 @@ function boot(): void {
       must(id).classList.toggle("hidden", !visible);
     document.body.classList.toggle("is-playing", next === "play");
     document.body.dataset.screen = next;
+    resize();
     if (next === "title")
       document.body.classList.remove("low-health", "critical-health", "is-dawn");
     sfx.setAmbience(next === "play" || next === "upgrade");
@@ -605,10 +609,12 @@ function boot(): void {
   must("btn-resume").addEventListener("click", resume);
   must("btn-back").addEventListener("click", title);
   must("btn-result-back").addEventListener("click", title);
-  must("btn-fullscreen").addEventListener("click", async () => {
+  const fullscreen = must<HTMLButtonElement>("btn-fullscreen");
+  fullscreen.hidden = !document.fullscreenEnabled;
+  fullscreen.addEventListener("click", async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else await must<HTMLElement>("app").requestFullscreen();
+      else await app.requestFullscreen();
     } catch {
       /* Not all mobile browsers expose fullscreen. */
     }
@@ -632,7 +638,7 @@ function boot(): void {
       if (finale) {
         // The night is over: the sim stops and the dawn finale plays out, then the journal opens.
         input.consumePause();
-        renderHud(hudRefs, locale, sim);
+        renderHud(hudRefs, locale, sim, camera);
         if (!motionCues.some((c) => c.kind === "finale")) {
           finale = false;
           show("result");
@@ -657,7 +663,7 @@ function boot(): void {
             break;
           }
         }
-        if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim);
+        if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim, camera);
       }
     } else if (screen === "upgrade") {
       if (input.consumePause()) show("pause");
@@ -686,13 +692,13 @@ function boot(): void {
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
       if (sim && screen === "play") camera = followCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
-      ctx.setTransform(2, 0, 0, 2, 0, 0);
-      ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+      ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
+      ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
       drawWorld(
         ctx,
         screen === "title" ? null : sim,
         { time, reducedMotion: still, camera, locale, cues: motionCues },
-        screen === "title" && size.w > size.h
+        screen === "title" && app.clientWidth > app.clientHeight
           ? {
               id: selectedCat,
               ...(selectedCostume ? { costume: selectedCostume } : {}),
@@ -703,7 +709,7 @@ function boot(): void {
               dashing: false,
               hurt: false,
               time,
-              scale: size.h < 500 ? 0.25 : 0.29,
+              scale: app.clientHeight < 500 ? 0.25 : 0.29,
             }
           : undefined,
       );

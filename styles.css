@@ -1874,62 +1874,125 @@ body[data-cat="nicole"] .profile-title span {
     column-gap: 14px;
   }
 }
-/* Portrait phones: the 16:9 view is a band in the middle of the screen, so
-   the HUD moves to the free space above and below it. */
+/* In portrait the world fills the screen. The HUD rows share space as the
+   boss, chest, streak and notice appear; only the middle row expands. */
 @media (max-aspect-ratio: 1/1) {
-  .watch-badge {
-    top: auto;
-    bottom: calc(100% + 8px);
-    left: 3%;
+  #overlay {
+    --play-left: max(8px, env(safe-area-inset-left));
+    --play-right: max(8px, env(safe-area-inset-right));
+    --play-bottom: max(14px, calc(env(safe-area-inset-bottom) + 6px));
+    --stick-size: clamp(84px, 21vw, 98px);
   }
-  .map-corner {
-    top: auto;
-    bottom: calc(100% + 8px);
-    right: 3%;
-    flex-direction: row;
-    align-items: flex-end;
+  .hud {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "sky     map"
+      "badge   map"
+      "boss    boss"
+      "chest   streak"
+      "banner  banner"
+      "notice  notice"
+      "dock    dock";
+    align-items: start;
+    gap: 4px 8px;
+    padding: max(6px, env(safe-area-inset-top)) var(--play-right) var(--play-bottom) var(--play-left);
+    isolation: isolate;
   }
-  .hud-actions {
-    order: 0;
-    flex-direction: column;
-    gap: 4px;
+  .has-touch .hud {
+    padding-bottom: calc(var(--play-bottom) + var(--stick-size) + 8px);
   }
+  .hud > :not(.hurt-vignette) {
+    position: static;
+  }
+  .hurt-vignette { z-index: -1; }
   .night-sky {
-    top: auto;
-    bottom: calc(100% + 108px);
-  }
-  .seam-dock {
-    top: calc(100% + 8px);
-    bottom: auto;
-    left: 3%;
-    width: 94%;
-  }
-  .has-touch .seam-dock {
-    left: 3%;
-    width: 94%;
+    grid-area: sky;
+    justify-self: start;
+    max-width: 100%;
     transform: none;
   }
-  .touch {
-    top: calc(100% + 92px);
-    bottom: auto;
+  .sky-arc {
+    width: clamp(132px, 39vw, 180px);
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 11 / 3;
   }
-  .boss-bar,
-  .notice.ribbon {
-    top: 6px;
-    width: 70%;
+  .sky-time { bottom: 3px; }
+  #hud-time { font-size: 17px; }
+  #hud-phase { font-size: 10px; line-height: 1.1; white-space: normal; text-align: center; }
+  .lantern-string { height: 29px; max-width: 100%; }
+  .watch-badge {
+    grid-area: badge;
+    justify-self: start;
+    max-width: 100%;
+    padding: 4px 7px 4px 15px;
+  }
+  .watch-badge canvas { display: none; }
+  .watch-badge > div {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 1px 5px;
+  }
+  .watch-badge .buff { display: inline; min-height: 0; }
+  .costume-tag { margin: 0; white-space: normal; }
+  .map-corner { grid-area: map; justify-self: end; }
+  .folded-map { width: clamp(82px, 25vw, 128px); height: auto; }
+  .hud-actions { gap: 2px; }
+  .hud-actions .btn-chip { min-width: 44px; min-height: 44px; }
+  .boss-bar {
+    grid-area: boss;
+    justify-self: center;
+    width: min(94%, 340px);
+    height: 22px;
+    transform: rotate(-0.8deg);
   }
   .chest-reveal {
-    top: 6px;
-    left: 3%;
+    grid-area: chest;
+    justify-self: start;
+    max-width: 100%;
   }
-  .notice {
-    bottom: 8px;
+  .streak-badge { grid-area: streak; justify-self: end; }
+  .boss-banner {
+    grid-area: banner;
+    justify-self: center;
+    transform: rotate(-1.2deg);
   }
-  .streak-badge {
-    top: 40px;
-    right: 3%;
-    bottom: auto;
+  .hud > .notice {
+    grid-area: notice;
+    position: relative;
+    inset: auto auto auto 50%;
+    width: fit-content;
+    max-width: 96%;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
+  .seam-dock,
+  .has-touch .seam-dock {
+    grid-area: dock;
+    justify-self: center;
+    width: min(100%, 460px);
+    transform: none;
+  }
+  .seam-tags, .has-touch .seam-tags { padding-left: 0; gap: 7px; }
+  .seam-col { gap: 2px; }
+  .has-touch .seam-col {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 8px;
+  }
+  .has-touch .seam-tag.empty { display: none; }
+  .has-touch .game-hint { grid-column: 1 / -1; }
+  .game-hint { white-space: normal; }
+  .touch {
+    inset: auto calc(var(--play-right) + 8px) var(--play-bottom) calc(var(--play-left) + 8px);
+  }
+  .stick { width: var(--stick-size); height: var(--stick-size); }
+  .stick i { width: 26px; height: 26px; }
+  .dash-btn { width: 72px; height: 72px; }
   .upgrade-cards {
     flex-direction: column;
     gap: 10px;
@@ -2028,31 +2091,12 @@ body[data-cat="nicole"] .profile-title span {
   .selection-footer .hint { display: none; }
 }
 @media (max-height: 650px) and (max-aspect-ratio: 1/1) {
-  .night-sky {
-    bottom: calc(100% + 104px);
-  }
-  .sky-arc {
-    width: 160px;
-    height: 44px;
-  }
-  .lantern-string {
-    height: 28px;
-  }
-  .folded-map {
-    width: 104px;
-    height: 60px;
-  }
-  .touch {
-    top: calc(100% + 86px);
-  }
-  .stick {
-    width: 84px;
-    height: 84px;
-  }
-  .dash-btn {
-    width: 70px;
-    height: 70px;
-  }
+  #overlay { --stick-size: 84px; }
+  .hud { row-gap: 2px; }
+  .sky-arc { width: 132px; }
+  .lantern-string { height: 24px; }
+  .folded-map { width: 75px; }
+  .dash-btn { width: 68px; height: 68px; }
   .title-hero .eyebrow {
     display: none;
   }
@@ -2525,8 +2569,7 @@ body[data-screen="gallery"] {
   width: 100%;
 }
 
-/* Menus use the whole device, not the letterboxed game's short overlay.
-   present() owns inline play bounds; these overrides apply only to menus. */
+/* Use the full device for menu pages even when the landscape board is letterboxed. */
 body:is([data-screen="pause"], [data-screen="upgrade"], [data-screen="result"]) #overlay {
   left: 0 !important;
   top: 0 !important;
