@@ -6,3 +6,4 @@ site/
 .DS_Store
 output/playwright/
 .playwright-cli/
+output/paper-comparison/

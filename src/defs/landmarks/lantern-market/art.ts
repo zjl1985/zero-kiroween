@@ -1,5 +1,6 @@
 import type { LandmarkArt } from "../../../render/art-registry.js";
 import { blob, boards, fenceSilhouette, fringedMound, furrowStrips, pavedTiles, polygon, stoneRing, tornBank } from "../ground-kit.art.js";
+import { paperLantern } from "../../../render/paper-lantern-kit.js";
 import { flatCut } from "../../../render/paper-kit.js";
 import { grassTuft, leaf, pumpkin } from "../../../render/craft-scene.js";
 import { box, glow, grain, hash, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "../../../render/paper-material.js";
@@ -33,8 +34,7 @@ function stall(ctx: Ctx, x: number, y: number, s: number, seed: number): void {
   }
   // Goods: a little pumpkin, a jar lantern, folded paper bats.
   pumpkin(ctx, -22, -34, 0.5, seed * 4 + 1);
-  glow(ctx, 6, -42, 16, "#ffc15b", 0.3);
-  piece(ctx, box(1, -48, 10, 13), "#e9b561", { shadow: 0.8, edge: "#664a35", texture: 0.4, thickness: 0.9 });
+  paperLantern(ctx, 6, -42, 0.7, "#e9b561");
   piece(ctx, path([[18, -40], [24, -45], [27, -40], [30, -45], [36, -40], [27, -37]]), "#2a2034", {
     shadow: 0.6,
     texture: 0.5,
@@ -66,8 +66,7 @@ function stringLights(ctx: Ctx, x: number, y: number, s: number, _seed: number):
       lx = a[0] + (b[0] - a[0]) * k,
       ly = a[1] + (b[1] - a[1]) * k + 4;
     const c = ["#f2b35a", "#e98a4f", "#f5d27a", "#d9725a"][i % 4]!;
-    glow(ctx, lx, ly + 4, 14, "#ffc15b", 0.28);
-    piece(ctx, oval(lx, ly + 4, 3.6, 4.6, i, 0.06), c, { shadow: 1, edge: "#fff0c4", texture: 0.45, thickness: 0.5 });
+    paperLantern(ctx, lx, ly + 4, 0.53, c, "intact", i);
   }
   ctx.restore();
 }

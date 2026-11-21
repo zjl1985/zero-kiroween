@@ -2,7 +2,20 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
-## Paper construction art pass (2026-11-21, workspace changes, not published)
+## Playable paper refactor prototype (2026-11-21)
+
+User authorized implementation and committing all work after the prototype plan. Frozen baseline: `6d1eab6`, local tag `paper-baseline-6d1eab6`. Deliverable is a playable opening/canal A/B sample; broader districts, actors and UI remain behind the requested visual/device gate, not silently expanded.
+
+- `paper-lantern-kit.ts` supplies one faceted contour and material model for intact, torn, charred and collapsed lanterns. The lantern prop and market dressing share it. Tears are holes in the local path, not destructive compositing on the world. Broken-state hangers use the exact cord curve.
+- The two opening cottages use broad card faces, return folds, exposed cores, recessed windows and contact shadows. Generic cottages elsewhere remain as before. Canal dry towpaths use broad folded layers while retaining the dry-bank identification colour and existing patch bounds. Water, roads, collider layouts and all simulation definitions are unchanged.
+- Developer-only `?profile=1` panel selects dry/crowded/first-water/steady-wash/repaint, records a bounded 3600-frame ring, stops on screen/viewport/motion-setting changes and exports JSON. Main-thread CPU ranges are deliberately labelled/documented as mixed work, not GPU time or proof of a specific bottleneck. Captures include seed, character/costume, viewport/DPR, game time, player/camera position and living-enemy count.
+- `node scripts/prepare-paper-comparison.mjs` builds frozen baseline and prototype with identical instrumentation into ignored `output/paper-comparison/`, with separate playable links and a version manifest. It cleans up its temporary Git worktree. `scripts/check-paper-gameplay.mjs` compares full serializable state at 64 checkpoints over two cats, two seeds and 1800 identical input steps per run. See `docs/paper-prototype-review.md` for exact commands and three alternating iPhone A/B pairs.
+
+Verification: both A/B builds (`npm run build`) passed; the scripted comparison passed all **64 state checks**; `npm test` passed **410/410** after retaining the original dry-bank colour. New tests cover bounded profiling/statistics and lantern state restoration, absence of gloss/scene erasure, shared contour/hole winding and cord attachment. `git diff --check` passed. HTTP checks returned 200 for both playable main modules; no browser was launched.
+
+No screenshots, iPhone frame captures or art acceptance have been obtained. The baseline/prototype package is a runnable measurement deliverable, not fabricated device evidence. No new dependencies, gameplay changes, input-speed changes or approved-head edits. This batch is authorized for local Git commit; no new push/deployment request was made.
+
+## Paper construction art pass (2026-11-21, committed as 6d1eab6)
 
 Follow-up: reduced-motion support now reaches the paper art through the synchronous `paper-motion.ts` scope around `drawWorld`. Nested/failed painters restore the previous setting; cached painters do not read the preference. Crane wings and orbit-star faces hold steady; cut-out pieces and fold sheets use fixed poses with the existing lifetimes; impact lips, destruction/prop scraps, status motes and wash splashes retain fades without decorative flipping, spinning or travel. Actual attack/world coordinates and simulation timing remain unchanged. This covers the paper pass, not a claim of a complete accessibility audit of every legacy effect.
 

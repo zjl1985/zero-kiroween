@@ -26,6 +26,7 @@ import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
 import { drawWorld } from "./render/world.js";
+import { createFrameReview } from "./render/frame-review.js";
 import { boardLayout } from "./render/viewport.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
@@ -195,6 +196,17 @@ function boot(): void {
   // The follow camera is presentation state; it never enters the sim.
   let camera: Camera = createCamera();
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const frameReview = createFrameReview(() => ({
+    version: new URLSearchParams(location.search).get("reviewVersion") ?? "workspace",
+    viewport: { width: app.clientWidth, height: app.clientHeight },
+    dpr: devicePixelRatio || 1, reduced: reducedMotion.matches, seed: sim?.seed ?? 0,
+    variant: `${selectedCat}:${selectedCostume ?? "plain"}`,
+    context: { gameSeconds: sim?.elapsed ?? 0, playerX: sim?.player.x ?? 0, playerY: sim?.player.y ?? 0,
+      cameraX: camera.x, cameraY: camera.y, enemies: sim?.enemies.filter((e) => e.alive).length ?? 0 },
+  }));
+  const renderProfile = { mask: 0 };
+  reducedMotion.addEventListener("change", () => frameReview?.stop("Motion preference changed — start a new capture"));
+  window.addEventListener("resize", () => frameReview?.stop("Viewport changed — start a new capture"));
   const compactPlaybill = matchMedia("(max-aspect-ratio: 1/1), (max-height: 600px)");
   const layoutPlaybill = () => {
     document.querySelectorAll<HTMLDetailsElement>(".skill-row").forEach((skill) => {
@@ -415,6 +427,7 @@ function boot(): void {
     }
   };
   const show = (next: Screen, hidden = false) => {
+    frameReview?.stop("Screen changed — start a new capture in play");
     input.reset();
     touch.reset();
     screen = next;
@@ -632,6 +645,11 @@ function boot(): void {
   show("title");
   if (new URLSearchParams(location.search).get("start") === "1") start();
   const frame = (now: number) => {
+    const profiling = !!frameReview?.active && screen === "play" && !document.hidden;
+    if (frameReview?.active && !profiling) frameReview.stop("Capture requires active play");
+    const cpuStart = profiling ? performance.now() : 0;
+    let drawCpu = 0;
+    renderProfile.mask = 0;
     const real = Math.min((now - last) / 1000, 0.25);
     last = now;
     if (screen === "play" || screen === "title")
@@ -691,15 +709,17 @@ function boot(): void {
       );
     }
     const still = reducedMotion.matches;
+    const updateCpu = profiling ? performance.now() - cpuStart : 0;
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
       if (sim && screen === "play") camera = followCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
       ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
       ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
+      const drawStart = profiling ? performance.now() : 0;
       drawWorld(
         ctx,
         screen === "title" ? null : sim,
-        { time, reducedMotion: still, camera, locale, cues: motionCues },
+        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(profiling ? { profile: renderProfile } : {}) },
         screen === "title" && app.clientWidth > app.clientHeight
           ? {
               id: selectedCat,
@@ -715,6 +735,7 @@ function boot(): void {
             }
           : undefined,
       );
+      if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;
     }
     if (useTouch && sim && screen === "play") {
@@ -728,6 +749,10 @@ function boot(): void {
         `${100 * (1 - sim.player.dashCooldown / playerStats(sim).cooldown)}%`,
       );
     }
+    if (profiling) frameReview?.record(now, {
+      gen: updateCpu, mask: renderProfile.mask,
+      composite: Math.max(0, drawCpu - renderProfile.mask), total: performance.now() - cpuStart,
+    });
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

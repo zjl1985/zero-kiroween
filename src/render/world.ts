@@ -68,6 +68,8 @@ import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 import { withPaperMotion } from "./paper-motion.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
+  /** Optional developer CPU instrumentation; absent in normal gameplay. */
+  profile?: { mask: number };
   time: number;
   reducedMotion?: boolean;
   /** Follow camera from main.ts; defaults to the start-yard framing. */
@@ -130,10 +132,14 @@ function drawWorldFrame(
   ctx.translate(projection.x, projection.y);
   ctx.scale(zoom, zoom);
   // Washed paper: chunks with lifted colour get their pencil layer (nothing runs when nothing was washed).
+  const maskStart = view.profile ? performance.now() : 0;
   const wash = sim ? washFrame(sim) : null;
+  if (view.profile) view.profile.mask = performance.now() - maskStart;
   beginSketchFrame();
   drawChunks(ctx, seed, cam, sim !== null, wash?.chunks);
+  const washStart = view.profile ? performance.now() : 0;
   drawWashGround(ctx, cam, wash);
+  if (view.profile) view.profile.mask += performance.now() - washStart;
   if (sim) drawFoldGuards(ctx, sim, cam);
   if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, cam.width, cam.height, session);
   drawWind(ctx, view.time);

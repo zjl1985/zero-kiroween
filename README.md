@@ -69,6 +69,12 @@ Open <http://localhost:4173/>. Run `npm test` for the automated tests. The build
 | `/?start=1&seed=7` | A run with the saved cat and a fixed world seed |
 | `/?gallery=1` | The Paper Workshop Gallery of characters, weapons, props, and landmarks |
 
+For the playable paper-prototype A/B, run `node scripts/prepare-paper-comparison.mjs`,
+then `python3 -m http.server 4174 --directory output/paper-comparison`.
+Open <http://localhost:4174/> for separate frozen-baseline and prototype games.
+The opt-in developer capture panel (`?profile=1`) exports frame intervals and CPU
+timings; it is not a player-facing art switch. See the [iPhone review protocol](docs/paper-prototype-review.md).
+
 ## Credits
 
 The world and characters are drawn in TypeScript with Canvas. Sound is synthesized with Web Audio.

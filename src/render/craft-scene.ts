@@ -30,7 +30,7 @@ import {
 } from "./scene.js";
 export { LAMPS, YARD_PROPS };
 import { STATS } from "../game/types.js";
-import { foldLine, paperCut, PAPER_STOCK } from "./paper-kit.js";
+import { flatCut, foldLine, paperCut, PAPER_STOCK, PAPER_SHADOW } from "./paper-kit.js";
 import { paperFlower, paperSprig } from "./scenery-details.js";
 import { variant } from "./variants.js";
 const W = 960,
@@ -1372,6 +1372,85 @@ function bunting(ctx: Ctx): void {
     );
   }
 }
+/** Opening prototype: broad folded-card faces readable on a phone. The two
+ * yard placements retain their original silhouette bounds; other cottages
+ * keep their approved/current painter until this construction is reviewed. */
+function openingCottage(ctx: Ctx, x: number, y: number, scale: number, seed: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const cool = seed % 2 === 0,
+    face = cool ? "#c9bea1" : "#d5b896",
+    side = cool ? "#8b9b8c" : "#a68b78",
+    roof = cool ? "#526f70" : "#715368",
+    roofShade = cool ? "#354f57" : "#49384d",
+    card = { ...PAPER_STOCK.card, texture: 0.08, lift: 0 };
+  // The base is a folded glue tab, not a floating oval shadow.
+  ctx.save();
+  ctx.translate(PAPER_SHADOW.dx * 4, PAPER_SHADOW.dy * 3);
+  ctx.globalAlpha *= 0.3;
+  ctx.fillStyle = PAPER_SHADOW.color;
+  ctx.fill(path([[-99, -4], [82, -1], [91, 7], [48, 14], [-95, 8]]));
+  ctx.restore();
+  flatCut(ctx, [[-98, -5], [84, -2], [91, 6], [-96, 6]], { color: PAPER_STOCK.back, ...card });
+  // Two uninterrupted faces share one scored corner. Keep the seam broad
+  // enough to survive phone scaling; details do not substitute for the fold.
+  flatCut(ctx, [[-96, -59], [-24, -64], [-24, 3], [-96, -1]], { color: side, ...card });
+  flatCut(ctx, [[-24, -64], [24, -123], [83, -62], [83, 4], [-24, 4]], { color: face, ...card });
+  flatCut(ctx, [[83, -62], [91, -68], [91, -2], [83, 4]], { color: PAPER_STOCK.back, ...card });
+  ctx.fillStyle = mix(face, "#54443b", 0.26);
+  ctx.fill(path([[-24, -64], [-18, -71], [-18, 4], [-24, 4]]));
+  foldLine(ctx, -18, -64, -18, 3, 0.7);
+  // Actual eave occlusion: broad dark strip on the wall under the roof overhang.
+  ctx.fillStyle = roofShade;
+  ctx.fill(path([[-96, -59], [-24, -64], [-24, -53], [-96, -50]]));
+  ctx.fill(path([[-24, -64], [24, -123], [83, -62], [83, -54], [24, -112], [-24, -54]]));
+  // The roof is one folded coloured card, not dozens of individually shaded tiles.
+  flatCut(ctx, [[-111, -58], [-40, -130], [24, -133], [-24, -58]], { color: roof, ...card, lift: 0.8 });
+  flatCut(ctx, [[24, -133], [91, -61], [83, -56], [24, -121], [-24, -54], [-24, -58]],
+    { color: roofShade, ...card, thickness: 1.7 });
+  // Exposed unprinted return under the front eave and a narrow ridge fold.
+  flatCut(ctx, [[-111, -58], [-24, -58], [-24, -53], [-109, -54]], { color: PAPER_STOCK.back, ...card, thickness: 0.8 });
+  flatCut(ctx, [[-40, -130], [24, -133], [22, -128], [-44, -124]], { color: mix(roof, "#d6d2b3", 0.3), ...card, thickness: 0.75 });
+  foldLine(ctx, -104, -59, -27, -58, 0.7);
+  // Just two broad roof scores: construction lines, with quiet colour planes.
+  line(ctx, -84, -84, -7, -88, roofShade, 1.1, 0.45);
+  line(ctx, -61, -108, 8, -112, roofShade, 1.1, 0.45);
+  // Chimney is a three-face folded sleeve with the paper core visible at its top.
+  flatCut(ctx, [[-68, -132], [-51, -132], [-51, -93], [-68, -96]], { color: side, ...card });
+  flatCut(ctx, [[-51, -132], [-46, -136], [-46, -98], [-51, -93]], { color: mix(side, "#453a36", 0.3), ...card });
+  flatCut(ctx, [[-71, -136], [-48, -139], [-44, -133], [-69, -131]], { color: PAPER_STOCK.back, ...card, thickness: 1 });
+  ctx.fillStyle = "#403c3e";
+  ctx.fill(path([[-65, -135], [-50, -137], [-48, -134], [-64, -133]]));
+  // Recessed windows have visible card reveals and one folded sill. The
+  // printed amber sheet sits behind the opening; it is not a glowing decal.
+  const window = (wx: number, wy: number, w: number, h: number) => {
+    flatCut(ctx, [[wx - 2, wy - 2], [wx + w + 2, wy - 2], [wx + w + 2, wy + h + 2], [wx - 2, wy + h + 2]],
+      { color: PAPER_STOCK.back, ...card, thickness: 0.75 });
+    ctx.fillStyle = "#443b38";
+    ctx.fillRect(wx, wy, w, h);
+    ctx.fillStyle = "#d6ac65";
+    ctx.fillRect(wx + 2, wy + 3, w - 3, h - 4);
+    line(ctx, wx + w / 2, wy + 2, wx + w / 2, wy + h, "#66543e", 1.5);
+    flatCut(ctx, [[wx - 3, wy + h], [wx + w + 3, wy + h], [wx + w + 5, wy + h + 4], [wx - 2, wy + h + 4]],
+      { color: PAPER_STOCK.back, ...card, thickness: 0.8, lift: 0.6 });
+  };
+  window(-82, -43, 19, 26);
+  window(-9, -43, 19, 26);
+  window(57, -43, 17, 26);
+  window(18, -84, 13, 17);
+  // Door is an inset folded panel. Its opening and steps occupy the original footprint.
+  flatCut(ctx, [[20, 4], [20, -35], [35, -44], [50, -35], [50, 4]], { color: PAPER_STOCK.back, ...card });
+  ctx.fillStyle = "#3e3538";
+  ctx.fill(path([[23, 4], [23, -34], [35, -40], [47, -34], [47, 4]]));
+  flatCut(ctx, [[26, 4], [26, -33], [35, -38], [45, -33], [45, 4]], { color: "#77604d", ...card, thickness: 0.8 });
+  foldLine(ctx, 29, -30, 29, 2, 0.55);
+  line(ctx, 40, -14, 43, -14, "#d8bd83", 1.8);
+  flatCut(ctx, [[19, 3], [49, 3], [56, 10], [14, 10]], { color: "#aaa08a", ...card, lift: 0.8 });
+  flatCut(ctx, [[14, 10], [56, 10], [56, 13], [14, 13]], { color: PAPER_STOCK.back, ...card, thickness: 0.6 });
+  ctx.restore();
+}
+
 function buildStartYard(): CanvasSurface {
   const c = surface(W * 2, H * 2),
     ctx = c.getContext("2d")!;
@@ -1382,8 +1461,8 @@ function buildStartYard(): CanvasSurface {
   tree(ctx, 82, 246, 1.12, 9);
   tree(ctx, 858, 246, 1.13, 6);
   tree(ctx, 477, 215, 0.65, 11);
-  cottage(ctx, 238, 219, 1.14, 102);
-  cottage(ctx, 729, 230, 0.77, 71);
+  openingCottage(ctx, 238, 219, 1.14, 102);
+  openingCottage(ctx, 729, 230, 0.77, 71);
   garden(ctx);
   gardenDetails(ctx);
   fence(ctx, 139, 260, 1.05);
