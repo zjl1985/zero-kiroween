@@ -1,5 +1,10 @@
 # Midnight Meow handoff
 
+LATEST LOCAL CHECKPOINT — FARM REFERENCE COMPOSITION (2026-11-21): User accepts pixel style but requires whole-screen scale/detail comparable to the supplied farm image, not isolated sprite sheets. Rebuilt the opening with a stacked red barn, cottage veranda, grounded architecture north of WORLD.playTop, framing trees, distant lake/villages/fields, mature garden plots and grouped tools/logs/bales/flower boxes. Portrait logical height960; minimap lower-right on touch portrait. Shared decor bounds eliminate stone/candle/fence cropping; model-specific compact shadows replace long bars. Candles and bushes refined. Only rendering/CSS/tests/docs changed; simulation, definitions, dependencies and movement-only controls untouched.
+
+Verification at this checkpoint: build passed; npm test430/430. Actual desktop1280×720, reference-aspect804×1000 and phone390×844 screenshots viewed. Both cats pass scripted play/upgrade/result + pause/orientation flow, keyboard/joystick checks, errors0. Gallery gloss0 and127 prop/landmark paint-bound checks clean. Evidence paths and exact findings in docs/pixel-asset-review.md. Not iPhone performance evidence or user approval. No push; published origin/main remains4fd9245. Overall goal ACTIVE: remaining generated districts/landmarks, destructible states, enemies/weapons/costumes/UI still need detailed scene review. Continue from this checkpoint, do not re-open old dash mechanics or call the whole game finished.
+
+
 USER-REPORTED HOUSE GROUNDING FIX: previous internal screenshot review missed hovering cottages. Removed the extra `26 * scale` vertical lift and raised grass platform; replaced it with ground-contact stone footing/steps, adjusted bottom cache bounds and removed cottage distance-fold animation. Same-camera desktop and walking phone screenshots actually viewed; actual map cottage near/far pixels match with zero browser errors. Build + 426 tests passed. Local only; no push. Candle work paused before editing. Do not claim prior cottage art review passed user acceptance.
 
 

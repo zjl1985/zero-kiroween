@@ -330,6 +330,17 @@ body[data-screen="gallery"] { overflow: auto; }
   .upgrade-card kbd { right: 7px; bottom: 6px; font-size: 8px; }
   .upgrade-screen > .hint { margin-top: 18px; }
 }
+/* A phone's minimap shares the empty control band opposite the direction stick. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .has-touch #hud-map {
+    position: absolute;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: 100px;
+    height: 58px;
+    pointer-events: none;
+  }
+}
 @media (max-width: 360px) {
   .title-layer { padding-left: 12px; padding-right: 12px; }
   .selection-panel { padding: 13px; }

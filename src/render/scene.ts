@@ -15,8 +15,8 @@ import {
 export const WIDTH = 960,
   HEIGHT = 540;
 export const LAMPS = [
-  { x: 350, y: 244, s: 1 },
-  { x: 663, y: 240, s: 1 },
+  { x: 300, y: 337, s: 1 },
+  { x: 738, y: 330, s: 1 },
   { x: 792, y: 354, s: 1.12 },
   { x: 446, y: 330, s: 0.9 },
   { x: 166, y: 413, s: 0.86 },

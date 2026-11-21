@@ -8,7 +8,7 @@ export function lanternModel(variant: number): PixelStackModel {
         ["#403b4c", "#6b5c68", "#9b8287"],
         ["#2e454b", "#4d6b6b", "#80948a"],
     ][v]!;
-    return { id: `scene:lantern:framed:${v}`, width: 36, depth: 28, count: 34, paint(c: Ctx, z: number) {
+    return { id: `scene:lantern:framed:${v}`, width: 36, depth: 28, count: 34, groundShadow: { rx: 6, ry: 2.5, dx: 1, dy: 1 }, paint(c: Ctx, z: number) {
             const r = (x: number, y: number, w: number, d: number, color: string) => {
                 c.fillStyle = color;
                 c.fillRect(Math.round(x * 2), Math.round(y * 2), Math.max(1, Math.round(w * 2)), Math.max(1, Math.round(d * 2)));

@@ -12,7 +12,7 @@ export function stoneModel(variant: number): PixelStackModel {
     ["#474655", "#6c6770", "#958b88", "#bbb09c", "#776d72"],
     ["#364c51", "#536f6b", "#7c9282", "#a8b49b", "#5c776e"],
   ][v]!;
-  return { id: `scene:stone:facets:${v}`, width: 36, depth: 28, count: 18,
+  return { id: `scene:stone:facets:${v}`, width: 36, depth: 28, count: 18, groundShadow: { rx: 12, ry: 3, dx: 1, dy: 1 },
     paint(c, z) {
       if (z > 10.5) return;
       // A near-vertical foot and a broad, off-centre crown replace the cone.

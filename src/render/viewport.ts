@@ -2,7 +2,7 @@ export const VIEW_WIDTH = 960;
 export const VIEW_HEIGHT = 540;
 
 /** The portrait camera trades horizontal reach for vertical reach at the same scale on both axes. */
-const PORTRAIT_HEIGHT = 720;
+const PORTRAIT_HEIGHT = 960;
 
 export function boardLayout(width: number, height: number, dpr: number, inRun: boolean) {
   if (inRun && width <= height) {

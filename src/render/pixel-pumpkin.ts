@@ -8,7 +8,7 @@ export function pumpkinModel(variant: number): PixelStackModel {
     ["#754332","#ad7139","#d8a454","#ebca80"],
     ["#713c40","#b05a39","#d68145","#eba35e"],
   ][v]!;
-  return {id:`scene:pumpkin:carved:${v}`,width:36,depth:28,count:18,
+  return {id:`scene:pumpkin:carved:${v}`,width:36,depth:28,count:18,groundShadow:{rx:10,ry:3,dx:1,dy:1},
     paint(c,z){
       const r=(x:number,y:number,w:number,d:number,color:string)=>{
         c.fillStyle=color;c.fillRect(Math.round(x*2),Math.round(y*2),Math.max(1,Math.round(w*2)),Math.max(1,Math.round(d*2)));

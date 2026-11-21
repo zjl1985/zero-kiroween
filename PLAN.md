@@ -1,5 +1,8 @@
 # 猫猫守夜：当前执行方案
 
+最新画面目标（用户农场参考图）：像素风可保留，但必须用完整前中远景、足量建筑体量、连续院落/田地/道路、成组生活陈设建立整屏完成度。先重做可玩的开场整屏与手机构图，再扩展其他场景；不能用单素材放大图或测试通过替代画面验收。只移动＋自动攻击保持，不改碰撞、水区、伤害或移动速度。
+
+
 Latest override (2026-11-21): movement only, automatic attacks. Manual dash/active skills and their controls are removed locally; dependent upgrades now affect automatic combat. Historical dash preservation and baseline-equivalence claims below do not apply to this change. This revision is not pushed.
 
 

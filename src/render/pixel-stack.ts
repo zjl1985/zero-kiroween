@@ -6,6 +6,8 @@ import { cachedSprite } from "../engine/sprite.js";
 import type { Ctx } from "./paper-material.js";
 export interface PixelStackModel {
   readonly id: string; readonly width: number; readonly depth: number; readonly count: number;
+  /** Contact ellipse in model pixels, independent of the atlas footprint. */
+  readonly groundShadow?: { readonly rx: number; readonly ry: number; readonly dx?: number; readonly dy?: number };
   paint(ctx: Ctx, z: number): void;
 }
 export interface PixelStackPose { x?: number; y?: number; scale?: number; turn?: number; squash?: number; spacing?: number; shadow?: boolean; }
@@ -17,13 +19,22 @@ export function drawPixelStack(ctx: Ctx, model: PixelStackModel, pose: PixelStac
   if (![model.width, model.depth, model.count].every(n => Number.isInteger(n) && n > 0 && n <= 256)
     || ![x,y,scale,turn,squash,spacing].every(Number.isFinite) || scale <= 0 || squash <= 0 || squash > 1 || spacing < 0 || model.count * spacing > 2048)
     throw new RangeError("Invalid pixel stack");
+  const contact = model.groundShadow, dx = contact?.dx ?? 0, dy = contact?.dy ?? 0;
+  if (contact && (![contact.rx, contact.ry, dx, dy].every(Number.isFinite)
+    || contact.rx <= 0 || contact.ry <= 0 || contact.rx + Math.abs(dx) > 2048 || contact.ry + Math.abs(dy) > 2048))
+    throw new RangeError("Invalid pixel stack contact shadow");
   const columns = Math.min(8, model.count), rows = Math.ceil(model.count / columns),
     radius = Math.ceil(Math.hypot(model.width, model.depth) / 2),
     rise = Math.ceil((model.count - 1) * spacing),
-    width = radius * 2 + 12, height = rise + radius * 2 + 12,
-    ox = radius + 4, oy = rise + radius + 4,
-    key = `pixel-stack:${model.id}:${model.width}:${model.depth}:${model.count}`;
-  const sprite = cachedSprite(`${key}:pose:${turn}:${squash}:${spacing}:${shadow}`, width, height, 1, c => {
+    padLeft = contact && shadow ? Math.max(0, Math.ceil(contact.rx - dx + 1) - radius - 4) : 0,
+    padRight = contact && shadow ? Math.max(0, Math.ceil(contact.rx + dx + 1) - radius - 8) : 0,
+    padTop = contact && shadow ? Math.max(0, Math.ceil(contact.ry - dy + 1) - rise - radius - 4) : 0,
+    padBottom = contact && shadow ? Math.max(0, Math.ceil(contact.ry + dy + 1) - radius - 8) : 0,
+    width = radius * 2 + 12 + padLeft + padRight, height = rise + radius * 2 + 12 + padTop + padBottom,
+    ox = radius + 4 + padLeft, oy = rise + radius + 4 + padTop,
+    key = `pixel-stack:${model.id}:${model.width}:${model.depth}:${model.count}`,
+    contactKey = contact ? `:ground:${contact.rx}:${contact.ry}:${dx}:${dy}` : "";
+  const sprite = cachedSprite(`${key}:pose:${turn}:${squash}:${spacing}:${shadow}${contactKey}`, width, height, 1, c => {
     const atlas = cachedSprite(`${key}:atlas`, model.width * columns, model.depth * rows, 1, a => {
       a.imageSmoothingEnabled = false;
       for (let z = 0; z < model.count; z++) {
@@ -36,10 +47,16 @@ export function drawPixelStack(ctx: Ctx, model: PixelStackModel, pose: PixelStac
     c.imageSmoothingEnabled = false;
     if (shadow) {
       c.fillStyle = "#1c2230";
-      // Deliberately stepped contact shadow, not a soft oval or repeated alpha layers.
-      for (let yy = -3; yy <= 3; yy++) {
-        const rx = Math.max(2, Math.floor(model.width * 0.44) - Math.abs(yy) * 2);
-        c.fillRect(ox - rx + 3, oy + yy + 2, rx * 2, 1);
+      if (contact) {
+        // Scanline ellipse with integer rows and no blur or layered alpha.
+        // Its compact dimensions describe contact, not the full object width.
+        pixelDisc(c, ox + dx, oy + dy, contact.rx, contact.ry, "#1c2230");
+      } else {
+        // Preserve the historical footprint for models not yet art-reviewed.
+        for (let yy = -3; yy <= 3; yy++) {
+          const rx = Math.max(2, Math.floor(model.width * 0.44) - Math.abs(yy) * 2);
+          c.fillRect(ox - rx + 3, oy + yy + 2, rx * 2, 1);
+        }
       }
     }
     for (let z = 0; z < model.count; z++) {

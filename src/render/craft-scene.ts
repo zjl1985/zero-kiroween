@@ -1,3 +1,6 @@
+import { drawDistantLandscape } from "./pixel-distant-landscape.js";
+import { drawYardGarden, drawYardGroundMasses } from "./pixel-yard-garden.js";
+import { drawYardProps } from "./pixel-yard-props.js";
 /** Pixel diorama scene. Static terrain and volume stacks are authored at one
  * native pixel per world unit; their world anchors and gameplay remain unchanged. */
 import type { CanvasSurface } from "../engine/surface.js";
@@ -11,6 +14,11 @@ import { pixelDisc } from "./pixel-stack.js";
 import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 export { LAMPS, YARD_PROPS };
 const W=960,H=540,SKY_H=250;
+/** Footings remain north of the playable boundary; no invisible new colliders. */
+export const OPENING_BUILDINGS = [
+  {kind:"barn",x:390,y:218,s:1.15,seed:0},
+  {kind:"cottage",x:660,y:216,s:1.2,seed:71},
+] as const;
 let background:CanvasSurface|undefined, skyCanvas:CanvasSurface|undefined;
 export interface GroundLamp { x:number;y:number;s?:number; }
 const q=(n:number)=>Math.round(n/2)*2;
@@ -38,16 +46,7 @@ export function pine(ctx:Ctx,x:number,y:number,s:number,color:string):void{
   for(let i=0;i<4;i++){const width=(8+i*5)*s;pixelRect(ctx,x-width,y-45*s+i*10*s,width*2,12*s,color);}
   pixelRect(ctx,x-2*s,y-6*s,4*s,8*s,"#3a3746");
 }
-export function horizonHills(ctx:Ctx,x0:number,x1:number):void{
-  for(let layer=0;layer<3;layer++){
-    const color=["#3c4b65","#30455b","#253d4c"][layer]!;
-    for(let x=Math.floor(x0/8)*8-8;x<x1+8;x+=8){
-      const y=q(139+layer*21+Math.sin(x*.013+layer*2)*15+Math.sin(x*.038+layer)*7);
-      pixelRect(ctx,x,y,8,250-y,color);
-    }
-    for(let i=Math.floor((x0-80)/90);i<Math.ceil((x1+40)/90);i++)pine(ctx,i*90+20,180+layer*15,.5,color);
-  }
-}
+export function horizonHills(ctx:Ctx,x0:number,x1:number):void{drawDistantLandscape(ctx,x0,x1);}
 export function groundOutline(x0:number,y0:number,w:number,h:number,top:boolean):Path2D{
   const p=new Path2D();if(!top){p.rect(x0-12,y0-12,w+24,h+24);return p;}
   p.moveTo(x0-12,250);
@@ -96,8 +95,9 @@ export function grassTuft(ctx:Ctx,x:number,y:number,s:number,seed:number):void{
 function buildStartYard():CanvasSurface{
   const c=surface(W,H),ctx=c.getContext("2d")!;ctx.imageSmoothingEnabled=false;
   horizonHills(ctx,0,W);groundTile(ctx,0,0,W,H,LAMPS,true,true);
+  drawYardGroundMasses(ctx);
   // Original opening route centre remains identical; only its raster materials change.
-  for(let y=220;y<H;y++){
+  for(let y=245;y<H;y++){
     const join=Math.max(0,Math.min(1,(y-480)/60)),
       center=pathCenter(y)*(1-join)+START_ROAD_EXIT.x*join,
       width=(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join;
@@ -106,10 +106,13 @@ function buildStartYard():CanvasSurface{
     pixelRect(ctx,center-width,y,1,1,ROAD_STOCK.rim);pixelRect(ctx,center+width-1,y,1,1,ROAD_STOCK.rim);
     if(y%16===0)for(let j=-1;j<=1;j++)pixelRect(ctx,center+j*12-3,y,5,1,"#b7a682");
   }
-  tree(ctx,82,246,1.12,9);tree(ctx,858,246,1.13,6);tree(ctx,477,215,.65,11);
-  cottage(ctx,238,219,1.14,102);cottage(ctx,729,230,.77,71);
-  for(const [x,y,s] of [[139,260,1.05],[224,255,1.05],[697,265,.9],[769,265,.9]])fence(ctx,x!,y!,s!);
-  for(const [x,y,s,seed] of [[448,244,.85,31],[322,255,.48,32],[846,274,.68,41]])pumpkin(ctx,x!,y!,s!,seed!);
+  drawYardGarden(ctx);
+  tree(ctx,304,250,1.05,10);tree(ctx,746,250,1.13,7);tree(ctx,505,258,.5,11);
+  tree(ctx,99,247,.8,8);tree(ctx,872,243,.78,6);
+  for(const b of OPENING_BUILDINGS)drawPixelDecor(ctx,b.kind,b.x,b.y,b.s,b.seed);
+  for(const [x,y,s] of [[340,316,.85],[414,316,.85],[645,324,.85],[718,324,.85]])fence(ctx,x!,y!,s!);
+  drawYardProps(ctx);
+  for(const [x,y,s,seed] of [[540,280,.7,31],[365,320,.48,32],[846,274,.68,41]])pumpkin(ctx,x!,y!,s!,seed!);
   for(let i=0;i<18;i++){const x=130+i*40;if(x>340&&x<610)continue;flower(ctx,x,266+(i%3)*10,.65,i);}
   candles(ctx,112,261,.8);
   for(const [x,y] of [[915,370],[892,380],[46,398]])stone(ctx,x!,y!,x!>900?1.6:.8,x!);

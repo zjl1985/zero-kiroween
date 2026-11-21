@@ -1,3 +1,4 @@
+import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
 import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
 import { drawCraftShot, drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import {
@@ -78,7 +79,6 @@ export interface ViewState {
   /** Presentation cues (timeline.ts) from main.ts. */
   cues?: readonly Cue[];
 }
-const YARD_PROP_BOUNDS = { l: -36, r: 36, t: -34, b: 8 } as const;
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -166,13 +166,13 @@ function drawWorldFrame(
     if (!inView(near, l.x, l.y)) continue;
     lamps.push(l);
     addSprite(l.y, () => drawLamp(ctx, l, view.time),
-      !!sim && paperOccludesActor(l.x, l.y, l.s, { l: -18, r: 18, t: -75, b: 8 }, sim.player));
+      !!sim && paperOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player));
   }
   for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s);
   for (const p of YARD_PROPS) {
     if (!inView(near, p.x, p.y)) continue;
     addSprite(p.y, () => drawProp(ctx, p),
-      !!sim && paperOccludesActor(p.x, p.y, p.s, YARD_PROP_BOUNDS, sim.player));
+      !!sim && paperOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player));
   }
   // The selected cat sorts just after the last scenery cut that could cover it.
   const playerDepth = sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0);

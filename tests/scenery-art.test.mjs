@@ -1,3 +1,4 @@
+import { OPENING_BUILDINGS } from "../dist/render/craft-scene.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { OLD_TOWN_ART } from "../dist/defs/biomes/old-town.art.js";
@@ -7,7 +8,8 @@ import { LANTERN_CANAL_ART } from "../dist/defs/biomes/lantern-canal.art.js";
 import { MOON_MEADOW_ART } from "../dist/defs/biomes/moon-meadow.art.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import { WORLD, chunkContent, chunkOf } from "../dist/game/world-gen.js";
-import { cottage, tree } from "../dist/render/craft-scene.js";
+import { drawPixelDecor } from "../dist/render/pixel-scene-art.js";
+import { PIXEL_DECOR_BOUNDS } from "../dist/render/pixel-decor-bounds.js";
 import { worldSprites } from "../dist/render/craft-world.js";
 import { pixelBiomeArt, TERRAIN_PALETTE } from "../dist/render/pixel-terrain.js";
 import { spriteCacheSize, SPRITE_CACHE_LIMIT } from "../dist/engine/sprite.js";
@@ -228,15 +230,15 @@ test("canal biome motifs are dry towpaths; only shared world geometry paints wat
   }
 });
 
-test("all cached tree and cottage variants fit their declared ground-anchored bounds at world scales", (t) => {
+test("every scenery variant fits shared cache and culling bounds at world scales", (t) => {
   environment(t);
   const failures = [];
   // Occupied pixels propagate through native slice-atlas crops and projections.
   // The allocated transparent sprite margins are deliberately not counted as ink.
-  for (const [kind, painter, variants, bounds] of [
-    ["tree", tree, 6, [-82, -158, 82, 16]],
-    ["cottage", cottage, 4, [-120, -144, 100, 52]],
-  ]) for (let seed = 0; seed < variants; seed++) for (const s of [0.65, 1, 1.4]) {
+  for (const [kind, b] of Object.entries(PIXEL_DECOR_BOUNDS))
+    for (let seed = 0; seed < 6; seed++) for (const s of [0.65, 1, 1.4]) {
+    const bounds = [b.l,b.t,b.r,b.b];
+    const painter = (ctx,x,y,scale,v) => drawPixelDecor(ctx,kind,x,y,scale,v);
     const x = -180, y = 367;
     const calls = paint(painter, x, y, s, seed);
     assert.ok(calls.some(c => c.op === "drawImage" && c.bounds !== null), `${kind}: projected sprite contains real occupied pixels`);
@@ -280,7 +282,7 @@ test("world scenery reuses bounded native-resolution caches without repainting d
       }
     }
 
-    const size = kind === "tree" ? [164, 174] : [220, 196], s = Math.round(decor.s * 20) / 20;
+    const b = PIXEL_DECOR_BOUNDS[kind], size = [b.r-b.l,b.b-b.t], s = Math.round(decor.s * 20) / 20;
     assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil(n * s + 16)), "same world BOUNDS/PAD, baked at one pixel per world unit");
     const paints = first.image.getContext("2d").calls.length, allocated = created.length;
     assert.equal(draw().image, first.image, "same sprite identity");
@@ -292,5 +294,16 @@ test("world scenery reuses bounded native-resolution caches without repainting d
     assert.ok(sections.every(call => call.smoothing === false), "section projections use nearest-neighbour sampling");
     assert.ok(spriteCacheSize() <= SPRITE_CACHE_LIMIT, "stack and decor sprites share the bounded LRU");
     assert.equal(JSON.stringify(decor), before, "rendering does not mutate decor");
+  }
+});
+
+
+test("opening architecture stays behind the playable boundary without changing collision", t => {
+  environment(t);
+  for(const building of OPENING_BUILDINGS){
+    const calls=paint((ctx,x,y,s,seed)=>drawPixelDecor(ctx,building.kind,x,y,s,seed),building.x,building.y,building.s,building.seed);
+    const ink=calls.filter(c=>c.op==="drawImage"&&c.bounds);
+    assert.ok(ink.length);
+    for(const c of ink)assert.ok(c.bounds[3]<=WORLD.playTop,`${building.kind} footing intrudes into the walking area: ${c.bounds[3]}`);
   }
 });

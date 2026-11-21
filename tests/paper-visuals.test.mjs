@@ -905,21 +905,21 @@ test("warning tint stays below actors while its edge passes above raised skills 
   sim.upgrades["full-moon"] = 1;
   sim.enemies = [{ id: 17, kind: "smudge", x: x + 65, y, hp: 3, alive: true, spawnTime: 0,
     windup: 0.4, tx: x, ty: y }];
-  t.mock.method(WEAPON_ART.get("page-fold"), "ground", ctx => ctx.fillRect(x, y, 2, 3));
-  t.mock.method(ENEMY_ART.get("smudge"), "draw", ctx => ctx.fillRect(x, y, 4, 5));
-  t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => ctx.fillRect(x, y, 6, 7));
+  t.mock.method(WEAPON_ART.get("page-fold"), "ground", ctx => {ctx.save();ctx.fillStyle="#010203";ctx.fillRect(x,y,2,3);ctx.restore();});
+  t.mock.method(ENEMY_ART.get("smudge"), "draw", ctx => {ctx.save();ctx.fillStyle="#040506";ctx.fillRect(x,y,4,5);ctx.restore();});
+  t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => {ctx.save();ctx.fillStyle="#070809";ctx.fillRect(x,y,6,7);ctx.restore();});
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 1, camera: sim.player });
-  const skill = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 2 && c.args[3] === 3);
+  const skill = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#010203" && c.args[0] === x && c.args[1] === y);
   const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, cx, cy, r]) =>
     op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius));
-  const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 4 && c.args[3] === 5);
-  const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.args[2] === 6 && c.args[3] === 7);
+  const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#040506" && c.args[0] === x && c.args[1] === y);
+  const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#070809" && c.args[0] === x && c.args[1] === y);
   const faceClip = ctx.calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd" &&
     c.args[0].ops.some(([op, l, top, width, height]) =>
       op === "roundRect" && l < x && l + width > x && top < y - 40 && top + height > y - 40));
   const edge = ctx.calls.findIndex(c => c.op === "stroke" && c.args[0] === ctx.calls[warning]?.args[0]);
-  assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip);
+  assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });
 
 test("the selected cat retains its colours and draws above a foreground landmark", (t) => {

@@ -10,7 +10,7 @@ export function cottageModel(variant: number): PixelStackModel {
         { lit: "#648e8f", mid: "#587f83", dark: "#365863", joint: "#486c76", edge: "#87a6a1" },
     ][v]!;
     const timber = "#68504b", beamLight = "#92755b", plaster = "#d9c8aa", sideWall = "#b7ab9b";
-    return { id: `scene:cottage:crafted:${v}`, width: 50, depth: 48, count: 53, paint(c: Ctx, z: number) {
+    return { id: `scene:cottage:porch:${v}`, width: 50, depth: 48, count: 53, paint(c: Ctx, z: number) {
             const r = (x: number, y: number, w: number, d: number, color: string) => {
                 c.fillStyle = color;
                 c.fillRect(Math.round(x * 2), Math.round(y * 2), Math.max(1, Math.round(w * 2)), Math.max(1, Math.round(d * 2)));
@@ -22,7 +22,14 @@ export function cottageModel(variant: number): PixelStackModel {
                 r(-16.5, -18.5, 1, 37, "#566360");
                 if (z >= 2) r(-15.5, 17.5, 31, 1, "#a4a795");
                 // Steps descend from the door to the same ground plane.
-                if (z < 2) r(-5, 17, 10, z < 1 ? 7 : 4, z < 1 ? "#767e70" : "#a4aa94");
+                // A shallow front veranda shares the footing, instead of hovering
+                // above a separate platform. The central step meets the lawn.
+                r(-15, 17, 30, 5, z < 1 ? "#4b5c50" : "#989d85");
+                if (z >= 2) {
+                    r(-15, 21, 30, 1, "#c1b89a");
+                    for (let x = -12; x < 15; x += 4) r(x, 17, .5, 4, "#777f6c");
+                }
+                if (z < 2) r(-5, 21, 10, z < 1 ? 3 : 1, z < 1 ? "#767e70" : "#a4aa94");
                 if (z < .5) r(-5, 23, 10, 1, "#394d40");
                 return;
             }
@@ -73,12 +80,12 @@ export function cottageModel(variant: number): PixelStackModel {
                         return;
                     f(-3.5, 0, 7, 2, timber);
                     if (z >= 11 && z < 22) {
-                        f(-2.5, 1.5, 5, .5, z >= 19 ? "#749baa" : "#b2cec7");
+                        f(-2.5, 1.5, 5, .5, z >= 19 ? "#ac996d" : "#dfc58c");
                         f(-.25, 1.5, .5, .5, "#846d5a");
                         if (z >= 16 && z < 16.5)
                             f(-2.5, 1.5, 5, .5, "#846d5a");
                         if (z >= 18 && z < 21)
-                            f(-2, 1.5, .5, .5, "#d4e1cd");
+                            f(-2, 1.5, .5, .5, "#f0dbaa");
                     }
                     if (z < 11 || z >= 22)
                         f(-4, 0, 8, 2, "#ddc9a8");
@@ -105,6 +112,28 @@ export function cottageModel(variant: number): PixelStackModel {
                 if (z >= 26) {
                     r(-16, -18, 32, 36, z < 27 ? "#57494b" : "#9b8266");
                 }
+            }
+            // Front porch: slim posts, open railing, and a small lean-to roof.
+            // Every part occupies a real slice, so it occludes consistently
+            // with the house rather than becoming a screen-facing sticker.
+            if (z >= 3 && z < 20) {
+                for (const x of [-14, 13]) {
+                    r(x, 20, 1, 1.5, timber);
+                    r(x + .5, 21, .5, .5, "#cbb797");
+                }
+                if (z < 9) {
+                    for (const x of [-12, -9, 8, 11]) r(x, 21, .5, .5, "#b7a98e");
+                    if (z >= 8) {
+                        r(-14, 21, 9, 1, "#d0bfa0");
+                        r(6, 21, 8, 1, "#d0bfa0");
+                    }
+                }
+            }
+            if (z >= 19 && z < 22) {
+                const edge = 24 - (z - 19) * 2;
+                r(-16, edge - 2.5, 32, 3, z < 19.5 ? roof.dark : roof.mid);
+                r(-16, edge, 32, .5, z < 19.5 ? "#c3ad8a" : roof.edge);
+                for (let x = -13; x < 16; x += 5) r(x, edge - 2, .5, 2, roof.joint);
             }
             // Pitched roof: solid shaded slopes, shallow individual shingle ends,
             // a structural fascia, and a continuous rounded ridge cap.

@@ -42,7 +42,7 @@ test("a portrait run uses the whole app as Safari's bars expand, collapse, or th
       assert.ok(Math.abs(w / play.viewWidth - h / play.viewHeight) < 1e-9, "square world units stay square");
       const title = boardLayout(w, h, dpr, false);
       assert.deepEqual([title.viewWidth, title.viewHeight], [960, 540]);
-      assert.ok(play.cssW / play.viewWidth > title.cssW / title.viewWidth, "the cat becomes easier to see");
+      assert.ok(play.cssW / play.viewWidth >= title.cssW / title.viewWidth, "portrait detail remains at least as legible as the title");
     }
   }
   assert.deepEqual(boardLayout(844, 390, 3, true), boardLayout(844, 390, 3, false));

@@ -1,3 +1,5 @@
+import { drawYardGardenExtension } from "./pixel-yard-garden.js";
+import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
 /**
  * The explorable papercraft town: per-chunk ground caches, roads, the map
  * hedge, landmark art and the y-sorted decor sprites. Everything is drawn by
@@ -96,15 +98,8 @@ export function paperOccludesActor(x: number, y: number, s: number, b: Bounds, a
     actor.y + 8 > y + b.t * s && actor.y - 68 < y + b.b * s;
 }
 /** Generic decor sprites; landmark pieces come from LANDMARK_ART (decorPiece). */
-const BOUNDS: Record<string, Bounds> = {
-  tree: { l: -82, r: 82, t: -158, b: 16 },
-  cottage: { l: -120, r: 100, t: -144, b: 52 },
-  bush: { l: -52, r: 52, t: -34, b: 10 },
-  fence: { l: -46, r: 46, t: -42, b: 10 },
-  stone: { l: -16, r: 16, t: -16, b: 8 },
-  candles: { l: -22, r: 22, t: -36, b: 8 },
-  pumpkin: { l: -22, r: 26, t: -32, b: 8 },
-};
+const BOUNDS: Record<string, Bounds> = PIXEL_DECOR_BOUNDS;
+
 type Painter = (ctx: Ctx, x: number, y: number, s: number, seed: number) => void;
 const PAINT: Record<keyof typeof BOUNDS, Painter> = {
   tree,
@@ -119,7 +114,6 @@ const PAINT: Record<keyof typeof BOUNDS, Painter> = {
 const VARIANTS: Partial<Record<DecorKind, number>> = { pumpkin: 8, tree: 6, cottage: 4, bush: 6, stone: 4 };
 const PAD = 8;
 function decorBounds(d: Decor): Bounds | null {
-  if (d.kind === "lamp") return { l: -18, r: 18, t: -75 * d.s, b: 8 };
   const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
@@ -345,6 +339,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   ctx.restore();
   drawLawnVerge(ctx, tile, seed);
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
+  if (cy === 1 && (cx === 0 || cx === 1)) drawYardGardenExtension(ctx);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
   for (const water of waters) {
     drawWaterGround(ctx, water);

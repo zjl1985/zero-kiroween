@@ -75,3 +75,31 @@ The user rejected the hovering houses. Previous screenshot review failed to catc
 Saved same-camera `cottage-grounding-before-desktop.png` and `cottage-grounding-after-desktop.png`, plus actual walking phone capture `cottage-grounding-after-mobile.png`; viewed all revised gameplay captures. Candle refinement was paused before code changes to prioritize this defect. No push.
 
 Grounding validation: `npm run build` and `npm test` passed (426/426); `git diff --check` passed. Browser fixture used an actual seeded map cottage at (-1333, 1403): near/far rendered pixels identical, decor unchanged, page errors 0; inspected `cottage-grounding-map-near-far.png`. Screenshot checks are not iPhone performance acceptance or user art approval.
+
+## Whole-screen farm composition — user reference revision
+
+The user's supplied farm image changes the review target: a coherent inhabited landscape with foreground, midground and distance, substantial architecture, connected garden plots and grouped furnishings. Isolated enlarged asset sheets do not demonstrate this target. Current art still requires scene-by-scene work; no competition-quality completion or reference-equivalent finish is claimed.
+
+Implemented opening revision:
+
+- Replaced the left opening cottage with a braced timber barn and moved the residence into the portrait composition. Both keep real ground-contact foundations. Moved only the two noninteractive yard lamps to keep them off the new roof silhouettes; interactive lantern index 3 and all interactive pumpkin positions remain unchanged.
+- Authored distant hills, shore settlements and a wider lake entirely above the playable boundary. The same world coordinates are clipped per chunk; it is scenic backdrop, not a new playable water region.
+- Joined the buildings to wheat/vegetable plots with subdued ground shapes and worn aprons. Added grouped logs, bales, tools and flower boxes. Crop ground continues into the southern row of chunks, painted before actual water and roads so gameplay geometry remains authoritative.
+- Portrait world height is 960 (was720), retaining uniform aspect and original world movement speed. Title framing remains960×540. Roof visibility and character readability checked at390×844; portrait/landscape smoke checks and joystick press/release passed.
+- Shared native scenery bounds now drive cache allocation, culling and actor occlusion. Alpha audit found clipped stone/candle edges and insufficient fence scale headroom in old bounds. All8 native scenery families are checked across6 variants and3 scales. Lamps, stones, pumpkins, trees, bushes and candles now have compact cached contact shadows instead of generic long bars.
+
+First integrated screenshots exposed lamps on roofs, a clipped barn and an over-bright barn side; these were corrected before the revised capture. Enlarged lake initially hid all reflection groups behind the residence; one group was moved into the visible opening. These findings illustrate why full-screen inspection is mandatory. Simulation/defs/dependencies have no changes in this revision.
+
+
+Further screenshot-driven corrections:
+
+- A later placement review found that enlarged architectural footings approached the walkable north boundary. Both buildings were retreated into the scenic strip; a raster regression now checks their entire footprint ends before `WORLD.playTop`. No collider was added to disguise the mistake.
+- Added a real stacked cottage veranda (posts, open rail, lean-to roof), warm inset windows and shared stone footing. Tree groups frame the houses in portrait rather than sitting outside the screen. The new barn uses exposed red timber planes and continuous braced doors.
+- Mature wheat, layered cabbage and ripe tomato clusters replace sparse stick crops. Flower borders have contiguous foliage. Ground aprons now use one-pixel contour interpolation rather than large rectangle stair-steps. Native detailed candles include wax shoulders, drips, recessed wick and a tiny flame; bushes now have separate overlapping leaf crowns.
+- Moved the touch portrait minimap to the lower right, opposite the joystick, so it does not cover the cottage roof. Desktop/landscape layout is preserved.
+
+Final local verification: `npm run build` passed; `npm test` passed **430/430**. Actual Linux Chromium captures at1280×720,804×1000(reference aspect),390×844 were inspected. Movement-only desktop/phone checks passed (no active-skill buttons, keyboard/joystick release, pause/resume), and both cats traversed play/upgrade/result in the scripted browser smoke with zero page errors;844×390 rotation has no horizontal overflow. Gallery gloss marks0;127 registered prop/landmark state paints had no empty/clipped results. These are not a human ten-minute run, iPhone frame-time measurements or user art approval.
+
+Latest evidence under `output/pixel-asset-review/`: `farm-screen-final-desktop.png`, `farm-screen-reference-aspect.png`, `farm-zero-mobile.png`, `farm-nicole-mobile.png`, `scene-candles-farm-detail.png`, `scene-bush-farm-detail.png`. Whole-screen and candle/bush native/3× images actually viewed. Local only, no push/deployment.
+
+Remaining art target: the reference's scene richness is not yet achieved across the whole game. The southern generated terrain, broad road intersections, other districts and landmarks, destructible prop states and remaining enemy/weapon/costume/UI detail still require individual in-game review. Keep the overall goal active; this checkpoint establishes the revised farm scale and fixes grounding/cache problems, not completion of all art.
