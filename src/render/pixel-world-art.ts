@@ -1,3 +1,6 @@
+import { marketStallModel } from "./pixel-market-stall.js";
+import { drawMarketLights } from "./pixel-market-lights.js";
+import { drawMarketGround } from "./pixel-market-ground.js";
 import { clockTowerModel } from "./pixel-clock-tower.js";
 import { drawClockCourt } from "./pixel-clock-court.js";
 import { teahouseModel } from "./pixel-teahouse.js";
@@ -207,6 +210,7 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "stall") return marketStallModel(v);
   if (piece.kind === "clock-tower") return clockTowerModel(v);
   if (piece.kind === "paper-teahouse-building") return teahouseModel(v);
   if (piece.kind === "paper-teahouse-table") return teahouseTableModel(v);
@@ -258,16 +262,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           }
         }
       };
-      if (kind === "lights") {
-        for (let i = -Math.floor(W); i <= W; i++) {
-          const cord = dims.count - 3 - Math.round((1 - (i / W) ** 2) * 7);
-          if (z === cord) rect(i, 0, 1, 1, WOOD[1]);
-          if (i % 8 === 0 && z < cord && z > cord - 7) {
-            const r = Math.sin((cord - z) / 7 * Math.PI) * 2.5;
-            oval(i, 0, r, r, i % 16 === 0 ? GOLD[1] : "#bd6a72");
-          }
-        }
-      } else if (kind === "tomb") {
+      if (kind === "tomb") {
         const r = h < 0.72 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.72) / 0.3) ** 2));
         box(Math.max(1, W * r), D * 0.5, h < .08 ? 0 : 1);
         if (h > 0.28 && h < 0.7) rect(-1, D * 0.5 - 1, 2, 1, 0);
@@ -308,15 +303,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
         else for (const x of [-W * 0.75, W * 0.75]) rect(x, 0, 2, 2, WOOD[1]);
         if (h > 0.58 && h < 0.63) rect(-W * 0.75, 0, W * 1.5, 2, WOOD[2]);
         roofSection(0.73, 1);
-      } else if (kind === "stall") {
-        if (h < 0.74) for (const x of [-W * 0.85, W * 0.85]) for (const y of [-D * 0.75, D * 0.75]) rect(x, y, 2, 2, WOOD[1]);
-        if (h > 0.22 && h < 0.45) box(W * 0.9, D * 0.9, z % 4 === 0 ? WOOD[0] : WOOD[1]);
-        if (h >= 0.45 && h < 0.5) box(W, D, WOOD[2]);
-        if (h > 0.5 && h < 0.64) for (const x of [-W * 0.5, 0, W * 0.5]) oval(x, 0, 3, 2, x < 0 ? GOLD[1] : "#8fa969");
-        if (h > 0.74) {
-          const yy = -D + (1 - h) / 0.26 * D * 2;
-          for (let x = -W; x < W; x += 4) rect(x, yy, 4, 2, Math.floor((x + W) / 4) % 2 ? "#ddc79c" : "#ab6264");
-        }
       } else if (kind === "theatre") {
         if (h < 0.12) box(W, D, WOOD[1]);
         if (h >= 0.12 && h < 0.83) {
@@ -361,6 +347,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "lantern-market") { drawMarketGround(ctx,l.x,l.y); return; }
       if (a.id === "clock-tower") { drawClockCourt(ctx,l.x,l.y); return; }
       if (a.id === "paper-teahouse") { drawTeahouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "fold-greenhouse") { drawGreenhouseGarden(ctx,l.x,l.y); return; }
@@ -386,6 +373,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "lantern-market") return; // Board court includes the woven mats.
       if (a.id === "clock-tower") return; // Court owns the flush entry stones.
       if (a.id === "paper-teahouse") return; // Baked garden includes the rest marker and approach.
       if (a.id === "fold-greenhouse") return; // Garden already owns its flush approach.
@@ -413,8 +401,9 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     },
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
+        if (piece.kind === "lights") { drawMarketLights(ctx,x,y,s,v); return; }
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        const grounded = piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
+        const grounded = piece.kind === "stall" || piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
           || piece.kind.startsWith("fold-greenhouse-") || piece.kind.startsWith("paper-teahouse-");
         drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(grounded ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },

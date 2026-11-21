@@ -36,6 +36,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Greenhouse landmark | Rebuilt; native/magnified and scene fixtures viewed | Divided glazing, planted benches, brick footing, continuous roof beam, climbing trellis, terracotta pots and potting bench. Flush garden approach; user approval pending. |
 | Teahouse landmark | Rebuilt; building/furnishings and scene fixtures viewed | Timber facade, lattice windows, double hipped roofs, tea table and potted shrubs, quiet gravel garden and rest marker. User approval pending. |
 | Clocktower landmark | Rebuilt; native/magnified and scene fixtures viewed | Grounded masonry, corner quoins, arched entry/windows, readable near-midnight clock, open bell chamber and tapered roof. First dial-striping defect fixed; user approval pending. |
+| Lantern market | Rebuilt; stalls/lights and scene fixtures viewed | Joined timber counters, supported striped canopy/valance, seasonal goods, connected sagging lantern cord, flush plank court. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -183,3 +184,16 @@ First actual native/2× screenshot exposed full-height dark stripes across the c
 Viewed native/2× before/after, then final desktop960×540 and phone390×844 seed7 world fixtures at(-996,1674). Fixtures reposition the cat for scene review, not a full manual playthrough; rendering preserves simulation state and page errors0. Evidence: clocktower-before-detail.png, clocktower-after-detail.png (retained striped failure), clocktower-final-detail.png, clocktower-final-desktop.png, clocktower-final-mobile.png in output/pixel-asset-review. Whole-game scenery richness and other asset families remain open; no iPhone performance or user art approval claim.
 
 Clocktower final verification: `npm run build` passed; `npm test`432/432. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push or deployment.
+
+
+## Lantern market stalls, cord and timber court
+
+Rebuilt the generic striped boards as half-unit stacked market stalls: joined feet/posts/counter, knee braces, sloped canopy and short scalloped valance, miniature ribbed pumpkins, lidded jar lantern and folded bat display. Fabric fills the exposed slab/riser depth to avoid rotated slice gaps. Static models retain the existing two variants and registered bounds; actual feet and compact shadows draw at ground zero.
+
+Replaced the generic stacked string-light painter with a direct native integer painter: two continuous sagging spans, three roof anchors, sixteen connected hanging lanterns with round red/box gold shapes, ribs, caps, shaded bodies and tassels. Every tie samples the same curve as the cord. No glow, gradient, alpha animation, image or per-frame canvas allocation. Existing world-sprite caching owns the static result. Removed the superseded generic stall and light branches.
+
+The flush market court now uses long staggered timber planks, sparse joint/nail/grain details and broad woven mats; authoritative roads remain above it. No landmark layout, collision, interactive lantern, simulation, controls or dependencies changed. In this seeded fixture the road covers part of the front mats, consistent with the existing layout rather than inventing another route.
+
+Viewed native/2× stalls and cord/lantern detail plus desktop960×540/phone390×844 seed7 world fixtures at(-1641,554). The cat is repositioned for scene review, not a full manual playthrough. Rendering preserves simulation state, page errors0. Evidence: market-before-detail.png, market-after-detail.png, market-lights-detail.png, market-after-desktop.png, market-after-mobile.png under output/pixel-asset-review. Remaining whole-map composition and other asset families are still open; this is not user art approval or iPhone profiling.
+
+Also viewed both rose/teal stall variants at native/3× in market-stall-variants.png. Final verification: `npm run build` passed; `npm test`432/432. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push or deployment.
