@@ -4,6 +4,7 @@
  * SimState only; flutter comes from the sim's prop impacts, flicker from the
  * view time and render hashes. Never touches the sim RNG.
  */
+import { reducedPaperMotion } from "./paper-motion.js";
 import { FIRE } from "../defs/fire.js";
 import { PROP_DEFS } from "../defs/registries.js";
 import { PROP_PHASES, type PropSpot } from "../defs/types.js";
@@ -16,13 +17,12 @@ import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { paperOccludesActor } from "./craft-world.js";
-import { glow, hash, mix, path, stroke, withFlatShadows, type Ctx } from "./paper-material.js";
+import { glow, hash, mix, path, stroke, withFlatShadows, type Ctx, type Point } from "./paper-material.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
-import { foldLine } from "./paper-kit.js";
+import { crease, flatCut, foldLine, PAPER_STOCK, tornEdge } from "./paper-kit.js";
 import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
-import { tintedSprite } from "./sprite-tint.js";
 import { sketchAmount, sketchedSprite } from "./sprite-sketch.js";
 
 const PAD = 8;
@@ -71,6 +71,39 @@ function inkCoating(sprite: CanvasSprite): CanvasSprite {
   }, sprite.anchor);
 }
 const flame = drawPaperFlame;
+/** Burn damage is baked into the prop's own alpha, never punched into the scene.
+ * Three small holes leave the silhouette/obstacle readable. No time-based cache keys.
+ */
+function scorchedPaper(sprite: CanvasSprite): CanvasSprite {
+  if (!sprite.canvas) return sprite;
+  return cachedSprite(`prop-char-curl:${sprite.id}`, sprite.width, sprite.height, sprite.scale, (c) => {
+    sprite.draw(c, { x: sprite.width * sprite.anchor.x, y: sprite.height * sprite.anchor.y });
+    const w = sprite.width, h = sprite.height;
+    c.save();
+    c.globalCompositeOperation = "source-atop";
+    c.fillStyle = "#362417";
+    c.globalAlpha = 0.48;
+    c.fillRect(0, 0, w, h);
+    c.globalAlpha = 1;
+    const holes: Path2D[] = [];
+    for (let i = 0; i < 3; i++) {
+      const x = w * (0.36 + i * 0.14), y = h * (0.55 + (i % 2) * 0.17),
+        r = Math.min(6, w * 0.045, h * 0.045),
+        hole = path([[x - r, y], [x - r * 0.5, y - r], [x + r * 0.8, y - r * 0.65],
+          [x + r, y + r * 0.45], [x, y + r * 0.8]]);
+      holes.push(hole);
+      stroke(c, hole, "#21191c", 3, 0.9);
+      // A curled reverse with a charred lip beside the missing paper.
+      c.fillStyle = "#8c7258";
+      c.fill(path([[x - r, y], [x - r * 1.5, y - r * 1.15], [x, y - r * 1.4], [x - r * 0.5, y - r]]));
+      crease(c, x - r * 1.5, y - r * 1.15, x, y - r * 1.4, 0.7);
+    }
+    c.globalCompositeOperation = "destination-out";
+    c.fillStyle = "#000000";
+    for (const hole of holes) c.fill(hole);
+    c.restore();
+  }, sprite.anchor);
+}
 export interface PropVisualState {
   readonly folded?: boolean;
   readonly inked?: boolean;
@@ -108,7 +141,7 @@ export function drawProp(
     paper = state.sketch ? sketchedSprite(inked, state.sketch) : inked;
   if (burning) {
     // Charring stays inside the cached paper silhouette; flames remain live.
-    tintedSprite(paper, "#362417", 0.5).draw(ctx, { x: 0, y: 0 });
+    scorchedPaper(paper).draw(ctx, { x: 0, y: 0 });
     glow(ctx, 0, -10 * p.s, 46 * p.s, "#f08a3c", 0.45, 0.6);
     art.flames.forEach(([fx, fy], i) => flame(ctx, fx * p.s, fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i));
   } else paper.draw(ctx, { x: 0, y: 0 });
@@ -215,6 +248,7 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
   const total = EFFECT_LIFE[e.kind],
     t = 1 - Math.max(0, e.life) / total,
     fade = 1 - t,
+    motion = reducedPaperMotion() ? 0.2 : t,
     art = e.src ? PROP_ART.find(e.src) : undefined,
     burnt = e.kind === "prop-scraps" && e.amount === 1,
     colors = burnt ? ["#3b3534", "#59504b", "#1f1a1d"] : (art?.scraps ?? ["#d8c8a0"]);
@@ -222,8 +256,8 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
   if (e.kind === "ember") {
     for (let i = 0; i < 9; i++) {
       const sd = (e.seed ?? 0) * 31 + i,
-        x = e.x + (hash(sd) - 0.5) * 40 + Math.sin(t * 6 + i) * 4,
-        y = e.y - 4 - t * (24 + hash(sd + 1) * 30);
+        x = e.x + (hash(sd) - 0.5) * 40 + Math.sin(motion * 6 + i) * 4,
+        y = e.y - 4 - motion * (24 + hash(sd + 1) * 30);
       ctx.globalAlpha = fade * 0.9;
       ctx.fillStyle = i % 3 ? "#f3a347" : "#fbe08f";
       ctx.fillRect(x - 1, y - 1, 2, 2);
@@ -239,36 +273,34 @@ export function drawPropEffect(ctx: Ctx, e: Impact): boolean {
       dir = (hash(sd) - 0.5) * 2,
       up = 0.6 + hash(sd + 3) * 0.8,
       // Out and up, then a slow swaying fall like paper.
-      x = e.x + dir * spread * t + Math.sin(t * 9 + i) * 3 * t,
-      y = e.y - up * 30 * t + 44 * t * t + (burnt ? -30 * t : 0),
+      x = e.x + dir * spread * motion + Math.sin(motion * 9 + i) * 3 * motion,
+      y = e.y - up * 30 * motion + 44 * motion * motion + (burnt ? -30 * motion : 0),
       w = 4 + hash(sd + 5) * 3.5,
-      a = t * (4 + hash(sd + 7) * 6) * (i % 2 ? 1 : -1),
+      a = motion * (4 + hash(sd + 7) * 6) * (i % 2 ? 1 : -1),
       c = colors[i % colors.length]!;
     ctx.save();
     ctx.globalAlpha = Math.min(1, fade * 1.6);
     ctx.translate(x, y);
     ctx.rotate(a);
     // Flutter: the fleck turns edge-on and back.
-    ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(t * 10 + i)));
-    const flip = Math.cos(t * 10 + i) < 0,
-      scrap = path([[-w, -w * 0.5], [w * 0.8, -w * 0.7], [w, w * 0.4], [-w * 0.6, w * 0.6]]);
-    // A hard shadow down-right, then the face or the paler back as the piece turns over.
-    ctx.save();
-    ctx.translate(1.2, 1.6);
-    ctx.fillStyle = "#120d1c";
-    ctx.globalAlpha *= 0.35;
-    ctx.fill(scrap);
-    ctx.restore();
-    ctx.fillStyle = flip && !burnt ? mix(c, "#f6e8c8", 0.55) : c;
-    ctx.fill(scrap);
-    ctx.strokeStyle = mix(c, "#f1dcb0", 0.5);
-    ctx.lineWidth = 0.7;
-    ctx.stroke(path([[-w, -w * 0.5], [w * 0.8, -w * 0.7]]));
-    ctx.strokeStyle = mix(c, "#1c142b", 0.5);
-    ctx.lineWidth = 0.5;
-    ctx.stroke(path([[w, w * 0.4], [-w * 0.6, w * 0.6]]));
+    ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(motion * 10 + i)));
+    const flip = Math.cos(motion * 10 + i) < 0;
+    propFragment(c, flip, burnt, i % 3).draw(ctx, { x: 0, y: 0, scale: w / 6 });
     ctx.restore();
   }
   ctx.restore();
   return true;
+}
+
+/** Finite cut fragments: rough exposed fibres and a folded reverse, baked once. */
+function propFragment(color: string, back: boolean, burnt: boolean, variant: number): CanvasSprite {
+  return cachedSprite(`prop-fragment:${color}:${back}:${burnt}:${variant}`, 22, 18, 2, (c) => {
+    const edge = tornEdge(4, 6, 14.8, 4.8, 7, 0.45, variant + 17),
+      points: Point[] = [...edge, [16, 11.4], [6.4, 12.6]];
+    flatCut(c, points, { ...PAPER_STOCK.thin, color: back && !burnt ? PAPER_STOCK.back : color, texture: 0 });
+    stroke(c, path(edge), burnt ? "#796457" : "#f6e9d2", 0.85, 0.95);
+    c.fillStyle = burnt ? "#342729" : mix(color, PAPER_STOCK.back, 0.65);
+    c.fill(path([[6.4, 12.6], [9, 8.5], [16, 11.4]]));
+    crease(c, 9, 8.5, 16, 11.4, 0.7);
+  }, { x: 10 / 22, y: 9 / 18 });
 }

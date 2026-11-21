@@ -65,6 +65,7 @@ import { CAT_BOX, catWear } from "./cat-detail.js";
 import { drawWithLitRim } from "./paper-value.js";
 import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
+import { withPaperMotion } from "./paper-motion.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   time: number;
@@ -78,6 +79,15 @@ export interface ViewState {
 }
 const YARD_PROP_BOUNDS = { l: -36, r: 36, t: -34, b: 8 } as const;
 export function drawWorld(
+  ctx: CanvasRenderingContext2D,
+  sim: SimState | null,
+  view: ViewState,
+  titleCat?: CatPose,
+): void {
+  withPaperMotion(!!view.reducedMotion, () => drawWorldFrame(ctx, sim, view, titleCat));
+}
+
+function drawWorldFrame(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
   view: ViewState,

@@ -2,6 +2,24 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Paper construction art pass (2026-11-21, workspace changes, not published)
+
+Follow-up: reduced-motion support now reaches the paper art through the synchronous `paper-motion.ts` scope around `drawWorld`. Nested/failed painters restore the previous setting; cached painters do not read the preference. Crane wings and orbit-star faces hold steady; cut-out pieces and fold sheets use fixed poses with the existing lifetimes; impact lips, destruction/prop scraps, status motes and wash splashes retain fades without decorative flipping, spinning or travel. Actual attack/world coordinates and simulation timing remain unchanged. This covers the paper pass, not a claim of a complete accessibility audit of every legacy effect.
+
+Follow-up validation: `npm run build` passed; `npm test` **401/401 passed**. New tests verify nested/error preference restoration, live preference switching, preserved orbit positions and calm hit geometry with the original fade. `git diff --check` passed. No browser/device comfort assessment or performance measurement; no push/deployment. The planned entity-height shadows, persistent debris buffer, character/audio/UI expansion are not part of this follow-up.
+
+User authorized a visual-only pass: the same game, with consistent paper thickness, reverse faces, folded planes and contact shadows before extra grain/confetti. Do not add fold-wall controls or change routes, damage, hit timing, ranges, durations or skill mechanics. Existing simulated walls/bridges remain unchanged. Approved heads remain untouched.
+
+- `paper-rules.ts` / `paper-kit.ts`: opt-in `PAPER_STOCK` thin/sheet/card profiles and a shared unprinted reverse. Existing `piece` / `paperCut` defaults remain unchanged to preserve approved heads.
+- Weapon art and `combat-fx.ts`: two-sided hinged crane wings, turning cut-paper orbit stars, a short shaving ribbon on the existing Paper Cut line and a reverse edge on Night Claw, exposed Page Fold cut-core/corner, and sample-anchored watercolor seep marks. No new weapon, simulation or registry changes.
+- `craft-combat.ts`, `craft-juice.ts`: finite cached dent/hinged-lip hit response and flipping fiber-edged fragments. `paper-status-art.ts` and `wash-art.ts`: char curls, dark burn openings, damp pigment/pleats; ground wrinkles are rebuilt only with their existing mask revision.
+- `craft-props.ts` / `paper-scraps.ts`: small burnt-through areas are erased only on a cached prop surface, never on the scene; tear fragments have rough pulp edges and folded reverses. Cache keys exclude time and placement.
+- `craft-scene.ts`, `paper-ground.ts`, `water-art.ts`: broad tree crown folds, card wall scores/eave returns, sparse world-anchored ground pressure folds, translucent dyed-paper water planes clipped to the original shared polygons. No water/collision geometry change.
+
+Validation: `npm run build` passed; `npm test` passed **399/399**. Added a frozen-actor hit-response/cache lifecycle test and strengthened the prop burn test to check that destructive compositing stays off the main canvas. `git diff --check` passed. Gameplay source, definitions other than `.art.ts`, input, timing, routes and cat heads are unchanged.
+
+**Not viewed or profiled.** No browser, animation/recording, iPhone Safari or FPS check was run. These are command/geometry checks, not art approval. For user review run `npm start` and open `/?gallery=1` plus `/?start=1&seed=7`; existing local screenshot tooling, if present on the user's machine, is `node output/playwright/open-work-shot.cjs` (the ignored `output/` tools are not in this fresh checkout). No push/deployment was authorized or performed.
+
 ## Portrait gameplay (2026-11-20)
 
 The user's iPhone screenshot showed the fight confined to a 16:9 strip, with controls in the black space above and below. At a 390 × 844 CSS viewport the old strip was only 219 px high. Runs now use the full portrait app rectangle and a proportional camera 720 world units tall. This also applies behind the pause, upgrade and result screens. The town, enemies and cats use a uniform scale. The HUD uses the device safe areas and anchors the two thumb controls at the bottom. On a browser without the Fullscreen API the fullscreen control is hidden.

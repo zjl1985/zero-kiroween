@@ -1,3 +1,4 @@
+import { reducedPaperMotion } from "./paper-motion.js";
 import {
   piece as paperPiece,
   path as paperPath,
@@ -17,7 +18,7 @@ import {
 import { orbitPositions } from "../game/sim.js";
 import { rect, type Ctx } from "./pixel-art.js";
 import { combatPart, paperFleck, shotCut } from "./craft-combat.js";
-import { foldLine } from "./paper-kit.js";
+import { foldLine, crease, starPoints, PAPER_SHADOW, PAPER_STOCK } from "./paper-kit.js";
 import { stroke } from "./paper-material.js";
 
 export function ring(
@@ -72,18 +73,42 @@ export function drawCombatGround(ctx: Ctx, state: SimState): void {
   for (const w of activeWeaponArt(state)) w.ground?.(ctx, state);
   if (state.costume) costumeArt(state)?.ground?.(ctx, state);
 }
-export function drawOrbitStar(
-  ctx: Ctx,
-  x: number,
-  y: number,
-  time: number,
-  index: number,
-  full = false,
-): void {
-  paperTrail(ctx, x, y - 12, time * 1.2 + index, 18, full ? "#c5b58d" : "#9b84bf", 0.65);
-  star(ctx, x, y - 12, full ? 8.5 : 7, full ? "#efe2bd" : "#d7c8f6", time * 1.2 + index);
-  star(ctx, x, y - 12, full ? 4 : 3, "#fff1ce", time * 1.2 + index);
+/** Two finite faces, with a live squash around the orbit star's own centre. */
+export function drawOrbitStar(ctx: Ctx, x: number, y: number, time: number, index: number, full = false): void {
+  const calm = reducedPaperMotion(),
+    angle = calm ? index : time * 1.2 + index, turn = calm ? 1 : Math.cos(time * 2.8 + index * 1.7),
+    back = turn < 0, r = full ? 8.5 : 7;
+  paperTrail(ctx, x, y - 12, angle, 18, full ? "#c5b58d" : "#9b84bf", 0.65);
+  // A grounded shadow stays down-right while the paper turns above it.
+  ctx.save();
+  ctx.globalAlpha *= 0.28;
+  ctx.fillStyle = PAPER_SHADOW.color;
+  ctx.fill(paperPath(starPoints(x + PAPER_SHADOW.dx * 2, y + PAPER_SHADOW.dy, r * 0.8, 5, 0.46, angle)
+    .map(([px, py]) => [px, y + (py - y) * 0.42])));
+  ctx.restore();
+  ctx.save();
+  ctx.translate(x, y - 12);
+  ctx.rotate(angle);
+  // Keep a readable cut edge even when the face turns edge-on.
+  ctx.scale(0.22 + Math.abs(turn) * 0.78, 1);
+  combatPart(`orbit-fold:${full ? "gold" : "lilac"}:${back ? "back" : "face"}`, 28, 28, (c) => {
+    const cut = paperPath(starPoints(0, 0, 8.5, 5, 0.46)),
+      color = back ? (full ? "#c6af7f" : "#aa98be") : (full ? "#efe2bd" : "#d7c8f6");
+    shotCut(c, cut, color);
+    c.save();
+    c.clip(cut);
+    c.fillStyle = back ? "#8b799d" : "#fff1ce";
+    c.globalAlpha *= 0.34;
+    c.fill(paperPath([[0, -8.5], [0, 0], [8.5, 4], [8.5, -8.5]]));
+    c.restore();
+    crease(c, 0, -7.5, 0, 5.8, 0.65);
+    c.strokeStyle = "#fff2d6";
+    c.lineWidth = PAPER_STOCK.thin.thickness;
+    c.stroke(cut);
+  }).draw(ctx, { x: 0, y: 0, scale: r / 8.5 });
+  ctx.restore();
 }
+
 /** Two tapered paper ribbons separated by air, not an opaque glow over enemies. */
 export function paperTrail(ctx: Ctx, x: number, y: number, angle: number, length: number, color: string, width = 1): void {
   ctx.save();

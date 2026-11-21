@@ -4,10 +4,11 @@
  * over. Flat paper only: hard shadows down-right, lit cut walls toward the
  * moon, no gradients or blur.
  */
+import { reducedPaperMotion } from "../../render/paper-motion.js";
 import type { CutOut, SimState } from "../../game/types.js";
 import type { WeaponArt } from "../../render/art-registry.js";
 import { paperFleck } from "../../render/craft-combat.js";
-import { crease, flatCut, paperEmblem, PAPER_LIGHT, PAPER_SHADOW } from "../../render/paper-kit.js";
+import { crease, flatCut, paperEmblem, PAPER_LIGHT, PAPER_SHADOW, PAPER_STOCK } from "../../render/paper-kit.js";
 import { hash, line, mix, type Ctx, type Point } from "../../render/paper-material.js";
 import { PAPER_CUT } from "./paper-cut.js";
 
@@ -152,8 +153,26 @@ function drawBlade(ctx: Ctx, pts: readonly Point[]): void {
       [hx + s * 1.2 * side, hy - c * 1.2 * side],
     ];
   };
-  for (const side of [-1, 1])
-    flatCut(ctx, tip(side), { color: "#d7dbe2", thickness: 0.45, lift: 0.4, rim: 0.4, texture: 0.15 });
+  // A short shaving curls back along the already-cut line. Its sparse folded
+  // ribbon never extends the slit or suggests another collision area.
+  const start = Math.max(0, n - 5), edge: Point[] = [], back: Point[] = [];
+  for (let i = start; i < n; i++) {
+    const q = pts[i]!, prev = pts[Math.max(0, i - 1)]!,
+      dx = q[0] - prev[0], dy = q[1] - prev[1], len = Math.hypot(dx, dy) || 1,
+      t = (i - start) / Math.max(1, n - start - 1),
+      curl = Math.sin(t * Math.PI) * 3;
+    edge.push([q[0] - dy / len * 1.6, q[1] + dx / len * 1.6 - curl]);
+    back.push([q[0] - dy / len * (1.6 + t * 2), q[1] + dx / len * (1.6 + t * 2) - curl - 0.7]);
+  }
+  ctx.save();
+  ctx.globalAlpha *= 0.65;
+  flatCut(ctx, [...edge, ...back.reverse()], { color: PAPER_STOCK.back, ...PAPER_STOCK.thin, lift: 0.3, texture: 0 });
+  ctx.restore();
+  for (const side of [-1, 1]) {
+    const points = tip(side);
+    flatCut(ctx, points, { color: "#d7dbe2", ...PAPER_STOCK.thin, lift: 0.4, rim: 0.4 });
+    crease(ctx, points[0]![0], points[0]![1], hx, hy, 0.55);
+  }
 }
 
 /** The hole a cut-out leaves: the dark under-sheet, the lit far wall, the shaded overhang. */
@@ -200,19 +219,20 @@ function drawPiece(ctx: Ctx, out: CutOut, u: number): void {
   }
   cx /= pts.length;
   cy /= pts.length;
-  const lift = 1 - (1 - Math.min(1, u * 1.6)) ** 2,
-    rise = lift * PIECE.rise,
-    flip = Math.cos(Math.min(1, u * 1.25) * Math.PI),
-    turn = (hash(out.id * 5.3) < 0.5 ? -1 : 1) * PIECE.turn * u,
+  const calm = reducedPaperMotion(),
+    lift = 1 - (1 - Math.min(1, u * 1.6)) ** 2,
+    rise = calm ? 3 : lift * PIECE.rise,
+    flip = calm ? 1 : Math.cos(Math.min(1, u * 1.25) * Math.PI),
+    turn = calm ? 0 : (hash(out.id * 5.3) < 0.5 ? -1 : 1) * PIECE.turn * u,
     c = Math.cos(turn),
     s = Math.sin(turn),
-    shrink = 1 - 0.18 * u,
+    shrink = calm ? 1 : 1 - 0.18 * u,
     fade = u < 0.7 ? 1 : Math.max(0, (1 - u) / 0.3);
   const moved = (dy: number): Point[] =>
     pts.map((q) => {
       const x = (q.x - cx) * shrink,
         y = (q.y - cy) * shrink * Math.max(0.08, Math.abs(flip));
-      return [cx + x * c - y * s + u * PIECE.drift, cy + x * s + y * c - dy] as Point;
+      return [cx + x * c - y * s + (calm ? 0 : u * PIECE.drift), cy + x * s + y * c - dy] as Point;
     });
   ctx.save();
   // The ground shadow stays on the page and grows softer-edged by spreading, never by blur.

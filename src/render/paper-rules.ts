@@ -34,6 +34,17 @@ export const PAPER_EDGE = Object.freeze({
   /** Outline of the cut. */
   cutAlpha: 0.62,
 });
+/** Opt-in stocks for scene and combat art; legacy/approved head painters keep their defaults.
+ * Thickness is in world drawing units. Pigment sits on a warm unprinted reverse;
+ * folds use flat value steps, never a glossy highlight or a blurred shadow.
+ */
+export const PAPER_STOCK = Object.freeze({
+  thin: Object.freeze({ thickness: 0.45, lift: 0.65, texture: 0.12 }),
+  sheet: Object.freeze({ thickness: 0.75, lift: 0.9, texture: 0.18 }),
+  card: Object.freeze({ thickness: 1.35, lift: 1.2, texture: 0.18 }),
+  back: "#d8ccb5",
+  foldShade: 0.22,
+});
 /** Paper fibre overlay strength (multiply, clipped to the cut). */
 export const PAPER_FIBER = 0.42;
 /** Allowed number of flat layers per asset. */

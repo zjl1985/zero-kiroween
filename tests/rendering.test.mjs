@@ -230,7 +230,7 @@ test("tint fallback without a DOM never composites over the surrounding scene", 
   clearSpriteCache();
 });
 
-test("burning prop tint keys retain phase, burnt flag, canonical scale and variant but exclude time/placement", (t) => {
+test("burning prop damage stays in its cached surface and excludes time/placement from the key", (t) => {
   drawingEnvironment(t);
   const painted = [], art = {
     id: "test-prop", bounds: { l: -12, r: 12, t: -30, b: 4 }, variants: 4, flames: [], scraps: ["#ccbbaa"],
@@ -241,10 +241,14 @@ test("burning prop tint keys retain phase, burnt flag, canonical scale and varia
     const ctx = canvas().getContext("2d");
     drawProp(ctx, art, p, phase, burnt, burning, time);
     assert.equal(tints(ctx).length, 0, "no source-atop on the scene");
+    assert.ok(!ctx.calls.some((c) => c.globalCompositeOperation === "destination-out"), "burn holes never erase the scene");
     assert.ok(!ctx.calls.some((c) => c.op === "filter"), "no per-frame prop filter");
     return images(ctx)[0].args[0];
   };
   const charred = draw();
+  const baked = charred.getContext("2d").calls;
+  assert.ok(baked.some((c) => c.globalCompositeOperation === "source-atop"), "char is restricted to the original prop alpha");
+  assert.ok(baked.some((c) => c.op === "fill" && c.globalCompositeOperation === "destination-out"), "small burn-throughs are baked into the prop only");
   assert.equal(draw({ ...spot, x: -8, y: 90, s: 1.001, seed: 5 }, 0, false, true, 42), charred);
   assert.equal(painted.length, 1);
   assert.notEqual(draw(spot, 0, false, false), charred);

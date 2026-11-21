@@ -3,7 +3,7 @@ import { CATS } from "../registries.js";
 import type { SimState } from "../../game/types.js";
 import type { WeaponArt } from "../../render/art-registry.js";
 import { paperEmblem, PAPER_LIGHT, PAPER_SHADOW } from "../../render/paper-kit.js";
-import { mix, stroke, type Ctx, type Point } from "../../render/paper-material.js";
+import { mix, stroke, hash, line, type Ctx, type Point } from "../../render/paper-material.js";
 
 /** Ribbon look: seconds a stretch of trail stays, half-width at the brush, sample spacing. */
 const RIBBON = { life: 0.9, width: 9, spacing: 7, max: 48 } as const;
@@ -70,6 +70,21 @@ function drawRibbon(ctx: Ctx, state: SimState): void {
   ctx.restore();
   stroke(ctx, edge(litLeft ? left : right), mix(color, PAPER_LIGHT.rim, 0.55), 1, 0.7);
   stroke(ctx, edge(litLeft ? right : left), mix(color, "#1c142b", 0.35), 1.2, 0.55);
+  // Pigment catches in the paper fibres: short capillary branches remain
+  // anchored to trail samples, so the edge does not sparkle frame to frame.
+  for (let i = 1; i < n; i += 2) {
+    const q = trail[i]!, seed = q.x * 0.73 + q.y * 1.17;
+    for (const pts of [left, right]) {
+      const [x, y] = pts[i]!, [mx, my] = mid[i]!,
+        dx = x - mx, dy = y - my, len = Math.hypot(dx, dy) || 1,
+        seep = 0.6 + hash(seed) * 2.1,
+        fade = Math.max(0, 1 - (state.elapsed - q.t) / RIBBON.life);
+      line(ctx, x - dx / len, y - dy / len, x + dx / len * seep, y + dy / len * seep,
+        color, 0.6, fade * 0.4);
+      line(ctx, x - dx * 0.35, y - dy * 0.35, x, y,
+        mix(color, "#32283d", 0.22), 0.45, fade * 0.3);
+    }
+  }
   for (const k of [-0.35, 0.3]) {
     const streak = mid.map(([x, y], i) => [x + (left[i]![0] - x) * k, y + (left[i]![1] - y) * k] as Point);
     stroke(ctx, edge(streak), mix(color, "#fff6e4", 0.4), 0.7, 0.45);

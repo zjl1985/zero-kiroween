@@ -1,7 +1,7 @@
 import type { WaterPolygon, WaterRegion, WaterShape } from "../defs/types.js";
 import { prepareWater } from "../defs/water.js";
-import { foldLine, paperCut, stitchAlong } from "./paper-kit.js";
-import { hash, line, stroke, type Ctx } from "./paper-material.js";
+import { foldLine, paperCut, stitchAlong, PAPER_STOCK } from "./paper-kit.js";
+import { hash, line, path, stroke, type Ctx } from "./paper-material.js";
 
 /** No rough oval or smoothing here: this is the exact simulation polygon. */
 export function waterPath(polygon: WaterPolygon): Path2D {
@@ -12,10 +12,24 @@ export function waterPath(polygon: WaterPolygon): Path2D {
 }
 export function drawWaterGround(ctx: Ctx, region: WaterRegion): void {
   const shore = waterPath(region.shore), { minX, maxX, minY, maxY } = region.bounds;
-  // Pressed earth backing, pale shallow shelf, then a visibly darker blocked core.
+  // Dyed translucent stock over a pressed backing. Shared shore/core vertices
+  // stay exact: the pale shelf and dark blocked core keep their gameplay meaning.
   stroke(ctx, shore, "#52634e", 12, 0.75);
   stroke(ctx, shore, "#9caa84", 3, 0.75);
-  paperCut(ctx, shore, { color: "#628b87", shadow: 1.5, thickness: 1.2, texture: 0.6, edge: "#b2c4ab" });
+  paperCut(ctx, shore, { color: "#628b87", shadow: 1.2, thickness: PAPER_STOCK.thin.thickness, texture: PAPER_STOCK.thin.texture, edge: "#c4c9a7" });
+  ctx.save();
+  ctx.clip(shore);
+  ctx.globalAlpha *= 0.32;
+  ctx.fillStyle = "#8eaa98";
+  ctx.fill(shore);
+  // Broad overlapping tissue folds, not specular ripples or extra shorelines.
+  const midY = (minY + maxY) / 2, span = maxX - minX;
+  ctx.fillStyle = "#87b6b0";
+  ctx.globalAlpha *= 0.35;
+  ctx.fill(path([[minX, midY], [minX + span * 0.62, minY], [maxX, minY], [maxX, midY + 9]]));
+  ctx.fillStyle = "#345969";
+  ctx.fill(path([[minX, midY + 3], [maxX, midY + 12], [maxX, midY + 15], [minX, midY + 5]]));
+  ctx.restore();
   if (region.core.length) paperCut(ctx, waterPath(region.core), {
     color: "#2c4560", shadow: 0, thickness: 0.6, texture: 0.55, edge: "#7caaa9",
   });

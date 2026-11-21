@@ -13,10 +13,11 @@ import { clearSpriteCache, SPRITE_CACHE_LIMIT, spriteCacheSize } from "../dist/e
 import { CAT_ART, ENEMY_ART, LANDMARK_ART, WEAPON_ART } from "../dist/render/art-index.js";
 import { drawActorPaperStatus, drawPaperFlame, drawPaperStatusEffect } from "../dist/render/paper-status-art.js";
 import { drawFireGround, drawProp, fireSprites } from "../dist/render/craft-props.js";
-import { drawLandmarkActivity } from "../dist/render/craft-juice.js";
+import { drawHitFlash, drawLandmarkActivity } from "../dist/render/craft-juice.js";
 import { drawCraftEnemy, drawEnemyGround, drawWarningEdges, drawWarningGround, enemyWarnings } from "../dist/render/craft-enemies.js";
-import { drawCraftShot } from "../dist/render/craft-combat.js";
-import { drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
+import { drawCraftShot, paperDent } from "../dist/render/craft-combat.js";
+import { drawOrbitStar, drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
+import { withPaperMotion } from "../dist/render/paper-motion.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
@@ -82,6 +83,52 @@ function restored(ctx) {
   assert.equal(ctx.globalCompositeOperation, "source-over");
   assert.ok(!ctx.calls.some((c) => c.op === "filter" || c.fillStyle?.kind === "paper"), "no live filter or texture pass");
 }
+
+test("reduced paper motion holds decorative orientation without pinning attack positions or poisoning caches", (t) => {
+  environment(t);
+  const draw = (reduced, time, x = 30) => {
+    const ctx = canvas().getContext("2d");
+    withPaperMotion(reduced, () => drawOrbitStar(ctx, x, 50, time, 1));
+    restored(ctx);
+    return ctx;
+  };
+  const transforms = (ctx) => ctx.calls.filter((c) => ["rotate", "scale"].includes(c.op)).map((c) => [c.op, ...c.args]);
+  const calm = draw(true, 0.1), later = draw(true, 0.7, 80);
+  assert.deepEqual(transforms(calm), transforms(later), "calm star does not spin or flip");
+  assert.ok(later.calls.some((c) => c.op === "translate" && c.args[0] === 80), "actual orbit position still follows gameplay");
+  assert.notDeepEqual(transforms(draw(false, 0.1)), transforms(draw(false, 0.7)), "normal mode still animates after a preference switch");
+  assert.deepEqual(transforms(draw(true, 0.1)), transforms(calm));
+  const dent = (phase) => {
+    const ctx = canvas().getContext("2d");
+    withPaperMotion(true, () => paperDent(ctx, 20, 30, 10, phase));
+    restored(ctx);
+    return ctx;
+  };
+  const early = dent(0.1), late = dent(0.8);
+  assert.deepEqual(transforms(early), transforms(late), "calm hit has no spring oscillation");
+  assert.ok(images(early)[0].globalAlpha > images(late)[0].globalAlpha, "the original hit lifetime still fades out");
+});
+
+test("hit folds reuse finite parts across enemies and recover without changing actor state", (t) => {
+  environment(t);
+  const kind = ENEMY_ART.all()[0].id;
+  let warm;
+  for (let i = 0; i < 40; i++) {
+    const actor = Object.freeze({ id: i, kind, x: i * 3, y: 60, hitFlash: 0.14 * (1 - i / 40) }),
+      ctx = canvas().getContext("2d");
+    const before = JSON.stringify(actor);
+    drawHitFlash(ctx, actor);
+    assert.equal(JSON.stringify(actor), before);
+    restored(ctx);
+    assert.ok(images(ctx).length > 0, "hit uses paper parts");
+    assert.equal(gloss(allPaint(ctx)).length, 0, "no flash glow or blurred material");
+    if (i === 0) warm = spriteCacheSize();
+    else assert.equal(spriteCacheSize(), warm, "phase and actor id do not grow the cache");
+  }
+  const idle = canvas().getContext("2d");
+  drawHitFlash(idle, Object.freeze({ kind, x: 0, y: 0, hitFlash: 0 }));
+  assert.equal(idle.calls.length, 0, "the effect ends with the original hit timer");
+});
 
 test("actor fire and damp paper are distinct, read-only overlays with finite pieces", (t) => {
   environment(t);

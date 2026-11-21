@@ -30,7 +30,7 @@ import {
 } from "./scene.js";
 export { LAMPS, YARD_PROPS };
 import { STATS } from "../game/types.js";
-import { foldLine, paperCut } from "./paper-kit.js";
+import { foldLine, paperCut, PAPER_STOCK } from "./paper-kit.js";
 import { paperFlower, paperSprig } from "./scenery-details.js";
 import { variant } from "./variants.js";
 const W = 960,
@@ -511,22 +511,17 @@ export function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): v
     const color = mix(look.color, i < 2 || i === 4 ? "#713e49" : "#d7a760", i < 2 || i === 4 ? 0.26 : 0.2);
     const p = oval(cx!, cy!, rx!, ry!, seed + i * 17, 0.19);
     paperCut(ctx, p, {
-      color, shadow: 2.4, texture: 0.75, edge: "#bb8c5c", thickness: 0.9,
+      color, shadow: 2.4, texture: PAPER_STOCK.sheet.texture, edge: "#bb8c5c", thickness: PAPER_STOCK.sheet.thickness,
       fold: { from: [cx! - 5, cy! - ry! * 0.8], to: [cx! + 4, cy! + ry! * 0.9], depth: 0.12 },
     });
     ctx.save();
     ctx.clip(p);
-    const foldLight = ctx.createLinearGradient(
-      cx! - rx! * 0.8,
-      cy! - ry!,
-      cx! + rx! * 0.5,
-      cy! + ry!,
-    );
-    foldLight.addColorStop(0, "rgba(249,201,136,.2)");
-    foldLight.addColorStop(0.45, "rgba(245,194,128,.02)");
-    foldLight.addColorStop(1, "rgba(44,19,41,.26)");
-    ctx.fillStyle = foldLight;
-    ctx.fill(p);
+    // Two broad planes meet at the score, rather than a rounded painted highlight.
+    const apex: Point = [cx! - 5, cy! - ry! * 0.8], foot: Point = [cx! + 4, cy! + ry! * 0.9];
+    ctx.fillStyle = mix(color, "#38283b", PAPER_STOCK.foldShade);
+    ctx.fill(path([apex, [cx! - rx!, cy! - ry!], [cx! - rx!, cy! + ry!], foot]));
+    ctx.fillStyle = mix(color, "#edd2a0", 0.15);
+    ctx.fill(path([apex, [cx! + rx!, cy! - ry! * 0.4], foot]));
     ctx.restore();
     stitch(
       ctx,
@@ -543,6 +538,12 @@ export function tree(ctx: Ctx, x: number, y: number, s: number, seed: number): v
     branch.lineTo(cx! + rx! * 0.5, cy! - ry! * 0.4);
     stroke(ctx, branch, "#a7794f", 1.4, 0.85);
     stroke(ctx, branch, "#d1a260", 0.45, 0.8);
+    // A turned lower corner exposes the unprinted back of the folded leaf card.
+    paperCut(ctx, [[cx! + rx! * 0.28, cy! + ry! * 0.74],
+      [cx! + rx! * 0.66, cy! + ry! * 0.52], [cx! + rx! * 0.42, cy! + ry! * 0.84]], {
+      color: mix(color, PAPER_STOCK.back, 0.56), edge: "#d6bb91", thickness: PAPER_STOCK.thin.thickness,
+      shadow: 0.7, texture: PAPER_STOCK.thin.texture,
+    });
     // Leaf fans grow from the branch forks; the rest of each crown stays quiet.
     ctx.save();
     ctx.clip(p);
@@ -637,7 +638,7 @@ export function cottage(
       [-96, -1],
     ]),
     mix(look.color, "#6e7060", 0.32),
-    { shadow: 3.2, edge: "#e0c6a0", texture: 0.9, thickness: 1.1 },
+    { shadow: 3.2, edge: "#e0c6a0", texture: PAPER_STOCK.card.texture, thickness: PAPER_STOCK.card.thickness },
   );
   piece(
     ctx,
@@ -649,7 +650,7 @@ export function cottage(
       [-24, 4],
     ]),
     look.color,
-    { shadow: 2.7, edge: "#f0d7af", texture: 0.9, thickness: 1.1 },
+    { shadow: 2.7, edge: "#f0d7af", texture: PAPER_STOCK.card.texture, thickness: PAPER_STOCK.card.thickness },
   );
   piece(
     ctx,
@@ -672,11 +673,12 @@ export function cottage(
       [-24, 4],
     ]),
   );
-  const wallLight = ctx.createLinearGradient(-24, -70, 83, 5);
-  wallLight.addColorStop(0, "rgba(255,224,175,.13)");
-  wallLight.addColorStop(1, "rgba(88,52,43,.12)");
-  ctx.fillStyle = wallLight;
-  ctx.fillRect(-24, -123, 108, 127);
+  // A broad scored corner makes the house read as folded card, not shaded plaster.
+  ctx.fillStyle = mix(look.color, "#75634f", 0.22);
+  ctx.fill(path([[-24, -61], [-16, -73], [-16, 4], [-24, 4]]));
+  ctx.fillStyle = mix(look.color, "#f0dfb8", 0.18);
+  ctx.fill(path([[23, ridgeY + 10], [83, -62], [83, -53], [23, ridgeY + 20]]));
+  foldLine(ctx, -16, -62, -16, 3, 0.55);
   ctx.restore();
   // Exposed corner masonry and grouped repairs replace uniform wall speckles.
   for (let row = 0; row < 5; row++) {
@@ -728,15 +730,18 @@ export function cottage(
       });
     }
   }
-  const shade = ctx.createLinearGradient(-102, -75, 15, -121);
-  shade.addColorStop(0, "rgba(17,15,29,.16)");
-  shade.addColorStop(1, "rgba(228,170,108,.09)");
-  ctx.fillStyle = shade;
-  ctx.fill(roof);
+  // The eave is a return fold: its exposed underside is darker than the roof plane.
+  ctx.fillStyle = "#332b3b";
+  ctx.globalAlpha *= 0.36;
+  ctx.fill(path([[-111, -58], [-24, -57], [-18, -66], [-103, -66]]));
   ctx.restore();
   paperCut(ctx, [[24, ridgeY], [32, ridgeY + 6], [92, -59], [84, -56], [25, ridgeY + 12], [-19, -54], [-27, -58]], {
     color: "#997550", shadow: 1.1, thickness: 0.8, texture: 0.65, edge: "#d7b482",
   });
+  paperCut(ctx, [[-110, -58], [-24, -57], [-24, -53], [-109, -54]], {
+    color: "#c5af88", edge: "#e5cba1", thickness: 0.55, shadow: 0.7, texture: 0.16,
+  });
+  foldLine(ctx, -109, -58, -25, -57, 0.6);
   const eaves = new Path2D(`M -112 -57 L -24 -56 L 24 ${ridgeY - 1} L 90 -58`);
   stroke(ctx, eaves, "#48332e", 3.8);
   stroke(ctx, eaves, "#c29a61", 1.0);

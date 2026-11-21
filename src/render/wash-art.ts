@@ -18,6 +18,7 @@
  * canvas filters or pixel reads, no gradients, no random numbers. Render only:
  * reads SimState, never mutates it.
  */
+import { reducedPaperMotion } from "./paper-motion.js";
 import { CATS, ENEMY_DEFS } from "../defs/registries.js";
 import { WASH } from "../defs/wash.js";
 import { cachedSprite } from "../engine/sprite.js";
@@ -74,6 +75,7 @@ interface Mask {
   /** Every colourless or fading blot: where the tide line dries. */
   edge: Path2D | null;
   wet: Path2D | null;
+  wrinkles: Path2D | null;
   blank: Path2D | null;
   cut: Path2D | null;
   tide: string;
@@ -268,7 +270,7 @@ function buildMask(seed: number, key: string, bucket: Bucket): Mask {
     levels: (Path2D | null)[] = [null, null, null, null],
     boxes: ([number, number, number, number] | null)[] = [null, null, null, null],
     look = chunkLook(seed, cx, cy),
-    m: Mask = { sig: bucket.sig, levels, boxes, edge: null, wet: null, blank: null, cut: null, ...look },
+    m: Mask = { sig: bucket.sig, levels, boxes, edge: null, wet: null, wrinkles: null, blank: null, cut: null, ...look },
     reach = WASH.cell * (0.5 + BLOT * 1.1);
   for (const { ix, iy, code } of bucket.marks) {
     const step = code & 7;
@@ -282,7 +284,17 @@ function buildMask(seed: number, key: string, bucket: Bucket): Mask {
     }
     if (code & 8) blot(m.blank ??= new Path2D(), ix, iy, 0.94);
     if (code & 16) blot(m.cut ??= new Path2D(), ix, iy, 0.84);
-    if (code & 64) blot(m.wet ??= new Path2D(), ix, iy, 0.9);
+    if (code & 64) {
+      blot(m.wet ??= new Path2D(), ix, iy, 0.9);
+      // World-anchored buckling is baked with the mask, never rebuilt just for animation.
+      const p = m.wrinkles ??= new Path2D(), x = (ix + 0.5) * WASH.cell, y = (iy + 0.5) * WASH.cell;
+      for (let i = 0; i < 2; i++) {
+        const dx = (i - 0.5) * WASH.cell * 0.48;
+        p.moveTo(x + dx - 4, y - 7);
+        p.quadraticCurveTo(x + dx + 3, y - 1, x + dx, y + 5);
+        p.quadraticCurveTo(x + dx - 2, y + 8, x + dx + 2, y + 11);
+      }
+    }
   }
   revisions.set(key, (revisions.get(key) ?? 0) + 1);
   return m;
@@ -397,6 +409,14 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
       ctx.fillStyle = COLORS.wet;
       ctx.fill(m.wet);
       ctx.restore();
+      if (m.wrinkles) {
+        ctx.save();
+        ctx.clip(m.wet);
+        stroke(ctx, m.wrinkles, "#647a7d", 1.4, 0.22);
+        ctx.translate(0.8, -0.6);
+        stroke(ctx, m.wrinkles, "#e3e1cd", 0.65, 0.35);
+        ctx.restore();
+      }
     }
     if (m.blank) {
       // Rubbed out: a faint graphite smear around clean paper, no pencil at all.
@@ -427,8 +447,9 @@ function drawBlooms(ctx: Ctx, view: ViewRect, frame: WashFrame): void {
       look = chunkLook(frame.seed, Math.floor(x / CHUNK.width), Math.floor(y / CHUNK.height)),
       color = m.hint ?? look.pigment,
       p = new Path2D();
-    if (m.dir > 0) blot(p, ix, iy, 0.86 + b.spread * 0.3);
-    else blot(p, ix, iy, 0.35 + b.spread * 0.75);
+    const spread = reducedPaperMotion() ? 0.5 : b.spread;
+    if (m.dir > 0) blot(p, ix, iy, 0.86 + spread * 0.3);
+    else blot(p, ix, iy, 0.35 + spread * 0.75);
     ctx.save();
     ctx.globalAlpha *= b.pigment * (m.dir > 0 ? 1 : 1.1);
     ctx.fillStyle = color;
@@ -479,7 +500,8 @@ export function drawWashEffect(ctx: Ctx, e: Impact, sim: SimState): boolean {
   if (e.kind !== "splash" && e.kind !== "pigment") return false;
   const t = Math.max(0, Math.min(1, 1 - e.life / EFFECT_LIFE[e.kind])),
     fade = 1 - t,
-    ease = 1 - (1 - t) ** 3,
+    motion = reducedPaperMotion() ? 0.2 : t,
+    ease = 1 - (1 - motion) ** 3,
     radius = e.radius ?? 30,
     seed = e.seed ?? Math.round(e.x * 3 + e.y * 7);
   ctx.save();
@@ -492,7 +514,7 @@ export function drawWashEffect(ctx: Ctx, e: Impact, sim: SimState): boolean {
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2 + visHash(seed + i) * 0.5,
         d = radius * (0.2 + ease * (0.6 + visHash(seed + i * 3) * 0.35)),
-        hop = Math.sin(t * Math.PI) * (8 + visHash(seed + i * 5) * 10);
+        hop = reducedPaperMotion() ? 0 : Math.sin(t * Math.PI) * (8 + visHash(seed + i * 5) * 10);
       drop((i % 3) as 0 | 1 | 2).draw(ctx, { x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d * 0.55 - hop });
     }
   } else {
@@ -501,9 +523,9 @@ export function drawWashEffect(ctx: Ctx, e: Impact, sim: SimState): boolean {
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2 + visHash(seed * 3 + i) * 0.7,
         d = radius * (0.15 + ease * (0.45 + visHash(seed + i * 7) * 0.3)),
-        hop = Math.sin(Math.min(1, t * 1.3) * Math.PI) * (10 + visHash(seed + i * 11) * 12),
-        turn = (Math.floor(visHash(seed + i * 13) * 6) + Math.floor(t * 9)) % 6;
-      confetti(i % 3, turn, color).draw(ctx, { x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d * 0.5 - hop + t * 6 });
+        hop = reducedPaperMotion() ? 0 : Math.sin(Math.min(1, t * 1.3) * Math.PI) * (10 + visHash(seed + i * 11) * 12),
+        turn = (Math.floor(visHash(seed + i * 13) * 6) + Math.floor(motion * 9)) % 6;
+      confetti(i % 3, turn, color).draw(ctx, { x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d * 0.5 - hop + motion * 6 });
     }
   }
   ctx.restore();

@@ -1,11 +1,12 @@
+import { reducedPaperMotion } from "./paper-motion.js";
 import { cachedSprite } from "../engine/sprite.js";
 import { EFFECT_LIFE, type Impact, type PaperStatus } from "../game/types.js";
-import { foldLine } from "./paper-kit.js";
-import { glow, line, path, piece, stroke, type Ctx } from "./paper-material.js";
+import { crease, flatCut, foldLine } from "./paper-kit.js";
+import { line, path, piece, stroke, type Ctx } from "./paper-material.js";
 
 /** A fixed cut, animated by transforms only; shared by carried and grid fire. */
 export function drawPaperFlame(ctx: Ctx, x: number, y: number, size: number, phase: number, variant = 0): void {
-  const v = Math.abs(variant) % 2;
+  const v = Math.abs(variant) % 2, motion = reducedPaperMotion() ? 0.5 : phase;
   const sprite = cachedSprite(`status:flame:${v}`, 24, 34, 2, (c) => {
     c.translate(12, 30);
     piece(c, path([[-6, 0], [-7, -7], [-3, -15], [-2, -10], [1, -25], [4, -16], [3, -11], [6, -15], [7, -5], [5, 0]]), "#cf6037", { shadow: 0.5, edge: "#f7b96a", thickness: 0.9, texture: 0.3 });
@@ -14,8 +15,8 @@ export function drawPaperFlame(ctx: Ctx, x: number, y: number, size: number, pha
   }, { x: 0.5, y: 30 / 34 });
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate((phase - 0.5) * 0.13);
-  ctx.scale(1, 0.85 + phase * 0.3);
+  ctx.rotate((motion - 0.5) * 0.13);
+  ctx.scale(1, 0.85 + motion * 0.3);
   sprite.draw(ctx, { x: 0, y: 0, scale: size / 25 });
   ctx.restore();
 }
@@ -31,6 +32,15 @@ function mote(kind: Mote) {
     }
     if (kind === "char") {
       piece(ctx, path([[-7, 7], [-8, -4], [-5, -2], [-6, -8], [-2, -5], [0, 0], [6, 5], [2, 8], [-1, 5], [-3, 9]]), "#33262b", { shadow: 0, edge: "#805741", texture: 0.4, thickness: 0.7 });
+      // A dark opening reads as burnt-through paper, bounded by an ash lip.
+      flatCut(ctx, [[-4, 0], [-1, -3], [3, 1], [1, 5], [-2, 4]], {
+        color: "#18151c", edge: "#a2937e", thickness: 0.65, lift: 0, texture: 0,
+      });
+      // The shrinking burnt edge rolls out, exposing its unprinted reverse.
+      flatCut(ctx, [[-6, -3], [-7, -8], [-3, -6], [-1, -2]], {
+        color: "#ba9e7b", edge: "#49352c", thickness: 0.6, lift: 0.9, texture: 0.15,
+      });
+      crease(ctx, -6, -3, -1, -2, 0.6);
       line(ctx, -5, -1, -3, 5, "#cb7846", 0.65, 0.8);
       return;
     }
@@ -69,16 +79,38 @@ export function drawActorPaperStatus(
       ctx.restore();
       drawPaperFlame(ctx, actor.x + side * radius * 0.72, actor.y - 2, Math.min(23, height * 0.52), 0.5 + Math.sin(time * 10 + side) * 0.5, side < 0 ? 0 : 1);
     }
-    glow(ctx, actor.x, actor.y - 6, radius * 1.8, "#e8954b", 0.13, 0.6);
+
   } else {
     ctx.globalAlpha *= Math.min(0.9, (actor.wetTime ?? 0) * 2);
+    // A finite lower-body swatch: pigment gathers in a tide line and the soaked sheet buckles.
+    const damp = cachedSprite("status:damp-pleats", 32, 24, 2, (c) => {
+      c.translate(16, 12);
+      const body = path([[-11, 1], [-8, -5], [-1, -4], [5, -6], [11, -1], [9, 5], [2, 7], [-7, 5]]);
+      c.save();
+      c.globalAlpha *= 0.35;
+      c.fillStyle = "#688f99";
+      c.fill(body);
+      stroke(c, body, "#526f78", 1, 0.8);
+      c.restore();
+      for (let i = 0; i < 3; i++) {
+        const x = -7 + i * 6;
+        c.save();
+        c.globalAlpha *= 0.5;
+        flatCut(c, [[x, 2], [x + 2, -3], [x + 4, 3]], {
+          color: "#c1c9bb", thickness: 0.35, lift: 0.3, texture: 0,
+        });
+        crease(c, x + 2, -3, x + 4, 3, 0.35);
+        c.restore();
+      }
+    }, { x: 0.5, y: 0.5 });
+    damp.draw(ctx, { x: actor.x, y: actor.y - height * 0.22, scale: Math.min(1.15, radius / 12) });
     // Blue teardrops + interrupted ripple distinguish damp paper from carried fire.
     const ripple = new Path2D();
     ripple.ellipse(actor.x, actor.y + 1, radius + 4, 3.5, 0, 0.1, Math.PI * 0.9);
     ripple.ellipse(actor.x, actor.y + 1, radius + 4, 3.5, 0, Math.PI * 1.12, Math.PI * 1.88);
     stroke(ctx, ripple, "#a5ced0", 0.9, 0.8);
     for (let i = 0; i < 3; i++) {
-      const k = (time * 0.8 + i / 3) % 1;
+      const k = reducedPaperMotion() ? i / 3 : (time * 0.8 + i / 3) % 1;
       ctx.save();
       ctx.globalAlpha *= 1 - k * 0.65;
       mote("drop").draw(ctx, { x: actor.x + (i - 1) * radius * 0.72, y: actor.y - height * 0.65 + k * height * 0.55, scale: 0.25 + Math.min(0.15, radius / 100) });
@@ -107,18 +139,19 @@ export function drawPaperStatusEffect(ctx: Ctx, e: Impact): boolean {
   if (e.kind !== "steam" && e.kind !== "regrow" && e.kind !== "ink-wash" && e.kind !== "landmark-reward") return false;
   const t = Math.max(0, Math.min(1, 1 - e.life / EFFECT_LIFE[e.kind])),
     kind: Mote = e.kind === "steam" ? "steam" : e.kind === "regrow" ? "leaf" : e.kind === "ink-wash" ? "ink" : "reward",
-    count = kind === "steam" ? 3 : kind === "reward" ? 6 : 5;
+    count = kind === "steam" ? 3 : kind === "reward" ? 6 : 5,
+    motion = reducedPaperMotion() ? 0.2 : t;
   ctx.save();
   ctx.globalAlpha *= (1 - t) * Math.min(1, t * 12 + 0.3);
   for (let i = 0; i < count; i++) {
     const a = i * Math.PI * 2 / count + (e.seed ?? 0),
-      spread = kind === "steam" ? 7 + t * 9 : 6 + t * Math.min(35, e.radius ?? 26),
+      spread = kind === "steam" ? 7 + motion * 9 : 6 + motion * Math.min(35, e.radius ?? 26),
       x = e.x + Math.cos(a) * spread,
-      y = e.y - 9 + Math.sin(a) * spread * 0.4 - t * (kind === "steam" ? 32 : 17);
+      y = e.y - 9 + Math.sin(a) * spread * 0.4 - motion * (kind === "steam" ? 32 : 17);
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(kind === "steam" ? Math.sin(a) * 0.15 : a + t * 1.4);
-    mote(kind).draw(ctx, { x: 0, y: 0, scale: kind === "steam" ? 0.55 + t * 0.45 : 0.35 + (1 - t) * 0.25 });
+    ctx.rotate(kind === "steam" ? Math.sin(a) * 0.15 : a + motion * 1.4);
+    mote(kind).draw(ctx, { x: 0, y: 0, scale: kind === "steam" ? 0.55 + motion * 0.45 : 0.35 + (1 - motion) * 0.25 });
     ctx.restore();
   }
   ctx.restore();

@@ -146,7 +146,20 @@ export function paintSheet(ctx: Ctx, corners: readonly Point[], look: SheetLook,
   parts.forEach((q, n) => {
     const color = look.colors[Math.floor(hash(sd + 20 + n) * look.colors.length)]!,
       pts = sheetOutline(q, look, sd + n * 7);
-    groundSheet(ctx, pts, color, look, sd + n);
+    const sheet = groundSheet(ctx, pts, color, look, sd + n);
+    // One shallow pressure fold per sheet: anchored to the world sheet, so
+    // separately baked chunks agree. It is a score in the base, not a wall.
+    if (hash(sd + n * 17 + 81) > 0.35) {
+      const u = lerp(q[0]!, q[3]!, 0.2 + hash(sd + 82) * 0.3),
+        v = lerp(q[1]!, q[2]!, 0.35 + hash(sd + 83) * 0.35);
+      ctx.save();
+      ctx.clip(sheet);
+      ctx.globalAlpha *= 0.24;
+      ctx.fillStyle = mix(color, PAPER_EDGE.lip, 0.35);
+      ctx.fill(path([[u[0] + 18, u[1]], [v[0] - 18, v[1]], [v[0] - 18, v[1] + 3], [u[0] + 18, u[1] + 1]]));
+      crease(ctx, u[0] + 18, u[1], v[0] - 18, v[1], 0.35);
+      ctx.restore();
+    }
     if (look.seam === "furrow") {
       // Two ridges run along each strip: furrows pressed into the field sheet.
       for (const f of [0.38, 0.68]) {

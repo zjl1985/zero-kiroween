@@ -4,6 +4,7 @@
  * Everything is derived from SimState and view time; nothing here consumes the
  * sim RNG or writes to the state.
  */
+import { reducedPaperMotion } from "./paper-motion.js";
 import { EFFECT_LIFE, type ChestState, type Impact, type InteractState, type SimState, type TreatState, type EnemyState, type PickupState } from "../game/types.js";
 import { ENEMIES } from "../game/enemies.js";
 import { ENEMY_ART } from "./art-registry.js";
@@ -12,7 +13,7 @@ import { PUMPKIN } from "../game/interactions.js";
 import { box, glow, line, mix, oval, path, piece, shadow, stitch, stroke, type Ctx, type Point } from "./paper-material.js";
 import { visHash } from "./hash.js";
 import { YARD_PROPS } from "./scene.js";
-import { combatPart, paperFleck } from "./craft-combat.js";
+import { combatPart, paperDent, paperFleck } from "./craft-combat.js";
 import { ring } from "./combat-fx.js";
 import { LANDMARK_DEFS } from "../defs/registries.js";
 import type { LandmarkPlace } from "../defs/types.js";
@@ -44,20 +45,14 @@ export function cameraShake(sim: SimState, time: number, reduced: boolean): { x:
   };
 }
 
-/** Torn edge glints keep the enemy's eyes and attack pose visible on impact. */
+/** The hem dents then springs back; no face-covering white flash or detached hit particles. */
 export function drawHitFlash(ctx: Ctx, e: EnemyState): void {
-  const f = (e.hitFlash ?? 0) / 0.14;
+  const f = Math.min(1, (e.hitFlash ?? 0) / 0.14);
   if (f <= 0) return;
-  const r = enemyRadius(e);
-  ctx.save();
-  ctx.globalAlpha *= Math.min(1, f) * 0.9;
-  const spread = 1 - Math.min(1, f);
-  for (const side of [-1, 1]) {
-    const x = e.x + side * r * (0.85 + spread * 0.35), y = e.y - r * 1.1;
-    stroke(ctx, path([[x - side * 3, y - 5], [x, y - 1], [x - side * 2, y + 4]]), "#fff1ca", 1.1);
-    paperFleck(ctx, x + side * spread * 5, y - 7 - spread * 4, 1.5 + f, "#ead6ac", side * (0.4 + spread));
-  }
-  ctx.restore();
+  const r = enemyRadius(e), t = 1 - f;
+  for (const side of [-1, 1])
+    paperDent(ctx, e.x + side * r * 0.62, e.y - r * 0.42,
+      Math.min(10, r * 0.65), t, side * 0.6);
 }
 
 /** Small paper stars circling enemies frozen by the moon-lantern. */
@@ -137,31 +132,32 @@ function drawDissolve(ctx: Ctx, e: Impact): void {
     look = art.dissolve,
     colors = look.flakes,
     r = ENEMIES[art.id].radius,
-    count = look.count;
+    count = look.count, reduced = reducedPaperMotion();
   ctx.save();
-  if (look.uncrumple && t < 0.55) drawUncrumple(ctx, e.x, e.y - r, r, t / 0.55, seed);
+  if (!reduced && look.uncrumple && t < 0.55) drawUncrumple(ctx, e.x, e.y - r, r, t / 0.55, seed);
   for (let i = 0; i < count; i++) {
     const h1 = visHash(seed * 37 + i * 11),
       h2 = visHash(seed * 53 + i * 7 + 1),
       h3 = visHash(seed * 71 + i * 3 + 2),
       // Flakes leave the edge one after another, like petals letting go.
       start = (look.start ?? 0) + h1 * 0.3,
-      k = clamp01((t - start) / (1 - start));
-    if (k <= 0) continue;
-    const a = h2 * Math.PI * 2,
-      out = r * (0.5 + h3 * 0.6) + k * (14 + h1 * 20) * (look.spread ?? 1),
-      fall = k * k * (10 + h2 * 12),
-      x = e.x + Math.cos(a) * out + Math.sin(k * 6 + i) * 3 * k,
-      y = e.y - r + Math.sin(a) * out * 0.6 + fall - k * 6,
-      size = (look.size ?? 2.6) * (1 - k * 0.5) + h3,
-      spin = a + k * (4 + h1 * 6),
-      flip = Math.abs(Math.cos(k * 7 + i)) * 0.8 + 0.2;
+      k = reduced ? t : clamp01((t - start) / (1 - start));
+    if (k <= 0 && !reduced) continue;
+    const motion = reduced ? 0.15 : k,
+      a = h2 * Math.PI * 2,
+      out = r * (0.5 + h3 * 0.6) + motion * (14 + h1 * 20) * (look.spread ?? 1),
+      fall = motion * motion * (10 + h2 * 12),
+      x = e.x + Math.cos(a) * out + Math.sin(motion * 6 + i) * 3 * motion,
+      y = e.y - r + Math.sin(a) * out * 0.6 + fall - motion * 6,
+      size = (look.size ?? 2.6) * (1 - motion * 0.5) + h3,
+      spin = a + motion * (4 + h1 * 6),
+      flip = Math.abs(Math.cos(motion * 7 + i)) * 0.8 + 0.2;
     ctx.save();
     ctx.globalAlpha = 1 - k ** 1.6;
     ctx.translate(x, y);
     ctx.rotate(spin);
     ctx.scale(1, flip);
-    paperFleck(ctx, 0, 0, size, colors[i % colors.length]!);
+    paperFleck(ctx, 0, 0, size, colors[i % colors.length]!, 0, Math.cos(motion * 7 + i) < 0);
     ctx.restore();
   }
   ctx.restore();

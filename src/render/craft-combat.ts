@@ -1,3 +1,4 @@
+import { reducedPaperMotion } from "./paper-motion.js";
 import {
   piece,
   path,
@@ -8,9 +9,10 @@ import {
   mix,
   type Ctx,
 } from "./paper-material.js";
-import { PAPER_VALUE } from "./paper-rules.js";
+import { PAPER_STOCK, PAPER_VALUE } from "./paper-rules.js";
 import { cachedSprite } from "../engine/sprite.js";
-import { crease, flatLayer, foldLine } from "./paper-kit.js";
+import { crease, flatCut, flatLayer, foldLine, tornEdge } from "./paper-kit.js";
+import { backSide } from "./paper-scraps.js";
 import { enemyPart, enemyShadow } from "./craft-enemies.js";
 
 /** Static weapon cuts: placement, rotation and flight never participate in the key. */
@@ -36,14 +38,46 @@ export function shotCut(ctx: Ctx, p: Path2D, color: string): void {
   ctx.fillStyle = color;
   ctx.fill(p);
 }
-export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: string, angle = 0): void {
+export function paperFleck(ctx: Ctx, x: number, y: number, size: number, color: string, angle = 0, back = false): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  combatPart(`fleck:${color}`, 16, 16, (c) => {
-    piece(c, path([[-4, -1.6], [0.8, -3.2], [4, 0.4], [-0.8, 2.8]]), color, { shadow: 0.4, texture: 0.3, thickness: 0.45 });
-    foldLine(c, -3, -1, 2.7, 0.7, 0.4);
+  combatPart(`fleck:${color}:${back ? 1 : 0}`, 18, 18, (c) => {
+    const tear = tornEdge(-4, -1.6, 0.8, -3.2, 4, 0.55, 17);
+    flatCut(c, [...tear, [4, 0.4], [0.6, 2.8], [-3.5, 1.6]], {
+      ...PAPER_STOCK.thin, color: back ? backSide(color) : color,
+    });
+    stroke(c, path(tear), "#f4e9d5", 0.75, 0.9);
+    flatCut(c, [[0.6, 2.8], [0.3, -0.5], [4, 0.4]], {
+      ...PAPER_STOCK.thin, color: back ? color : backSide(color), texture: 0,
+    });
+    crease(c, 0.3, -0.5, 0.6, 2.8, 0.5);
   }).draw(ctx, { x: 0, y: 0, scale: size / 4 });
+  ctx.restore();
+}
+/** A pressed valley and a hinged paper lip; phase follows the existing hit lifetime. */
+export function paperDent(ctx: Ctx, x: number, y: number, size: number, phase: number, angle = 0): void {
+  const t = Math.max(0, Math.min(1, phase)),
+    recoil = reducedPaperMotion() ? 0.45 : (1 - t) * (0.55 + Math.sin(t * Math.PI * 2.5) * 0.35);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.globalAlpha *= 1 - t;
+  ctx.scale(size / 12, size / 12);
+  combatPart("impact-valley", 32, 26, (c) => {
+    flatCut(c, [[-11, -2], [-3, -5], [3, 0], [9, 3], [-2, 2]], {
+      color: "#58485b", thickness: 0.4, lift: 0, texture: 0,
+    });
+    crease(c, -10, -2, 3, 0, 0.6);
+    crease(c, 3, 0, 8, 3, 0.5);
+  }).draw(ctx, { x: 0, y: 0 });
+  ctx.scale(1, Math.max(0.12, recoil));
+  combatPart("impact-lip", 32, 26, (c) => {
+    flatCut(c, [[-10, -2], [-1, -9], [3, 0]], {
+      ...PAPER_STOCK.thin, color: PAPER_STOCK.back,
+    });
+    crease(c, -10, -2, 3, 0, 0.55);
+  }).draw(ctx, { x: 0, y: 0 });
   ctx.restore();
 }
 /** One dark dyed cut, creased toward the moon and pooled along the foot. */
@@ -154,14 +188,15 @@ export function drawCraftShot(
 /** A brief clipped-paper impact, keeping the centre open enough to read the target. */
 export function drawPaperImpact(ctx: Ctx, impact: { x: number; y: number; life: number; kind: "hit" | "defeat" }): void {
   const defeat = impact.kind === "defeat", t = Math.max(0, Math.min(1, 1 - impact.life / (defeat ? 0.32 : 0.16))),
-    count = defeat ? 8 : 5, reach = defeat ? 26 : 16;
+    count = defeat ? 6 : 2, reach = defeat ? 26 : 12,
+    motion = reducedPaperMotion() ? 0.2 : t;
   ctx.save();
   ctx.globalAlpha *= 1 - t;
-  glow(ctx, impact.x, impact.y, defeat ? 24 : 15, "#f0c47d", 0.2 * (1 - t));
+  if (!defeat) paperDent(ctx, impact.x, impact.y, 10, t, -0.35);
   for (let i = 0; i < count; i++) {
-    const a = i / count * Math.PI * 2 + 0.2, r = 4 + t * reach;
+    const a = i / count * Math.PI * 2 + 0.2, r = 4 + motion * reach;
     paperFleck(ctx, impact.x + Math.cos(a) * r, impact.y + Math.sin(a) * r * 0.65,
-      (defeat ? 2.9 : 2) * (1 - t * 0.5), i % 2 ? "#e1b477" : "#f6e3b6", a + t);
+      (defeat ? 4 : 2) * (1 - motion * 0.5), i % 2 ? "#e1b477" : "#f6e3b6", a + motion, Math.cos(motion * 7 + i) < 0);
   }
   ctx.restore();
 }

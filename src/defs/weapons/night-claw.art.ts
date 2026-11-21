@@ -1,8 +1,8 @@
 /** Card art for night-claw. */
 import type { WeaponArt } from "../../render/art-registry.js";
-import { piece, line } from "../../render/paper-material.js";
+import { path, line } from "../../render/paper-material.js";
 import { combatPart } from "../../render/craft-combat.js";
-import { crease, paperEmblem, tornEdge } from "../../render/paper-kit.js";
+import { crease, flatCut, paperEmblem, tornEdge, PAPER_STOCK } from "../../render/paper-kit.js";
 
 /** One claw blade as a curved paper sliver, base at (x, y). */
 function blade(p: Path2D, x: number, y: number): void {
@@ -45,7 +45,9 @@ export const NIGHT_CLAW_ART: WeaponArt = {
         const color = i === 0 ? "#f3dca2" : "#d9b878";
         combatPart(`claw-cut:${color}`, 76, 34, (c) => {
           // A bent sliver with an open centre; targets remain visible between the three cuts.
-          piece(c, new Path2D("M -18 7 Q 1 -8 20 -2 L 31 -6 Q 13 5 -18 7 Z"), color, { shadow: 0.6, edge: "#fff0c5", texture: 0.3, thickness: 0.6 });
+          flatCut(c, new Path2D("M -18 7 Q 1 -8 20 -2 L 31 -6 Q 13 5 -18 7 Z"), { color, ...PAPER_STOCK.thin, lift: 0.4, edge: "#fff0c5" });
+          // The returning edge shows the paper back, not a luminous streak.
+          flatCut(c, path([[-18, 7], [-9, 4], [-4, 6], [-14, 9]]), { color: PAPER_STOCK.back, ...PAPER_STOCK.thin, lift: 0, texture: 0 });
           line(c, -8, 3, 13, -1, "#fff4d4", 0.65, 0.8);
           c.globalAlpha = 0.35;
           line(c, -17, 11, 8, 8, "#b7a6c3", 0.8);

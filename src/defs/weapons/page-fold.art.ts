@@ -6,10 +6,11 @@
  * only: one moon light from the top-right, hard shadows down-right, no
  * gradients or blur.
  */
+import { reducedPaperMotion } from "../../render/paper-motion.js";
 import type { FoldBridge, FoldFlap, PaperWall, SimState } from "../../game/types.js";
 import type { WeaponArt } from "../../render/art-registry.js";
 import { combatPart, paperFleck } from "../../render/craft-combat.js";
-import { crease, paperEmblem, PAPER_LIGHT, PAPER_SHADOW } from "../../render/paper-kit.js";
+import { crease, paperEmblem, PAPER_LIGHT, PAPER_SHADOW, PAPER_STOCK } from "../../render/paper-kit.js";
 import { grain, hash, line, mix, type Ctx, type Point } from "../../render/paper-material.js";
 import { bridgeCover, foldTurn, PAPER_VERB_LOOK, wallStand } from "../../render/timeline.js";
 import { PAGE_FOLD } from "./page-fold.js";
@@ -74,7 +75,8 @@ function quad(a: Point, b: Point, ox: number, oy: number): Path2D {
  */
 function drawFlap(ctx: Ctx, f: FoldFlap, age: number): void {
   const life = PAGE_FOLD.flapLife,
-    turn = foldTurn(age),
+    // Calm mode shows the landed reverse face for the same attack lifetime.
+    turn = reducedPaperMotion() ? 1 : foldTurn(age),
     theta = Math.PI * turn,
     fade = age < life * 0.6 ? 1 : Math.max(0, (life - age) / (life * 0.4)),
     tx = -f.ny,
@@ -119,7 +121,23 @@ function drawFlap(ctx: Ctx, f: FoldFlap, age: number): void {
   const far: Point = [a[0] + ox, a[1] + oy],
     farB: Point = [b[0] + ox, b[1] + oy],
     litFar = ox * PAPER_LIGHT.dirX + oy * PAPER_LIGHT.dirY > 0;
+  // The unprinted cut core stays visible at the silhouette, even edge-on.
+  line(ctx, far[0], far[1] + PAPER_STOCK.sheet.thickness, farB[0], farB[1] + PAPER_STOCK.sheet.thickness,
+    PAPER_STOCK.back, PAPER_STOCK.sheet.thickness * 1.8, fade);
   line(ctx, far[0], far[1], farB[0], farB[1], litFar ? PAPER_LIGHT.rim : "#3a2c22", 1.1, 0.8 * fade);
+  line(ctx, a[0], a[1], far[0], far[1], "#51435e", PAPER_STOCK.sheet.thickness, 0.65 * fade);
+  // A narrow reverse-paper corner peels up from the far edge; it belongs to
+  // this flap and shares its existing lifetime, never creates another wall.
+  if (Math.sin(theta) > 0.1) {
+    const corner = new Path2D(), k = 0.12;
+    corner.moveTo(farB[0], farB[1]);
+    corner.lineTo(farB[0] - (b[0] - a[0]) * k, farB[1] - (b[1] - a[1]) * k);
+    corner.lineTo(farB[0] - ox * k, farB[1] - oy * k - 2 * Math.sin(theta));
+    corner.closePath();
+    ctx.globalAlpha = fade * 0.85;
+    ctx.fillStyle = back ? FLAP.face : PAPER_STOCK.back;
+    ctx.fill(corner);
+  }
   ctx.restore();
   crease(ctx, a[0], a[1], b[0], b[1], 0.9 * fade);
 }

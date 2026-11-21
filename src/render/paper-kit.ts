@@ -225,7 +225,7 @@ export function warmGlow(ctx: Ctx, x: number, y: number, r: number, strength = 0
 // Flat paper layers: the paper ruleset (paper-rules.ts) as drawing helpers.
 // No gradients, no shadowBlur, no additive light; one shadow direction.
 
-export { PAPER_EDGE, PAPER_FIBER, PAPER_LAYERS, PAPER_LIGHT, PAPER_SHADOW } from "./paper-rules.js";
+export { PAPER_EDGE, PAPER_FIBER, PAPER_LAYERS, PAPER_LIGHT, PAPER_SHADOW, PAPER_STOCK } from "./paper-rules.js";
 
 /** One flat paper layer of an emblem: one colour, one or more cuts in `shape`. */
 export interface FlatLayer {

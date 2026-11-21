@@ -40,7 +40,16 @@ export function scrapPieces(
       sa = Math.sin(a),
       at = (u: number, v: number): Point => [px + (u * ca - v * sa), py + (u * sa + v * ca) * 0.5];
     const body: Point[] = [at(-w, -w * 0.5), at(w * 0.15, -w * 0.72), at(w * 0.95, -w * 0.25), at(w * 0.7, w * 0.55), at(-w * 0.55, w * 0.6)];
-    flatCut(ctx, body, { color: c, thickness: 0.7, lift: 0.5, rim: 0.55, texture: 0.5 });
+    // A torn edge exposes the pale pulp between the printed face and reverse.
+    const tear = tornEdge(body[0]![0], body[0]![1], body[1]![0], body[1]![1], 5, 0.7, seed + i);
+    flatCut(ctx, [...tear, ...body.slice(2)], { color: c, thickness: 0.7, lift: 0.5, rim: 0.55, texture: 0.18 });
+    const fibers = new Path2D();
+    tear.forEach(([px, py], j) => j ? fibers.lineTo(px, py) : fibers.moveTo(px, py));
+    ctx.save();
+    ctx.strokeStyle = "#f4e9d5";
+    ctx.lineWidth = 0.8;
+    ctx.stroke(fibers);
+    ctx.restore();
     // One corner curls up and over: the pale back of the paper with its own small shadow.
     const tip = body[2]!, k = 0.42;
     const curl: Point[] = [
