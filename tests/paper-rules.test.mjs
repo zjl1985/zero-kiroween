@@ -118,7 +118,8 @@ test("every registered weapon and passive icon uses bounded opaque integer-grid 
     const ctx = rec.canvas().getContext("2d"), from = rec.log.length;
     art.icon(ctx, "#f0dfbf");
     const mine = rec.log.slice(from);
-    assertPixelCells(mine, art.id);
+    // Detailed equipment allows seven solid values: material faces, fittings and highlight.
+    assertPixelCells(mine, art.id, { palette: 7 });
     const first = mine.filter(e => e.op === "fillRect").map(e => [e.args, e.fillStyle]);
     const next = rec.log.length;
     art.icon(ctx, "#f0dfbf");

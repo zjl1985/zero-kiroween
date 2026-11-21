@@ -1,21 +1,21 @@
 /** Native terrain pixels, anchored to the world lattice before chunk caching. */
 import type { BiomeArt } from "./art-registry.js";
 import { hash, type Ctx } from "./paper-material.js";
-export const TERRAIN_PIXEL = 2;
+export const TERRAIN_PIXEL = 1;
 export type PixelTerrainKind = "ruled" | "furrow" | "torn" | "wave" | "scallop";
 export const TERRAIN_PALETTE = {
-  ruled: ["#46505a", "#67716c", "#92977c"],
-  furrow: ["#51433b", "#856649", "#b58b56"],
-  torn: ["#373d50", "#56615c", "#849477"],
-  wave: ["#324b56", "#52786d", "#81a58a"],
-  scallop: ["#354e48", "#5c805a", "#92ad6c"],
+  ruled: ["#555f61", "#67716c", "#858d79"],
+  furrow: ["#6b5542", "#856649", "#a58a61"],
+  torn: ["#454e51", "#56615c", "#79896f"],
+  wave: ["#41635f", "#52786d", "#7b9c85"],
+  scallop: ["#496b50", "#5c805a", "#8b9f6c"],
 } as const;
 export function terrainPalette(kind: string): readonly [string, string, string] {
   return TERRAIN_PALETTE[kind as PixelTerrainKind] ?? TERRAIN_PALETTE.scallop;
 }
 export function pixelRect(ctx: Ctx, x: number, y: number, w: number, h: number, color: string): void {
   ctx.fillStyle = color;
-  ctx.fillRect(Math.floor(x / 2) * 2, Math.floor(y / 2) * 2, Math.max(2, Math.round(w / 2) * 2), Math.max(2, Math.round(h / 2) * 2));
+  ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
 }
 /** One authored cluster: rocks, furrows, reeds or little grass fans, never uniform noise. */
 export function pixelTerrainCluster(ctx: Ctx, x: number, y: number, seed: number, kind: string): void {
@@ -24,11 +24,12 @@ export function pixelTerrainCluster(ctx: Ctx, x: number, y: number, seed: number
   if (kind === "ruled") {
     for (let n = 0; n < 3; n++) {
       const dx = n * 12 - 16, dy = (n % 2) * 6;
-      q(dx, dy + 3, 12, 6, dark); q(dx, dy, 10, 6, mid); q(dx + 2, dy, 8, 2, light);
+      q(dx, dy + 2, 11, 5, dark); q(dx + 1, dy, 9, 5, mid); q(dx + 2, dy, 6, 1, light);
+      q(dx + 1, dy + 1, 1, 3, light); q(dx + 8, dy + 3, 2, 1, dark);
     }
   } else if (kind === "furrow") {
     for (let n = 0; n < 3; n++) {
-      q(-18, n * 8, 34, 4, dark); q(-16, n * 8 - 2, 30, 2, light);
+      q(-17, n * 8, 32, 2, dark); q(-15, n * 8 - 1, 28, 1, light);
       q(-12 + n * 8, n * 8 - 6, 2, 6, "#638454");
       q(-14 + n * 8, n * 8 - 4, 6, 2, "#91ab63");
     }
@@ -41,8 +42,9 @@ export function pixelTerrainCluster(ctx: Ctx, x: number, y: number, seed: number
   } else {
     for (let n = 0; n < 4; n++) {
       const dx = n * 6 - 12, dy = Math.floor(hash(seed + n * 3) * 3) * 2;
-      q(dx - 2, dy + 2, 8, 2, dark); q(dx, dy - 4, 2, 6, mid); q(dx - 2, dy - 2, 2, 4, light);
-      q(dx + 2, dy - 2, 2, 4, mid);
+      q(dx - 2, dy + 2, 6, 1, dark); q(dx, dy - 4, 1, 6, light);
+      q(dx - 2, dy - 2, 1, 2, light); q(dx - 1, dy, 1, 2, mid);
+      q(dx + 2, dy - 1, 1, 2, light); q(dx + 1, dy + 1, 1, 1, mid);
     }
     if (kind === "torn") {
       q(-7, 5, 10, 4, dark); q(-7, 3, 8, 4, mid); q(-5, 3, 6, 2, light);
@@ -58,7 +60,7 @@ export function pixelBiomeArt(art: BiomeArt): BiomeArt {
     ...art,
     patch(ctx, x, y, r, seed) {
       const kind = art.sheet.seam, [dark, mid, light] = terrainPalette(kind),
-        count = Math.max(4, Math.min(9, Math.round(r / 10)));
+        count = Math.max(3, Math.min(6, Math.round(r / 15)));
       ctx.save();
       // Group motifs in staggered rows with open space, rather than noise across a disc.
       for (let i = 0; i < count; i++) {

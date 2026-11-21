@@ -101,16 +101,40 @@ function bodySprite(art: CatArt, costume: CostumeArt | undefined, frame: number,
       block(c, -12, -25, 4, 19, accent); block(c, 8, -25, 4, 19, accent);
       block(c, -8, -24, 16, 17, coat.fold); block(c, -1, -23, 2, 15, accent);
       block(c, -11, -10, 22, 3, b.belt); block(c, -2, -10, 4, 3, b.metal);
+      // Single-pixel tailoring: lapel steps, turned cuffs, pocket mouths and
+      // a split hem give the small coat a construction rather than a flat slab.
+      block(c, -14, -25, 1, 14, coat.bodyEdge); block(c, 13, -25, 1, 18, coat.fold);
+      block(c, -7, -24, 2, 3, coat.body); block(c, -5, -21, 2, 3, coat.body);
+      block(c, 5, -24, 2, 3, coat.body); block(c, 3, -21, 2, 3, coat.body);
+      block(c, -12, -15, 5, 1, coat.fold); block(c, 7, -15, 5, 1, coat.fold);
+      block(c, -12, -14, 4, 1, coat.bodyEdge); block(c, 7, -14, 4, 1, coat.bodyEdge);
+      block(c, -1, -18, 1, 1, b.metal); block(c, -1, -14, 1, 1, b.metal);
+      block(c, -14, -6, 11, 1, coat.bodyEdge); block(c, 3, -6, 10, 1, coat.bodyEdge);
+      block(c, -1, -7, 2, 3, INK); block(c, -1, -9, 2, 1, coat.fold);
     } else {
       rimBox(c, -14, -28, 28, 17, coat.body, LIGHT);
       block(c, -14, -11, 28, 9, INK); block(c, -12, -10, 24, 7, costume?.outfit.tee?.denim ?? b.denim);
       block(c, -2, -10, 3, 9, "#244362"); block(c, -10, -9, 5, 2, "#8fb3cb");
+      block(c, -12, -25, 1, 12, coat.bodyEdge); block(c, 11, -24, 2, 11, coat.fold);
+      block(c, -10, -13, 20, 1, coat.bodyEdge); block(c, -8, -26, 16, 1, coat.fold);
+      block(c, -5, -25, 10, 1, coat.bodyEdge); block(c, -3, -24, 6, 1, coat.bodyEdge);
+      block(c, 5, -21, 4, 1, coat.bodyEdge); block(c, 5, -20, 1, 3, coat.bodyEdge);
+      block(c, 8, -20, 1, 3, coat.fold); block(c, 6, -17, 2, 1, coat.bodyEdge);
+      block(c, -11, -7, 1, 4, "#8fb3cb"); block(c, 9, -7, 1, 4, "#244362");
+      block(c, 5, -9, 5, 1, "#8fb3cb"); block(c, 8, -8, 1, 2, "#244362");
+      block(c, 1, -9, 1, 1, b.denimEdge);
     }
     for (const side of [-1, 1]) {
       const dy = side * stride;
       rimBox(c, side < 0 ? -13 : 3, -6 + dy, 10, 8, coat.paw, coat.pawEdge);
       rimBox(c, side < 0 ? -20 : 14, -22 - dy, 6, 13, coat.arm, coat.bodyEdge);
       block(c, side < 0 ? -20 : 14, -10 - dy, 6, 4, coat.paw);
+      const armX = side < 0 ? -20 : 14, footX = side < 0 ? -13 : 3;
+      block(c, armX + 1, -19 - dy, 1, 6, coat.bodyEdge);
+      block(c, armX + 1, -12 - dy, 4, 1, coat.fold);
+      block(c, armX + 1, -7 - dy, 4, 1, coat.pawEdge);
+      block(c, footX + 2, -3 + dy, 5, 1, coat.pawEdge);
+      block(c, footX + 2, dy, 6, 1, coat.fold);
     }
     if (costume) {
       // Preserve outfit functions with a native vocabulary: back garment, hand tool,
@@ -208,16 +232,69 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
       block(c, -22, -52, 44, 3, "#7f9fb4"); block(c, -22, -32, 44, 2, "#243f60");
       for (const x of [-15, 5]) { block(c, x, -69, 10, 7, INK); block(c, x + 2, -68, 4, 2, "#ffd782"); }
       block(c, -9, -39, 18, 3, LIGHT); block(c, -5, -43, 10, 11, LIGHT);
+      // Worn eraser bevel and a stitched sleeve: broad material planes first,
+      // then restrained one-pixel edges and label lettering.
+      block(c, -24, -81, 2, 19, "#f2c5c1"); block(c, -21, -84, 37, 1, "#f5d4c8");
+      block(c, 24, -78, 2, 17, "#83596f"); block(c, -24, -61, 48, 2, "#a66e83");
+      block(c, -25, -56, 1, 29, "#b6c8cb"); block(c, 25, -55, 2, 29, "#2f4c6a");
+      block(c, -21, -49, 42, 1, "#345474"); block(c, -21, -28, 42, 1, "#8fa6b5");
+      for (let i = 0; i < 7; i++) {
+        block(c, -19 + i * 6, -54, 2, 1, "#c2cdd1");
+        block(c, -19 + i * 6, -26, 2, 1, "#263e58");
+      }
+      block(c, -18, -44, 4, 1, "#b7cad1"); block(c, -18, -42, 3, 1, "#b7cad1");
+      block(c, 14, -38, 4, 1, "#b7cad1"); block(c, 15, -36, 3, 1, "#b7cad1");
+      block(c, -2, -42, 2, 8, "#fff6dc"); block(c, -7, -38, 14, 1, "#d7c49c");
+      block(c, -7, -62, 14, 1, "#724b61"); block(c, -4, -61, 8, 1, "#f0bec0");
       for (const side of [-1, 1]) {
         rimBox(c, side < 0 ? -40 : 27, -44 - (attack ? 8 : frame * 2), 13, 25, "#b2758a");
         rimBox(c, side < 0 ? -24 : 6, -15 + side * (frame ? 2 : -2), 18, 13, "#35475d");
+        const handX = side < 0 ? -40 : 27, handY = -44 - (attack ? 8 : frame * 2),
+          bootX = side < 0 ? -24 : 6, bootY = -15 + side * (frame ? 2 : -2);
+        block(c, handX + 2, handY + 3, 2, 14, "#d49aa1");
+        block(c, handX + 3, handY + 19, 7, 1, "#795369");
+        block(c, handX + 6, handY + 20, 1, 3, "#795369");
+        block(c, bootX + 3, bootY + 3, 10, 2, "#627c91");
+        block(c, bootX + 2, bootY + 10, 14, 1, "#192b40");
       }
       if (attack) { block(c, -16, -74, 12, 3, "#f3765c"); block(c, 5, -74, 12, 3, "#f3765c"); }
       return;
     }
     const rows = ENEMY_GRIDS[art.id] ?? ENEMY_GRIDS["ink-blob"], colors = wash >= 1 ? ["#d8d0ae", "#81908f", "#364555"] : wash > 0 ? ["#afa99e", "#6d7580", "#d8c99d"] : ENEMY_COLORS[art.id] ?? ENEMY_COLORS["ink-blob"],
       width = Math.max(...rows.map(row => row.length)) * 2;
-    grid(c, rows, { "#": INK, l: colors[0], m: colors[1], W: colors[2] }, -width / 2, -rows.length * 2 - (frame ? 1 : 0));
+    const ox = -width / 2, oy = -rows.length * 2 - (frame ? 1 : 0);
+    grid(c, rows, { "#": INK, l: colors[0], m: colors[1], W: colors[2] }, ox, oy);
+    // Resolve the two-pixel silhouette into single-pixel bevels at material
+    // boundaries. These follow form, never scatter random texture over a face.
+    const glint = wash ? "#e8dfc9" : art.id === "wash" ? "#d6f0df" : art.id === "kiro-ghost" ? "#fffdf0" : "#c8b7c3";
+    rows.forEach((row, j) => {
+      for (let i = 0; i < row.length; i++) {
+        const cell = row[i], x = ox + i * 2, y = oy + j * 2;
+        if (cell === "l") {
+          if (j > 0 && rows[j - 1][i] === "#") block(c, x, y, 2, 1, glint);
+          if (row[i + 1] === "#") block(c, x + 1, y, 1, 2, colors[1]);
+          if (rows[j + 1]?.[i] === "m") block(c, x, y + 1, 2, 1, colors[1]);
+        } else if (cell === "W" && row[i - 1] !== "W") {
+          // Upper catchlight and lower pupil distinguish eyes from flat squares.
+          if (rows[j - 1]?.[i] !== "W") block(c, x, y, 1, 1, LIGHT);
+          if (rows[j + 1]?.[i] !== "W") block(c, x + 1, y + 1, 1, 1, INK);
+        }
+      }
+    });
+    if (art.id === "paper-bat") {
+      // Long membrane ribs connect the shoulder to stepped wing tips.
+      for (const side of [-1, 1]) for (let i = 0; i < 5; i++)
+        block(c, side < 0 ? -20 + i * 3 : 18 - i * 3, oy + 5 + i * 2, 2, 1, colors[1]);
+      block(c, -2, oy + 13, 1, 2, LIGHT); block(c, 2, oy + 13, 1, 2, LIGHT);
+    } else if (art.id === "wash") {
+      block(c, -7, oy + 10, 2, 5, glint); block(c, -8, oy + 16, 1, 3, glint);
+      block(c, 6, oy + 20, 3, 1, colors[0]);
+    } else if (art.id === "kiro-ghost") {
+      block(c, -10, oy + 8, 1, 6, glint); block(c, -2, oy + 18, 4, 1, colors[1]);
+      block(c, -1, oy + 19, 2, 2, colors[1]);
+    } else if (art.id === "ink-blob" || art.id === "smudge") {
+      block(c, -8, oy + 4, 5, 1, glint); block(c, -10, oy + 5, 2, 2, glint);
+    }
     if (art.id === "paper-bat" && frame) {
       block(c, -24, -23, 9, 3, colors[0]); block(c, 15, -23, 9, 3, colors[0]);
     }

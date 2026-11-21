@@ -2,6 +2,12 @@
 
 Midnight Meow is a code-drawn pixel-art survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Pixel detail refinement after user rejection (2026-11-21)
+
+User rejected `1267c23` as too coarse and asked for much finer pixel art. Current follow-up raises the native world backing and ground/decor caches from 0.5× to 1×, while keeping logical camera/input sizes. Scene/prop stacks now have finer XY and height sections, detailed architectural windows/shutters/doors, controlled foliage lighting, and fine surface fittings. Actors gain tailoring and material details; equipment icons/projectiles have distinct fine silhouettes. Ground marks are finer and quieter; overlapping road-cap strokes were removed. The earlier coarse pixel commit remains in Git.
+
+Actual browser screenshot review drove two additional foliage/roof corrections: striped highlights were removed, then overly dark exposed canopy shells were corrected. The result still requires user art approval. Final `npm run build` and `npm test` passed (420/420); fixed-input baseline comparison passed all 64 states. Both cat browser smoke flows reached pause/resume, upgrades and results without script errors. See `docs/pixel-refactor.md` for cached raster memory tradeoffs. Final browser probes: 127 prop/landmark states with no blank sprites or cache overflow; gallery gloss violations zero. Updated desktop/mobile and five-region screenshots captured. No gameplay source or definitions changed, no push/deployment.
+
 ## Native pixel refactor (2026-11-21)
 
 User explicitly requested full pixel-art reconstruction using `danielwh2/sprite-stacking`, with the previous version sealed first. The baseline is tagged `archive/papercraft-2026-11-21` at `d26859b`. Active work is `refactor/pixel-stacking`. Older paper-only sample gates below are historical, not the current task.

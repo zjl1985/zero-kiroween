@@ -324,7 +324,7 @@ function boot(): void {
     const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
     if (turned) touch.reset();
     else touch.invalidateGeometry();
-    // One authored pixel spans two world units. Camera/input keep their original
+    // One authored pixel spans one world unit. Camera/input keep their original
     // coordinates; CSS nearest-neighbour enlargement presents the native grid.
     const { width: w, height: h } = pixelBacking(v.viewWidth, v.viewHeight);
     if (stage.width !== w) stage.width = w;

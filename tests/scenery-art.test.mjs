@@ -199,7 +199,7 @@ test("district paintings are deterministic, distinct and restore the caller's dr
       assert.ok(a.length > 20 && a.length < 250, `${art.id}: bounded grouped detail cost (${a.length})`);
       assert.ok(a.every(c => c.op === "fillRect"), "terrain is authored pixel rectangles");
       for (const c of a) for (const op of c.path) if (op.length > 1)
-        assert.ok(op.slice(1).every(n => Number.isInteger(n) && n % 2 === 0), "terrain stays on the native two-unit lattice");
+        assert.ok(op.slice(1).every(n => Number.isInteger(n)), "terrain stays on the native one-unit lattice");
       variants.add(JSON.stringify(a.map(({ path, matrix }) => [path, matrix])));
       signatures.add(JSON.stringify(a));
     }
@@ -265,7 +265,7 @@ test("world scenery reuses bounded native-resolution caches without repainting d
     const first = draw();
     assert.equal(first.op, "drawImage");
     const size = kind === "tree" ? [164, 174] : [220, 160], s = Math.round(decor.s * 20) / 20;
-    assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil((n * s + 16) * 0.5)), "same world BOUNDS/PAD, baked at one pixel per two world units");
+    assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil(n * s + 16)), "same world BOUNDS/PAD, baked at one pixel per world unit");
     const paints = first.image.getContext("2d").calls.length, allocated = created.length;
     assert.equal(draw().image, first.image, "same sprite identity");
     assert.equal(created.length, allocated, "no new offscreen canvas on a cache hit");

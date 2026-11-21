@@ -10,14 +10,19 @@ import { RIVER } from "../defs/landmarks/stone-bridge/def.js";
 
 const WOOD = ["#473c48", "#87634e", "#bd9566"] as const;
 const STONE = ["#45495c", "#77818a", "#b7b7a1"] as const;
-const LEAF = ["#294951", "#55765b", "#91a26b"] as const;
+const LEAF = ["#3a5a54", "#658568", "#91a77c"] as const;
 const GOLD = ["#8a4d43", "#d58d4e", "#f3ca78"] as const;
 type Palette = readonly [string, string, string];
+
+function fineModel(m:PixelStackModel):PixelStackModel {
+  return {...m,id:m.id+":fine",width:m.width*2,depth:m.depth*2,count:m.count*2-1,
+    paint(c,z){m.paint(c,z/2);}};
+}
 
 function shapePainter(ctx: Ctx, w: number, d: number, colors: Palette, charred = false) {
   const rect = (x: number, y: number, width: number, depth: number, c: string | number = 1) => {
     ctx.fillStyle = typeof c === "number" ? colors[c]! : charred ? colors[c === GOLD[2] || c === STONE[2] ? 2 : 1] : c;
-    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(width)), Math.max(1, Math.round(depth)));
+    ctx.fillRect(Math.round(x*2), Math.round(y*2), Math.max(1, Math.round(width*2)), Math.max(1, Math.round(depth*2)));
   };
   const box = (halfX: number, halfY: number, c: string | number = 1) => {
     rect(-halfX, -halfY, halfX * 2, halfY * 2, c);
@@ -27,14 +32,14 @@ function shapePainter(ctx: Ctx, w: number, d: number, colors: Palette, charred =
   };
   const oval = (x: number, y: number, rx: number, ry: number, c: string | number = 1, inner = 0) => {
     rx = Math.max(0.6, rx); ry = Math.max(0.6, ry);
-    for (let iy = Math.floor(-ry); iy <= Math.ceil(ry); iy++) {
+    for (let iy = Math.ceil(-ry*2)/2; iy <= Math.floor(ry*2)/2; iy+=.5) {
       const k = 1 - iy * iy / (ry * ry); if (k < 0) continue;
-      const reach = Math.max(1, Math.floor(rx * Math.sqrt(k)));
+      const reach = Math.max(1, Math.floor(rx * Math.sqrt(k)*2)/2);
       if (inner > 0 && Math.abs(iy) < ry * inner) {
         const hole = Math.floor(rx * inner * Math.sqrt(1 - iy * iy / (ry * ry * inner * inner)));
-        rect(x - reach, y + iy, Math.max(1, reach - hole), 1, c);
-        rect(x + hole, y + iy, Math.max(1, reach - hole), 1, c);
-      } else rect(x - reach, y + iy, reach * 2, 1, c);
+        rect(x - reach, y + iy, Math.max(1, reach - hole), .5, c);
+        rect(x + hole, y + iy, Math.max(1, reach - hole), .5, c);
+      } else rect(x - reach, y + iy, reach * 2, .5, c);
     }
   };
   return { rect, box, oval, w, d };
@@ -103,7 +108,7 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
       } else if (id === "paper-bush") {
         for (let i = 0; i < 5; i++) {
           const r = Math.sqrt(Math.max(0, 1 - ((h - 0.42 - (i % 2) * 0.13) / 0.55) ** 2));
-          oval((i - 2) * W * 0.3, (i % 2 ? -1 : 1) * D * 0.3, W * 0.45 * r, D * r, (i + Math.floor(h * 3)) % 3);
+          oval((i - 2) * W * 0.3, (i % 2 ? -1 : 1) * D * 0.3, W * 0.45 * r, D * r, h > .62 ? 2 : i === 0 ? 0 : 1);
         }
       } else if (id === "dead-tree") {
         rect(-2 + Math.sin(h * 5 + v) * 1.3, -1, 4 - h * 2, 3, 1);
@@ -145,10 +150,10 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
         if (id.includes("bucket") && h > 0.7) for (const side of [-1, 1]) rect(side * W * 0.9, -1, 1, 2, WOOD[2]);
       } else if (id === "haybale") {
         const r = Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.53) ** 2));
-        oval(0, 0, W, D * Math.max(0.3, r), z % 4 === 0 ? 0 : 1);
+        oval(0, 0, W, D * Math.max(0.3, r), h < .15 ? 0 : 1);
         for (const x of [-W * 0.55, W * 0.55]) rect(x, -D * r, 2, D * r * 2, WOOD[0]);
       } else { // Crate: slab, plank seams, bands, and a top seam in actual sections.
-        box(W * 0.88, D * 0.9, z % 5 === 0 ? 0 : 1);
+        box(W * 0.88, D * 0.9, h < .05 || h > .94 ? 2 : 1);
         for (const x of [-W * 0.74, W * 0.74]) rect(x, -D * 0.9, 2, D * 1.8, 2);
         if (h > 0.94) rect(-1, -D * 0.9, 1, D * 1.8, 0);
       }
@@ -159,8 +164,8 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
-      const model = propModel(a, v % Math.max(1, a.variants), phase, burnt);
-      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.4), scale: 2 * s, turn: 0.2, shadow: true });
+      const model = fineModel(propModel(a, v % Math.max(1, a.variants), phase, burnt));
+      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
     },
   };
 }
@@ -178,17 +183,31 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
       const roofSection = (start: number, end: number, halfX = W, halfY = D) => {
         if (h < start || h > end) return;
         const t = (h - start) / (end - start), depth = Math.max(1, halfY * (1 - t));
-        rect(-halfX, -depth, halfX * 2, depth * 2, roof[1]);
-        rect(-halfX, -depth, halfX * 2, 1, roof[2]);
-        rect(-halfX, depth - 1, halfX * 2, 1, roof[0]);
+        rect(-halfX, -depth, halfX * 2, depth, roof[1]);
+        rect(-halfX, 0, halfX * 2, depth, roof[0]);
+        // One-pixel, low-contrast joints follow staggered tile courses.
+        const course=Math.floor((z-start*(dims.count-1))/3);
+        for(let x=-halfX+3+(course%2)*2;x<halfX;x+=5)
+          rect(x,-depth,.5,.5,roof[0]);
+        if(t<.04){rect(-halfX,-depth,halfX*2,.5,roof[2]);rect(-halfX,depth-.5,halfX*2,.5,WOOD[0]);}
+        if(t>.95)rect(-halfX,-.5,halfX*2,1,roof[1]);
       };
       const windows = (start: number, end: number, count = 3, halfX = W * 0.75, halfY = D * 0.8) => {
         if (h < start || h > end) return;
-        const middle = Math.floor((start + end) * 0.5 * (dims.count - 1));
+        const t=(h-start)/(end-start), zSpan=(end-start)*(dims.count-1);
         for (let i = 0; i < count; i++) {
           const x = (i - (count - 1) / 2) * halfX * 1.6 / Math.max(1, count - 1), width = Math.min(7, halfX / count * 0.8);
-          rect(x - width / 2, halfY - 1, width, 1, z === middle ? WOOD[0] : GOLD[2]);
-          rect(x, halfY - 1, 1, 1, WOOD[0]);
+          rect(x-width/2-.5,halfY-1,width+1,1,WOOD[0]);
+          if(t>1/zSpan&&t<1-1/zSpan){
+            rect(x-width/2+.5,halfY-.5,width-1,.5,t>.7?"#83a6b1":"#e6c88e");
+            rect(x-.25,halfY-.5,.5,.5,WOOD[0]);
+            if(Math.abs(t-.5)<.5/zSpan)rect(x-width/2,halfY-.5,width,.5,WOOD[0]);
+          }
+          if(t<1/zSpan||t>1-1/zSpan)rect(x-width/2-1,halfY-1,width+2,1,"#c4b39a");
+          for(const side of [-1,1]){
+            rect(x+side*(width/2+1)-.5,halfY-1,1,1,"#547c7c");
+            if(t>.2&&t<.2+.5/zSpan||t>.8&&t<.8+.5/zSpan)rect(x+side*(width/2+1)-.5,halfY-.5,1,.5,WOOD[0]);
+          }
         }
       };
       if (kind === "lights") {
@@ -202,7 +221,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
         }
       } else if (kind === "tomb") {
         const r = h < 0.72 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.72) / 0.3) ** 2));
-        box(Math.max(1, W * r), D * 0.5, z % 8 === 0 ? 0 : 1);
+        box(Math.max(1, W * r), D * 0.5, h < .08 ? 0 : 1);
         if (h > 0.28 && h < 0.7) rect(-1, D * 0.5 - 1, 2, 1, 0);
         if (h > 0.49 && h < 0.58) rect(-W * 0.5, D * 0.5 - 1, W, 1, 0);
       } else if (/table|bench|workbench/.test(kind)) {
@@ -225,7 +244,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           else {
             rect(x, 0, 1, 1, LEAF[0]);
             const r = Math.sin((h - base) / (1 - base) * Math.PI) * W * 0.25;
-            oval(x + (i % 2 ? -1 : 1) * r * 0.5, 0, Math.max(1, r), D * 0.75, (i + z) % 8 === 0 ? LEAF[2] : LEAF[1]);
+            oval(x + (i % 2 ? -1 : 1) * r * 0.5, 0, Math.max(1, r), D * 0.75, h > .76 ? LEAF[2] : LEAF[1]);
           }
         }
       } else if (/trellis/.test(kind)) {
@@ -252,7 +271,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           for (let i = 0; i < 7; i++) if ((z + i) % 5 === 0) rect((hash(i + 5) - 0.5) * W * 1.7, yy, 1, 1, "#e1d3a3");
         }
       } else if (kind === "well") {
-        if (h < 0.33) oval(0, 0, W * 0.82, D, z % 4 === 0 ? 0 : 1, 0.62);
+        if (h < 0.33) oval(0, 0, W * 0.82, D, h < .15 ? 0 : 1, 0.62);
         else for (const x of [-W * 0.75, W * 0.75]) rect(x, 0, 2, 2, WOOD[1]);
         if (h > 0.58 && h < 0.63) rect(-W * 0.75, 0, W * 1.5, 2, WOOD[2]);
         roofSection(0.73, 1);
@@ -315,7 +334,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           for (const side of [-1, 1]) {
             rect(side * W * 0.84 - 2, -D, 4, D * 2, GOLD[1]);
             const curtain = W * (0.18 + Math.max(0, h - 0.55) * 1.3);
-            rect(side < 0 ? -W * 0.78 : W * 0.78 - curtain, D - 3, curtain, 3, z % 4 === 0 ? "#743c59" : "#b15e72");
+            rect(side < 0 ? -W * 0.78 : W * 0.78 - curtain, D - 3, curtain, 3, side < 0 ? "#a35369" : "#b96778");
           }
           if (h < 0.36) { oval(-W * 0.22, 0, 3, 2, "#c0aa7b"); oval(W * 0.3, 0, 3, 2, "#81a5a2"); }
         }
@@ -323,10 +342,15 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
       } else { // Teahouse and chapel keep distinct roof volumes and facades.
         const teahouse = /teahouse-building/.test(kind), bodyTop = teahouse ? 0.53 : 0.65;
         if (h < bodyTop) {
-          box(W * 0.82, D * 0.9, "#d2bea0");
+          box(W * 0.82, D * 0.9, h<.06?STONE[1]:h>bodyTop-.035?WOOD[0]:"#d2bea0");
+          for(const side of [-1,1])rect(side*W*.8-.5,D*.9-1,1,1,"#a18c79");
           for (const x of [-W * 0.78, 0, W * 0.78]) rect(x, D * 0.9 - 1, 2, 1, WOOD[1]);
           windows(0.22, 0.43, teahouse ? 4 : 3, W * 0.65, D * 0.9);
-          if (h < 0.27) rect(-4, D * 0.9 - 1, 8, 1, WOOD[0]);
+          if (h < 0.27) {
+            rect(-4,D*.9-1,8,1,WOOD[0]);
+            if(h>.035&&h<.25){rect(-3,D*.9-.5,6,.5,"#5b7875");rect(-.25,D*.9-.5,.5,.5,WOOD[0]);}
+            if(h>.12&&h<.12+1/(dims.count-1))rect(2,D*.9-.5,.5,.5,GOLD[2]);
+          }
         }
         if (teahouse) {
           roofSection(0.53, 0.78);
@@ -376,11 +400,11 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
       for (let iy = -Math.ceil(ry / tile); iy <= Math.ceil(ry / tile); iy++) for (let ix = -Math.ceil(rx / tile); ix <= Math.ceil(rx / tile); ix++) {
         if ((ix * tile / rx) ** 2 + (iy * tile / ry) ** 2 > 1) continue;
-        const h = hash(l.seed + ix * 7919 + iy * 131), c = colors[h < 0.2 ? 0 : h > 0.85 ? 2 : 1]!;
+        const h = hash(l.seed + ix * 7919 + iy * 131), c = colors[1]!;
         ctx.fillStyle = a.id === "pumpkin-field" ? (iy % 2 ? "#614b43" : "#80624a") : c;
         ctx.fillRect(Math.round((l.x + ix * tile) / 2) * 2, Math.round((l.y + iy * tile) / 2) * 2,
           wood ? tile - 1 : tile, wood ? tile - 2 : tile);
-        if (!garden && h > 0.55) { ctx.fillStyle = colors[2]; ctx.fillRect(Math.round((l.x + ix * tile) / 2) * 2, Math.round((l.y + iy * tile) / 2) * 2, tile - 2, 2); }
+        if (!garden && h > 0.88) { ctx.fillStyle = colors[2]; ctx.fillRect(Math.round((l.x + ix * tile) / 2) * 2, Math.round((l.y + iy * tile) / 2) * 2, tile - 2, 2); }
       }
     },
     ground(ctx, l) {
@@ -407,8 +431,8 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     },
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
-        const model = landmarkModel(piece, v % (piece.variants ?? 1));
-        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.4), scale: 2 * s, turn: 0.2, shadow: true });
+        const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
+        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
       ...(piece.kind === "windmill" ? { live(ctx: Ctx, x: number, y: number, s: number, v: number, time: number, activity?: Parameters<NonNullable<DecorPiece["live"]>>[6]) {
         pixelWindmillSails(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);

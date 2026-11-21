@@ -12,13 +12,13 @@ test("native pixel presentation leaves camera and touch dimensions intact across
       const layout = boardLayout(width, height, dpr, true), before = structuredClone(layout);
       const pixels = pixelBacking(layout.viewWidth, layout.viewHeight);
       assert.deepEqual(layout, before);
-      assert.ok(Math.abs(pixels.width * 2 - layout.viewWidth) <= 1);
-      assert.ok(Math.abs(pixels.height * 2 - layout.viewHeight) <= 1);
+      assert.ok(Math.abs(pixels.width - layout.viewWidth) <= 1);
+      assert.ok(Math.abs(pixels.height - layout.viewHeight) <= 1);
       if (previous) assert.deepEqual(pixels, previous, "DPR never changes the authored pixel lattice");
       previous = pixels;
     }
   }
-  assert.deepEqual(pixelBacking(960,540), {width:480,height:270});
+  assert.deepEqual(pixelBacking(960,540), {width:960,height:540});
   for (const n of [0,-1,NaN,Infinity]) assert.throws(() => pixelBacking(n,540), RangeError);
 });
 
@@ -84,7 +84,7 @@ test("static pixel stacks bake once and camera movement draws one cached whole o
 test("invalid or unbounded stack dimensions are rejected before canvas allocation", t => {
   const {surfaces,make}=environment(t),ctx=make().getContext("2d"),before=surfaces.length;
   const model={id:"invalid",width:8,depth:8,count:8,paint(){assert.fail("invalid model painted");}};
-  for(const dims of [{count:0},{count:129},{width:1.5},{depth:Infinity}])
+  for(const dims of [{count:0},{count:257},{width:1.5},{depth:Infinity}])
     assert.throws(()=>drawPixelStack(ctx,{...model,...dims}),RangeError);
   for(const pose of [{spacing:1e100},{squash:2},{turn:NaN},{scale:0}])
     assert.throws(()=>drawPixelStack(ctx,model,pose),RangeError);

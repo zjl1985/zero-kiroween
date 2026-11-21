@@ -1,6 +1,6 @@
 import { rect as pxRect, FX } from "./pixel-vfx.js";
-import { box, mix, type Point } from "./paper-material.js";
-import { flatLayer, paperEmblem, placePoints, stitchAlong } from "./paper-kit.js";
+import { mix, type Point } from "./paper-material.js";
+import { placePoints } from "./paper-kit.js";
 import { upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { CAT_ART, upgradeIcon } from "./art-registry.js";
 /** Tag paper and ink of the shared pool; a cat's own pool uses its art colours. */
@@ -30,24 +30,36 @@ export function heartPath(x: number, y: number, r: number, p = new Path2D()): Pa
 export function boltPoints(x: number, y: number, a: number, len: number): Point[] {
     return placePoints([[-1, 0.22], [-0.42, -0.18], [-0.08, -0.05], [0.3, -0.34], [1, -0.1], [0.42, 0.2], [0.06, 0.08], [-0.24, 0.38]], x, y, a, len);
 }
-/** Show the actual charm at a readable size, held by cut corners on a flat paper mount. */
+/** A recessed equipment display: fine metal rim, dark interior and quiet corner fittings. */
 export function paintCardEmblem(canvas: HTMLCanvasElement, id: UpgradeId): void {
     const ctx = canvas.getContext('2d')!, def = upgradeDef(id), pool = poolColors(def?.cat ?? 'any'), s = canvas.width / 96;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    const trim = def?.slot === 'evolution' ? FX.gold : mix(pool.ink, FX.shade, .55);
     pxRect(ctx, 8, 8, 80, 80, FX.dark);
-    pxRect(ctx, 12, 12, 72, 72, pool.paper);
-    pxRect(ctx, 12, 12, 72, 4, def?.slot === 'evolution' ? FX.gold : FX.shade);
-    pxRect(ctx, 12, 80, 72, 4, FX.shade);
+    pxRect(ctx, 9, 9, 78, 1, trim);
+    pxRect(ctx, 9, 10, 1, 76, trim);
+    pxRect(ctx, 10, 10, 76, 76, mix(pool.paper, FX.dark, .38));
+    pxRect(ctx, 12, 12, 72, 1, FX.shade);
+    pxRect(ctx, 12, 13, 1, 71, FX.shade);
+    pxRect(ctx, 14, 14, 68, 68, pool.paper);
+    pxRect(ctx, 14, 81, 68, 1, mix(pool.paper, FX.dark, .3));
+    pxRect(ctx, 86, 10, 1, 77, FX.shade);
+    pxRect(ctx, 10, 86, 76, 1, FX.shade);
+    for (const x of [11, 82])
+        for (const y of [11, 82]) {
+            pxRect(ctx, x, y, 3, 3, trim);
+            pxRect(ctx, x, y, 1, 1, FX.cream);
+        }
     ctx.save();
     ctx.translate(16, 16);
     ctx.scale(2, 2);
     upgradeIcon(id)?.(ctx, pool.ink);
     ctx.restore();
 }
-/** Draws a HUD slot emblem by code: a flat cut paper tag plus the upgrade glyph. */
+/** HUD equipment slot uses single-pixel edge values, leaving the object readable. */
 export function paintUpgradeIcon(canvas: HTMLCanvasElement, id: UpgradeId, compact = false): void {
     const ctx = canvas.getContext('2d')!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -55,6 +67,9 @@ export function paintUpgradeIcon(canvas: HTMLCanvasElement, id: UpgradeId, compa
     ctx.setTransform(canvas.width / 32, 0, 0, canvas.height / 32, 0, 0);
     ctx.imageSmoothingEnabled = false;
     pxRect(ctx, 0, 0, 32, 32, FX.dark);
-    pxRect(ctx, 2, 2, 28, 28, FX.shade);
+    pxRect(ctx, 1, 1, 30, 30, mix(FX.shade, FX.dark, .3));
+    pxRect(ctx, 1, 1, 30, 1, compact ? FX.shade : '#637080');
+    pxRect(ctx, 1, 2, 1, 28, FX.shade);
+    pxRect(ctx, 2, 30, 29, 1, '#252c42');
     upgradeIcon(id)?.(ctx, FX.cream);
 }

@@ -143,7 +143,7 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
       `decor:${d.kind}:${s}:${v}`,
       w,
       h,
-      0.5,
+      1,
       (c, canvas) => {
         c.imageSmoothingEnabled = false;
         withFlatShadows(() => paint(c, ax, ay, s, v));
@@ -294,7 +294,7 @@ export interface TerrainReply {
   bitmap: ImageBitmap | null;
 }
 const chunkCache = new Map<string, ChunkImage>();
-/** Native tiles use one pixel per two world units; at most 14 ready plus one in progress. */
+/** Native tiles use one pixel per world unit; at most 14 ready plus one in progress. */
 const MAX_CHUNK_CANVASES = 14;
 const PREFETCH = 320;
 const LOCAL_PAINT_BUDGET_MS = 2;
@@ -317,7 +317,6 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   const c = chunkContent(seed, cx, cy),
     // Keep the worker's one-off raster work off the foreground GPU queue.
     ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!;
-  ctx.scale(0.5, 0.5);
   ctx.imageSmoothingEnabled = false;
   ctx.translate(-c.x, -c.y);
   if (c.start) {
@@ -371,7 +370,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
 }
 /** Drain the same painter on the worker, or copy an already cached start yard. */
 export function buildChunk(seed: number, cx: number, cy: number, layer: ChunkLayer = "paint"): CanvasSurface {
-  const canvas = surface(CHUNK.width / 2, CHUNK.height / 2);
+  const canvas = surface(CHUNK.width, CHUNK.height);
   for (const _ of paintLayer(canvas, seed, cx, cy, layer)) { /* finish the tile */ }
   return canvas;
 }
@@ -418,7 +417,7 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   const c = chunkContent(seed, cx, cy),
     ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!,
     x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
-  ctx.scale(0.5, 0.5);
+
   ctx.imageSmoothingEnabled = false;
   ctx.translate(-x0, -y0);
   rawPaper(ctx, x0, y0, c.w, c.h);
@@ -630,7 +629,7 @@ function warmChunk(seed: number, tile: ChunkTile | undefined): void {
   }
   const deadline = performance.now() + LOCAL_PAINT_BUDGET_MS;
   if (!localPaint) {
-    const canvas = surface(CHUNK.width / 2, CHUNK.height / 2);
+    const canvas = surface(CHUNK.width, CHUNK.height);
     localPaint = { key: tile.key, canvas, steps: paintLayer(canvas, seed, tile.cx, tile.cy, tile.layer ?? "paint") };
   }
   do {

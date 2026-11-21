@@ -55,7 +55,7 @@ test("native terrain ramps preserve value separation from opaque player shots wi
     assert.deepEqual(new Set(cells.map(c => c.color)), new Set([echo ? FX.blue : FX.gold, FX.cream]),
       "shot uses only its solid body and readable highlight, without translucent glow");
   }
-  assert.deepEqual(pixelBacking(960, 540), { width: 480, height: 270 }, "native world resolution is explicit");
+  assert.deepEqual(pixelBacking(960, 540), { width: 960, height: 540 }, "native world resolution is explicit");
   assert.match(source("world.ts"), /imageSmoothingEnabled = false/, "world retains nearest sampling");
   assert.doesNotMatch(source("craft-world.ts"), /gradeCanvas\(canvas, PAPER_VALUE\.(?:ground|decor)\)/,
     "coloured pixel palettes are not multiplied through the old paper grade");

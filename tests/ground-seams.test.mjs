@@ -101,7 +101,7 @@ test("district grass banks follow the lawn clip with native pixel verge details"
   assert.ok(edgeStrokes.every(c => calls.indexOf(c) > clip), "bank strokes stay within the lawn clip");
   const pixels = calls.filter(c => c.op === "fillRect");
   assert.ok(pixels.length > 12, "authored grass/stone clusters interrupt the bank");
-  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n) && n % 2 === 0)), "verge is authored on the 2-unit world pixel lattice");
+  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n))), "verge is authored on the 1-unit world pixel lattice");
   assert.ok(new Set(pixels.map(c => c.fillStyle)).size >= 3, "clusters have distinct shadow, midtone and light pixels");
 });
 
@@ -112,8 +112,8 @@ test("neighbouring native tiles paint the same lawn footprint after cutting the 
   const lawnOps = probe.calls.find(c => c.op === "clip").args[0].ops;
   for (const cx of [0, 1]) {
     const tile = buildChunk(7, cx, 1), calls = tile.getContext("2d").calls;
-    assert.equal(tile.width, CHUNK.width / 2, "one native pixel represents two world units");
-    assert.equal(tile.height, CHUNK.height / 2);
+    assert.equal(tile.width, CHUNK.width, "one native pixel represents one world unit");
+    assert.equal(tile.height, CHUNK.height);
     const outside = calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd");
     const lawn = calls.findIndex((c, i) => i > outside && c.op === "clip" && JSON.stringify(c.args[0]?.ops) === JSON.stringify(lawnOps));
     assert.ok(outside >= 0 && lawn > outside, `tile ${cx},1 paints the bank after clipping its district patches`);
@@ -126,8 +126,8 @@ test("native grass marks are world-anchored across the opening's y = 540 boundar
   // The global 28-unit source row straddling the boundary is evaluated by
   // both painters, then clipped by their individual native canvases.
   const row = Math.floor(CHUNK.height / 28) * 28;
-  const marks = calls => [...new Set(calls.filter(c => c.op === "fillRect" && c.fillStyle === "#577b58" &&
-    c.args[2] === 6 && c.args[3] === 2 && c.args[0] >= 0 && c.args[0] < CHUNK.width && c.args[1] >= row && c.args[1] < row + 28)
+  const marks = calls => [...new Set(calls.filter(c => c.op === "fillRect" && c.fillStyle === "#527351" &&
+    c.args[2] === 4 && c.args[3] === 1 && c.args[0] >= 0 && c.args[0] < CHUNK.width && c.args[1] >= row && c.args[1] < row + 28)
     .map(c => c.args.join(",")))].sort();
   const yard = marks(allCalls(buildChunk(7, 0, 0).getContext("2d"))),
     below = marks(allCalls(buildChunk(7, 0, 1).getContext("2d")));
@@ -149,9 +149,9 @@ test("an unbaked tile has continuous base coverage plus native pixel detail", (t
   assert.ok(bases.some(base => base.args[0].ops.some(([op, x, y, w, h]) => op === "rect" &&
     x <= cx * CHUNK.width && y <= cy * CHUNK.height && x + w >= (cx + 1) * CHUNK.width && y + h >= (cy + 1) * CHUNK.height)),
     "base covers every pixel through all four chunk edges, preventing gaps");
-  const pixels = ctx.calls.filter(c => c.op === "fillRect" && c.fillStyle === "#577b58");
+  const pixels = ctx.calls.filter(c => c.op === "fillRect" && c.fillStyle === "#527351");
   assert.ok(pixels.length > 20, "placeholder has sparse authored native detail instead of one flat block");
-  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n) && n % 2 === 0)), "placeholder marks use the same world pixel lattice");
+  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n))), "placeholder marks use the same world pixel lattice");
   assert.equal(ctx.depth, 0);
 });
 
@@ -160,14 +160,14 @@ test("the opening road meets the world road with the same native width, centre a
   const cx = Math.floor(START_ROAD_EXIT.x / CHUNK.width),
     opening = allCalls(buildChunk(7, cx, 0).getContext("2d")),
     below = allCalls(buildChunk(7, cx, 1).getContext("2d")),
-    lastRow = opening.find(c => c.op === "fillRect" && c.fillStyle === ROAD_STOCK.face && c.args[1] === SCREEN.height - 2);
+    lastRow = opening.find(c => c.op === "fillRect" && c.fillStyle === ROAD_STOCK.face && c.args[1] === SCREEN.height - 1);
   assert.ok(lastRow, "opening draws road pixels through the final native row");
   const [x, y, width, height] = lastRow.args;
   assert.equal(width, START_ROAD_EXIT.width * 2, "opening does not flare out before the narrow world road");
   assert.ok(Math.abs(x + width / 2 - START_ROAD_EXIT.x) <= 1, "centres agree within native half-pixel rounding");
   assert.equal(y + height, START_ROAD_EXIT.y, "last native row reaches the shared boundary without a gap");
   assert.deepEqual(roads(7)[0].points[0], { x: START_ROAD_EXIT.x, y: START_ROAD_EXIT.y });
-  assert.ok(below.some(c => c.op === "fill" && c.fillStyle === ROAD_STOCK.face && c.args[0]?.ops.some(
+  assert.ok(below.some(c => c.op === "fill" && c.fillStyle === ROAD_STOCK.rim && c.args[0]?.ops.some(
     ([op, px, py, radius]) => op === "arc" && px === START_ROAD_EXIT.x && py === START_ROAD_EXIT.y && radius === START_ROAD_EXIT.width)),
-    "the lower tile paints the unchanged world-road join with the same material and half-width");
+    "the lower tile paints the unchanged world-road join with the same outer material edge and half-width");
 });

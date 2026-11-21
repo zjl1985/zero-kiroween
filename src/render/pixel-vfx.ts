@@ -5,9 +5,11 @@ export { rect, line, polygon };
 export const FX = { dark: '#181d32', shade: '#39435d', cream: '#f8e8ad', gold: '#efb84f', purple: '#ad8be0', blue: '#71c7d0', red: '#e97858', green: '#8aba74' } as const;
 export function stamp(ctx: Ctx, rows: readonly string[], x: number, y: number, color: string, cell = 2): void {
     const u = Math.max(1, Math.round(cell));
-    rows.forEach((row, j) => { for (let i = 0; i < row.length; i++)
-        if (row[i] !== '.')
-            rect(ctx, x + i * u, y + j * u, u, u, row[i] === '2' ? FX.cream : row[i] === '3' ? FX.dark : color); });
+    rows.forEach((row, j) => {
+        for (let i = 0; i < row.length; i++)
+            if (row[i] !== '.')
+                rect(ctx, x + i * u, y + j * u, u, u, row[i] === '2' ? FX.cream : row[i] === '3' ? FX.dark : color);
+    });
 }
 export const GLYPHS = {
     star: ['....1....', '....2....', '...121...', '..11211..', '122222221', '..11211..', '...121...', '....2....', '....1....'],
@@ -61,6 +63,49 @@ export function area(ctx: Ctx, pts: readonly {
 export function edge(ctx: Ctx, pts: readonly {
     x: number;
     y: number;
-}[], color: string, close = true): void { for (let i = 1; i < pts.length; i++)
-    line(ctx, pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y, color, 2); if (close && pts.length > 2)
-    line(ctx, pts[pts.length - 1]!.x, pts[pts.length - 1]!.y, pts[0]!.x, pts[0]!.y, color, 2); }
+}[], color: string, close = true): void {
+    for (let i = 1; i < pts.length; i++)
+        line(ctx, pts[i - 1]!.x, pts[i - 1]!.y, pts[i]!.x, pts[i]!.y, color, 2);
+    if (close && pts.length > 2)
+        line(ctx, pts[pts.length - 1]!.x, pts[pts.length - 1]!.y, pts[0]!.x, pts[0]!.y, color, 2);
+}
+/** Small equipment sprites use a finer lattice than the readable combat markers.
+ * Rows are authored once; neither animation time nor actor id creates surfaces. */
+const EQUIPMENT = {
+    crane: [
+        '1.................1', '11...............11', '121.............121',
+        '.121...........121.', '.12211.......11221.', '..122211...112221..',
+        '...122221.122221...', '....13322122331....', '.....133222331.1111',
+        '......13222311111..', '.....11222211......', '....112113211......',
+        '...111...1321......', '..11......131......', '...........11......',
+    ],
+    seed: [
+        '.......11......', '......1221.....', '.....122221....',
+        '....12222231...', '...1222222331..', '..122222222331.',
+        '.1222221222331.', '.1222211222331.', '.1222112222331.',
+        '.1221122222331.', '.121122222331..', '..1122222331...',
+        '...12222331....', '....133331.....', '.....1111......',
+    ],
+    star: [
+        '........1........', '.......121.......', '.......121.......',
+        '......12231......', '......12231......', '11111122223111111',
+        '.122222222233331.', '..1222222223331..', '...12222223331...',
+        '....122223331....', '...12222223331...', '...12223123331...',
+        '..12231...13331..', '..1231.....1331..', '.121.........131.',
+    ],
+} as const;
+export type EquipmentGlyph = keyof typeof EQUIPMENT;
+/** Same visual extents as the coarse marker, now with authored folds and edge values. */
+export function equipmentGlyph(ctx: Ctx, kind: EquipmentGlyph, x: number, y: number, color: string, span = 19): void {
+    const rows = EQUIPMENT[kind], scale = span / rows[0].length;
+    const palette = [color, FX.cream, FX.shade];
+    for (let j = 0; j < rows.length; j++)
+        for (let i = 0; i < rows[j]!.length; i++) {
+            const token = rows[j]![i]!;
+            if (token === '.')
+                continue;
+            const x0 = Math.round(x + (i - rows[0].length / 2) * scale), x1 = Math.round(x + (i + 1 - rows[0].length / 2) * scale), y0 = Math.round(y + (j - rows.length / 2) * scale), y1 = Math.round(y + (j + 1 - rows.length / 2) * scale);
+            if (x1 > x0 && y1 > y0)
+                rect(ctx, x0, y0, x1 - x0, y1 - y0, palette[Number(token) - 1]!);
+        }
+}

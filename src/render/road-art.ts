@@ -90,12 +90,12 @@ function drawRoadWear(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: numb
       const across = (i - 1) * width * 0.55,
         px = x - uy * across, py = y + ux * across;
       if (stone) {
-        pixelRect(ctx, px - 5, py + 2, 12, 6, "#6c6658");
-        pixelRect(ctx, px - 5, py, 10, 6, "#aaa18a");
-        pixelRect(ctx, px - 3, py, 8, 2, "#c6b895");
+        pixelRect(ctx, px - 5, py + 2, 11, 4, "#776e5e");
+        pixelRect(ctx, px - 5, py, 9, 4, "#a3967e");
+        pixelRect(ctx, px - 3, py, 6, 1, "#b8aa8e");
       } else {
-        pixelRect(ctx, px - 6, py, 12, 4, i % 2 ? "#827154" : "#a99672");
-        if (hash(sd + i) > 0.65) pixelRect(ctx, px, py - 2, 4, 2, "#c0ad82");
+        pixelRect(ctx, px - 6, py, 8, 1, i % 2 ? "#827154" : "#a99672");
+        if (hash(sd + i) > 0.65) pixelRect(ctx, px, py - 2, 3, 1, "#b5a47f");
       }
     }
   }
@@ -112,10 +112,11 @@ export function* drawRoadNetwork(ctx: Ctx, seed: number, tile: ViewRect): Genera
   }
   ctx.save();
   ctx.fillStyle = "#5b5949"; ctx.fill(roadFootprint(segments, 3));
-  ctx.fillStyle = ROAD_STOCK.face; ctx.fill(face);
+  ctx.fillStyle = ROAD_STOCK.rim; ctx.fill(face);
+  ctx.fillStyle = ROAD_STOCK.face; ctx.fill(roadFootprint(segments, -1));
   ctx.clip(face);
   // A narrow lit bank, plus deliberate stone clusters rather than canvas grain.
-  ctx.strokeStyle = ROAD_STOCK.rim; ctx.lineWidth = 2; ctx.stroke(face);
+  // Filled union avoids drawing the overlapping capsule caps as rings at junctions.
   yield;
   for (const segment of segments) {
     drawRoadWear(ctx, segment, tile, seed);

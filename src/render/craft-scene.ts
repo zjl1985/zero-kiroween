@@ -1,5 +1,5 @@
 /** Pixel diorama scene. Static terrain and volume stacks are authored at one
- * native pixel per two world units; their world anchors and gameplay remain unchanged. */
+ * native pixel per world unit; their world anchors and gameplay remain unchanged. */
 import type { CanvasSurface } from "../engine/surface.js";
 import { surface, hash, type Ctx, type Point } from "./paper-material.js";
 import { START_ROAD_EXIT } from "../game/world-gen.js";
@@ -16,9 +16,10 @@ export interface GroundLamp { x:number;y:number;s?:number; }
 const q=(n:number)=>Math.round(n/2)*2;
 function pathCenter(y:number):number{return oldPathCenter(y)+(y<348?17*Math.max(0,1-(y-222)/126):0);}
 function moon(ctx:Ctx,x:number,y:number):void {
-  ctx.save();ctx.translate(q(x),q(y));ctx.scale(2,2);
-  pixelDisc(ctx,0,0,17,17,"#a5b4c7");pixelDisc(ctx,1,-1,15,15,"#e4d7ad");
-  pixelDisc(ctx,7,-6,13,13,"#24334d");ctx.restore();
+  ctx.save();ctx.translate(Math.round(x),Math.round(y));
+  pixelDisc(ctx,0,0,34,34,"#a5b4c7");pixelDisc(ctx,1,-1,32,32,"#e4d7ad");
+  pixelDisc(ctx,-17,6,5,3,"#c4c6ad");pixelDisc(ctx,-11,20,3,2,"#d2cdb0");
+  pixelDisc(ctx,14,-12,26,26,"#24334d");ctx.restore();
 }
 function skySheet(ctx:Ctx):void {
   const bands=["#19283f","#24334d","#32435b","#4c5668"];
@@ -56,7 +57,7 @@ export function groundOutline(x0:number,y0:number,w:number,h:number,top:boolean)
 export function groundUnderlay(ctx:Ctx,x:number,y:number,w:number,h:number,top:boolean,_stock?:string,_opacity=1):void{
   const p=groundOutline(x,y,w,h,top);ctx.save();ctx.clip(p);ctx.fillStyle="#3d624e";ctx.fill(p);
   for(let gy=Math.floor(y/28);gy*28<y+h;gy++)for(let gx=Math.floor(x/28);gx*28<x+w;gx++){
-    const sd=gx*92821+gy*68917;if(hash(sd)>.7)pixelRect(ctx,gx*28+hash(sd+1)*18,gy*28+hash(sd+2)*18,6,2,"#577b58");
+    const sd=gx*92821+gy*68917;if(hash(sd)>.7)pixelRect(ctx,gx*28+hash(sd+1)*18,gy*28+hash(sd+2)*18,4,1,"#527351");
   }ctx.restore();
 }
 export function groundTile(ctx:Ctx,x:number,y:number,w:number,h:number,lamps:readonly GroundLamp[],top:boolean,yard=false):void{
@@ -93,17 +94,17 @@ export function grassTuft(ctx:Ctx,x:number,y:number,s:number,seed:number):void{
   ctx.save();ctx.translate(q(x),q(y));ctx.scale(s,s);pixelTerrainCluster(ctx,0,0,seed,"scallop");ctx.restore();
 }
 function buildStartYard():CanvasSurface{
-  const c=surface(W/2,H/2),ctx=c.getContext("2d")!;ctx.scale(.5,.5);ctx.imageSmoothingEnabled=false;
+  const c=surface(W,H),ctx=c.getContext("2d")!;ctx.imageSmoothingEnabled=false;
   horizonHills(ctx,0,W);groundTile(ctx,0,0,W,H,LAMPS,true,true);
   // Original opening route centre remains identical; only its raster materials change.
-  for(let y=220;y<H;y+=2){
+  for(let y=220;y<H;y++){
     const join=Math.max(0,Math.min(1,(y-480)/60)),
       center=pathCenter(y)*(1-join)+START_ROAD_EXIT.x*join,
       width=(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join;
-    pixelRect(ctx,center-width-3,y,width*2+6,2,"#5b5949");
-    pixelRect(ctx,center-width,y,width*2,2,ROAD_STOCK.face);
-    pixelRect(ctx,center-width,y,2,2,ROAD_STOCK.rim);pixelRect(ctx,center+width-2,y,2,2,ROAD_STOCK.rim);
-    if(y%16===0)for(let j=-1;j<=1;j++)pixelRect(ctx,center+j*12-3,y,6,2,"#b7a682");
+    pixelRect(ctx,center-width-3,y,width*2+6,1,"#5b5949");
+    pixelRect(ctx,center-width,y,width*2,1,ROAD_STOCK.face);
+    pixelRect(ctx,center-width,y,1,1,ROAD_STOCK.rim);pixelRect(ctx,center+width-1,y,1,1,ROAD_STOCK.rim);
+    if(y%16===0)for(let j=-1;j<=1;j++)pixelRect(ctx,center+j*12-3,y,5,1,"#b7a682");
   }
   tree(ctx,82,246,1.12,9);tree(ctx,858,246,1.13,6);tree(ctx,477,215,.65,11);
   cottage(ctx,238,219,1.14,102);cottage(ctx,729,230,.77,71);
@@ -116,7 +117,7 @@ function buildStartYard():CanvasSurface{
 }
 export function startYard():CanvasSurface{return background??=buildStartYard();}
 export function drawSky(ctx:Ctx):void{
-  if(!skyCanvas){skyCanvas=surface(W/2,SKY_H/2);const c=skyCanvas.getContext("2d")!;c.scale(.5,.5);skySheet(c);}
+  if(!skyCanvas){skyCanvas=surface(W,SKY_H);const c=skyCanvas.getContext("2d")!;skySheet(c);}
   ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(skyCanvas,0,0,W,SKY_H);ctx.restore();
 }
 export function drawProp(ctx:Ctx,p:SceneProp):void{drawPixelDecor(ctx,p.kind,p.x,p.y,p.s,p.seed);}

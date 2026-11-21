@@ -14,7 +14,7 @@ export function projectPixelStack(x: number, y: number, z: number, turn = 0.25, 
 }
 export function drawPixelStack(ctx: Ctx, model: PixelStackModel, pose: PixelStackPose = {}): void {
   const { x = 0, y = 0, scale = 2, turn = 0.25, squash = 0.75, spacing = 1, shadow = true } = pose;
-  if (![model.width, model.depth, model.count].every(n => Number.isInteger(n) && n > 0 && n <= 128)
+  if (![model.width, model.depth, model.count].every(n => Number.isInteger(n) && n > 0 && n <= 256)
     || ![x,y,scale,turn,squash,spacing].every(Number.isFinite) || scale <= 0 || squash <= 0 || squash > 1 || spacing < 0 || model.count * spacing > 2048)
     throw new RangeError("Invalid pixel stack");
   const columns = Math.min(8, model.count), rows = Math.ceil(model.count / columns),

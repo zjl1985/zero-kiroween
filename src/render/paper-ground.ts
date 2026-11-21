@@ -62,10 +62,10 @@ export function groundSheet(ctx: Ctx, pts: readonly Point[], _color: string, loo
         x = gx * 42 + Math.floor(hash(sd) * 8) * 2,
         y = gy * 30 + Math.floor(hash(sd + 7) * 6) * 2;
       if (hash(sd + 11) < 0.2) {
-        pixelRect(ctx, x, y, 12, 4, dark);
-        pixelRect(ctx, x + 4, y - 2, 8, 2, light);
+        pixelRect(ctx, x, y, 7, 1, dark);
+        pixelRect(ctx, x + 2, y - 1, 4, 1, light);
       }
-      if (hash(sd + 19) > 0.83) pixelTerrainCluster(ctx, x, y, sd, look.seam);
+      if (hash(sd + 19) > 0.9) pixelTerrainCluster(ctx, x, y, sd, look.seam);
     }
   ctx.restore();
   return p;
