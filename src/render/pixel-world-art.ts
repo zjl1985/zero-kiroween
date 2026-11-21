@@ -1,3 +1,6 @@
+import { observatoryModel } from "./pixel-observatory.js";
+import { observatoryArmillaryModel, observatoryChartModel } from "./pixel-observatory-props.js";
+import { drawObservatoryCourt } from "./pixel-observatory-court.js";
 import { windmillModel } from "./pixel-windmill.js";
 import { drawPixelWindmillRotor } from "./pixel-windmill-rotor.js";
 /** Native-resolution voxel sections for world props and landmark dressing.
@@ -197,6 +200,9 @@ export function pixelPropArt(a: PropArt): PropArt {
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
   if (piece.kind === "windmill") return windmillModel(v);
+  if (piece.kind === "star-observatory-building") return observatoryModel(v);
+  if (piece.kind === "star-observatory-armillary") return observatoryArmillaryModel(v);
+  if (piece.kind === "star-observatory-chart") return observatoryChartModel(v);
   const kind = piece.kind, dims = metrics(piece.bounds, /lights|trellis|chart/.test(kind)),
     colors = paletteFor(kind, false), W = dims.width / 2 - 2, D = dims.depth / 2 - 1,
     roof: Palette = /greenhouse/.test(kind) ? ["#315565", "#608b91", "#b0ccc0"]
@@ -281,21 +287,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           rect(x, 0, 1, 1, WOOD[1]);
           if ((z + i * 3) % 9 < 4) oval(x + Math.sin(z * 0.4) * 2, 1, 3, 2, i % 2 ? LEAF[1] : LEAF[2]);
         }
-      } else if (/armillary/.test(kind)) {
-        if (h < 0.33) { oval(0, 0, W * (h < 0.1 ? 0.65 : 0.18), D * (h < 0.1 ? 0.75 : 0.2), 1); }
-        else {
-          const t = (h - 0.65) / 0.34, r = Math.sqrt(Math.max(0, 1 - t * t));
-          for (const side of [-1, 1]) rect(side * W * 0.8 * r, 0, 2, 2, GOLD[1]);
-          oval(0, 0, Math.max(1, W * 0.55 * r), D * r, GOLD[2], 0.8);
-          if (h > 0.58 && h < 0.72) oval(0, 0, 3, 3, "#7ea7b0");
-        }
-      } else if (/chart/.test(kind)) {
-        if (h < 0.75) for (const x of [-W * 0.6, W * 0.6]) rect(x, 0, 2, 2, WOOD[1]);
-        else {
-          const yy = -D + (h - 0.75) / 0.25 * D * 2;
-          rect(-W, yy, W * 2, 2, "#43566e");
-          for (let i = 0; i < 7; i++) if ((z + i) % 5 === 0) rect((hash(i + 5) - 0.5) * W * 1.7, yy, 1, 1, "#e1d3a3");
-        }
       } else if (kind === "well") {
         if (h < 0.33) oval(0, 0, W * 0.82, D, h < .15 ? 0 : 1, 0.62);
         else for (const x of [-W * 0.75, W * 0.75]) rect(x, 0, 2, 2, WOOD[1]);
@@ -319,19 +310,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           rect(-W * 0.9, -ry, W * 1.8, 1, roof[2]);
           for (let i = -2; i <= 2; i++) rect(i * W * 0.4, -ry, 1, ry * 2, "#c7c5a1");
           if (h < 0.45) rect(-5, ry - 1, 10, 1, "#466a6d");
-        }
-      } else if (/observatory-building/.test(kind)) {
-        if (h < 0.58) {
-          oval(0, 0, W * 0.8, D * 0.9, STONE[1]);
-          windows(0.2, 0.4, 4, W * 0.6, D * 0.85);
-        } else if (h < 0.9) {
-          const t = (h - 0.58) / 0.32, r = Math.sqrt(Math.max(0, 1 - t * t));
-          oval(0, 0, W * 0.9 * r, D * r, roof[1]);
-          rect(-1, -D * r, 2, D * 2 * r, roof[2]);
-        } else {
-          const t = (h - 0.9) * 30;
-          oval(W * 0.3 + t * 2, -1, 5, 3, roof[2]);
-          rect(W * 0.3 + t * 2, 0, 5, 2, roof[0]);
         }
       } else if (kind === "clock-tower") {
         const width = h < 0.1 ? W : h < 0.72 ? W * 0.7 : W * 0.82;
@@ -390,6 +368,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "star-observatory") { drawObservatoryCourt(ctx,l.x,l.y); return; }
       const tile = 8, rx = Math.min(l.radius + 30, 180), ry = rx * 0.55,
         wood = /market|teahouse|theatre/.test(a.id), garden = /field|greenhouse|windmill|hill/.test(a.id),
         colors = wood ? WOOD : garden ? LEAF : STONE;
@@ -411,6 +390,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "star-observatory") return; // Its compass court owns the flush doorway path.
       if (a.id === "stone-bridge") return; // All walkable decks still come from the shared water geometry.
       if (a.id === "moon-hill") {
         for (let yy = -8; yy <= 8; yy += 2) for (let xx = -22; xx <= 22; xx += 2) {
@@ -435,7 +415,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" || piece.kind.startsWith("star-observatory-") ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
       ...(piece.kind === "windmill" ? { live(ctx: Ctx, x: number, y: number, s: number, v: number, time: number, activity?: Parameters<NonNullable<DecorPiece["live"]>>[6]) {
         drawPixelWindmillRotor(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);
