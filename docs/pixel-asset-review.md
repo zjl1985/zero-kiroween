@@ -41,6 +41,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Puppet theatre | Rebuilt; stage/benches and scene fixtures viewed | Arched proscenium, gathered curtains, illustrated backdrop/string puppets, joined low benches and quiet audience aisle. Corrected detached shadow and bat silhouette found in first capture; user approval pending. |
 | Stone bridge and riverbanks | Rebuilt; native/magnified and scene fixtures viewed | Exact shared deck now has stone flagstones and low inset coping; ordinary road crossings keep timber. Quiet dry banks replace checkerboard, no geometry changes. User approval pending. |
 | Graveyard chapel and tombs | Rebuilt; native/magnified and scene fixtures viewed | Attached bell tower, pitched slate roof, arched stone entry, rose window, six carved tomb variants and quiet moss yard. User approval pending. |
+| Pumpkin field and moon hill | Rebuilt; native/2× and desktop/phone fixtures viewed | Broken soil furrows and root-connected vines; restrained grass contours and flush crescent inlay. Original props/routes unchanged; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -259,3 +260,16 @@ Viewed first native/2× building screenshot and all six markers at native/3×. T
 Evidence: graveyard-before-detail.png, graveyard-after-detail.png (first plain-roof revision), graveyard-final-{detail,desktop,mobile}.png and tomb-variants-detail.png under output/pixel-asset-review. Whole-screen density still falls below the user's farm reference; broader composition, remaining props, actors, weapons and UI remain open. Local only; no push, deployment or user art approval.
 
 Graveyard final verification: `npm run build` passed; `npm test`435/435. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. `git diff --check` passed.
+
+
+## Pumpkin field and moon hill ground composition
+
+Replaced the two remaining generic ground treatments with dedicated static native painters. pixel-pumpkin-field.ts draws seven independently ended beds, thin broken furrows, sparse broad soil clods, and continuous vines with lobed leaves attached to all ten existing pumpkin root positions. First screenshots revealed the straight bright paired furrows looked like wooden boards. Removed continuous borders and changed the soil grooves to low-contrast, slightly stepped interrupted runs, then recaptured.
+
+pixel-moon-hill.ts replaces the bright green oval with three restrained interleaved grass contours, sparse shoulder plants, and a larger flush crescent stone inlay around the fixed lamp foot. No raised perimeter, plinth or apparent new wall. Both painters run in existing baked landmark ground before authoritative roads and crossings; all definitions, props, collisions, interactions, simulation and input remain unchanged. No assets/dependencies added.
+
+Viewed centered before/after desktop960×540 and phone390×844 scenes, then final native/2× scene details. Seed7 sites: pumpkin-field(1026,3784), moon-hill(2912,1708). Every capture reports simulation unchanged and page errors0. Existing road visibly crosses the pumpkin plot; it was preserved, not disguised or rerouted. These render fixtures reposition camera/player and are not full playthroughs or iPhone profiling.
+
+Evidence: pumpkin-field-before-desktop.png, pumpkin-field-after-desktop.png (first board-like defect), pumpkin-field-final-{detail,desktop,mobile}.png; moon-hill-before-desktop.png and moon-hill-final-{detail,desktop,mobile}.png under output/pixel-asset-review. Overall world density/composition remains below the supplied farm reference; prop, actor, weapon, costume and UI detail are still open. Local only, no push/deployment or user art acceptance.
+
+Field/hill verification: `npm run build` passed; `npm test`435/435; gallery gloss0, page errors0,127 registered paints nonempty/in bounds; `git diff --check` passed.

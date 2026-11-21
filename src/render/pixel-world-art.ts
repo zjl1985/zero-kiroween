@@ -1,3 +1,5 @@
+import { drawPumpkinField } from "./pixel-pumpkin-field.js";
+import { drawMoonHill } from "./pixel-moon-hill.js";
 import { chapelModel } from "./pixel-chapel.js";
 import { tombModel } from "./pixel-tomb.js";
 import { drawGraveyardGround } from "./pixel-graveyard-ground.js";
@@ -338,6 +340,8 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "pumpkin-field") { drawPumpkinField(ctx,l.x,l.y); return; }
+      if (a.id === "moon-hill") { drawMoonHill(ctx,l.x,l.y); return; }
       if (a.id === "graveyard") { drawGraveyardGround(ctx,l.x,l.y); return; }
       if (a.id === "stone-bridge") { drawBridgeBanks(ctx,l); return; }
       if (a.id === "puppet-theatre") { drawTheatreGround(ctx,l.x,l.y); return; }
@@ -353,13 +357,14 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       for (let iy = -Math.ceil(ry / tile); iy <= Math.ceil(ry / tile); iy++) for (let ix = -Math.ceil(rx / tile); ix <= Math.ceil(rx / tile); ix++) {
         if ((ix * tile / rx) ** 2 + (iy * tile / ry) ** 2 > 1) continue;
         const h = hash(l.seed + ix * 7919 + iy * 131), c = colors[1]!;
-        ctx.fillStyle = a.id === "pumpkin-field" ? (iy % 2 ? "#614b43" : "#80624a") : c;
+        ctx.fillStyle = c;
         ctx.fillRect(Math.round((l.x + ix * tile) / 2) * 2, Math.round((l.y + iy * tile) / 2) * 2,
           wood ? tile - 1 : tile, wood ? tile - 2 : tile);
         if (!garden && h > 0.88) { ctx.fillStyle = colors[2]; ctx.fillRect(Math.round((l.x + ix * tile) / 2) * 2, Math.round((l.y + iy * tile) / 2) * 2, tile - 2, 2); }
       }
     },
     ground(ctx, l) {
+      if (a.id === "pumpkin-field" || a.id === "moon-hill") return; // Dedicated flush ground owns its detail.
       if (a.id === "graveyard") return; // Short chapel approach ends before the graves.
       if (a.id === "puppet-theatre") return; // Apron includes the aisle and ticket stubs.
       if (a.id === "wishing-well") { drawWellPondDetails(ctx,l.x,l.y); return; }
@@ -369,24 +374,10 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       if (a.id === "fold-greenhouse") return; // Garden already owns its flush approach.
       if (a.id === "star-observatory") return; // Its compass court owns the flush doorway path.
       if (a.id === "stone-bridge") return; // All walkable decks still come from the shared water geometry.
-      if (a.id === "moon-hill") {
-        for (let yy = -8; yy <= 8; yy += 2) for (let xx = -22; xx <= 22; xx += 2) {
-          if ((xx / 22) ** 2 + (yy / 8) ** 2 > 1 || ((xx - 7) / 18) ** 2 + ((yy + 2) / 8) ** 2 < 1) continue;
-          ctx.fillStyle = "#bdc8c6"; ctx.fillRect(Math.round(l.x + xx), Math.round(l.y - 8 + yy), 2, 2);
-        }
-      } else if (a.id === "pumpkin-field") {
-        for (let i = 0; i < 12; i++) {
-          const x = Math.round((l.x + (hash(l.seed + i * 7) - 0.5) * 270) / 2) * 2,
-            y = Math.round((l.y + (hash(l.seed + i * 13) - 0.5) * 140) / 2) * 2;
-          ctx.fillStyle = LEAF[1];
-          for (let k = 0; k < 12; k++) ctx.fillRect(x + k * 2, y + Math.round(Math.sin(k * 0.5) * 2) * 2, 2, 2);
-        }
-      } else {
-        // Stone or timber approach, never an additional collision wall.
-        for (let i = 0; i < 6; i++) {
-          ctx.fillStyle = i % 2 ? "#9c947b" : "#85887a";
-          ctx.fillRect(Math.round(l.x - 9 + (i % 2) * 2), Math.round(l.y + i * 10), 18, 7);
-        }
+      // Stone or timber approach, never an additional collision wall.
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = i % 2 ? "#9c947b" : "#85887a";
+        ctx.fillRect(Math.round(l.x - 9 + (i % 2) * 2), Math.round(l.y + i * 10), 18, 7);
       }
     },
     pieces: a.pieces?.map(piece => ({ ...piece,
