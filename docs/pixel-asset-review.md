@@ -48,6 +48,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Destructible reeds | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Root-connected arching leaves, unequal cattail heads, cut remnants; corrected wire-like highlights and disconnected taper pixels. Terrain reed fans remain separate; user approval pending. |
 | Mailbox and signpost | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Tunnel hood/red flag/envelope and opposed arrow boards/fasteners; grounded supports and recognizable remnants. User approval pending. |
 | Destructible wax candle | Rebuilt; lifecycle/live-fire and desktop/phone fixtures viewed | Recessed wax top, connected drips, tray, anchor-preserving damage and pale melted remnants. User approval pending. |
+| Registered grass, flowers and bushes | Rebuilt; revised grass/flower spacing after screenshot review | Rooted leaf fans, grouped flower stems and branch-supported foliage; lifecycle and desktop/phone fixtures viewed. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -357,3 +358,16 @@ Viewed all18 lifecycle combinations at1×/2×, plus actual craft-props.drawProp 
 Viewed desktop960×540 and phone390×844 seed7 fixture(1546,837),scale1.01. Rendering leaves simulation unchanged and reports no browser errors. Strict original bounds and intact cache round-trip pass. Evidence under output/pixel-asset-review: wax-candle-before/after-{states,burnt,detail,desktop,mobile}.png and wax-live-before/after-{normal,reduced}.png. These are render fixtures, not iPhone performance or gameplay acceptance. Whole-game refinement remains active; local only/no push.
 
 Wax verification: npm run build passed; npm test440/440; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Two targeted regressions pass; git diff --check passed.
+
+
+## Registered ground flora: connected, uneven plant groups
+
+New pixel-grass.ts, pixel-flowers.ts and pixel-bush.ts replace the generic upright columns and banded ellipsoids. Grass has broad connected leaf fans with short creases; flowers have attached leaf pairs and five joined petals around a central disc; bushes expose rooted branching beneath asymmetric stepped foliage planes. Four grass/flower palettes and six bush variants retain the existing registrations. Damage cuts selected blades/heads/crowns rather than truncating all geometry. Scraps retain stubble, petals, fallen twigs/leaves or charcoal. All use existing propSprite caching, no new runtime dependencies or assets. Definitions, collision, regrowth, drops, reactions and simulation are untouched.
+
+First native/2× screenshots still showed evenly spaced identical grass fans and flower stems. Revised to unequal overlapping grass fans and two grouped flower bouquets with different heights, leans and leaf nodes. Burnt damage also exposed a coloured fallen-petal branch accidentally using the normal palette; fixed that branch and muted burnt material to charcoal/ash. Recaptured all84 lifecycle combinations and viewed final sheets. Strict original bounds and intact cache round-trip pass. New pixel-ground-flora.test.mjs independently checks cache bounds, Canvas state restoration and eight-connected elevated foliage to root-level pixels across all variants/phases/burnt flags.
+
+Viewed desktop960×540 and phone390×844 fixtures: seed7 grass(280,711),s.95; flowers(750,1143),s1.07; bush(685,815),s1.08. Rendering leaves simulation unchanged with page errors0. The complete scene still needs richer composition and remaining coarse props/actors; these are focused render fixtures, not iPhone performance or user art acceptance.
+
+Evidence under output/pixel-asset-review: paper-{grass,flowers,bush}-before/after/final-{states,burnt}.png; paper-{grass,flowers}-final-{detail,desktop,mobile}.png and paper-bush-after-{detail,desktop,mobile}.png. Local only/no push, whole-game goal remains active.
+
+Ground-flora verification: npm run build passed; npm test443/443; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted continuity/bounds tests3/3 and all84 browser strict bounds/cache round-trips pass. git diff --check passed.

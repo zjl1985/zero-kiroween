@@ -1,3 +1,6 @@
+import { drawPixelGrass } from "./pixel-grass.js";
+import { drawPixelFlowers } from "./pixel-flowers.js";
+import { drawPixelBush } from "./pixel-bush.js";
 import { drawPixelWaxCandle } from "./pixel-wax-candle.js";
 import { drawPixelMailbox } from "./pixel-mailbox.js";
 import { drawPixelSignpost } from "./pixel-signpost.js";
@@ -141,19 +144,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
           if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
             rect(x + .5, 1.5, .5, .5, 0);
         }
-      } else if (/grass|flowers/.test(id)) {
-        for (let i = 0; i < 9; i++) {
-          const height = 0.45 + hash(v * 19 + i) * 0.55;
-          if (h > height) continue;
-          const x = -W * 0.85 + (i / 8) * W * 1.7 + (h * h * (i % 2 ? 2 : -2)), y = ((i % 3) - 1) * D * 0.5;
-          rect(x, y, 1 + (h < 0.2 ? 1 : 0), 1, i % 3);
-          if (id.includes("flowers") && h > height - 0.17) { oval(x, y, 2.3, 2, ["#d99885", "#d4bf7c", "#a4b9c8"][i % 3]!); rect(x, y, 1, 1, GOLD[2]); }
-        }
-      } else if (id === "paper-bush") {
-        for (let i = 0; i < 5; i++) {
-          const r = Math.sqrt(Math.max(0, 1 - ((h - 0.42 - (i % 2) * 0.13) / 0.55) ** 2));
-          oval((i - 2) * W * 0.3, (i % 2 ? -1 : 1) * D * 0.3, W * 0.45 * r, D * r, h > .62 ? 2 : i === 0 ? 0 : 1);
-        }
       } else if (id === "dead-tree") {
         rect(-2 + Math.sin(h * 5 + v) * 1.3, -1, 4 - h * 2, 3, 1);
         if (h > 0.38) for (const side of [-1, 1]) {
@@ -188,6 +178,9 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "paper-grass") { drawPixelGrass(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-flowers") { drawPixelFlowers(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-bush") { drawPixelBush(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "wax-candle") { drawPixelWaxCandle(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "mailbox") { drawPixelMailbox(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "signpost") { drawPixelSignpost(ctx,x,y,s,v,phase,burnt); return; }
