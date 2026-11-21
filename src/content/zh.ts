@@ -226,7 +226,7 @@ export const ZH: Messages = {
   "enemy.smudge.name": "墨渍",
   "enemy.eraser-boss.name": "橡皮擦",
   "enemy.kiro-ghost.name": "Kiro 小幽灵",
-  "gallery.title": "纸艺工坊图鉴",
+  "gallery.title": "像素夜镇图鉴",
   "gallery.subtitle": "所有已注册的猫、敌人、道具、地标与图标，全部由代码绘制",
   "gallery.check.value": "开发检查：明度。只显示亮度，用来比较角色与背景的明暗对比",
   "gallery.check.gloss": "开发检查：光泽。红框标出使用了渐变、模糊阴影或叠加发光的格子",

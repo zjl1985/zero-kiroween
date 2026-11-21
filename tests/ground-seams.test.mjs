@@ -3,9 +3,10 @@ import { test } from "node:test";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import "../dist/render/art-index.js";
 import { buildChunk, clearWorldRenderCache, drawChunks } from "../dist/render/craft-world.js";
-import { drawLawnEdge, lawnContour } from "../dist/render/start-lawn.js";
-import { PAPER_EDGE, PAPER_SHADOW } from "../dist/render/paper-rules.js";
-import { CHUNK, SCREEN } from "../dist/game/world-gen.js";
+import { drawLawnEdge, drawLawnVerge, lawnContour } from "../dist/render/start-lawn.js";
+import { groundUnderlay } from "../dist/render/craft-scene.js";
+import { ROAD_STOCK } from "../dist/render/road-art.js";
+import { CHUNK, SCREEN, START_ROAD_EXIT, roads } from "../dist/game/world-gen.js";
 
 // Ground seams around the start lawn and unbaked tiles (FEAT-003). Static command
 // contracts on a recording canvas; they do not claim pixel or art approval.
@@ -64,7 +65,7 @@ function points(p) {
   return p.ops.flatMap(([op, ...a]) => op === "moveTo" || op === "lineTo" ? [[a[0], a[1]]] : op === "quadraticCurveTo" ? [[a[2], a[3]]] : []);
 }
 
-test("the start lawn's south edge is a finely torn contour, not a few long straight cuts", () => {
+test("the start lawn preserves its irregular shared world contour without long straight seams", () => {
   const { width, height } = SCREEN;
   const south = lawnContour().filter(([x, y]) => x >= 0 && x <= width && y > height);
   assert.ok(south.length >= 60, `many short segments along the south edge (${south.length})`);
@@ -84,64 +85,89 @@ test("the start lawn's south edge is a finely torn contour, not a few long strai
   assert.ok(turns > n / 3, `torn zigzag (${turns} turns over ${n} vertices)`);
 });
 
-test("district stock meets the lawn with a cut-paper edge: shadow, card side, rim, lip and fringe", (t) => {
+test("district grass banks follow the lawn clip with native pixel verge details", (t) => {
   environment(t);
   const tile = { x0: 0, y0: CHUNK.height, x1: CHUNK.width, y1: 2 * CHUNK.height };
   const ctx = canvas().getContext("2d");
   drawLawnEdge(ctx, tile, 7);
+  drawLawnVerge(ctx, tile, 7);
   assert.equal(ctx.depth, 0);
-  const calls = allCalls(ctx);
-  const shadow = calls.find((c) => c.op === "fill" && c.args[1] === "evenodd" && c.fillStyle === PAPER_SHADOW.color);
-  assert.ok(shadow, "the stock casts a hard shadow onto the lawn floor");
-  assert.ok(shadow.shift[0] > 0 && shadow.shift[1] > 0, "the shadow falls down-right");
-  const lawnClip = calls.find((c) => c.op === "clip" && c.args.length === 1);
-  assert.ok(lawnClip && calls.indexOf(lawnClip) < calls.indexOf(shadow), "the shadow stays on the lawn side");
-  const edgeStrokes = calls.filter((c) => c.op === "stroke" && c.args[0] instanceof Path &&
+  const calls = allCalls(ctx), clip = calls.findIndex(c => c.op === "clip");
+  assert.ok(clip >= 0, "the bank is clipped to the shared lawn footprint");
+  const edgeStrokes = calls.filter(c => c.op === "stroke" && c.args[0] instanceof Path &&
     points(c.args[0]).some(([x, y]) => x > 0 && x < CHUNK.width && y > CHUNK.height + 20 && y < CHUNK.height + 110));
-  assert.ok(edgeStrokes.some((c) => c.lineWidth === 3), "a darker card side along the cut");
-  assert.ok(edgeStrokes.some((c) => c.strokeStyle === PAPER_EDGE.lip && c.shift[0] > 0 && c.shift[1] < 0), "a pressed lip toward the light");
-  assert.ok(edgeStrokes.some((c) => c.lineWidth === 2 && c.shift[0] < 0 && c.shift[1] > 0), "a lit rim on the stock");
-  const fringe = calls.filter((c) => c.op === "fill" && Array.isArray(c.args[0]?.ops) && points(c.args[0]).length > 16 &&
-    points(c.args[0]).every(([x, y]) => y > CHUNK.height && y < CHUNK.height + 120));
-  assert.ok(fringe.length >= 1, "fringe-cut grass stands along the south edge");
+  assert.ok(edgeStrokes.some(c => c.lineWidth === 6), "dark earthen bank");
+  assert.ok(edgeStrokes.some(c => c.lineWidth === 2), "narrow grass edge");
+  assert.ok(edgeStrokes.every(c => calls.indexOf(c) > clip), "bank strokes stay within the lawn clip");
+  const pixels = calls.filter(c => c.op === "fillRect");
+  assert.ok(pixels.length > 12, "authored grass/stone clusters interrupt the bank");
+  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n) && n % 2 === 0)), "verge is authored on the 2-unit world pixel lattice");
+  assert.ok(new Set(pixels.map(c => c.fillStyle)).size >= 3, "clusters have distinct shadow, midtone and light pixels");
 });
 
-test("a baked tile under the yard paints the lawn edge after laying its sheets, in both neighbours", (t) => {
+test("neighbouring native tiles paint the same lawn footprint after cutting the district patches", (t) => {
   environment(t);
-  const edge = (cx) => {
-    const calls = buildChunk(7, cx, 1).getContext("2d").calls;
-    const clip = calls.findIndex((c) => c.op === "clip" && c.args[1] === "evenodd");
-    const shadow = calls.findIndex((c) => c.op === "fill" && c.args[1] === "evenodd" && c.fillStyle === PAPER_SHADOW.color);
-    assert.ok(clip >= 0 && shadow > clip, `tile ${cx},1 cuts its sheets and then paints the cut edge`);
-    return calls[shadow].args[0].ops.find(([op]) => op === "addPath")[1].ops;
-  };
-  assert.deepEqual(edge(1), edge(0), "neighbouring tiles share one world-anchored edge");
+  const probe = canvas().getContext("2d");
+  drawLawnEdge(probe, { x0: 0, y0: CHUNK.height, x1: CHUNK.width, y1: 2 * CHUNK.height }, 7);
+  const lawnOps = probe.calls.find(c => c.op === "clip").args[0].ops;
+  for (const cx of [0, 1]) {
+    const tile = buildChunk(7, cx, 1), calls = tile.getContext("2d").calls;
+    assert.equal(tile.width, CHUNK.width / 2, "one native pixel represents two world units");
+    assert.equal(tile.height, CHUNK.height / 2);
+    const outside = calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd");
+    const lawn = calls.findIndex((c, i) => i > outside && c.op === "clip" && JSON.stringify(c.args[0]?.ops) === JSON.stringify(lawnOps));
+    assert.ok(outside >= 0 && lawn > outside, `tile ${cx},1 paints the bank after clipping its district patches`);
+    assert.ok(calls.slice(lawn + 1).some(c => c.op === "stroke" && c.lineWidth === 6), "bank remains visible in each neighbour");
+  }
 });
 
-test("moss hatching is world-anchored: the start yard and the tile below draw the same marks along y = 540", (t) => {
+test("native grass marks are world-anchored across the opening's y = 540 boundary", (t) => {
   environment(t);
-  const marks = (cx, cy) => {
-    const out = new Set();
-    for (const c of allCalls(buildChunk(7, cx, cy).getContext("2d")))
-      if (c.op === "stroke" && (c.strokeStyle === "#6c7358" || c.strokeStyle === "#92906a") && c.lineWidth === 0.35)
-        for (const [op, x, y] of c.args[0].ops)
-          if (op === "moveTo" && x >= 0 && x <= CHUNK.width && y >= CHUNK.height - 1.5 && y <= CHUNK.height + 1.5) out.add(`${x},${y}`);
-    return [...out].sort();
-  };
-  const yard = marks(0, 0), below = marks(0, 1);
-  assert.ok(yard.length >= 5, `the yard draws moss up to its edge (${yard.length})`);
-  assert.deepEqual(below, yard, "both bakes place the same marks across the shared edge");
+  // The global 28-unit source row straddling the boundary is evaluated by
+  // both painters, then clipped by their individual native canvases.
+  const row = Math.floor(CHUNK.height / 28) * 28;
+  const marks = calls => [...new Set(calls.filter(c => c.op === "fillRect" && c.fillStyle === "#577b58" &&
+    c.args[2] === 6 && c.args[3] === 2 && c.args[0] >= 0 && c.args[0] < CHUNK.width && c.args[1] >= row && c.args[1] < row + 28)
+    .map(c => c.args.join(",")))].sort();
+  const yard = marks(allCalls(buildChunk(7, 0, 0).getContext("2d"))),
+    below = marks(allCalls(buildChunk(7, 0, 1).getContext("2d")));
+  assert.ok(yard.length > 0, "opening evaluates the boundary source row");
+  assert.deepEqual(below, yard, "neighbours generate identical pixel marks before clipping");
+  // The lightweight fallback uses that same world row, rather than restarting
+  // its pattern at the tile's origin while a worker is still baking.
+  const fallback = canvas().getContext("2d");
+  groundUnderlay(fallback, 0, CHUNK.height, CHUNK.width, CHUNK.height, false);
+  assert.deepEqual(marks(fallback.calls), yard, "placeholder and ready tile share the boundary pattern");
 });
 
-test("an unbaked tile shows graded pulp, district stock and fibre, never one flat block", (t) => {
+test("an unbaked tile has continuous base coverage plus native pixel detail", (t) => {
   environment(t);
   const cx = 4, cy = 4, ctx = canvas().getContext("2d");
   drawChunks(ctx, 7, { x: (cx + 0.5) * CHUNK.width, y: (cy + 0.5) * CHUNK.height }, false);
-  const fills = ctx.calls.filter((c) => c.op === "fill");
-  assert.ok(fills.length >= 2, "the placeholder paints more than one layer");
-  assert.ok(!fills.some((c) => c.fillStyle === "#414538"), "no flat ungraded #414538 block");
-  assert.ok(new Set(fills.map((c) => c.fillStyle)).size >= 2, "pulp and district stock differ");
-  const fibre = ctx.calls.filter((c) => c.op === "stroke" && c.args[0] instanceof Path && c.args[0].ops.filter(([op]) => op === "moveTo").length > 100);
-  assert.ok(fibre.length >= 2, "world-anchored fibre over the placeholder");
+  const bases = ctx.calls.filter(c => c.op === "fill" && c.fillStyle === "#3d624e");
+  assert.ok(bases.length > 0, "placeholder draws the same authored ground base as ready tiles");
+  assert.ok(bases.some(base => base.args[0].ops.some(([op, x, y, w, h]) => op === "rect" &&
+    x <= cx * CHUNK.width && y <= cy * CHUNK.height && x + w >= (cx + 1) * CHUNK.width && y + h >= (cy + 1) * CHUNK.height)),
+    "base covers every pixel through all four chunk edges, preventing gaps");
+  const pixels = ctx.calls.filter(c => c.op === "fillRect" && c.fillStyle === "#577b58");
+  assert.ok(pixels.length > 20, "placeholder has sparse authored native detail instead of one flat block");
+  assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n) && n % 2 === 0)), "placeholder marks use the same world pixel lattice");
   assert.equal(ctx.depth, 0);
+});
+
+test("the opening road meets the world road with the same native width, centre and material", t => {
+  environment(t);
+  const cx = Math.floor(START_ROAD_EXIT.x / CHUNK.width),
+    opening = allCalls(buildChunk(7, cx, 0).getContext("2d")),
+    below = allCalls(buildChunk(7, cx, 1).getContext("2d")),
+    lastRow = opening.find(c => c.op === "fillRect" && c.fillStyle === ROAD_STOCK.face && c.args[1] === SCREEN.height - 2);
+  assert.ok(lastRow, "opening draws road pixels through the final native row");
+  const [x, y, width, height] = lastRow.args;
+  assert.equal(width, START_ROAD_EXIT.width * 2, "opening does not flare out before the narrow world road");
+  assert.ok(Math.abs(x + width / 2 - START_ROAD_EXIT.x) <= 1, "centres agree within native half-pixel rounding");
+  assert.equal(y + height, START_ROAD_EXIT.y, "last native row reaches the shared boundary without a gap");
+  assert.deepEqual(roads(7)[0].points[0], { x: START_ROAD_EXIT.x, y: START_ROAD_EXIT.y });
+  assert.ok(below.some(c => c.op === "fill" && c.fillStyle === ROAD_STOCK.face && c.args[0]?.ops.some(
+    ([op, px, py, radius]) => op === "arc" && px === START_ROAD_EXIT.x && py === START_ROAD_EXIT.y && radius === START_ROAD_EXIT.width)),
+    "the lower tile paints the unchanged world-road join with the same material and half-width");
 });

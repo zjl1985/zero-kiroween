@@ -2,7 +2,7 @@ import type { Messages } from "./keys.js";
 
 export const EN: Messages = {
   "title.name": "Midnight Meow",
-  "title.subtitle": "A PAPERCRAFT NIGHT WATCH",
+  "title.subtitle": "A PIXEL TOWN AFTER DARK",
   "title.tagline": "A little town, a long night. The cats are keeping watch.",
   "title.start": "Begin as {name}",
   "title.choose_cat": "Choose your night watch cat",
@@ -233,7 +233,7 @@ export const EN: Messages = {
   "enemy.smudge.name": "Smudge",
   "enemy.eraser-boss.name": "The Eraser",
   "enemy.kiro-ghost.name": "Kiro Ghost",
-  "gallery.title": "Paper Workshop Gallery",
+  "gallery.title": "Pixel Town Atlas",
   "gallery.subtitle": "Every registered cat, enemy, prop, landmark and icon, drawn by code",
   "gallery.check.value": "Developer check: value. Luminance only, to compare actors against their backgrounds",
   "gallery.check.gloss": "Developer check: gloss. Red outlines mark cells that used gradients, blurred shadows or additive light",

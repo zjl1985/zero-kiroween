@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { FX } from "../dist/render/pixel-vfx.js";
 import { BOSS } from "../dist/defs/enemies/eraser-boss/def.js";
 import { lobFlightTime } from "../dist/defs/enemies/behaviours.js";
 import { SMUDGE } from "../dist/defs/enemies/smudge/def.js";
@@ -67,6 +68,7 @@ function environment(t) {
   t.mock.method(Date, "now", () => assert.fail("rendering consumes no wall time"));
   t.after(clearSpriteCache);
 }
+const pixels = (ctx) => ctx.calls.filter(c => c.op === "fillRect");
 const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
 /** Gloss anywhere in a painted command stream, including cached sprite canvases it drew. */
 const gloss = (calls) => calls.filter((c) => /Gradient$/.test(c.op) || c.op === "shadowBlur" ||
@@ -95,8 +97,8 @@ test("reduced paper motion holds decorative orientation without pinning attack p
   const transforms = (ctx) => ctx.calls.filter((c) => ["rotate", "scale"].includes(c.op)).map((c) => [c.op, ...c.args]);
   const calm = draw(true, 0.1), later = draw(true, 0.7, 80);
   assert.deepEqual(transforms(calm), transforms(later), "calm star does not spin or flip");
-  assert.ok(later.calls.some((c) => c.op === "translate" && c.args[0] === 80), "actual orbit position still follows gameplay");
-  assert.notDeepEqual(transforms(draw(false, 0.1)), transforms(draw(false, 0.7)), "normal mode still animates after a preference switch");
+  assert.deepEqual(pixels(later).map(c => c.args[0] - 50), pixels(calm).map(c => c.args[0]), "actual orbit position follows gameplay");
+  assert.deepEqual(pixels(draw(false, 0.1)).map(c => c.args), pixels(calm).map(c => c.args), "preference switching retains the authored sprite");
   assert.deepEqual(transforms(draw(true, 0.1)), transforms(calm));
   const dent = (phase) => {
     const ctx = canvas().getContext("2d");
@@ -106,10 +108,10 @@ test("reduced paper motion holds decorative orientation without pinning attack p
   };
   const early = dent(0.1), late = dent(0.8);
   assert.deepEqual(transforms(early), transforms(late), "calm hit has no spring oscillation");
-  assert.ok(images(early)[0].globalAlpha > images(late)[0].globalAlpha, "the original hit lifetime still fades out");
+  assert.ok(pixels(early)[0].globalAlpha > pixels(late)[0].globalAlpha, "the original hit lifetime still fades out");
 });
 
-test("hit folds reuse finite parts across enemies and recover without changing actor state", (t) => {
+test("pixel hits reuse finite marks across enemies and recover without changing actor state", (t) => {
   environment(t);
   const kind = ENEMY_ART.all()[0].id;
   let warm;
@@ -120,7 +122,7 @@ test("hit folds reuse finite parts across enemies and recover without changing a
     drawHitFlash(ctx, actor);
     assert.equal(JSON.stringify(actor), before);
     restored(ctx);
-    assert.ok(images(ctx).length > 0, "hit uses paper parts");
+    assert.ok(pixels(ctx).length > 0, "hit uses native pixel marks");
     assert.equal(gloss(allPaint(ctx)).length, 0, "no flash glow or blurred material");
     if (i === 0) warm = spriteCacheSize();
     else assert.equal(spriteCacheSize(), warm, "phase and actor id do not grow the cache");
@@ -130,7 +132,7 @@ test("hit folds reuse finite parts across enemies and recover without changing a
   assert.equal(idle.calls.length, 0, "the effect ends with the original hit timer");
 });
 
-test("actor fire and damp paper are distinct, read-only overlays with finite pieces", (t) => {
+test("actor fire and wet status are distinct, read-only overlays with finite pieces", (t) => {
   environment(t);
   const fire = Object.freeze({ x: 30, y: 50, burnTime: 2, burnClock: 0.4 }),
     wet = Object.freeze({ x: 30, y: 50, wetTime: 1 });
@@ -139,14 +141,14 @@ test("actor fire and damp paper are distinct, read-only overlays with finite pie
   drawActorPaperStatus(b, wet, 0, 16, 58);
   drawActorPaperStatus(idle, Object.freeze({ x: 0, y: 0 }), 0, 16);
   assert.equal(idle.calls.length, 0);
-  assert.ok(allPaint(a).some((c) => c.fillStyle === "#cf6037"));
-  assert.ok(allPaint(a).some((c) => c.fillStyle === "#33262b"), "burnt side/hem, not just orange light");
-  assert.ok(allPaint(b).some((c) => c.fillStyle === "#83b8c5"));
-  assert.ok(!allPaint(b).some((c) => c.fillStyle === "#cf6037"));
-  assert.ok(b.calls.some((c) => c.op === "stroke" && c.strokeStyle === "#a5ced0"));
+  assert.ok(allPaint(a).some((c) => c.fillStyle === FX.red));
+  assert.ok(allPaint(a).some((c) => c.fillStyle === FX.gold), "burnt side/hem, not just orange light");
+  assert.ok(allPaint(b).some((c) => c.fillStyle === FX.blue));
+  assert.ok(!allPaint(b).some((c) => c.fillStyle === FX.red));
+  assert.ok(b.calls.some((c) => c.op === "fillRect" && c.fillStyle === FX.blue));
   const both = canvas().getContext("2d");
   drawActorPaperStatus(both, { ...fire, ...wet }, 0, 16);
-  assert.ok(!allPaint(both).some((c) => c.fillStyle === "#cf6037"), "wet extinguishing does not show contradictory flames");
+  assert.ok(!allPaint(both).some((c) => c.fillStyle === FX.red), "wet extinguishing does not show contradictory flames");
   const count = spriteCacheSize();
   for (const time of [0.17, 9, 10000]) {
     drawActorPaperStatus(a, fire, time, 24, 48);
@@ -156,9 +158,9 @@ test("actor fire and damp paper are distinct, read-only overlays with finite pie
   restored(a); restored(b); restored(both);
 });
 
-test("steam, regrowth, washed ink and rewards have separate cached paper effects", (t) => {
+test("steam, regrowth, washed ink and rewards have separate native pixel effects", (t) => {
   environment(t);
-  const colors = { steam: "#d6ded6", regrow: "#9db484", "ink-wash": "#51405f", "landmark-reward": "#e5c37d" };
+  const colors = { steam: FX.cream, regrow: FX.green, "ink-wash": FX.purple, "landmark-reward": FX.gold };
   for (const [kind, color] of Object.entries(colors)) {
     const ctx = canvas().getContext("2d"), impact = Object.freeze({ kind, x: 10, y: 20, life: EFFECT_LIFE[kind] * 0.7, seed: 7, radius: 40 });
     assert.equal(drawPaperStatusEffect(ctx, impact), true);
@@ -187,7 +189,7 @@ test("ground-fire footprint and flame count come only from positive active grid 
   fireSprites(ctx, sim, cam, 0.2, (y, draw) => added.push({ y, draw }));
   assert.equal(added.length, 2);
   added.forEach((s) => s.draw());
-  assert.equal(images(ctx).length, 2, "one flame cut per live visible cell, none for ash/expired cells");
+  assert.ok(pixels(ctx).some(c => c.fillStyle === FX.red), "live visible cells emit native flames");
   drawPaperFlame(ctx, 0, 0, 10, 0.2, 0);
   drawPaperFlame(ctx, 0, 0, 10, 0.2, 1);
   const count = spriteCacheSize();
@@ -219,7 +221,7 @@ test("folded/inked props reuse intact cuts, tint only their alpha and leave call
   assert.equal(spriteCacheSize(), count);
 });
 
-test("registered enemies reuse finite faceted sheets across static times, positions and actor ids", (t) => {
+test("registered enemies reuse finite pixel sprites across static times, positions and actor ids", (t) => {
   environment(t);
   const draw = (art, id, time, x = 0) => {
     const ctx = canvas().getContext("2d"), e = Object.freeze({ id, kind: art.id, x, y: 0, hp: 10000, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0, windup: 0 });
@@ -238,8 +240,8 @@ test("weapon flight, stars and rings retain negative space without live texture 
   environment(t);
   const ctx = canvas().getContext("2d");
   ring(ctx, 0, 0, 50, "#ddccaa");
-  assert.equal(ctx.calls.filter((c) => c.op === "stroke").length, 2, "one under-edge plus one eight-arc path");
-  assert.equal(ctx.calls.filter((c) => c.op === "fillRect").length, 0);
+  assert.ok(pixels(ctx).length > 20);
+  assert.ok(pixels(ctx).every(c => Math.hypot(c.args[0], c.args[1]) > 45), "ring retains negative space");
   const draw = (time, id) => {
     for (const art of WEAPON_ART.all()) if (art.shot) art.shot(ctx, Object.freeze({ id, x: 0, y: 0, vx: 100, vy: 20, weapon: art.shotTag }), time);
     for (const echo of [false, true]) for (const empowered of [false, true]) drawCraftShot(ctx, 5, 10, 50, 20, empowered, echo);
@@ -259,7 +261,7 @@ test("activity progress uses the simulation court anchor, seconds and cooldown, 
     const sim = Object.freeze({ player: Object.freeze(point), landmarkEvents: Object.freeze({ [place.id]: Object.freeze({ progress: def.activity.seconds / 2, cooldown: 0, activations: 0, wind: 0 }) }) });
     const ctx = canvas().getContext("2d");
     drawLandmarkActivity(ctx, sim, place);
-    assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.args[0].ops.some((op) => op[0] === "ellipse" && op[1] === point.x && op[2] === point.y && op[3] === def.activity.radius)));
+    assert.ok(pixels(ctx).some(c => Math.abs(c.args[0] - point.x - def.activity.radius) <= 2 && Math.abs(c.args[1] - point.y) <= 2), "activity radius uses the simulation anchor");
     assert.ok(!ctx.calls.some((c) => c.op === "fillText"));
     restored(ctx);
   }
@@ -278,7 +280,7 @@ test("tall registered buildings yield by their bounds, not a historical landmark
 
 test("world status hooks follow actual actor art and exclude decoys; props follow deferred lifecycle", () => {
   const world = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
-  assert.match(world, /drawWithLitRim\(ctx, pose\.x, pose\.y, CAT_BOX, paintCat\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
+  assert.match(world, /paintCat\(ctx\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
   assert.match(world, /drawCraftEnemy\(ctx, e,[\s\S]*?if \(e\.spawnTime <= 0\) drawActorPaperStatus/);
   assert.match(world, /drawPaperStatusEffect\(ctx, effect\)/);
   const props = readFileSync(new URL("../src/render/craft-props.ts", import.meta.url), "utf8");
@@ -364,8 +366,7 @@ test("ink and water warnings keep their damage circles and countdown as the shot
       const rims = edges.filter(c => c.op === "stroke" && c.args[0] === circle);
       assert.equal(rims.length, 2, "dark keyline and lighter dashes");
       assert.ok(rims[0].lineWidth > rims[1].lineWidth);
-      const mark = ground.at(-1).args[0].ops;
-      assert.deepEqual(mark.map(([op]) => op), kind === "wash" ? ["path"] : ["moveTo", "lineTo", "moveTo", "lineTo"]);
+      assert.ok(ground.some(c => c.op === "fillRect"), "native warning symbol remains visible");
     }
     const alpha = ({ ground }) => ground.find(c => c.op === "fill").globalAlpha;
     assert.ok(alpha(flight) > alpha(windup) && alpha(flight) - alpha(windup) < 0.001);
@@ -377,9 +378,11 @@ test("the lingering ink edge follows the slowdown ellipse and expires with it", 
   const h = { id: 1, x: 30, y: 40, radius: SMUDGE.puddleRadius, life: 2, maxLife: SMUDGE.puddleLife };
   const ctx = canvas().getContext("2d");
   drawEnemyGround(ctx, { enemies: [], hazards: [h, { ...h, life: 0 }] });
-  const edges = ctx.calls.filter(c => c.op === "stroke");
-  assert.equal(edges.length, 1);
-  assert.deepEqual(edges[0].args[0].ops, [["ellipse", h.x, h.y, h.radius, h.radius / SMUDGE.puddleAspect, 0, 0, Math.PI * 2]]);
+  const rows = pixels(ctx);
+  assert.ok(rows.length > 0);
+  for (const c of rows) { const [x,y,w] = c.args; assert.ok(x >= h.x-h.radius && x+w <= h.x+h.radius); assert.ok(Math.abs(y-h.y) <= h.radius/SMUDGE.puddleAspect+1); }
+  const live = canvas().getContext("2d"); drawEnemyGround(live, { enemies: [], hazards: [h] });
+  assert.deepEqual(ctx.calls, live.calls, "expired puddles add no paint");
   restored(ctx);
 });
 
@@ -410,7 +413,7 @@ test("enemy recoil and directional dash marks are read-only and reuse finite cut
   const ctx = canvas().getContext("2d");
   drawCraftEnemy(ctx, e, 10, {x: 0, y: 0});
   assert.deepEqual(times, [0], "stunned body does not keep flapping");
-  assert.ok(ctx.calls.some(c => c.op === "scale" && c.args[0] > 1 && c.args[1] < 1), "hit compresses around the feet");
+  assert.equal(e.x, 20); assert.equal(e.y, 30);
   const effect = Object.freeze({kind: "dash", x: 20, y: 30, life: 0.3});
   drawSkillEffect(ctx, effect);
   const count = spriteCacheSize();
@@ -431,7 +434,7 @@ function pathBox(p) {
   return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
 }
 
-test("redrawn enemy bodies, elites and trail marks are flat paper: no gradients, shadowBlur or blur filters", (t) => {
+test("redrawn enemy bodies, elites and trail marks are native pixels: no gradients, shadowBlur or blur filters", (t) => {
   environment(t);
   const look = { x: 200, y: -20 };
   for (const art of ENEMY_ART.all()) for (const elite of [false, true]) for (const time of [0, 3.7]) {
@@ -451,12 +454,12 @@ test("enemy redraws keep their kind's collision radius and the eraser reads as a
     { "ink-blob": 10, "paper-bat": 8, crumple: 14, smudge: 11, "kiro-ghost": 12, "eraser-boss": 26, wash: 11, sketch: 10 });
   const ctx = canvas().getContext("2d"), art = ENEMY_ART.get("eraser-boss");
   art.draw(ctx, Object.freeze({ id: 1, kind: art.id, x: 0, y: 0, hp: 420, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0 }), 0, { x: 100, y: 0 });
-  const fills = new Set(allPaint(ctx).filter((c) => c.op === "fill").map((c) => c.fillStyle));
-  for (const color of ["#ec9aaa", "#ffd0d7", "#f7b6c2", "#f9dfe0", "#41639a", "#7f9fd0"]) assert.ok(fills.has(color), `eraser face ${color}`);
+  const fills = new Set(allPaint(ctx).filter((c) => c.op === "fillRect").map((c) => c.fillStyle));
+  assert.ok(fills.size >= 4, "eraser uses separate block/sleeve palette values");
   restored(ctx);
 });
 
-test("prop scraps and ash are a few large flat pieces, and damaged tears curl over to show the paper back", (t) => {
+test("legacy paper helper scraps and ash are a few large flat pieces, and damaged tears curl over to show the paper back", (t) => {
   environment(t);
   const ctx = canvas().getContext("2d");
   scrapPieces(ctx, 0, 0, 30, ["#c9a46a", "#8a6a45"], 7, 11);
@@ -497,7 +500,7 @@ function stream(ctx, seen = new Set()) {
   }));
 }
 
-test("every landmark kind stands on its own flat grounded base, not one shared oval", (t) => {
+test("every landmark kind uses native material footings and a distinct full construction", (t) => {
   environment(t);
   const firsts = new Set();
   for (const def of LANDMARK_DEFS.all()) {
@@ -505,15 +508,22 @@ test("every landmark kind stands on its own flat grounded base, not one shared o
     const place = Object.freeze({ id: `base-${def.id}`, kind: def.id, x: 0, y: 0, radius: def.radius, seed: 7, ...(def.span ? { span: 260 } : {}) });
     assert.equal(typeof art.base, "function", `${def.id} has a base painter`);
     art.base(ctx, place);
-    const calls = allPaint(ctx), fills = calls.filter((c) => c.op === "fill");
+    const calls = allPaint(ctx), fills = calls.filter((c) => c.op === "fillRect");
     assert.ok(fills.length >= 3, `${def.id} base paints paper layers`);
     assert.deepEqual(gloss(calls), [], `${def.id} base stays flat paper`);
-    assert.ok(calls.some((c) => c.op === "translate" && c.args[0] > 0 && c.args[1] > 0), `${def.id} base casts its shadow down-right`);
+    assert.ok(fills.every(c => c.args.every(Number.isInteger)), "footing is authored on a pixel lattice");
     // The first painted base path identifies the kind's footing.
-    firsts.add(JSON.stringify(fills.find((c) => c.args[0] instanceof Path)?.args[0].ops));
+    firsts.add(JSON.stringify(fills.map(c => [c.args,c.fillStyle])));
     assert.equal(ctx.depth, 0);
   }
-  assert.equal(firsts.size, LANDMARK_DEFS.ids().length, "no two kinds share the same base footing");
+  assert.ok(firsts.size >= 3, "stone, timber and garden footings differ");
+  const silhouettes = new Set(LANDMARK_ART.all().map(a => {
+    const c=canvas().getContext("2d"), d=LANDMARK_DEFS.get(a.id), place={id:"test",kind:a.id,x:0,y:0,radius:d.radius,seed:7,span:260};
+    a.base(c,place); a.ground(c,place);
+    for(const p of a.pieces??[]) p.paint(c,0,0,1,0);
+    return JSON.stringify(stream(c));
+  }));
+  assert.equal(silhouettes.size, LANDMARK_DEFS.ids().length, "landmarks retain distinct full constructions");
 });
 
 test("district sheet looks are distinct per district: colour and seam style", () => {
@@ -529,7 +539,7 @@ test("chunk ground baking is deterministic and the budgeted fallback bakes the s
   const a = stream(buildChunk(seed, cx, cy).getContext("2d")), b = stream(buildChunk(seed, cx, cy).getContext("2d"));
   assert.ok(a.length > 200, `a real tile was painted (${a.length} commands)`);
   assert.deepEqual(a, b, "same seed and chunk paint the same command stream");
-  assert.ok(a.some((c) => c.op === "fill" && Array.isArray(c.args[0]) && c.args[0].length > 20), "large sheets are cut, not only pixels");
+  assert.ok(a.some(c => c.op === "fillRect"), "terrain contains authored pixel marks");
   // Fallback path: no Worker/OffscreenCanvas here, so drawChunks bakes with the budgeted generator.
   const cam = { x: (cx + 0.5) * CHUNK.width, y: (cy + 0.5) * CHUNK.height };
   let image;
@@ -563,7 +573,7 @@ test("neighbouring painted and pencil tiles use the same irregular lawn boundary
 import { createSim, spillWater, paintColour } from "../dist/game/sim.js";
 import { WASH } from "../dist/defs/wash.js";
 import { sketchTile } from "../dist/render/craft-world.js";
-import { cellCode, clearWashRender, drawFoldGuards, drawWashGround, washFrame, washMaskRevision, washStep } from "../dist/render/wash-art.js";
+import { cellCode, clearWashRender, drawFoldGuards, drawWashGround, washFrame, washMaskRevision, washMaskCount, washStep } from "../dist/render/wash-art.js";
 import { drawSketched, drawSketchedParts, rasterScale, sketchedSprite, sketchStep, SKETCH_STEPS } from "../dist/render/sprite-sketch.js";
 import { cachedSprite } from "../dist/engine/sprite.js";
 import { WASH_LOOK, ZOOM, washBloom } from "../dist/render/timeline.js";
@@ -597,33 +607,16 @@ test("an unwashed page does no mask work and never bakes a pencil layer", (t) =>
   assert.equal(sketchTile(7, cx, cy), undefined, "pencil layers are only baked for washed chunks");
 });
 
-test("a washed chunk draws painted ground, its pencil layer through the mask and a tide line", (t) => {
+test("washed chunks reuse one native overlay per dirty tile without repainting unchanged marks", (t) => {
   const sim = washedSim(), before = structuredClone(sim);
-  environment(t);
-  clearWorldRenderCache();
-  clearWashRender();
-  t.after(clearWorldRenderCache);
-  const frame = washFrame(sim), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
-  assert.ok(frame.chunks.has(`${cx},${cy}`), "the washed chunk asks for its pencil layer");
-  bake(sim.seed, WASH_AT, frame.chunks, cx, cy);
-  const tile = sketchTile(sim.seed, cx, cy);
-  assert.ok(tile, "the fallback baked the pencil layer");
-  const ground = canvas().getContext("2d"), ctx = canvas().getContext("2d");
-  drawChunks(ground, sim.seed, WASH_AT, false, frame.chunks);
-  drawWashGround(ctx, WASH_AT, washFrame(sim));
-  assert.ok(images(ground).some((c) => c.args[0] !== tile && c.args[1] === cx * CHUNK.width), "painted tile first");
-  assert.ok(!images(ground).some((c) => c.args[0] === tile), "drawChunks itself never draws the pencil layer");
-  const draws = images(ctx);
-  const sketchDraw = draws.findIndex((c) => c.args[0] === tile);
-  assert.ok(sketchDraw >= 0, "pencil layer drawn through the mask");
-  const tide = ctx.calls.findIndex((c) => c.op === "stroke" && c.lineWidth === WASH_LOOK.tideWidth && Math.abs(c.globalAlpha - WASH_LOOK.tideAlpha) < 1e-9);
-  assert.ok(tide >= 0, "a darker tide line dries along the wash edge");
-  assert.ok(ctx.calls.indexOf(draws[sketchDraw]) > tide, "the tide ring lies under the pencil layer, so only its outer half shows");
-  assert.ok(ctx.calls.some((c) => c.op === "clip"), "the pencil layer is clipped to the wash blots");
-  assert.deepEqual(gloss(allPaint(ctx)), []);
-  assert.ok(!allPaint(ctx).some((c) => c.op === "filter" || c.op === "getImageData"));
-  restored(ctx);
-  assert.deepEqual(sim, before, "rendering never mutates SimState");
+  environment(t); clearWashRender();
+  const draw = () => { const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim)); return c; };
+  const a=draw(), tiles=images(a).map(c=>c.args[0]), counts=tiles.map(c=>c.getContext("2d").calls.length);
+  assert.ok(tiles.length>0); assert.equal(new Set(tiles).size,tiles.length);
+  assert.ok(allPaint(a).some(c=>c.op==="fillRect" && c.fillStyle==="#717e83"), "desaturated feature hatches survive");
+  const b=draw(); assert.deepEqual(images(b).map(c=>c.args[0]),tiles);
+  assert.deepEqual(tiles.map(c=>c.getContext("2d").calls.length),counts,"unchanged frames do no mask work");
+  assert.deepEqual(sim,before); assert.deepEqual(gloss(allPaint(a)),[]); restored(a); restored(b);
 });
 
 test("the pencil layer is flat graphite on cream: no gradients, filters or pixel reads, and the worker bake matches the fallback", (t) => {
@@ -808,11 +801,11 @@ test("fold protection shows for the whole fold life and draws nothing without fo
   };
   for (const dt of [0.3, 1, 3, 5, WASH.fold.seconds - 0.2]) {
     const ctx = at(dt);
-    assert.ok(ctx.calls.some((c) => c.op === "fill") && ctx.calls.some((c) => c.op === "stroke"), `a mark at ${dt} s`);
+    assert.ok(pixels(ctx).length > 20, `a mark at ${dt} s`);
     assert.deepEqual(gloss(ctx.calls), []);
   }
-  const late = at(WASH.fold.seconds - 0.1).calls.find((c) => c.op === "stroke"),
-    mid = at(5).calls.find((c) => c.op === "stroke");
+  const late = at(WASH.fold.seconds - 0.1).calls.find((c) => c.op === "fillRect"),
+    mid = at(5).calls.find((c) => c.op === "fillRect");
   assert.ok(late.globalAlpha < mid.globalAlpha, "it fades out at the end of the protection");
   assert.equal(at(6.5).calls.length, 0, "gone once the protection ends");
   const far = canvas().getContext("2d");
@@ -821,33 +814,27 @@ test("fold protection shows for the whole fold life and draws nothing without fo
   assert.equal(sim.wash.size, 0, "the mark stores no wash cells");
 });
 
-test("a cut hole through colourless paper has one cut edge on its contour", (t) => {
-  const sim = washedSim();
-  environment(t);
-  clearWashRender();
-  for (const c of Object.values(sim.wash.cells)) if (c.level >= WASH.colourless) c.cutUntil = sim.elapsed + 2;
-  const ctx = canvas().getContext("2d");
-  drawWashGround(ctx, WASH_AT, washFrame(sim));
-  const holes = ctx.calls.filter((c) => c.op === "fill" && c.fillStyle === "#fffdf8").map((c) => c.args[0]);
-  assert.ok(holes.length > 0, "white cut-out blots");
-  for (const hole of new Set(holes)) {
-    const edges = ctx.calls.filter((c) => c.op === "stroke" && c.args[0] === hole);
-    assert.equal(edges.length, 1, "a single rim, not a lit rim and a dark lip at near-identical offsets");
-  }
-  restored(ctx);
+test("cut cells show a dark opening with one pixel lip and expire on simulation time", (t) => {
+  const sim=washedSim(); environment(t); clearWashRender();
+  for(const cell of Object.values(sim.wash.cells)) if(cell.level>=WASH.colourless) cell.cutUntil=sim.elapsed+2;
+  const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim));
+  const calls=images(c).flatMap(c=>c.args[0].getContext("2d").calls), holes=calls.filter(c=>c.op==="fillRect"&&c.fillStyle===FX.dark), lips=calls.filter(c=>c.op==="fillRect"&&c.fillStyle===FX.cream);
+  assert.ok(holes.length>0); assert.equal(lips.length,holes.length);
+  for(let i=0;i<holes.length;i++) assert.deepEqual(lips[i].args,[holes[i].args[0],holes[i].args[1],holes[i].args[2],2]);
+  sim.elapsed+=3; const later=washFrame(sim); assert.ok([...later.buckets.values()].every(b=>b.marks.every(m=>!(m.code&16)))); restored(c);
 });
 
 import { drawPaperRain, drawWashEffect, rainAmount } from "../dist/render/wash-art.js";
 import { paintGallery } from "../dist/render/gallery.js";
 import { CATS } from "../dist/defs/registries.js";
 
-test("splashes, pigment confetti and paper rain are flat cut paper from finite cached pieces", (t) => {
+test("splashes, pigment confetti and paper rain are native pixel effects with bounded cache use", (t) => {
   const sim = createSim({ cat: "zero", seed: 7 });
   environment(t);
   for (const kind of ["splash", "pigment"]) {
     const ctx = canvas().getContext("2d"), e = Object.freeze({ kind, x: 10, y: 20, life: EFFECT_LIFE[kind] * 0.6, seed: 5, radius: 40, src: "ink-blob" });
     assert.equal(drawWashEffect(ctx, e, sim), true);
-    assert.ok(images(ctx).length >= 8, `${kind} throws several paper pieces`);
+    assert.ok(pixels(ctx).length >= 8, `${kind} throws native particles`);
     assert.deepEqual(gloss(allPaint(ctx)), []);
     restored(ctx);
   }
@@ -863,14 +850,14 @@ test("splashes, pigment confetti and paper rain are flat cut paper from finite c
   assert.ok(rainAmount(wet) > 0);
   const rain = canvas().getContext("2d");
   drawPaperRain(rain, wet, { x: 480, y: 270 }, 3, false);
-  assert.ok(images(rain).length > 10);
+  assert.ok(pixels(rain).length > 10);
   const rainCount = spriteCacheSize();
   for (const time of [0.1, 7, 900]) drawPaperRain(canvas().getContext("2d"), wet, { x: 480, y: 270 }, time, false);
   assert.equal(spriteCacheSize(), rainCount, "falling drops reuse two cached cuts");
   restored(rain);
 });
 
-test("the watercolour brush trails a painted paper ribbon in the cat's colour, read-only", (t) => {
+test("the watercolour brush trails native pigment marks, read-only", (t) => {
   const sim = createSim({ cat: "nicole", seed: 7 });
   environment(t);
   const art = WEAPON_ART.get("watercolour-brush"), ctx = canvas().getContext("2d");
@@ -882,27 +869,24 @@ test("the watercolour brush trails a painted paper ribbon in the cat's colour, r
     art.ground(ctx, sim);
     assert.deepEqual(sim, before, "the ribbon never mutates SimState");
   }
-  assert.ok(ctx.calls.some((c) => c.op === "fill" && c.fillStyle === CATS.get(sim.player.id).stats.accent), "pigment ribbon in the cat accent");
-  assert.ok(ctx.calls.some((c) => c.op === "translate" && c.args[0] > 0 && c.args[1] > 0), "hard shadow down-right");
+  assert.ok(pixels(ctx).some(c => c.fillStyle === FX.purple || c.fillStyle === FX.blue), "pigment trail follows the moving player");
   assert.deepEqual(gloss(ctx.calls), []);
   restored(ctx);
 });
 
-test("the gallery washed-paper swatches show pencil on cream, clean blank paper and a tide line", (t) => {
-  environment(t);
-  const page = canvas();
-  page.style = {};
-  assert.ok(paintGallery(page, "en", 1240, 1) > 0);
-  const calls = allPaint(page.getContext("2d"));
-  assert.ok(calls.some((c) => c.op === "fillRect" && c.fillStyle === "#eee4cf"), "raw cream paper");
-  assert.ok(calls.some((c) => c.op === "fill" && c.fillStyle === "#fbf8f0"), "clean erased paper");
-  assert.ok(calls.some((c) => c.op === "stroke" && c.strokeStyle === "#45434f"), "graphite");
-  assert.ok(calls.some((c) => c.globalCompositeOperation === "saturation"), "props in their pencil variant");
+test("the gallery presents distinct colored, washed, blank and tide review states", (t) => {
+  environment(t); const page=canvas(); page.style={};
+  assert.ok(paintGallery(page,"en",1240,1)>0);
+  const calls=allPaint(page.getContext("2d"));
+  assert.ok(calls.some(c=>c.op==="fillRect"),"native sprite and terrain marks are shown");
+  const source=readFileSync(new URL("../src/render/gallery.ts",import.meta.url),"utf8");
+  for(const state of ["colourless","blank","tide"]) assert.ok(source.includes(`"${state}"`),`${state} has an explicit review painter`);
+  assert.ok(new Set(calls.filter(c=>c.op==="fillRect").map(c=>c.fillStyle)).size>8,"review retains finite distinct palettes");
 });
 
 import { drawWorld } from "../dist/render/world.js";
 
-test("the paper world draws all the way to the bottom and right of a portrait camera", (t) => {
+test("the pixel world draws all the way to the bottom and right of a portrait camera", (t) => {
   environment(t);
   const sim = createSim({ cat: "zero", seed: 7 });
   const ctx = canvas().getContext("2d");
@@ -951,9 +935,8 @@ test("the selected cat retains its colours and draws above a foreground landmark
   t.mock.method(CAT_ART.get(sim.player.id), "draw", c => c.fillRect(51, 52, 53, 54));
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: sim.player, reducedMotion: true });
-  const draws = images(ctx);
-  const withRect = marker => draws.findIndex(c => c.args[0].getContext("2d").calls.some(op =>
-    op.op === "fillRect" && op.args[0] === marker));
+  const draws = ctx.calls;
+  const withRect = marker => draws.findIndex(c => c.op === "fillRect" && c.args[0] === marker || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(op => op.op === "fillRect" && op.args[0] === marker));
   const building = withRect(45), cat = withRect(51);
   assert.ok(building >= 0 && cat > building);
   assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");
@@ -1014,18 +997,18 @@ test("costume zones draw friendly ground marks and standing pieces for the worn 
     art.sprites(ctx, state, 3, (sy, draw) => sprites.push({ sy, draw }));
     for (const s of sprites) s.draw();
     restored(ctx);
-    assert.ok(ctx.calls.filter((c) => c.op === "stroke").length >= 6, `${id}: zone marks drawn`);
+    assert.ok(pixels(ctx).length >= 6, `${id}: zone marks drawn`);
     assert.ok(sprites.length >= 1, `${id}: go stone stands in the world`);
     assert.equal(JSON.stringify(state), before, `${id}: rendering does not mutate the run`);
     // Expired zones draw nothing.
     state.elapsed = 12;
     const later = canvas().getContext("2d");
     art.ground(later, { ...state, costume: { ...state.costume, buff: 0 } });
-    assert.equal(later.calls.filter((c) => c.op === "stroke" || c.op === "drawImage").length, 0, `${id}: expired zones fade out`);
+    assert.equal(later.calls.filter((c) => c.op === "stroke" || c.op === "drawImage" || c.op === "fillRect").length, 0, `${id}: expired zones fade out`);
   }
 });
 
-test("costume impacts have shared paper painters tinted by the worn costume", (t) => {
+test("costume impacts have native pixel painters for the worn costume", (t) => {
   environment(t);
   for (const kind of ["costume-burst", "costume-push", "costume-pull"]) {
     const painter = effectPainter(kind);
@@ -1036,7 +1019,7 @@ test("costume impacts have shared paper painters tinted by the worn costume", (t
     painter(ctx, { kind, x: 100, y: 100, life: EFFECT_LIFE[kind] / 2, radius: 60 }, { t: 0.5, fade: 0.5, ease: 0.875 }, state);
     ctx.restore();
     restored(ctx);
-    assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === costumeArt(state).colors.ink || c.op === "drawImage"), `${kind} paints`);
+    assert.ok(ctx.calls.some((c) => c.op === "fillRect" && Object.values(FX).includes(c.fillStyle)), `${kind} paints`);
   }
 });
 
@@ -1115,45 +1098,45 @@ test("an open-ground pencil tile is value-graded, fibrous and carries a world-an
   restored(ctx);
 });
 
-test("before the pencil tile is baked, washed cells show graded raw paper with fibre, never a flat cream fill", (t) => {
-  const sim = washedSim(), before = structuredClone(sim);
-  environment(t);
-  clearWorldRenderCache();
-  clearWashRender();
-  t.after(clearWorldRenderCache);
-  const { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
-  assert.equal(sketchTile(sim.seed, cx, cy), undefined, "no pencil tile yet");
-  const ctx = canvas().getContext("2d");
-  drawWashGround(ctx, WASH_AT, washFrame(sim));
-  assert.ok(!ctx.calls.some((c) => (c.op === "fillRect" || c.op === "fill") && c.fillStyle === PENCIL.paper), "no flat ungraded cream");
-  const paper = ctx.calls.filter((c) => c.op === "fillRect" && c.fillStyle === WASHED_PAPER.paper);
-  assert.ok(paper.length > 0, "graded raw paper under the blots");
-  for (const p of paper) assert.ok(p.args[2] < CHUNK.width && p.args[3] < CHUNK.height, "bounded to the blots, not the whole chunk");
-  assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === WASHED_PAPER.fibre), "dark paper fibre");
-  assert.ok(ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === WASHED_PAPER.light), "light paper fibre");
-  assert.deepEqual(gloss(allPaint(ctx)), []);
-  restored(ctx);
-  assert.deepEqual(sim, before, "rendering never mutates SimState");
+test("washed cells render immediately without a secondary terrain bake", (t) => {
+  const sim=washedSim(), before=structuredClone(sim); environment(t); clearWorldRenderCache(); clearWashRender(); t.after(clearWorldRenderCache);
+  const {cx,cy}=chunkOf(WASH_AT.x,WASH_AT.y); assert.equal(sketchTile(sim.seed,cx,cy),undefined);
+  const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim));
+  assert.ok(images(c).length>0); assert.ok(allPaint(c).some(c=>c.op==="fill"&&c.globalAlpha<1),"wash preserves underlying terrain");
+  assert.ok(!allPaint(c).some(c=>c.op==="getImageData"||c.op==="filter")); assert.deepEqual(sim,before); restored(c);
 });
 
-test("the tide line is one clear dark edge on every district", (t) => {
-  assert.ok(WASH_LOOK.tideWidth >= 5 && WASH_LOOK.tideAlpha >= 0.55, "wide and strong enough that its outer half shows");
-  for (const art of BIOME_ART.all()) {
-    const ground = gradeColour(art.sheet.colors[2], PAPER_VALUE.ground),
-      seen = mix(ground, washLook(art).tide, WASH_LOOK.tideAlpha);
-    assert.ok(relativeLuminance(seen) <= relativeLuminance(ground) * 0.8,
-      `${art.id}: the tide line reads darker than the graded ground it dries on`);
+test("wash overlays release their backing pixels on clear", (t) => {
+  const sim=washedSim(); environment(t); clearWashRender();
+  const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim));
+  const tiles=images(c).map(c=>c.args[0]); assert.ok(tiles.length>0);
+  clearWashRender(); assert.ok(tiles.every(c=>c.width===0&&c.height===0));
+});
+
+
+test("wash overlay travel stays within sixteen tiles and reuses dirty backing canvases", (t) => {
+  const sim=createSim({cat:"zero",seed:7}); environment(t); clearWashRender();
+  const tiles=[];
+  for(let i=0;i<24;i++) {
+    const x=i*CHUNK.width+100,y=100;
+    sim.wash.cells[`${Math.floor(x/WASH.cell)},3`]={level:1,changedAt:0}; sim.wash.size++;
+    const c=canvas().getContext("2d"); drawWashGround(c,{x,y},washFrame(sim));
+    tiles.push(...images(c).map(c=>c.args[0])); assert.ok(washMaskCount()<=16);
   }
-  const sim = washedSim();
-  environment(t);
-  clearWorldRenderCache();
-  clearWashRender();
-  t.after(clearWorldRenderCache);
-  const ctx = canvas().getContext("2d"), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y),
-    tide = washLook(BIOME_ART.find(biomeAt(sim.seed, cx, cy).id)).tide;
-  drawWashGround(ctx, WASH_AT, washFrame(sim));
-  const line = ctx.calls.find((c) => c.op === "stroke" && c.strokeStyle === tide);
-  assert.ok(line && line.lineWidth >= 5 && line.globalAlpha >= 0.55, "the recorded tide stroke is wide and strong");
-  assert.ok(ctx.calls.indexOf(line) < ctx.calls.findIndex((c) => c.op === "fillRect"), "stroked before the paper fill, so only its outer half shows");
-  restored(ctx);
+  assert.ok(tiles.some(c=>c.width===0),"eviction releases old backing pixels");
+  const at={x:23*CHUNK.width+100,y:100}, c=canvas().getContext("2d"); drawWashGround(c,at,washFrame(sim));
+  const active=images(c).map(c=>c.args[0]);
+  sim.elapsed+=.1; Object.values(sim.wash.cells).at(-1).level=.2;
+  const d=canvas().getContext("2d"); drawWashGround(d,at,washFrame(sim));
+  assert.deepEqual(images(d).map(c=>c.args[0]),active,"dirty rebuild reuses live tile surfaces");
+  assert.ok(pixels(d).some(c=>c.fillStyle===FX.green),"recolour emits the restored-pigment cue");
+  clearWashRender(); assert.equal(washMaskCount(),0);
+});
+
+test("a live cut polygon suppresses duplicate wash cell holes without changing the simulation", (t) => {
+  const sim=washedSim(); environment(t); clearWashRender();
+  for(const c of Object.values(sim.wash.cells)) c.cutUntil=sim.elapsed+2;
+  sim.cut.outs=[{at:sim.elapsed,points:[{x:2000,y:2000},{x:2350,y:2000},{x:2350,y:2350},{x:2000,y:2350}]}];
+  const before=structuredClone(sim), frame=washFrame(sim);
+  assert.ok([...frame.buckets.values()].every(b=>b.marks.every(m=>!(m.code&16)))); assert.deepEqual(sim,before);
 });

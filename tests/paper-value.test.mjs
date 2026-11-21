@@ -6,6 +6,11 @@ import { BASE_DECOR } from "../dist/defs/biomes/districts.js";
 import "../dist/defs/world-index.js";
 import { BIOME_DEFS } from "../dist/defs/registries.js";
 import { PAPER_VALUE } from "../dist/render/paper-rules.js";
+import { TERRAIN_PALETTE } from "../dist/render/pixel-terrain.js";
+import { relativeLuminance } from "../dist/render/paper-value.js";
+import { FX } from "../dist/render/pixel-vfx.js";
+import { drawCraftShot } from "../dist/render/craft-combat.js";
+import { pixelBacking } from "../dist/render/pixel-resolution.js";
 
 // Source and data checks only: they say which rules the code follows, not how the pixels look.
 const render = new URL("../src/render/", import.meta.url);
@@ -24,19 +29,37 @@ test("no render module sets a canvas filter except the one-off gallery value che
   assert.match(source("paper-material.ts"), /export function shadow[\s\S]*?PAPER_SHADOW\.dx[\s\S]*?\n}/);
 });
 
-test("the value hierarchy is data: ground below decor, a moon-side rim and dark shot outlines", () => {
+test("legacy paper value constants remain ordered for retained fallback and pencil helpers", () => {
   const tone = (hex) => parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16) + parseInt(hex.slice(5, 7), 16);
-  assert.ok(tone(PAPER_VALUE.ground.multiply) < tone(PAPER_VALUE.decor.multiply), "ground sits lower than plain decor");
+  assert.ok(tone(PAPER_VALUE.ground.multiply) < tone(PAPER_VALUE.decor.multiply));
   assert.ok(PAPER_VALUE.ground.desaturate > PAPER_VALUE.decor.desaturate);
-  assert.ok(tone(PAPER_VALUE.rim.color) > 600, "rim is pale");
-  assert.ok(tone(PAPER_VALUE.shotOutline.color) < 150, "shot outline is dark paper");
-  // Ground tiles, decor sprites and props are graded at bake time; cats and enemies get the rim.
-  assert.match(source("craft-world.ts"), /gradeCanvas\(canvas, PAPER_VALUE\.ground\)/);
-  assert.match(source("craft-world.ts"), /if \(own\) gradeCanvas\(canvas, PAPER_VALUE\.decor\)/);
-  assert.match(source("craft-props.ts"), /gradeCanvas\(canvas, PAPER_VALUE\.decor\)/);
-  assert.match(source("craft-enemies.ts"), /if \(rim\) addLitRim\(canvas, 2\)/);
-  assert.match(source("world.ts"), /drawWithLitRim\(ctx, pose\.x, pose\.y, CAT_BOX, paintCat\)/);
-  assert.doesNotMatch(source("craft-combat.ts").match(/export function drawCraftShot[\s\S]*?\n}/)[0], /glow\(|globalAlpha/);
+  assert.ok(tone(PAPER_VALUE.rim.color) > 600);
+  assert.ok(tone(PAPER_VALUE.shotOutline.color) < 150);
+});
+
+test("native terrain ramps preserve value separation from opaque player shots without a paper grade", () => {
+  assert.equal(Object.keys(TERRAIN_PALETTE).length, 5, "all five district palettes are covered");
+  for (const [kind, colours] of Object.entries(TERRAIN_PALETTE)) {
+    assert.equal(new Set(colours).size, 3, `${kind}: three distinct material tones`);
+    const [dark, mid, light] = colours.map(relativeLuminance);
+    assert.ok(dark < mid && mid < light, `${kind}: shadow, face and top highlight remain ordered`);
+    assert.ok(relativeLuminance(FX.dark) < dark, `${kind}: dark outlines remain distinguishable`);
+    assert.ok(relativeLuminance(FX.gold) > light && relativeLuminance(FX.cream) > light,
+      `${kind}: player shots and their highlight remain above ground details`);
+  }
+  const cells = [], ctx = { fillStyle: "", fillRect(...args) { cells.push({ args, color: this.fillStyle }); } };
+  for (const empowered of [false, true]) for (const echo of [false, true]) {
+    cells.length = 0;
+    drawCraftShot(ctx, 100.25, 75.75, -3, 4, empowered, echo);
+    assert.ok(cells.length > 1 && cells.every(c => c.args.every(Number.isInteger)), "shot is authored with integer cells");
+    assert.deepEqual(new Set(cells.map(c => c.color)), new Set([echo ? FX.blue : FX.gold, FX.cream]),
+      "shot uses only its solid body and readable highlight, without translucent glow");
+  }
+  assert.deepEqual(pixelBacking(960, 540), { width: 480, height: 270 }, "native world resolution is explicit");
+  assert.match(source("world.ts"), /imageSmoothingEnabled = false/, "world retains nearest sampling");
+  assert.doesNotMatch(source("craft-world.ts"), /gradeCanvas\(canvas, PAPER_VALUE\.(?:ground|decor)\)/,
+    "coloured pixel palettes are not multiplied through the old paper grade");
+  assert.doesNotMatch(source("craft-props.ts"), /gradeCanvas\(canvas, PAPER_VALUE\.decor\)/);
 });
 
 test("lamps are half as likely and stand only beside roads", () => {

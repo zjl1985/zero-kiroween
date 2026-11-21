@@ -1,6 +1,14 @@
 # Midnight Meow handoff
 
-Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
+Midnight Meow is a code-drawn pixel-art survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
+
+## Native pixel refactor (2026-11-21)
+
+User explicitly requested full pixel-art reconstruction using `danielwh2/sprite-stacking`, with the previous version sealed first. The baseline is tagged `archive/papercraft-2026-11-21` at `d26859b`. Active work is `refactor/pixel-stacking`. Older paper-only sample gates below are historical, not the current task.
+
+The active renderer now uses native pixel sprites, real cached horizontal slice stacks for scenery, pixel terrain in all five districts, pixel actors/costumes/enemies/Boss/townsfolk, attacks/status/wash/prop lifecycle art, and pixel title/HUD/upgrades/pause/results/gallery. There is one style, no style switch. Definitions and simulation are unchanged; original cat source data is retained. See [implementation and verification](docs/pixel-refactor.md).
+
+`npm run build` and `npm test` passed (420/420). The frozen baseline and new build matched at all 64 full-state checkpoints (two cats, two seeds, 1800 identical inputs per run). `src/game`, `src/defs` and `package.json` have no changes. Linux Chromium screenshots were actually captured and viewed, including desktop and mobile-size gameplay, mobile title, and region fixtures. A browser pixel probe checked 127 prop/landmark states with no blank sprites or out-of-bounds drawing. These are not iPhone measurements, an entire Boss run, or user art acceptance. Both cats also completed browser smoke flows through movement, skill, pause/resume, upgrade selection and defeat/result with no script errors. No push or deployment in this batch.
 
 ## Playable paper refactor prototype (2026-11-21)
 

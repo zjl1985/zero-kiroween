@@ -5,6 +5,11 @@ fileMatchPattern: ["src/render/**/*.ts", "src/defs/**/*art.ts", "styles.css", "i
 
 # Papercraft art direction
 
+> Historical paper-specific rules below are superseded by the user's explicit
+> complete pixel-art / sprite-stacking refactor request of 2026-11-21. Follow
+> the current AGENTS.md and PLAN.md. Preserve gameplay/ecology contracts and
+> character identities. The old visual release is archived in Git, not a mode.
+
 Applies when editing rendering code, art files beside defs (`src/defs/**/art.ts`, `src/defs/**/<id>.art.ts`) or UI styling.
 
 - Draw only with Canvas code. No `Image`, `<img>`, CSS `url()` textures or data-URI pictures for scenery, characters or UI. `imageSprite` in `src/engine/sprite.ts` is a capability only; nothing shipped may use it.

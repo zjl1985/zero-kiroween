@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" href="data:," />
   </head>
-  <body data-style="papercraft" data-cat="zero" data-screen="title">
+  <body data-style="pixel" data-cat="zero" data-screen="title">
     <div id="app">
       <canvas id="game" width="960" height="540" aria-label="Midnight Meow"></canvas>
       <section id="title-screen" class="title-layer">
@@ -21,7 +21,7 @@
           <h1 id="title-name">Midnight Meow</h1>
           <p id="title-tag" class="tagline"></p>
         </header>
-        <!-- The playbill of the paper theater: pick a ticket, read the cat's acts. -->
+        <!-- Pixel roster: choose one cat, inspect its kit, then begin the night. -->
         <div class="selection-panel playbill">
           <div class="selection-heading">
             <p id="selector-kicker" class="eyebrow"></p>
@@ -33,6 +33,10 @@
             aria-labelledby="cat-choice-label"
           >
             <!-- One ticket per registered cat, built by src/ui/character-panel.ts. -->
+          </div>
+          <div class="selection-action">
+            <button type="button" id="btn-start" class="btn primary magnetic"></button>
+            <p id="title-controls" class="hint"></p>
           </div>
           <div class="wardrobe">
             <p id="wardrobe-label" class="wardrobe-label"></p>
@@ -91,8 +95,6 @@
           <footer class="selection-footer">
             <p id="profile-tactic"></p>
             <p id="profile-build" class="profile-build"></p>
-            <button type="button" id="btn-start" class="btn primary magnetic"></button>
-            <p id="title-controls" class="hint"></p>
           </footer>
         </div>
         <div class="corner corner-tr">
@@ -278,7 +280,7 @@
         </div>
       </div>
     </div>
-    <!-- ?gallery=1: every registered piece of paper art, painted by src/render/gallery.ts. -->
+    <!-- ?gallery=1: every registered pixel art entry, painted by src/render/gallery.ts. -->
     <section id="gallery-screen" class="gallery-screen hidden" aria-labelledby="gallery-title">
       <header class="gallery-head">
         <div>

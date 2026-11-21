@@ -1,7 +1,5 @@
 import type { CatId } from "../cats/types.js";
 import { catArt, costumeArtOf } from "./art-registry.js";
-import { foldLine, paperCut } from "./paper-kit.js";
-import type { Point } from "./paper-material.js";
 
 /** Ticket portrait box (canvas units), shared with the cat tickets and the HUD badge. */
 export const TICKET_PORTRAIT = { w: 64, h: 52 } as const;
@@ -10,6 +8,7 @@ export const TICKET_PORTRAIT = { w: 64, h: 52 } as const;
 export function paintCatPortrait(canvas: HTMLCanvasElement, id: CatId, costume?: string | null): void {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, TICKET_PORTRAIT.w, TICKET_PORTRAIT.h);
+  ctx.imageSmoothingEnabled = false;
   catArt(id).portrait(
     ctx,
     {
@@ -27,16 +26,18 @@ export function paintCatPortrait(canvas: HTMLCanvasElement, id: CatId, costume?:
   );
 }
 
-const HEAD: Point[] = [
-  [17, 46], [14, 31], [17, 14], [24, 24], [32, 21], [40, 24], [47, 14], [50, 31], [47, 46],
-];
-/** A locked wardrobe ticket: a folded kraft cover with a dark cat-head silhouette cut into it. */
+/** A native-grid locked inventory slot; no paper-cover texture. */
 export function paintLockedCover(canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, TICKET_PORTRAIT.w, TICKET_PORTRAIT.h);
-  paperCut(ctx, [[6, 6], [58, 4], [59, 47], [5, 48]], { color: "#a9835e", thickness: 1, shadow: 1.2, texture: 0.6 });
-  paperCut(ctx, HEAD, { color: "#3a3045", thickness: 0.8, shadow: 0.8, edge: "#6a5a70", texture: 0.4 });
-  foldLine(ctx, 6, 27, 59, 25, 0.7);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#19333f"; ctx.fillRect(6, 5, 52, 44);
+  ctx.fillStyle = "#496873"; ctx.fillRect(8, 7, 48, 2);
+  ctx.fillStyle = "#6b8986"; ctx.fillRect(23, 14, 18, 4);
+  ctx.fillRect(19, 18, 4, 12); ctx.fillRect(41, 18, 4, 12);
+  ctx.fillStyle = "#91a89a"; ctx.fillRect(17, 28, 30, 16);
+  ctx.fillStyle = "#c3cfaf"; ctx.fillRect(19, 28, 26, 3);
+  ctx.fillStyle = "#29434d"; ctx.fillRect(29, 32, 6, 6); ctx.fillRect(31, 36, 2, 5);
 }
 
 /** The costume's small wardrobe glyph (32 x 32 box) scaled into the canvas. */

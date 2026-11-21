@@ -1,0 +1,318 @@
+/** Native pixel actor painters. Shapes are authored on integer grids, never
+ * rasterised from the archived paper paths. Simulation state is read only.
+ */
+import { cachedSprite } from "../engine/sprite.js";
+import { officialRects, officialVariant, type MascotState } from "../cats/official.js";
+import { costumeArtOf, type CatArt, type CostumeArt, type EnemyArt, type EffectPainter, type TownsfolkArt } from "./art-registry.js";
+import type { CatPose } from "./layout.js";
+import type { Ctx } from "./paper-material.js";
+import { reducedPaperMotion } from "./paper-motion.js";
+import { liveSketchStep } from "./sprite-sketch.js";
+import { enemyMaxHp } from "../game/sim.js";
+
+const INK = "#192333", LIGHT = "#f5e7c4";
+function block(c: Ctx, x: number, y: number, w: number, h: number, color: string): void {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+}
+function grid(c: Ctx, rows: readonly string[], palette: Readonly<Record<string, string>>, x: number, y: number, cell = 2): void {
+  rows.forEach((row, j) => {
+    for (let i = 0; i < row.length; i++) {
+      const color = palette[row[i]];
+      if (color) block(c, x + i * cell, y + j * cell, cell, cell, color);
+    }
+  });
+}
+function rimBox(c: Ctx, x: number, y: number, w: number, h: number, color: string, light = LIGHT): void {
+  block(c, x, y, w, h, INK);
+  if (w > 2 && h > 2) block(c, x + 1, y + 1, w - 2, h - 2, color);
+  if (w > 3) block(c, x + 2, y + 1, w - 3, 1, light);
+}
+function shadow(c: Ctx, w: number): void {
+  block(c, -w, -1, w * 2, 3, "#172631");
+  block(c, -w + 3, -2, w * 2 - 6, 5, "#172631");
+}
+function accessory(c: Ctx, name: string, accent: string): void {
+  // Head-local coordinates, chin at y=0; all outlines have integer steps.
+  switch (name) {
+    case "headphones":
+      rimBox(c, -27, -31, 5, 16, accent); rimBox(c, 22, -31, 5, 16, accent);
+      block(c, -24, -42, 48, 3, INK); block(c, -27, -39, 3, 10, INK); block(c, 24, -39, 3, 10, INK); break;
+    case "cap":
+      rimBox(c, -12, -44, 27, 9, "#467099"); block(c, 4, -36, 23, 3, "#315077"); break;
+    case "bowler":
+      rimBox(c, -12, -45, 25, 12, "#6c4c38"); block(c, -18, -35, 37, 4, INK); block(c, -11, -36, 23, 2, accent); break;
+    case "page-hat":
+      grid(c, [".....##.....", "....#LL#....", "...#LLLL#...", "..#LLSSLL#..", ".#LLLLLLLL#.", "############"], { "#": INK, L: LIGHT, S: "#b0bcc4" }, -24, -47, 4); break;
+    case "round-glasses": case "goggles":
+      for (const x of [-19, 5]) {
+        rimBox(c, x, -21, 14, 10, name === "goggles" ? "#6eabc2" : "#c8b18a", accent);
+        block(c, x + 3, -18, 8, 4, INK); block(c, x + 4, -18, 2, 2, LIGHT);
+      }
+      block(c, -5, -18, 10, 2, accent); break;
+    case "spiky-tufts":
+      grid(c, ["#...#...#", "##.###.##", "#########"], { "#": INK }, -18, -39, 4); break;
+    case "thick-brows": block(c, -19, -24, 12, 3, INK); block(c, 7, -24, 12, 3, INK); break;
+    case "turtleneck": case "leather-collar": case "jacket-collar":
+      block(c, -16, -3, 32, 6, INK); block(c, -13, -2, 26, 2, accent); break;
+    case "pencil-ear":
+      block(c, 24, -34, 3, 22, "#dfb75c"); block(c, 24, -37, 3, 3, "#db7890"); block(c, 25, -12, 1, 4, INK); break;
+    case "bird-tag":
+      grid(c, [".##.", "#LL#", "#WL#", "####", ".##."], { "#": INK, L: LIGHT, W: "#e3ac4c" }, 15, -4, 2); break;
+    case "sticky-note": rimBox(c, 14, -37, 13, 11, "#e1c35c"); block(c, 17, -32, 7, 1, INK); break;
+    case "stone-pins":
+      rimBox(c, -22, -5, 5, 5, LIGHT); rimBox(c, 17, -5, 5, 5, INK); break;
+    case "lanyard":
+      block(c, -6, -2, 2, 9, accent); block(c, 4, -2, 2, 9, accent); rimBox(c, -5, 5, 10, 7, LIGHT); break;
+    default: rimBox(c, 18, -6, 6, 6, accent);
+  }
+}
+function headSprite(art: CatArt, costume: CostumeArt | undefined) {
+  const state: MascotState = costume?.makeup.expression === "closed" ? "sleeping" : costume?.makeup.expression === "wink" ? "wink" : "idle";
+  return cachedSprite(`pixel-head:${art.id}:${costume?.id ?? "plain"}`, 84, 72, 1, c => {
+    c.translate(42, 56);
+    for (const r of officialRects(art.id, state)) {
+      const x = Math.round(r.x * 0.16 - 31), y = Math.round(r.y * 0.16 - 46);
+      block(c, x, y, Math.max(1, Math.round((r.x + r.w) * 0.16 - 31) - x),
+        Math.max(1, Math.round((r.y + r.h) * 0.16 - 46) - y), r.fill);
+    }
+    if (costume) {
+      const p = officialVariant(art.id).palette;
+      costume.makeup.patches?.forEach((patch, i) => {
+        const color = (p as unknown as Record<string, string>)[patch.color] ?? patch.color;
+        // Native cheek/bridge markings stay away from the identifying eye accessories.
+        if (i === 0) block(c, -3, -10, 6, 2, color);
+        else { block(c, -22, -7, 7, 2, color); block(c, 15, -7, 7, 2, color); }
+      });
+      for (const name of costume.makeup.accessories ?? []) accessory(c, name, costume.colors.tag);
+    }
+  }, { x: 0.5, y: 56 / 72 });
+}
+function bodySprite(art: CatArt, costume: CostumeArt | undefined, frame: number, dash: boolean) {
+  return cachedSprite(`pixel-body:${art.id}:${costume?.id ?? "plain"}:${frame}:${dash}`, 84, 42, 1, c => {
+    c.translate(42, 35);
+    const b = art.body, over = b.tailoring === "split-coat" ? costume?.outfit.coat : costume?.outfit.tee,
+      coat = { ...b, ...over }, stride = [-2, 0, 2, 0][frame], accent = costume?.colors.tag ?? art.colors.hud;
+    block(c, -26, -11, 14, 4, INK); block(c, -28, -17, 4, 8, INK);
+    block(c, -25, -11, 11, 2, b.tail); block(c, -27, -16, 2, 6, b.tail);
+    if (b.tailoring === "split-coat") {
+      block(c, -17, -28, 34, 24, INK); block(c, -15, -26, 30, 21, coat.body);
+      block(c, -20 - (dash ? 5 : 0), -21, 8, 15, coat.bodyEdge);
+      block(c, -12, -25, 4, 19, accent); block(c, 8, -25, 4, 19, accent);
+      block(c, -8, -24, 16, 17, coat.fold); block(c, -1, -23, 2, 15, accent);
+      block(c, -11, -10, 22, 3, b.belt); block(c, -2, -10, 4, 3, b.metal);
+    } else {
+      rimBox(c, -14, -28, 28, 17, coat.body, LIGHT);
+      block(c, -14, -11, 28, 9, INK); block(c, -12, -10, 24, 7, costume?.outfit.tee?.denim ?? b.denim);
+      block(c, -2, -10, 3, 9, "#244362"); block(c, -10, -9, 5, 2, "#8fb3cb");
+    }
+    for (const side of [-1, 1]) {
+      const dy = side * stride;
+      rimBox(c, side < 0 ? -13 : 3, -6 + dy, 10, 8, coat.paw, coat.pawEdge);
+      rimBox(c, side < 0 ? -20 : 14, -22 - dy, 6, 13, coat.arm, coat.bodyEdge);
+      block(c, side < 0 ? -20 : 14, -10 - dy, 6, 4, coat.paw);
+    }
+    if (costume) {
+      // Preserve outfit functions with a native vocabulary: back garment, hand tool,
+      // waist/front badge and underfoot board, selected from the existing part layers.
+      for (const [i, part] of costume.outfit.parts.entries()) {
+        if (part.layer === "under") { rimBox(c, -28, 1, 56, 4, LIGHT, accent); block(c, -7, 5, 20, 2, accent); }
+        else if (part.layer === "back") { rimBox(c, -23, -27, 9, 23, accent); block(c, -22, -23, 5, 2, costume.colors.ink); }
+        else if (part.layer === "hand") {
+          rimBox(c, 20, -18, 10, 14, costume.colors.tag, costume.colors.ink);
+          block(c, 23, -14, 4, 2, costume.colors.ink); block(c, 23 + i % 2, -10, 3, 2, INK);
+        } else { rimBox(c, -4 + (i % 2) * 7, -20, 6, 7, accent, costume.colors.ink); }
+      }
+    }
+  }, { x: 0.5, y: 35 / 42 });
+}
+export function pixelCatArt(art: CatArt): CatArt {
+  const draw = (ctx: Ctx, pose: CatPose) => {
+    const costume = costumeArtOf(pose.costume), reduced = reducedPaperMotion(),
+      frame = !reduced && pose.moving ? Math.floor(pose.time * 9) % 4 : 0,
+      scale = (pose.scale ?? 0.16) / 0.16, bob = frame % 2 && !pose.dashing ? -1 : 0;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.translate(Math.round(pose.x), Math.round(pose.y)); ctx.scale(pose.facing * scale, scale);
+    ctx.globalAlpha *= pose.decoy ? 0.35 : pose.hurt ? 0.7 : 1;
+    shadow(ctx, 16);
+    bodySprite(art, costume, frame, pose.dashing).draw(ctx, { x: 0, y: bob });
+    headSprite(art, costume).draw(ctx, { x: pose.dashing ? 2 : 0, y: -22 + bob });
+    if (pose.wear?.marks) {
+      block(ctx, -10, -16, 4, 2, INK); if (pose.wear.marks > 1) block(ctx, 6, -12, 3, 3, INK);
+    }
+    if (pose.wear?.tape) { ctx.globalAlpha *= pose.wear.tape; block(ctx, 6, -19, 7, 3, "#d5c798"); }
+    ctx.restore();
+  };
+  const adapted: CatArt = { ...art, draw,
+    skillPreview(ctx, pose) {
+      const dash = art.body.tailoring === "split-coat";
+      if (!dash) {
+        ctx.save(); ctx.globalAlpha *= 0.55;
+        for (let i = 0; i < 24; i++) {
+          const a = i * Math.PI * 2 / 24;
+          block(ctx, pose.x + Math.cos(a) * 44, pose.y - 16 + Math.sin(a) * 24, 4, 3, art.colors.tone);
+        }
+        ctx.restore();
+        grid(ctx, ["..##..", ".###..", "####..", "####..", ".###..", "..##.."], { "#": art.colors.hud }, pose.x + 28, pose.y - 48, 2);
+      }
+      adapted.draw(ctx, { ...pose, dashing: dash });
+    },
+    portrait(ctx, pose, scale) {
+      ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(pose.x), Math.round(pose.y));
+      ctx.scale(pose.facing * scale / 0.16, scale / 0.16);
+      headSprite(art, costumeArtOf(pose.costume)).draw(ctx, { x: 0, y: 0 }); ctx.restore();
+    },
+    heroAura(ctx, x, y) {
+      ctx.save(); ctx.globalAlpha *= 0.3;
+      for (let i = 0; i < 5; i++) {
+        block(ctx, x - 52 + i * 24, y - 4 - (i % 2) * 8, 12, 3, art.colors.hud);
+        block(ctx, x - 48 + i * 24, y - 20 - (i % 2) * 8, 3, 6, art.colors.hud);
+      }
+      ctx.restore();
+    },
+    skillIcon(ctx, kind) {
+      const color = art.colors.icon;
+      if (kind === "attack") for (let i = 0; i < 6; i++) block(ctx, 5 + i * 3, 24 - i * 3, 5, 3, color);
+      else if (kind === "active") for (let i = 0; i < 3; i++) {
+        block(ctx, 5 + i * 7, 8, 4, 4, color); block(ctx, 8 + i * 7, 12, 4, 8, color); block(ctx, 5 + i * 7, 20, 4, 4, color);
+      } else grid(ctx, ["..##..", ".####.", "######", ".####.", "..##.."], { "#": color }, 4, 6, 4);
+    },
+  };
+  return adapted;
+}
+
+const ENEMY_GRIDS: Readonly<Record<string, readonly string[]>> = {
+  "ink-blob": ["....######....", "..##llllll##..", ".#llllllllll#.", "#llmmmmmmmlll#", "#lmmWWmmWWmll#", "#mmmWWmmWWmmm#", "#mmmmmmmmmmmm#", ".#mmmmm##mmmm#", ".#mmmmmmmmmm#.", "..###mmm###...", ".##..###..##.."],
+  "paper-bat": ["#......................#", "##........##..........##", "#l##.....#ll#.......##l#", "#lll##..#llll#....##lll#", ".#llll###lWWl###lllll#.", "..#lmmmm#lWWl#mmmml#..", "...##mmm#mmmm#mmm##...", ".....#mm#mmmm#mm#.....", "......##.####.##......", ".........#..#........."],
+  crumple: [".....####.....", "..###llll##...", ".#lllllmmmll#.", "#llllmmllllll#", "#llmmllllmmll#", "#lmlWllWllmll#", "#mmllmllllmll#", "#lmmmllllmmll#", ".#lllmmmllll#.", ".#mmllllmmm#..", "..##llllll#...", "....######...."],
+  smudge: ["......########......", "...###llllllll###...", ".##llmmmmmmmmllll##.", "#lllmmWWmmmmWWmmlll#", "#mmmmmWWmmmmWWmmmmm#", ".#mmmmmmmmmmmmmmmm#.", "..##mmmmm##mmmmm##..", "###.############.###"],
+  "kiro-ghost": [".....######.....", "...##llllll##...", "..#llllllllll#..", ".#llllllllllll#.", "#lllmmmmmmlllll#", "#lllWWllWWlllll#", "#lllWWllWWlllll#", "#llllllllllllll#", ".#lllllmmllllll#", ".#lllllllllllll#", "#lllllllllllll#.", "#lll##lll##lll#.", ".###..###..###.."],
+  wash: [".......##.......", "......#ll#......", ".....#llll#.....", "....#llllll#....", "...#llllllll#...", "..#lllWWWWlll#..", ".#llllWllWllll#.", "#lllllWWWWlllll#", "#llmmllllllmmll#", "#lmmmmWWWWmmmml#", ".#mmmmmmmmmmmm#.", "..#mmmmmmmmmm#..", "...##########..."],
+  sketch: ["..##......##..", ".#ll#....#ll#.", "#llll####llll#", "#llllmllmllll#", "#llWWllllWWll#", "#llWmllllmWll#", "#llllmmmmllll#", ".#llllmmllll#.", "..#llllllll#..", "..##llllll##..", ".#..######..#."],
+};
+const ENEMY_COLORS: Readonly<Record<string, readonly [string, string, string]>> = {
+  "ink-blob": ["#675487", "#3a345b", "#edc973"], "paper-bat": ["#a981aa", "#614b7f", "#ffd681"],
+  crumple: ["#d6d3ba", "#849795", "#243344"], smudge: ["#976280", "#51334f", "#f5bd72"],
+  "kiro-ghost": ["#faf2e5", "#a591d4", "#7135bb"], wash: ["#86c9cd", "#39798b", "#26374d"],
+  sketch: ["#d8d0ae", "#81908f", "#364555"],
+};
+function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
+  const wash = liveSketchStep();
+  return cachedSprite(`pixel-enemy:${art.id}:${frame}:${attack}:${wash}`, 104, 112, 1, c => {
+    c.translate(52, 104);
+    if (art.id === "eraser-boss") {
+      block(c, -30, -85, 60, 73, INK); block(c, -26, -88, 52, 8, INK);
+      block(c, -26, -84, 52, 68, wash ? "#bbb9aa" : "#c88592"); block(c, -22, -83, 42, 12, wash ? "#ddd7bc" : "#e8b0b5");
+      block(c, 18, -72, 8, 51, wash ? "#787e79" : "#99657e");
+      rimBox(c, -29, -58, 58, 35, wash ? "#717f83" : "#4a6c8d", "#9cb8c7");
+      block(c, -22, -52, 44, 3, "#7f9fb4"); block(c, -22, -32, 44, 2, "#243f60");
+      for (const x of [-15, 5]) { block(c, x, -69, 10, 7, INK); block(c, x + 2, -68, 4, 2, "#ffd782"); }
+      block(c, -9, -39, 18, 3, LIGHT); block(c, -5, -43, 10, 11, LIGHT);
+      for (const side of [-1, 1]) {
+        rimBox(c, side < 0 ? -40 : 27, -44 - (attack ? 8 : frame * 2), 13, 25, "#b2758a");
+        rimBox(c, side < 0 ? -24 : 6, -15 + side * (frame ? 2 : -2), 18, 13, "#35475d");
+      }
+      if (attack) { block(c, -16, -74, 12, 3, "#f3765c"); block(c, 5, -74, 12, 3, "#f3765c"); }
+      return;
+    }
+    const rows = ENEMY_GRIDS[art.id] ?? ENEMY_GRIDS["ink-blob"], colors = wash >= 1 ? ["#d8d0ae", "#81908f", "#364555"] : wash > 0 ? ["#afa99e", "#6d7580", "#d8c99d"] : ENEMY_COLORS[art.id] ?? ENEMY_COLORS["ink-blob"],
+      width = Math.max(...rows.map(row => row.length)) * 2;
+    grid(c, rows, { "#": INK, l: colors[0], m: colors[1], W: colors[2] }, -width / 2, -rows.length * 2 - (frame ? 1 : 0));
+    if (art.id === "paper-bat" && frame) {
+      block(c, -24, -23, 9, 3, colors[0]); block(c, 15, -23, 9, 3, colors[0]);
+    }
+    if (attack) { block(c, -7, -rows.length * 2 - 4, 14, 2, "#f18e66"); }
+  }, { x: 0.5, y: 104 / 112 });
+}
+export function pixelEnemyArt(art: EnemyArt): EnemyArt {
+  const effects: Record<string, EffectPainter> = {};
+  for (const kind of Object.keys(art.effects ?? {})) effects[kind] = (ctx, e, { fade, ease }) => {
+    const k = reducedPaperMotion() ? 0.35 : ease, count = kind === "boss-down" ? 16 : 8,
+      reach = kind === "boss-down" ? 80 : kind === "summon" ? 40 : 24;
+    ctx.save(); ctx.globalAlpha *= fade;
+    if (kind === "erase") {
+      ctx.globalAlpha *= 0.5; block(ctx, e.x - 26 - k * 40, e.y - 10, 52 + k * 80, 20, LIGHT); ctx.globalAlpha *= 2;
+    }
+    for (let i = 0; i < count; i++) {
+      const a = i * Math.PI * 2 / count, r = 6 + k * reach;
+      rimBox(ctx, e.x + Math.cos(a) * r, e.y - (kind === "boss-down" ? 20 : 4) + Math.sin(a) * r * 0.6, 4, 3,
+        art.dissolve.flakes[i % art.dissolve.flakes.length]);
+    }
+    ctx.restore();
+  };
+  return { ...art, effects, ground: art.ground ? (ctx, e) => {
+    ctx.save(); ctx.globalAlpha *= 0.35;
+    block(ctx, e.x - 10, e.y - 1, 20, 3, art.dissolve.flakes[0]); ctx.restore();
+  } : undefined, draw(ctx, e, time) {
+    const frame = reducedPaperMotion() || (e.stun ?? 0) > 0 ? 0 : Math.floor(time * 7 + e.id % 2) % 2,
+      attack = (e.windup ?? 0) > 0 || !!e.act && e.act.t > 0;
+    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(e.x), Math.round(e.y));
+    if (e.spawnTime > 0) {
+      ctx.globalAlpha *= 0.6;
+      rimBox(ctx, -12, -3, 24, 5, art.dissolve.flakes[0] ?? LIGHT);
+      block(ctx, -17, -1, 3, 3, LIGHT); block(ctx, 14, -1, 3, 3, LIGHT);
+    } else {
+      shadow(ctx, art.id === "eraser-boss" ? 30 : 13);
+      enemySprite(art, frame, attack).draw(ctx, { x: 0, y: 0 });
+      const max = enemyMaxHp(e);
+      if (e.hp < max) { block(ctx, -13, 4, 26, 3, INK); block(ctx, -12, 5, Math.max(1, 24 * Math.max(0, e.hp) / max), 1, "#d3a4bf"); }
+    }
+    ctx.restore();
+  } };
+}
+
+export function pixelTownsfolkArt(art: TownsfolkArt): TownsfolkArt {
+  return { ...art, paint(c, facing, frame) {
+    c.save(); c.imageSmoothingEnabled = false; c.scale(facing, 1);
+    const step = frame ? 1 : -1;
+    if (art.id === "lamplighter-mouse") {
+      block(c, -20, -12, 13, 3, "#9a9292"); block(c, -21, -17, 3, 7, "#9a9292");
+      rimBox(c, -9, -26, 18, 23, "#496e8b"); block(c, -7, -25, 14, 3, "#dcc79f");
+      rimBox(c, -9, -39, 19, 14, "#a69c94"); rimBox(c, -10, -46, 8, 9, "#c49b97"); rimBox(c, 3, -47, 8, 9, "#c49b97");
+      block(c, 9, -34, 7, 6, "#a69c94"); block(c, 14, -32, 3, 3, INK); block(c, 5, -36, 2, 3, INK);
+      block(c, 17, -48, 2, 42, "#805f3e"); block(c, 17, -49, 7, 2, "#805f3e");
+      rimBox(c, 20, -43, 6, 10, "#eec15a"); block(c, 21, -41, 2, 5, "#fff0a4");
+    } else if (art.id === "stargazer-owl") {
+      grid(c, ["#........#", "##......##", "#l######l#", "#llllllll#", "#lWWllWWl#", "#lW#ll#Wl#", "#lllmmlll#", "#llllmlll#", "#lWWWWWll#", "#lWWWWWll#", ".#llllll#.", "..######.."], { "#": INK, l: "#987552", m: "#ddb664", W: "#e0cca6" }, -10, -38, 2);
+      for (let i = 0; i < 6; i++) rimBox(c, 7 + i * 2, -14 - i * 2, 5, 5, "#5c83a1", "#c4a15b");
+    } else {
+      rimBox(c, -11, -23, 23, 18, "#789f73"); rimBox(c, -13, -31, 26, 12, "#8eb17d");
+      rimBox(c, -10, -35, 7, 7, "#adc990"); rimBox(c, 5, -35, 7, 7, "#adc990");
+      block(c, -8, -33, 2, 3, INK); block(c, 7, -33, 2, 3, INK); block(c, -5, -24, 13, 2, INK);
+      block(c, -15, -38, 31, 3, "#d0b16c"); rimBox(c, -8, -44, 18, 7, "#d0b16c");
+      block(c, -5, -17, 12, 9, "#c5d5a1");
+    }
+    rimBox(c, -9, -4 + step, 8, 5, "#6c624f"); rimBox(c, 2, -4 - step, 8, 5, "#6c624f");
+    c.restore();
+  } };
+}
+export function pixelCostumeArt(art: CostumeArt): CostumeArt {
+  const ticket = (c: Ctx) => {
+    cachedSprite(`pixel-costume-ticket:${art.id}`, 32, 32, 1, p => {
+      rimBox(p, 3, 3, 26, 26, art.colors.tag, art.colors.ink);
+      const motif = art.makeup.accessories?.[0] ?? "sun";
+      const rows = motif.includes("glasses") || motif === "goggles"
+        ? [".###.###.", "#..###..#", "#..#.#..#", ".##...##."]
+        : motif.includes("hat") || motif === "cap" || motif === "bowler"
+          ? ["...###...", "..#####..", ".#######.", "#########"]
+          : motif === "headphones"
+            ? ["..#####..", ".#.....#.", "##.....##", "##.....##"]
+            : motif === "pencil-ear"
+              ? ["......##.", "....####.", "..####...", ".###....."]
+              : ["....#....", "..#####..", "#########", "..#####..", "....#...."];
+      grid(p, rows, { "#": art.colors.ink }, 7, 10, 2);
+      block(p, 9, 24, 14, 2, art.colors.ink);
+    }).draw(c, { x: 0, y: 0 });
+  };
+  const outfit = { ...art.outfit, parts: art.outfit.parts.map(part => ({ ...part,
+    paint(c: Ctx) {
+      const [l, t, r, b] = part.box, w = Math.max(3, Math.round((r - l) * 0.55)), h = Math.max(3, Math.round((b - t) * 0.65)),
+        x = Math.round((l + r - w) / 2), y = Math.round((t + b - h) / 2);
+      rimBox(c, x, y, w, h, art.colors.tag, art.colors.ink);
+      block(c, x + 2, y + 3, Math.max(1, w - 4), 2, art.colors.ink);
+    },
+  })) };
+  return { ...art, outfit, ticket, preview(ctx) {
+    ctx.save(); ctx.translate(-16, -28); ticket(ctx); ctx.restore();
+  } };
+}

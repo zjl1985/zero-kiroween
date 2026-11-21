@@ -61,8 +61,7 @@ import {
 import { light, polygon, line } from "./pixel-art.js";
 import { VIEW_WIDTH } from "./viewport.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
-import { CAT_BOX, catWear } from "./cat-detail.js";
-import { drawWithLitRim } from "./paper-value.js";
+import { catWear } from "./cat-detail.js";
 import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 import { withPaperMotion } from "./paper-motion.js";
@@ -95,7 +94,7 @@ function drawWorldFrame(
   view: ViewState,
   titleCat?: CatPose,
 ): void {
-  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingEnabled = false;
   const reduced = !!view.reducedMotion,
     cues = sim ? (view.cues ?? []) : [],
     base = sim ? cameraShake(sim, view.time, reduced) : { x: 0, y: 0 },
@@ -136,7 +135,8 @@ function drawWorldFrame(
   const wash = sim ? washFrame(sim) : null;
   if (view.profile) view.profile.mask = performance.now() - maskStart;
   beginSketchFrame();
-  drawChunks(ctx, seed, cam, sim !== null, wash?.chunks);
+  // Pixel wash owns a bounded dirty-tile overlay; no legacy pencil terrain bake.
+  drawChunks(ctx, seed, cam, sim !== null);
   const washStart = view.profile ? performance.now() : 0;
   drawWashGround(ctx, cam, wash);
   if (view.profile) view.profile.mask += performance.now() - washStart;
@@ -207,8 +207,7 @@ function drawWorldFrame(
         drawFootDust(ctx, pose);
         // Keep the printed colours and the face readable on every paper tone.
         const paintCat = (c: Ctx) => catArt(pose.id).draw(c, pose);
-        if (pose.decoy) paintCat(ctx);
-        else drawWithLitRim(ctx, pose.x, pose.y, CAT_BOX, paintCat);
+        paintCat(ctx);
         if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },
     });

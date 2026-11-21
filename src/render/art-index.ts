@@ -91,12 +91,16 @@ import { HASSABIS_ART } from "../defs/costumes/hassabis/art.js";
 import { LEVELS_ART } from "../defs/costumes/levels/art.js";
 import { DARIO_ART } from "../defs/costumes/dario/art.js";
 import { BIOME_ART, CAT_ART, COSTUME_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-registry.js";
+import { pixelCatArt, pixelEnemyArt, pixelTownsfolkArt, pixelCostumeArt } from "./pixel-actors.js";
+import { pixelWeaponArt, pixelPassiveArt, pixelCostumeEffects } from "./pixel-combat.js";
+import { pixelPropArt, pixelLandmarkArt } from "./pixel-world-art.js";
+import { pixelBiomeArt } from "./pixel-terrain.js";
 
 export * from "./art-registry.js";
 
-for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(a);
+for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(pixelCatArt(a));
 for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART, WASH_ART, SKETCH_ART])
-  ENEMY_ART.register(a);
+  ENEMY_ART.register(pixelEnemyArt(a));
 for (const a of [
   MEOW_BOLT_ART,
   NIGHT_CLAW_ART,
@@ -110,7 +114,7 @@ for (const a of [
   PAPER_CUT_ART,
   PAGE_FOLD_ART,
 ])
-  WEAPON_ART.register(a);
+  WEAPON_ART.register(pixelWeaponArt(a));
 for (const a of [
   VITALITY_ART,
   SWIFT_ART,
@@ -124,7 +128,7 @@ for (const a of [
   MOON_SHIELD_ART,
   SNACK_ART,
 ])
-  PASSIVE_ART.register(a);
+  PASSIVE_ART.register(pixelPassiveArt(a));
 for (const a of [
   PAPER_FENCE_ART,
   PAPER_BUSH_ART,
@@ -145,7 +149,7 @@ for (const a of [
   WAX_CANDLE_ART,
   WATER_BUCKET_ART,
 ])
-  PROP_ART.register(a);
+  PROP_ART.register(pixelPropArt(a));
 for (const a of [
   CLOCK_TOWER_ART,
   PUMPKIN_FIELD_ART,
@@ -160,9 +164,9 @@ for (const a of [
   FOLD_GREENHOUSE_ART,
   STAR_OBSERVATORY_ART,
 ])
-  LANDMARK_ART.register(a);
-for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(a);
-for (const a of [LAMPLIGHTER_MOUSE_ART, STARGAZER_OWL_ART, FERRY_FROG_ART]) TOWNSFOLK_ART.register(a);
+  LANDMARK_ART.register(pixelLandmarkArt(a));
+for (const a of [OLD_TOWN_ART, PUMPKIN_FARM_ART, GRAVEYARD_WOODS_ART, LANTERN_CANAL_ART, MOON_MEADOW_ART]) BIOME_ART.register(pixelBiomeArt(a));
+for (const a of [LAMPLIGHTER_MOUSE_ART, STARGAZER_OWL_ART, FERRY_FROG_ART]) TOWNSFOLK_ART.register(pixelTownsfolkArt(a));
 // Costumes in wardrobe order (COSTUME_LIST); only the worn one is drawn in a run.
 for (const a of [
   TIBO_ART,
@@ -180,4 +184,4 @@ for (const a of [
   LEVELS_ART,
   DARIO_ART,
 ])
-  COSTUME_ART.register(a);
+  COSTUME_ART.register(pixelCostumeEffects(pixelCostumeArt(a)));

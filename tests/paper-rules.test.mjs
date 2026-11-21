@@ -92,29 +92,58 @@ test("paperEmblem composes 1 to 3 flat layers and refuses more", (t) => {
   assert.equal(shifts.length, 6);
 });
 
-test("every registered weapon and passive icon is a flat paper cutout: no gradients, shadowBlur or gloss", (t) => {
-  const rec = drawingEnvironment(t);
-  const arts = [...WEAPON_ART.all(), ...PASSIVE_ART.all()];
+function assertPixelCells(entries, label, { width = 32, height = 32, palette = 6 } = {}) {
+  const cells = entries.filter(e => e.op === "fillRect");
+  assert.ok(cells.length >= 3, `${label}: authored pixel cells are present`);
+  assert.ok(!entries.some(e => e.op === "fill" || e.op === "stroke"), `${label}: no vector paper outlines`);
+  assert.deepEqual(glossIn(entries), [], `${label}: no gradients, blur or additive light`);
+  for (const cell of cells) {
+    const [x, y, w, h] = cell.args;
+    assert.ok(cell.args.every(Number.isInteger), `${label}: cells use integer coordinates and extents`);
+    assert.ok(w > 0 && h > 0 && x >= 0 && y >= 0 && x + w <= width && y + h <= height,
+      `${label}: cell [${cell.args}] stays inside the native glyph box`);
+    assert.equal(cell.globalAlpha, 1, `${label}: opaque pixel palette`);
+    assert.equal(cell.globalCompositeOperation, "source-over", `${label}: direct pixel drawing`);
+    assert.match(cell.fillStyle, /^#[0-9a-f]{6}$/i, `${label}: solid palette colour`);
+  }
+  const colours = new Set(cells.map(e => e.fillStyle));
+  assert.ok(colours.size >= 2 && colours.size <= palette, `${label}: bounded contrasting palette (${colours.size})`);
+  return cells;
+}
+
+test("every registered weapon and passive icon uses bounded opaque integer-grid pixels without gloss", (t) => {
+  const rec = drawingEnvironment(t), arts = [...WEAPON_ART.all(), ...PASSIVE_ART.all()];
   assert.equal(arts.length, WEAPON_DEFS.ids().length + PASSIVE_DEFS.ids().length);
   for (const art of arts) {
     const ctx = rec.canvas().getContext("2d"), from = rec.log.length;
     art.icon(ctx, "#f0dfbf");
     const mine = rec.log.slice(from);
-    assert.deepEqual(glossIn(mine).map((e) => e.op), [], `${art.id} icon stays flat paper`);
-    assert.ok(mine.filter((e) => e.op === "fill").length >= 2, `${art.id} icon paints paper layers`);
-    assert.ok(mine.some((e) => e.op === "translate" && e.args[0] > 0 && Math.abs(e.args[1] / e.args[0] - PAPER_SHADOW.dy / PAPER_SHADOW.dx) < 1e-9),
-      `${art.id} icon casts its shadow down-right`);
+    assertPixelCells(mine, art.id);
+    const first = mine.filter(e => e.op === "fillRect").map(e => [e.args, e.fillStyle]);
+    const next = rec.log.length;
+    art.icon(ctx, "#f0dfbf");
+    assert.deepEqual(rec.log.slice(next).filter(e => e.op === "fillRect").map(e => [e.args, e.fillStyle]), first,
+      `${art.id}: repeat draws do not consume random state or change the glyph`);
   }
 });
 
-test("upgrade card emblems and HUD slot tags use flat paper mounts without gloss", (t) => {
+test("upgrade cards and HUD slots frame pixel glyphs with solid dark outlines and nearest sampling", (t) => {
   const rec = drawingEnvironment(t);
   for (const id of [...WEAPON_DEFS.ids(), ...PASSIVE_DEFS.ids()]) {
-    const from = rec.log.length;
-    paintCardEmblem(rec.canvas(), id);
-    paintUpgradeIcon(rec.canvas(), id);
-    paintUpgradeIcon(rec.canvas(), id, true);
-    assert.deepEqual(glossIn(rec.log.slice(from)).map((e) => e.op), [], `${id} emblem mount stays flat paper`);
+    for (const [paint, compact] of [[paintCardEmblem, false], [paintUpgradeIcon, false], [paintUpgradeIcon, true]]) {
+      const from = rec.log.length;
+      paint(rec.canvas(), id, compact);
+      const mine = rec.log.slice(from), cells = mine.filter(e => e.op === "fillRect");
+      assert.deepEqual(glossIn(mine), [], `${id}: mount has no gloss`);
+      assert.ok(mine.some(e => e.op === "set:imageSmoothingEnabled" && e.value === false));
+      assert.ok(cells.length > 4 && cells.every(e => e.args.every(Number.isInteger)), `${id}: frame and glyph have crisp integer edges`);
+      const outer = cells[0], inner = cells[1];
+      assert.ok(inner.args[0] > outer.args[0] && inner.args[1] > outer.args[1] &&
+        inner.args[0] + inner.args[2] < outer.args[0] + outer.args[2] &&
+        inner.args[1] + inner.args[3] < outer.args[1] + outer.args[3], `${id}: inset leaves a complete outer border`);
+      assert.notEqual(outer.fillStyle, inner.fillStyle, `${id}: border contrasts with the icon field`);
+      assert.equal(outer.fillStyle, "#181d32", `${id}: dark outline palette is consistent`);
+    }
   }
 });
 
@@ -170,19 +199,24 @@ import { COSTUME_ART } from "../dist/render/art-index.js";
 import { outfitSprite } from "../dist/render/costume-outfit.js";
 import { paperFaceMakeup } from "../dist/render/paper-face.js";
 
-test("costume wardrobe tags, outfit cuts and head makeup are flat paper: no gradients, shadowBlur or gloss", (t) => {
+test("costume tickets use cached native pixel frames; outfit and makeup painters remain gloss-free", (t) => {
   const rec = drawingEnvironment(t);
   assert.equal(COSTUME_ART.ids().length, 14);
   for (const art of COSTUME_ART.all()) {
     let from = rec.log.length;
     art.ticket(rec.canvas().getContext("2d"));
     const mine = rec.log.slice(from);
-    assert.deepEqual(glossIn(mine).map((e) => e.op), [], `${art.id} ticket stays flat paper`);
-    assert.ok(mine.some((e) => e.op === "translate" && e.args[0] > 0 && Math.abs(e.args[1] / e.args[0] - PAPER_SHADOW.dy / PAPER_SHADOW.dx) < 1e-9),
-      `${art.id} ticket casts its shadow down-right`);
+    const cells = assertPixelCells(mine, `${art.id} ticket`, { palette: 4 });
+    const outer = cells[0], inset = cells[1];
+    assert.ok(inset.args[0] > outer.args[0] && inset.args[1] > outer.args[1], `${art.id}: crisp inset border`);
+    assert.notEqual(outer.fillStyle, inset.fillStyle);
+    const repeat = rec.log.length;
+    art.ticket(rec.canvas().getContext("2d"));
+    assert.ok(rec.log.slice(repeat).some(e => e.op === "drawImage"), `${art.id}: cached ticket is stamped`);
+    assert.ok(!rec.log.slice(repeat).some(e => e.op === "fillRect"), `${art.id}: cache hit does not repaint cells`);
     from = rec.log.length;
     for (const tailoring of ["split-coat", "tee-and-jeans"]) art.outfit.parts.forEach((_, i) => outfitSprite(art, i, tailoring));
     for (const cat of CATS.ids()) paperFaceMakeup(cat, art);
-    assert.deepEqual(glossIn(rec.log.slice(from)).map((e) => e.op), [], `${art.id} outfit and makeup stay flat paper`);
+    assert.deepEqual(glossIn(rec.log.slice(from)).map((e) => e.op), [], `${art.id} outfit and makeup remain gloss-free`);
   }
 });

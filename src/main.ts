@@ -28,6 +28,7 @@ import { STATS } from "./game/types.js";
 import { drawWorld } from "./render/world.js";
 import { createFrameReview } from "./render/frame-review.js";
 import { boardLayout } from "./render/viewport.js";
+import { pixelBacking } from "./render/pixel-resolution.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
@@ -323,7 +324,9 @@ function boot(): void {
     const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
     if (turned) touch.reset();
     else touch.invalidateGeometry();
-    const w = Math.round(v.viewWidth * 2), h = Math.round(v.viewHeight * 2);
+    // One authored pixel spans two world units. Camera/input keep their original
+    // coordinates; CSS nearest-neighbour enlargement presents the native grid.
+    const { width: w, height: h } = pixelBacking(v.viewWidth, v.viewHeight);
     if (stage.width !== w) stage.width = w;
     if (stage.height !== h) stage.height = h;
     const center = turned && sim ? sim.player : camera;

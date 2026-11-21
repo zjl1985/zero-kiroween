@@ -1,19 +1,12 @@
-/**
- * District ground as large overlapping paper sheets. A world-space grid of
- * sheets, each cut with its district's seam style, pressed edge and the
- * shared hard shadow down-right; grassy districts fringe-cut the sheet's
- * lower edge. Every sheet is a pure function of (seed, grid cell), painted in
- * one global order, so every chunk cache (terrain worker or fallback) that
- * overlaps a sheet draws exactly the same pixels for it.
- * No gradients, no shadowBlur, no filters; never the sim RNG.
- */
+/** District terrain pixels retain the existing world sheet/patch placement API.
+ * Every detail is world anchored, so independently baked chunks have no seams. */
 import { CHUNK, WORLD, biomeAt } from "../game/world-gen.js";
 import { waterRegionsNear } from "../game/water.js";
 import { touchesWaterShore } from "../defs/water.js";
 import { BIOME_ART, type SheetLook } from "./art-registry.js";
-import { crease, fringeStrip, insetPoints, PAPER_EDGE, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
-import { grain, hash, mix, path, stitch, type Ctx, type Point } from "./paper-material.js";
+import { hash, path, type Ctx, type Point } from "./paper-material.js";
 import { yardDistance } from "./start-lawn.js";
+import { pixelRect, pixelTerrainCluster, terrainPalette } from "./pixel-terrain.js";
 
 /** The sheet grid: cell size, overlap past the cell and corner jitter, in world units. */
 export const SHEET = { w: 280, h: 190, overlap: 46, jitter: 18, step: 14 } as const;
@@ -44,82 +37,37 @@ export function sheetOutline(corners: readonly Point[], look: SheetLook, seed: n
       n = Math.max(1, Math.round(len / SHEET.step));
     for (let i = 0; i < n; i++) {
       const t = i / n, d = i === 0 ? 0 : seamOffset(look, t, len, i, seed + e * 101);
-      out.push([a[0] + dx * t + nx * d, a[1] + dy * t + ny * d]);
+      const px = Math.round((a[0] + dx * t + nx * d) / 2) * 2,
+        py = Math.round((a[1] + dy * t + ny * d) / 2) * 2,
+        prev = out[out.length - 1];
+      if (prev && prev[0] !== px && prev[1] !== py) out.push([px, prev[1]]);
+      out.push([px, py]);
     }
   }
+  if (out.length) out.push([out[0]![0], out[out.length - 1]![1]]);
   return out;
 }
 
-/**
- * One ground sheet: hard shadow down-right, the darker card side, the flat
- * sheet (slightly translucent so the pressed pulp under it still shows),
- * fibre, a pressed lit rim toward the moon and the seam detail of its style.
- */
-export function groundSheet(ctx: Ctx, pts: readonly Point[], color: string, look: SheetLook, seed: number): Path2D {
-  const p = path(pts),
-    k = Math.hypot(PAPER_SHADOW.dx, PAPER_SHADOW.dy) || 1,
-    { dirX, dirY } = PAPER_LIGHT;
+/** A bounded terrain patch with low-contrast pixels and clustered raised details. */
+export function groundSheet(ctx: Ctx, pts: readonly Point[], _color: string, look: SheetLook, seed: number): Path2D {
+  const p = path(pts), [dark, mid, light] = terrainPalette(look.seam),
+    x0 = Math.min(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])),
+    x1 = Math.max(...pts.map(p => p[0])), y1 = Math.max(...pts.map(p => p[1]));
   ctx.save();
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  ctx.save();
-  ctx.translate(PAPER_SHADOW.dx * 2.6, PAPER_SHADOW.dy * 2.6);
-  ctx.globalAlpha *= 0.34;
-  ctx.fillStyle = PAPER_SHADOW.color;
-  ctx.fill(p);
+  ctx.fillStyle = mid; ctx.fill(p); ctx.clip(p);
+  // Large quiet two-tone regions, with sparse authored clusters on a world grid.
+  for (let gy = Math.floor(y0 / 30); gy * 30 <= y1; gy++)
+    for (let gx = Math.floor(x0 / 42); gx * 42 <= x1; gx++) {
+      const sd = gx * 7919 + gy * 104729 + seed,
+        x = gx * 42 + Math.floor(hash(sd) * 8) * 2,
+        y = gy * 30 + Math.floor(hash(sd + 7) * 6) * 2;
+      if (hash(sd + 11) < 0.2) {
+        pixelRect(ctx, x, y, 12, 4, dark);
+        pixelRect(ctx, x + 4, y - 2, 8, 2, light);
+      }
+      if (hash(sd + 19) > 0.83) pixelTerrainCluster(ctx, x, y, sd, look.seam);
+    }
   ctx.restore();
-  ctx.save();
-  ctx.translate((PAPER_SHADOW.dx / k) * 1.5, (PAPER_SHADOW.dy / k) * 1.5);
-  ctx.fillStyle = mix(color, "#1c142b", 0.45);
-  ctx.fill(p);
-  ctx.restore();
-  ctx.save();
-  ctx.globalAlpha *= 0.9;
-  ctx.fillStyle = color;
-  ctx.fill(p);
-  ctx.restore();
-  grain(ctx, p, 0.34);
-  ctx.save();
-  ctx.clip(p);
-  ctx.save();
-  ctx.translate(-dirX * 1.2, -dirY * 1.2);
-  ctx.globalAlpha *= 0.42;
-  ctx.strokeStyle = mix(color, PAPER_LIGHT.rim, 0.42);
-  ctx.lineWidth = 2;
-  ctx.stroke(p);
-  ctx.restore();
-  ctx.save();
-  ctx.translate(dirX * 1.1, dirY * 1.1);
-  ctx.globalAlpha *= 0.26;
-  ctx.strokeStyle = PAPER_EDGE.lip;
-  ctx.lineWidth = 1.6;
-  ctx.stroke(p);
-  ctx.restore();
-  if (look.seam === "torn") {
-    // Fresh tears show pale fibre just inside the edge.
-    ctx.globalAlpha *= 0.42;
-    ctx.strokeStyle = mix(color, "#efe0bd", 0.55);
-    ctx.lineWidth = 1.3;
-    ctx.setLineDash([4, 3, 1.5, 3]);
-    ctx.lineDashOffset = hash(seed) * 10;
-    ctx.stroke(p);
-  }
-  ctx.restore();
-  ctx.globalAlpha *= 0.55;
-  ctx.strokeStyle = mix(color, "#1c142b", 0.6);
-  ctx.lineWidth = 0.6;
-  ctx.stroke(p);
-  ctx.restore();
-  if (look.seam === "ruled") stitch(ctx, path(insetPoints(pts, 6)), mix(color, "#e6cf9e", 0.45), 0.55);
-  if (look.seam === "wave" || look.seam === "scallop") {
-    // A pressed (embossed) line follows the cut a little inside it.
-    ctx.save();
-    ctx.globalAlpha *= 0.3;
-    ctx.strokeStyle = mix(color, PAPER_LIGHT.rim, 0.35);
-    ctx.lineWidth = 0.9;
-    ctx.stroke(path(insetPoints(pts, 8)));
-    ctx.restore();
-  }
   return p;
 }
 
@@ -136,47 +84,10 @@ export function sheetAt(seed: number, i: number, j: number) {
   return { sd, corners, art, opacity, bounds: [x0 - q - 8, y0 - q - 8, x1 + q + 8, y1 + q + 8] as const };
 }
 
-/** One grid sheet, or two overlapping strips for furrowed districts, with its fringe-cut lower edge. */
+/** Preserve the same district placement, now painted with native pixel clusters. */
 export function paintSheet(ctx: Ctx, corners: readonly Point[], look: SheetLook, sd: number): void {
-  const [a, b, c, d] = corners as [Point, Point, Point, Point],
-    lerp = (p: Point, q: Point, t: number): Point => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t],
-    parts: Point[][] = look.seam === "furrow"
-      ? [[lerp(a, d, 0.48), lerp(b, c, 0.52), c, d], [a, b, lerp(b, c, 0.58), lerp(a, d, 0.56)]]
-      : [[a, b, c, d]];
-  parts.forEach((q, n) => {
-    const color = look.colors[Math.floor(hash(sd + 20 + n) * look.colors.length)]!,
-      pts = sheetOutline(q, look, sd + n * 7);
-    const sheet = groundSheet(ctx, pts, color, look, sd + n);
-    // One shallow pressure fold per sheet: anchored to the world sheet, so
-    // separately baked chunks agree. It is a score in the base, not a wall.
-    if (hash(sd + n * 17 + 81) > 0.35) {
-      const u = lerp(q[0]!, q[3]!, 0.2 + hash(sd + 82) * 0.3),
-        v = lerp(q[1]!, q[2]!, 0.35 + hash(sd + 83) * 0.35);
-      ctx.save();
-      ctx.clip(sheet);
-      ctx.globalAlpha *= 0.24;
-      ctx.fillStyle = mix(color, PAPER_EDGE.lip, 0.35);
-      ctx.fill(path([[u[0] + 18, u[1]], [v[0] - 18, v[1]], [v[0] - 18, v[1] + 3], [u[0] + 18, u[1] + 1]]));
-      crease(ctx, u[0] + 18, u[1], v[0] - 18, v[1], 0.35);
-      ctx.restore();
-    }
-    if (look.seam === "furrow") {
-      // Two ridges run along each strip: furrows pressed into the field sheet.
-      for (const f of [0.38, 0.68]) {
-        const l = lerp(q[0]!, q[3]!, f), r = lerp(q[1]!, q[2]!, f);
-        crease(ctx, l[0] + 12, l[1], r[0] - 12, r[1], 0.45);
-      }
-    }
-    if (!look.fringe) return;
-    // Grass is fringe-cut along stretches of the sheet's lower edge, never along all of it.
-    const bl = q[3]!, br = q[2]!, len = Math.hypot(br[0] - bl[0], br[1] - bl[1]);
-    for (let s = 0; s < 3; s++) {
-      if (hash(sd + 40 + s + n * 5) < 0.35) continue;
-      const t0 = 0.08 + s * 0.3 + hash(sd + 50 + s) * 0.06, t1 = t0 + Math.min(0.24, 60 / len + hash(sd + 60 + s) * 0.1),
-        p0 = lerp(bl, br, t0), p1 = lerp(bl, br, t1);
-      fringeStrip(ctx, p0[0], p0[1] - 1, p1[0], p1[1] - 1, 9 + hash(sd + 70 + s) * 5, look.fringe, sd + s * 31, 4.2);
-    }
-  });
+  const color = look.colors[Math.floor(hash(sd + 20) * look.colors.length)]!;
+  groundSheet(ctx, sheetOutline(corners, look, sd), color, look, sd);
 }
 
 /** Sheets overlapping a box, in the same global order as sheetGround (painted and pencil layers agree). */

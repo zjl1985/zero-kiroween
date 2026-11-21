@@ -1,8 +1,10 @@
 # Midnight Meow
 
-Choose a cat and keep watch until dawn in a town made of paper. Midnight Meow is a survivor roguelike built for Kiroween 2026. Explore a seeded town, collect ink shards, and build a loadout that can carry you through ten minutes of night.
+Choose a cat and keep watch until dawn in a pixel-art town with sprite-stacked scenery. Midnight Meow is a survivor roguelike built for Kiroween 2026. Explore a seeded town, collect ink shards, and build a loadout that can carry you through ten minutes of night.
 
-[Play Midnight Meow in your browser](https://zero-kiroween.vercel.app/)
+[Play the published Midnight Meow](https://zero-kiroween.vercel.app/)
+
+The pixel refactor is on `refactor/pixel-stacking`; the published link has not been updated by this change. The previous paper-art version is preserved at `archive/papercraft-2026-11-21` (`d26859b`). Run `npm install`, `npm run build`, then `npm start` to preview locally. See [pixel refactor notes](docs/pixel-refactor.md) for architecture and verification.
 
 ## How to play
 

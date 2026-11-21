@@ -3,8 +3,9 @@ import { touchesWaterShore } from "../defs/water.js";
 import { waterRegionsNear } from "../game/water.js";
 import { BIOME_ART } from "./art-registry.js";
 import type { ViewRect } from "./camera.js";
-import { flatCut, fringeStrip, placePoints, PAPER_LIGHT, PAPER_SHADOW } from "./paper-kit.js";
-import { grain, hash, mix, type Ctx } from "./paper-material.js";
+import { hash, type Ctx } from "./paper-material.js";
+
+import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 
 export const ROAD_STOCK = { face: "#95886f", rim: "#b9aa8c" } as const;
 
@@ -72,76 +73,49 @@ function drawVerges(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number
       const extent = 11 + hash(sd + 3) * 8;
       if (waterRegionsNear(seed, x, y, extent).some((water) => touchesWaterShore(water, x, y, extent))) continue;
       const sheet = sheetAt(seed, x, y), color = sheet?.fringe ?? "#777758";
-      fringeStrip(ctx, x - extent, y + 1, x + extent, y - 1, 5 + hash(sd + 4) * 5, color, sd, 5.2);
+      pixelTerrainCluster(ctx, x, y, sd, sheet?.seam ?? "scallop");
     }
   }
 }
 
-/** Offset stone flags in town, broad worn scraps on the softer district paths. */
+/** World-anchored pixel flags, pebbles and worn earthen bands. */
 function drawRoadWear(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
-  const { start, width, length, angle, ux, uy, salt } = segment;
-  for (let d = 16; d < length - 8; d += 46) {
-    const sd = salt + d * 31, along = d + (hash(sd) - 0.5) * 19;
-    const x = start.x + ux * along, y = start.y + uy * along;
+  const { start, width, length, ux, uy, salt } = segment;
+  for (let d = 16; d < length - 8; d += 32) {
+    const sd = salt + d * 31, along = d + (hash(sd) - 0.5) * 12,
+      x = start.x + ux * along, y = start.y + uy * along;
     if (!nearTile(tile, x, y, width + 25)) continue;
-    const sheet = sheetAt(seed, x, y), stone = sheet?.seam === "ruled";
-    const shade = mix(ROAD_STOCK.face, sheet?.colors[1] ?? "#5e5443", 0.46);
-    const light = mix(ROAD_STOCK.face, stone ? "#d3c8af" : "#cdb181", 0.24);
-    const count = stone ? 2 + Math.floor(hash(sd + 1) * 2) : 1;
-    for (let i = 0; i < count; i++) {
-      const cut = sd + i * 713;
-      const across = ((i + 0.5) / count - 0.5) * width * 1.68 + (hash(cut + 2) - 0.5) * 9;
-      const stagger = (hash(cut + 3) - 0.5) * 18;
-      const cx = x - uy * across + ux * stagger, cy = y + ux * across + uy * stagger;
-      const halfLong = stone ? 7 + hash(cut + 4) * 8 : 13 + hash(cut + 4) * 11;
-      const halfWide = stone ? 4 + hash(cut + 5) * 4 : 2.5 + hash(cut + 5) * 4;
-      const points = placePoints([
-        [-halfLong * 0.8, -halfWide], [halfLong * 0.48, -halfWide * 0.88], [halfLong, -halfWide * 0.24],
-        [halfLong * 0.66, halfWide * 0.83], [-halfLong * 0.24, halfWide], [-halfLong, halfWide * 0.33],
-      ], cx, cy, angle + (hash(cut + 6) - 0.5) * 0.76);
-      flatCut(ctx, points, { color: hash(cut + 7) < 0.5 ? shade : light,
-        thickness: 0.38, lift: 0.22, rim: 0.35, texture: 0.65 });
+    const stone = sheetAt(seed, x, y)?.seam === "ruled";
+    for (let i = 0; i < (stone ? 3 : 2); i++) {
+      const across = (i - 1) * width * 0.55,
+        px = x - uy * across, py = y + ux * across;
+      if (stone) {
+        pixelRect(ctx, px - 5, py + 2, 12, 6, "#6c6658");
+        pixelRect(ctx, px - 5, py, 10, 6, "#aaa18a");
+        pixelRect(ctx, px - 3, py, 8, 2, "#c6b895");
+      } else {
+        pixelRect(ctx, px - 6, py, 12, 4, i % 2 ? "#827154" : "#a99672");
+        if (hash(sd + i) > 0.65) pixelRect(ctx, px, py - 2, 4, 2, "#c0ad82");
+      }
     }
   }
 }
 
-/** Bake the join before the relief: no individual road edges cross the shared face. */
+/** One continuous route mask; styling never changes route positions or widths. */
 export function* drawRoadNetwork(ctx: Ctx, seed: number, tile: ViewRect): Generator<void> {
   const segments = segmentsNear(seed, tile);
   if (!segments.length) return;
   const face = roadFootprint(segments);
-  ctx.save();
-  ctx.fillStyle = "#7b715c";
-  ctx.globalAlpha *= 0.26;
-  ctx.fill(roadFootprint(segments, 4.5));
-  ctx.restore();
   for (const segment of segments) {
     drawVerges(ctx, segment, tile, seed);
     yield;
   }
-
   ctx.save();
-  ctx.translate(PAPER_SHADOW.dx * 2.2, PAPER_SHADOW.dy * 2.2);
-  ctx.fillStyle = PAPER_SHADOW.color;
-  ctx.globalAlpha *= 0.28;
-  ctx.fill(face);
-  ctx.restore();
-  ctx.save();
-  ctx.translate(PAPER_SHADOW.dx, PAPER_SHADOW.dy);
-  ctx.fillStyle = "#635846";
-  ctx.fill(face);
-  ctx.restore();
-
-  ctx.save();
-  ctx.fillStyle = ROAD_STOCK.rim;
-  ctx.fill(face);
+  ctx.fillStyle = "#5b5949"; ctx.fill(roadFootprint(segments, 3));
+  ctx.fillStyle = ROAD_STOCK.face; ctx.fill(face);
   ctx.clip(face);
-  ctx.save();
-  ctx.translate(-PAPER_LIGHT.dirX * 0.9, -PAPER_LIGHT.dirY * 0.9);
-  ctx.fillStyle = ROAD_STOCK.face;
-  ctx.fill(face);
-  ctx.restore();
-  grain(ctx, face, 0.68);
+  // A narrow lit bank, plus deliberate stone clusters rather than canvas grain.
+  ctx.strokeStyle = ROAD_STOCK.rim; ctx.lineWidth = 2; ctx.stroke(face);
   yield;
   for (const segment of segments) {
     drawRoadWear(ctx, segment, tile, seed);

@@ -7,3 +7,5 @@ site/
 output/playwright/
 .playwright-cli/
 output/paper-comparison/
+output/releases/
+output/pixel-comparison/

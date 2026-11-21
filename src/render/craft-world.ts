@@ -143,11 +143,12 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
       `decor:${d.kind}:${s}:${v}`,
       w,
       h,
-      2,
+      0.5,
       (c, canvas) => {
+        c.imageSmoothingEnabled = false;
         withFlatShadows(() => paint(c, ax, ay, s, v));
         // Plain decor sits a step below the actors; landmark pieces keep their full value.
-        if (own) gradeCanvas(canvas, PAPER_VALUE.decor);
+        // Native pixel palette is final; avoid the old parchment multiply.
       },
       { x: ax / w, y: ay / h },
     );
@@ -185,25 +186,18 @@ function flatDecorPieces(ctx: Ctx, d: Decor): void {
 }
 /** The map edge: a paper hedge on the west, east and south. */
 function drawHedge(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): void {
-  const step = 24,
-    colors = ["#3f4a3a", "#4a5440", "#35402f", "#45503d"];
-  const clump = (x: number, y: number, i: number) => {
-    const p = oval(x, y, 30 + hash(i) * 8, 21 + hash(i + 5) * 6, i, 0.14);
-    piece(ctx, p, colors[Math.abs(i) % 4]!, { shadow: 2.6, edge: "#7d8a5c", texture: 0.85, thickness: 1 });
-    stitch(ctx, oval(x, y, 26 + hash(i) * 8, 17 + hash(i + 5) * 6, i, 0.13), "#9aa36a", 0.55);
-    for (let j = 0; j < 3; j++)
-      leaf(ctx, x + (hash(i * 3 + j) - 0.5) * 30, y + 8, 8 + hash(i + j) * 4, 3, (hash(i * 5 + j) - 0.5) * 2, ["#5e6a45", "#8a6846", "#6d7a4c"][j]!, j);
-  };
+  const step = 32;
   if (x0 < WORLD.minX + 80)
     for (let y = Math.max(190, Math.floor(y0 / step) * step - step); y < y1 + step; y += step)
-      clump(WORLD.minX + 12 + hash(y) * 8, y, Math.floor(y / step) * 3 + 1);
+      bush(ctx, WORLD.minX + 14, y, 0.8, Math.floor(y / step));
   if (x1 > WORLD.maxX - 80)
     for (let y = Math.max(190, Math.floor(y0 / step) * step - step); y < y1 + step; y += step)
-      clump(WORLD.maxX - 12 - hash(y + 1) * 8, y, Math.floor(y / step) * 3 + 2);
+      bush(ctx, WORLD.maxX - 14, y, 0.8, Math.floor(y / step) + 2);
   if (y1 > WORLD.maxY - 80)
     for (let x = Math.floor(x0 / step) * step - step; x < x1 + step; x += step)
-      clump(x, WORLD.maxY - 10 - hash(x) * 8, Math.floor(x / step) * 3);
+      bush(ctx, x, WORLD.maxY - 12, 0.8, Math.floor(x / step));
 }
+
 /**
  * District ground detail in a chunk's cache: clustered patches placed on a
  * world grid by render hashes (patchSpots), so every chunk that overlaps a
@@ -300,7 +294,7 @@ export interface TerrainReply {
   bitmap: ImageBitmap | null;
 }
 const chunkCache = new Map<string, ChunkImage>();
-/** Each full tile is 960 × 1080 device pixels. Keep at most 14 plus one in progress. */
+/** Native tiles use one pixel per two world units; at most 14 ready plus one in progress. */
 const MAX_CHUNK_CANVASES = 14;
 const PREFETCH = 320;
 const LOCAL_PAINT_BUDGET_MS = 2;
@@ -323,11 +317,12 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   const c = chunkContent(seed, cx, cy),
     // Keep the worker's one-off raster work off the foreground GPU queue.
     ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!;
-  ctx.scale(2, 2);
+  ctx.scale(0.5, 0.5);
+  ctx.imageSmoothingEnabled = false;
   ctx.translate(-c.x, -c.y);
   if (c.start) {
     ctx.drawImage(startYard(), 0, 0, 960, 540);
-    gradeCanvas(canvas, PAPER_VALUE.ground);
+    // Authored pixel palette is already graded for the scene.
     return;
   }
   const x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
@@ -372,11 +367,11 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
     }
   drawHedge(ctx, x0, y0, x1, y1);
   // The whole baked ground steps down in value; lamp pools are laid per frame (world.ts).
-  gradeCanvas(canvas, PAPER_VALUE.ground);
+  // Keep the authored hue-shifted native pixel palette.
 }
 /** Drain the same painter on the worker, or copy an already cached start yard. */
 export function buildChunk(seed: number, cx: number, cy: number, layer: ChunkLayer = "paint"): CanvasSurface {
-  const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
+  const canvas = surface(CHUNK.width / 2, CHUNK.height / 2);
   for (const _ of paintLayer(canvas, seed, cx, cy, layer)) { /* finish the tile */ }
   return canvas;
 }
@@ -423,7 +418,8 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   const c = chunkContent(seed, cx, cy),
     ctx = canvas.getContext("2d", { willReadFrequently: typeof document === "undefined" })!,
     x0 = c.x, y0 = c.y, x1 = c.x + c.w, y1 = c.y + c.h;
-  ctx.scale(2, 2);
+  ctx.scale(0.5, 0.5);
+  ctx.imageSmoothingEnabled = false;
   ctx.translate(-x0, -y0);
   rawPaper(ctx, x0, y0, c.w, c.h);
   yield;
@@ -634,7 +630,7 @@ function warmChunk(seed: number, tile: ChunkTile | undefined): void {
   }
   const deadline = performance.now() + LOCAL_PAINT_BUDGET_MS;
   if (!localPaint) {
-    const canvas = surface(CHUNK.width * 2, CHUNK.height * 2);
+    const canvas = surface(CHUNK.width / 2, CHUNK.height / 2);
     localPaint = { key: tile.key, canvas, steps: paintLayer(canvas, seed, tile.cx, tile.cy, tile.layer ?? "paint") };
   }
   do {
@@ -867,7 +863,7 @@ export function navTargets(sim: SimState): NavTarget[] {
   return out;
 }
 const NAV_INSET = { side: 44, top: 78, bottom: 70 } as const;
-/** Paper arrow tabs on the screen edge, pointing at off-screen targets. Screen space. */
+/** Native-pixel plaques on the screen edge, pointing at off-screen targets. */
 export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Locale, time: number, projection = cameraProjection(cam)): void {
   const { width: W, height: H, zoom } = projection;
   for (const target of navTargets(sim)) {
@@ -890,31 +886,32 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
       bob = Math.sin(time * 3 + (boss ? 1 : 0)) * 1.5;
     ctx.save();
     const arrowX = ax + Math.cos(ang) * bob;
-    ctx.translate(arrowX, ay + Math.sin(ang) * bob);
-    // The pointer: a folded paper triangle.
-    ctx.save();
-    ctx.rotate(ang);
-    piece(ctx, path([[16, 0], [2, -8], [5, 0], [2, 8]]), boss ? "#b4564a" : chest ? "#a8643d" : "#e9c27a", {
-      shadow: 1.6,
-      edge: boss ? "#f0a090" : chest ? "#e5bd62" : "#fff0c4",
-      texture: 0.6,
-      thickness: 0.8,
+    ctx.translate(Math.round(arrowX / 2) * 2, Math.round((ay + Math.sin(ang) * bob) / 2) * 2);
+    // Eight-direction stepped pointer shares the target direction, not a paper fold.
+    ctx.fillStyle = boss ? "#d47b76" : chest ? "#e6b866" : "#b8cdb5";
+    const arrow = [[14,0],[4,-6],[4,-2],[0,-2],[0,2],[4,2],[4,6]];
+    const pointer = new Path2D();
+    arrow.forEach(([px,py],i)=>{
+      const xx=Math.round((px! * Math.cos(ang)-py! * Math.sin(ang))/2)*2,
+        yy=Math.round((px! * Math.sin(ang)+py! * Math.cos(ang))/2)*2;
+      if(i)pointer.lineTo(xx,yy);else pointer.moveTo(xx,yy);
     });
-    ctx.restore();
+    pointer.closePath();ctx.fill(pointer);
     // The label tab sits on the inner side of the pointer.
     const label = t(locale, target.label);
-    ctx.font = "700 10px Allo, sans-serif";
+    ctx.font = "700 12px monospace";
     const tw = ctx.measureText(label).width + 14,
       idealLeft = -Math.cos(ang) * (tw / 2 + 10) - tw / 2,
       lx = Math.max(8 - arrowX, Math.min(W - arrowX - tw - 8, idealLeft)),
       ly = -Math.sin(ang) * 16 - 8;
-    const tab = box(lx, ly, tw, 16, label.length);
-    piece(ctx, tab, boss ? "#5a2f37" : "#e8d5ad", { shadow: 1.8, edge: boss ? "#a65a4d" : "#fff1cf", texture: 0.7, thickness: 0.9 });
-    stitch(ctx, box(lx + 2, ly + 2, tw - 4, 12, label.length + 1), boss ? "#d39a7c" : "#a88a60", 0.7);
-    ctx.fillStyle = boss ? "#f6dcc2" : "#4a3328";
+    const left=Math.round(lx/2)*2, topY=Math.round(ly/2)*2, plaqueWidth=Math.ceil(tw/2)*2;
+    ctx.fillStyle="#101e2b";ctx.fillRect(left+2,topY+2,plaqueWidth,18);
+    ctx.fillStyle=boss?"#ac686c":"#799a9c";ctx.fillRect(left,topY,plaqueWidth,18);
+    ctx.fillStyle=boss?"#53394e":"#263e4b";ctx.fillRect(left+2,topY+2,plaqueWidth-4,14);
+    ctx.fillStyle = boss ? "#f1c3b0" : "#e3d8b8";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, lx + tw / 2, ly + 8.5);
+    ctx.fillText(label, Math.round((left + plaqueWidth / 2) / 2) * 2, topY + 10);
     ctx.restore();
   }
 }

@@ -21,18 +21,14 @@ import { drawProp } from "./craft-props.js";
 import { landmarkPreview, type Bounds } from "./craft-world.js";
 import { visHash } from "./hash.js";
 import { paintSheet, sheetOutline } from "./paper-ground.js";
-import { paperCut } from "./paper-kit.js";
-import { box, glow, stroke, type Ctx, type Point } from "./paper-material.js";
-import { pencilGround, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide, WASHED_PAPER } from "./pencil.js";
-import { WASH_LOOK, washBloom } from "./timeline.js";
-import { swatchBlot, washLook } from "./wash-art.js";
+import { box, stroke, type Ctx, type Point } from "./paper-material.js";
 
 /** Height of the cream label tag at the bottom of a card. */
 const TAG = 38;
-const INK = "#2e2433",
-  INK_SOFT = "#7a5b4c",
-  CARD = "#2b2b43",
-  TAG_PAPER = "#efe3c8",
+const INK = "#f3e8c8",
+  INK_SOFT = "#9cbdba",
+  CARD = "#182b3d",
+  TAG_PAPER = "#10202e",
   ICON_INK = "#f0dfbf";
 
 type Painter = (ctx: Ctx, cell: GalleryCell, stage: { x: number; y: number; w: number; h: number }) => void;
@@ -135,31 +131,22 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     if (!art) return;
     biomeSwatch(ctx, cell, st, cell.state === "colourless");
     if (cell.state !== "blank" && cell.state !== "tide") return;
-    // One stain in the middle of the swatch: rubbed blank, or washed mid-transition.
-    const x = st.x + st.w * 0.55, y = st.y + st.h * 0.52, r = Math.min(st.w, st.h) * 0.32, sd = cell.id.length * 7 + 3,
-      stain = swatchBlot(x, y, r, sd),
-      look = washLook(art);
-    if (cell.state === "blank") {
-      stroke(ctx, stain, PENCIL.soft, 6, 0.1);
-      ctx.save();
-      ctx.fillStyle = PENCIL.blank;
-      ctx.fill(stain);
-      ctx.restore();
-      stroke(ctx, stain, PENCIL.blank, 2.4, 0.9);
-      return;
+    // The same stepped palette transitions as the runtime dirty-tile overlay.
+    const x = Math.round((st.x + st.w * 0.55) / 2) * 2,
+      y = Math.round((st.y + st.h * 0.52) / 2) * 2,
+      r = Math.round(Math.min(st.w, st.h) * 0.3 / 4) * 4;
+    for (let yy = -r; yy < r; yy += 4) for (let xx = -r; xx < r; xx += 4) {
+      if (Math.abs(xx) + Math.abs(yy) > r * 1.35) continue;
+      ctx.fillStyle = cell.state === "blank" ? "#d3c9aa" : (xx + yy) % 8 ? "#a9aaa0" : "#bfc0ac";
+      ctx.fillRect(x + xx, y + yy, 4, 4);
+      if (cell.state === "tide" && xx > r * 0.25) {
+        ctx.fillStyle = art.swatch[1]; ctx.fillRect(x + xx, y + yy, 4, 4);
+      }
     }
-    stroke(ctx, stain, look.tide, WASH_LOOK.tideWidth, WASH_LOOK.tideAlpha);
-    ctx.save();
-    ctx.clip(stain);
-    biomeSwatch(ctx, cell, st, true);
-    ctx.restore();
-    const b = washBloom(WASH_LOOK.seconds * 0.3), bloom = swatchBlot(x, y, r, sd, 0.86 + b.spread * 0.3);
-    ctx.save();
-    ctx.globalAlpha *= b.pigment;
-    ctx.fillStyle = look.pigment;
-    ctx.fill(bloom);
-    ctx.restore();
-    stroke(ctx, bloom, look.tide, 1.8, b.tide);
+    if (cell.state === "tide") {
+      ctx.fillStyle = "#74b4bb";
+      for (let i = 0; i < 5; i++) ctx.fillRect(x - r + i * 6, y + r - 4 - i % 2 * 2, 4, 2);
+    }
   },
   weapon(ctx, cell, st) {
     icon(ctx, st, WEAPON_ART.find(cell.id)?.icon);
@@ -214,13 +201,12 @@ function biomeSwatch(ctx: Ctx, cell: GalleryCell, st: { x: number; y: number; w:
   ctx.save();
   ctx.clip(g);
   if (pencil) {
-    rawPaper(ctx, st.x, st.y, st.w, st.h, WASHED_PAPER);
-    pencilGround(ctx, st.x, st.y, st.x + st.w, st.y + st.h, () => false);
-    for (const [corners, sd] of sheets) {
-      pencilLine(ctx, sheetOutline(corners, art.sheet, sd), sd, { weight: 0.6, alpha: 0.32, closed: true, color: PENCIL.soft });
-      shadeAlong(ctx, subdivide([corners[3]!, corners[2]!], 30), 0.5, 6, 0.18, sd);
-    }
-    for (const [x, y, r, sd] of patches) pencilPatch(ctx, x, y, r, sd);
+    ctx.fillStyle = "#a9aaa0"; ctx.fillRect(st.x, st.y, st.w, st.h);
+    for (let yy = Math.ceil(st.y / 12) * 12; yy < st.y + st.h; yy += 12)
+      for (let xx = Math.ceil(st.x / 16) * 16; xx < st.x + st.w; xx += 16) {
+        ctx.fillStyle = "#899590"; ctx.fillRect(xx, yy, 4, 2);
+        ctx.fillStyle = "#bec1af"; ctx.fillRect(xx + 2, yy - 2, 2, 2);
+      }
   } else {
     ctx.fillStyle = art.swatch[0];
     ctx.fillRect(st.x, st.y, st.w, st.h);
@@ -252,18 +238,10 @@ function icon(ctx: Ctx, st: { x: number; y: number; w: number; h: number }, pain
 
 function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number, check: GalleryCheck): void {
   const { x, y, w, h } = cell;
-  paperCut(ctx, box(x, y, w, h, seed), {
-    color: CARD,
-    layers: 1,
-    thickness: 1.2,
-    shadow: 2,
-    stitch: "#6b6a8c",
-    edge: "#55557a",
-    texture: 0.5,
-    ground: { x: x + w / 2, y: y + h - 2, rx: w * 0.46, ry: 5 },
-  });
-  // A moonlit pool on the card so dark ink still reads.
-  glow(ctx, x + w / 2, y + (h - TAG) * 0.62, Math.min(w, h) * 0.55, "#8fa6d8", 0.16, 0.7);
+  ctx.fillStyle = "#090f1e"; ctx.fillRect(x + 3, y + 4, w, h);
+  ctx.fillStyle = "#466774"; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = CARD; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = "#213c4d"; ctx.fillRect(x + 10, y + h - TAG - 20, w - 20, 12);
   const stage = { x: x + 6, y: y + 6, w: w - 12, h: h - TAG - 10 };
   ctx.save();
   ctx.beginPath();
@@ -276,17 +254,10 @@ function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number, check: 
     gloss = glossy(probeGloss(contextPrototypes(), () => PAINTERS[cell.kind](ctx, cell, stage)));
   } else PAINTERS[cell.kind](ctx, cell, stage);
   ctx.restore();
-  // Cream label tag pinned at the bottom.
+  // Crisp catalogue labels stay separate from the sprite's native grid.
   const ty = y + h - TAG + 2;
-  paperCut(ctx, box(x + 8, ty, w - 16, TAG - 10, seed + 3), {
-    color: TAG_PAPER,
-    thickness: 0.8,
-    shadow: 1.2,
-    edge: "#fff4d6",
-    texture: 0.6,
-    wear: 0.25,
-    seed,
-  });
+  ctx.fillStyle = TAG_PAPER; ctx.fillRect(x + 2, ty, w - 4, TAG - 4);
+  ctx.fillStyle = "#587b83"; ctx.fillRect(x + 2, ty, w - 4, 1);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
@@ -342,20 +313,11 @@ export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: n
   canvas.style.height = `${layout.height}px`;
   const ctx = canvas.getContext("2d")!;
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, width, layout.height);
   for (const hd of layout.headers) {
-    const seed = hd.title.length * 31 + hd.y;
-    paperCut(ctx, box(hd.x, hd.y + 4, Math.min(hd.w, 260), 30, seed), {
-      color: "#e2cfa6",
-      layers: 1,
-      thickness: 1,
-      shadow: 1.6,
-      edge: "#fff0cf",
-      stitch: "#b99a6c",
-      texture: 0.7,
-      wear: 0.3,
-      seed,
-    });
+    ctx.fillStyle = "#264858"; ctx.fillRect(hd.x, hd.y + 4, Math.min(hd.w, 260), 30);
+    ctx.fillStyle = "#e8b86b"; ctx.fillRect(hd.x, hd.y + 4, 4, 30);
     ctx.save();
     ctx.fillStyle = INK;
     ctx.font = `600 17px Allo, "Songti SC", sans-serif`;

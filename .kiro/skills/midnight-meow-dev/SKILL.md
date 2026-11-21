@@ -5,6 +5,16 @@ description: Development workflow for Midnight Meow (猫猫守夜), the papercra
 
 # Midnight Meow development
 
+**Current user override (2026-11-21):** completely refactor the active game into
+pixel art, referencing `danielwh2/sprite-stacking`; first seal the previous paper
+version. Frozen tag: `archive/papercraft-2026-11-21` at `d26859b`, work branch:
+`refactor/pixel-stacking`. Older paper-only, no-pixel and approved-paper-head
+contour requirements below are superseded for this refactor. Keep native pixel
+cat identities, simulation, input and mechanics; no runtime style toggle.
+Code-authored pixel slices/sprites may be cached. User-requested actual screenshots
+are authorized in the working Linux Chromium environment; the historical macOS
+launch failure is not this environment. Do not claim device performance or art approval.
+
 Midnight Meow is a TypeScript + Canvas 2D static site (no framework, no bundler, no runtime dependencies). One chosen cat survives a 10-minute night in a bounded, seeded papercraft town. Content is built as **definitions + hooks + registries**: every cat, weapon, passive, evolution, enemy, prop, reaction, landmark and biome is a def file plus an art file, registered with one line in an index. The generic simulation and renderer look content up by id.
 
 Before you start, read `HANDOFF.md`, `PLAN.md` and `.kiro/steering/*.md`. `docs/archive/` is obsolete history. The latest user requirement explicitly includes the art/interaction gaps and paper actors igniting with water extinguishing them; it supersedes old fire-safe-cat rules and deferred ecology gaps. See [references/paper-ecology.md](references/paper-ecology.md) for the implemented contracts.

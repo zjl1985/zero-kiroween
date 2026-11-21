@@ -1,315 +1,127 @@
-/**
- * Canvas layers for the presentation cues in timeline.ts: evolution, Boss
- * arrival, Boss defeat, dawn and the dawn finale. Render-only: reads SimState
- * and the cue clocks, never writes state or touches the sim RNG.
- */
+/** Pixel presentation cues. Cue phases/camera timing remain in timeline.ts;
+ * this module only replaces the visual language and never writes game state. */
 import type { SimState } from "../game/types.js";
 import { bossEnemy } from "../game/sim.js";
-import { glow, path, piece, type Ctx, type Point } from "./paper-material.js";
+import { rect, line, ellipse, polygon, type Ctx } from "./pixel-art.js";
 import { visHash } from "./hash.js";
 import { catArt } from "./art-registry.js";
 import { cameraProjection, type Camera, type ViewSize } from "./camera.js";
-import {
-  beatFor,
-  clamp01,
-  cueEnvelope,
-  cuePhase,
-  easeInOut,
-  easeOutBack,
-  easeOutCubic,
-  PHASES,
-  type Cue,
-  type Phase,
-} from "./timeline.js";
+import { beatFor, clamp01, cueEnvelope, cuePhase, easeInOut, easeOutCubic, PHASES, type Cue, type Phase } from "./timeline.js";
 
-const CONFETTI = ["#f0cf83", "#efe3c8", "#e58e5f", "#c9b2f0", "#f4d48e"] as const;
-
-/** Real seconds since `phase` began (negative before it). */
+const SPARKS = ["#f3ca70", "#a2d1b2", "#e88970", "#bda6db", "#f7e5a4"] as const;
 function since(c: Cue, phase: Phase): number {
-  const b = beatFor(c.kind, false);
-  let start = 0;
-  for (const p of PHASES) {
-    if (p === phase) break;
-    start += b[p];
-  }
+  const beat = beatFor(c.kind, false); let start = 0;
+  for (const p of PHASES) { if (p === phase) break; start += beat[p]; }
   return c.t - start;
 }
-/** A jianzhi rosette: petals with notched tips, cut from one sheet. */
-function rosette(x: number, y: number, r: number, petals: number, rot: number, squash = 1): Path2D {
-  const pts: Point[] = [];
-  const n = petals * 4;
-  for (let i = 0; i < n; i++) {
-    const a = rot + (i / n) * Math.PI * 2,
-      k = i % 4 === 0 ? 0.48 : i % 4 === 2 ? 0.86 : 1;
-    pts.push([x + Math.cos(a) * r * k, y + Math.sin(a) * r * k * squash]);
-  }
-  return path(pts, true);
+function spark(ctx: Ctx, x: number, y: number, size: number, color: string): void {
+  const k = Math.max(1, Math.round(size / 2));
+  rect(ctx, x - k, y - k * 2, k * 2, k * 4, color);
+  rect(ctx, x - k * 2, y - k, k * 4, k * 2, color);
+  rect(ctx, x, y, k, k, "#fff1be");
 }
-/** A small cut-paper strip, used for gathering pieces and confetti. */
-function strip(ctx: Ctx, x: number, y: number, size: number, spin: number, flip: number, color: string): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(spin);
-  ctx.scale(1, flip);
-  piece(
-    ctx,
-    path([
-      [-size, -size * 0.45],
-      [size * 0.3, -size * 0.7],
-      [size, size * 0.2],
-      [-size * 0.3, size * 0.6],
-    ]),
-    color,
-    { shadow: 0.4, texture: 0.25, thickness: 0.35 },
-  );
-  ctx.restore();
-}
-/** Paper confetti thrown out from (x, y): `k` 0..1 flight, then flutter down. */
-function confetti(ctx: Ctx, x: number, y: number, k: number, count: number, reach: number, seed: number, fade: number): void {
-  if (k <= 0 || fade <= 0) return;
-  ctx.save();
+function burst(ctx: Ctx, x: number, y: number, k: number, count: number, reach: number, seed: number): void {
+  if (k <= 0 || k >= 1) return;
+  ctx.save(); ctx.globalAlpha *= 1 - k;
   for (let i = 0; i < count; i++) {
-    const h1 = visHash(seed + i * 13),
-      h2 = visHash(seed + i * 29 + 5),
-      a = (i / count) * Math.PI * 2 + h1 * 0.5,
-      out = easeOutCubic(k) * reach * (0.55 + h2 * 0.6),
-      fall = k * k * (18 + h1 * 22),
-      px = x + Math.cos(a) * out + Math.sin(k * 9 + i) * 4 * k,
-      py = y + Math.sin(a) * out * 0.6 + fall;
-    ctx.globalAlpha = fade * (1 - k ** 2.2);
-    strip(ctx, px, py, 2.4 + h2 * 1.8, a + k * (5 + h1 * 6), 0.25 + Math.abs(Math.cos(k * 8 + i)) * 0.75, CONFETTI[i % CONFETTI.length]!);
+    const a = i / count * Math.PI * 2 + visHash(seed + i) * .3,
+      r = easeOutCubic(k) * reach * (.6 + visHash(seed + i * 13) * .4),
+      px = x + Math.cos(a) * r, py = y + Math.sin(a) * r * .65 + k * k * 20;
+    spark(ctx, px, py, i % 3 ? 2 : 4, SPARKS[i % SPARKS.length]!);
   }
   ctx.restore();
 }
-/** Soft light rays from a point, drawn additively. */
-function rays(ctx: Ctx, x: number, y: number, len: number, count: number, rot: number, alpha: number, color: string): void {
-  if (alpha <= 0 || len <= 0) return;
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  for (let i = 0; i < count; i++) {
-    const a = rot + (i / count) * Math.PI * 2,
-      w = 0.07 + visHash(i * 7 + 3) * 0.05,
-      l = len * (0.7 + visHash(i * 11) * 0.5);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(a - w) * l, y + Math.sin(a - w) * l * 0.7);
-    ctx.lineTo(x + Math.cos(a + w) * l, y + Math.sin(a + w) * l * 0.7);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawEvolutionWorld(ctx: Ctx, c: Cue, sim: SimState, time: number): void {
-  const p = cuePhase(c, false);
-  if (!p.phase) return;
-  const cx = sim.player.x,
-    cy = sim.player.y - 20,
-    tone = catArt(sim.player.id).colors.tone;
-  // Anticipation: paper pieces gather toward the cat.
-  if (p.phase === "anticipation" || p.phase === "reveal") {
-    const k = p.phase === "anticipation" ? easeInOut(p.local) : 1,
-      fade = p.phase === "reveal" ? 1 - p.local : Math.min(1, p.local * 3);
-    ctx.save();
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2 + visHash(i * 5) * 0.4 + k * 1.4,
-        r = 96 * (1 - k) + 12 + visHash(i * 9) * 8;
-      ctx.globalAlpha = fade * 0.9;
-      strip(ctx, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.65, 3, a * 2 + time * 3, 0.6, i % 2 ? tone : "#efe3c8");
-    }
-    ctx.restore();
-  }
-  // Reveal: a double-layer cutout unfolds over the cat; it holds through the burst.
-  const open = since(c, "reveal");
-  if (open >= 0 && p.phase !== "anticipation") {
-    const unfold = p.phase === "reveal" ? easeOutBack(p.local, 2.2) : 1,
-      fade = p.phase === "settle" ? 1 - easeInOut(p.local) : 1,
-      pulse = p.phase === "burst" ? 1 + Math.sin(p.local * Math.PI) * 0.14 : 1,
-      r = 30 * pulse * (p.phase === "settle" ? 1 + p.local * 0.3 : 1),
-      rot = open * 0.6;
-    ctx.save();
-    ctx.globalAlpha = 0.92 * fade;
-    piece(ctx, rosette(cx + 3, cy + 3, r * 1.08, 10, rot + 0.15, unfold), "#e8c06f", { shadow: 1.2, texture: 0.35, thickness: 0.6 });
-    ctx.globalAlpha = 0.85 * fade;
-    piece(ctx, rosette(cx, cy, r * 0.82, 8, -rot, unfold), tone, { shadow: 0.6, texture: 0.35, thickness: 0.5 });
-    ctx.restore();
-  }
-  // Burst: light rays and paper confetti; settle lets the pieces drift and fade.
-  const b = since(c, "burst"),
-    beat = beatFor("evolution", false);
-  if (b >= 0) {
-    const k = clamp01(b / (beat.burst + beat.settle)),
-      rayK = clamp01(b / beat.burst);
-    rays(ctx, cx, cy, 40 + easeOutCubic(rayK) * 110, 12, open * 0.4, 0.28 * (1 - k), "#f6dc9a");
-    glow(ctx, cx, cy, 70, "#ffd98a", 0.5 * (1 - k));
-    confetti(ctx, cx, cy, k, 26, 120, 911, 1);
+function ring(ctx: Ctx, x: number, y: number, r: number, color: string, phase: number): void {
+  for (let i = 0; i < 16; i++) {
+    const a = i * Math.PI / 8 + phase, b = a + .2;
+    line(ctx, x + Math.cos(a) * r, y + Math.sin(a) * r * .55,
+      x + Math.cos(b) * r, y + Math.sin(b) * r * .55, color, 2);
   }
 }
-
-function drawBossWorld(ctx: Ctx, c: Cue, x: number, y: number): void {
-  const p = cuePhase(c, false);
-  if (!p.phase) return;
-  if (p.phase === "anticipation") {
-    // An ink pool spreads where the Eraser is about to stand.
-    ctx.save();
-    ctx.globalAlpha = 0.35 * easeInOut(p.local);
-    ctx.fillStyle = "#1a1228";
-    ctx.beginPath();
-    ctx.ellipse(x, y, 30 + p.local * 40, 10 + p.local * 14, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-  const b = since(c, "burst"),
-    beat = beatFor(c.kind, false);
-  if (b >= 0) {
-    const k = clamp01(b / (beat.burst + beat.settle));
-    if (c.kind === "boss-down") {
-      rays(ctx, x, y - 30, 60 + easeOutCubic(k) * 160, 14, b * 0.3, 0.3 * (1 - k), "#f6dc9a");
-      confetti(ctx, x, y - 30, k, 34, 170, 517, 1);
-    } else {
-      // Eraser crumbs and ink flakes thrown off as it lands.
-      ctx.save();
-      for (let i = 0; i < 18; i++) {
-        const a = (i / 18) * Math.PI * 2 + visHash(i * 3) * 0.3,
-          out = 30 + easeOutCubic(k) * (70 + visHash(i * 17) * 40);
-        ctx.globalAlpha = 1 - k;
-        strip(ctx, x + Math.cos(a) * out, y - 20 + Math.sin(a) * out * 0.55 + k * k * 16, 3, a + k * 6, 0.5, i % 3 ? "#2c2340" : "#f0a3b1");
-      }
-      ctx.restore();
-    }
-  }
-}
-
-/** World-space cue layers, drawn inside the camera transform after the effects. */
 export function drawCueWorld(ctx: Ctx, cues: readonly Cue[], sim: SimState, time: number, reduced: boolean): void {
   if (reduced) return;
   for (const c of cues) {
-    if (c.kind === "evolution") drawEvolutionWorld(ctx, c, sim, time);
-    else if ((c.kind === "boss" || c.kind === "boss-down") && c.x !== undefined && c.y !== undefined)
-      drawBossWorld(ctx, c, c.x, c.y);
+    const p = cuePhase(c, false);
+    if (!p.phase) continue;
+    const evolution = c.kind === "evolution";
+    if (!evolution && c.kind !== "boss" && c.kind !== "boss-down") continue;
+    const x = evolution ? sim.player.x : c.x, y = evolution ? sim.player.y - 20 : c.y;
+    if (x === undefined || y === undefined) continue;
+    const tone = evolution ? catArt(sim.player.id).colors.evolve : c.kind === "boss" ? "#e58687" : "#e8c372";
+    ctx.save();
+    ctx.globalAlpha *= cueEnvelope(c, false);
+    if (p.phase === "anticipation") {
+      ring(ctx, x, y + 14, evolution ? 90 - p.local * 55 : 30 + p.local * 40, tone, Math.floor(time * 12) / 24);
+      if (!evolution) ellipse(ctx, x, y, 30 + p.local * 40, 10 + p.local * 14, "#1c2339");
+    }
+    if (p.phase === "reveal" || p.phase === "burst") {
+      const r = 22 + Math.sin(p.local * Math.PI) * 8;
+      for (const side of [-1, 1]) {
+        const dx = x + side * r;
+        rect(ctx, dx - 2, y - 14, 4, 28, tone);
+        rect(ctx, dx - (side > 0 ? 6 : 0), y - 18, 8, 4, "#f4dfa1");
+        rect(ctx, dx - (side > 0 ? 6 : 0), y + 14, 8, 4, "#f4dfa1");
+      }
+      ring(ctx, x, y + 18, 35 + p.local * 20, tone, 0);
+    }
+    const b = since(c, "burst"), beat = beatFor(c.kind, false);
+    if (b >= 0) burst(ctx, x, y, clamp01(b / (beat.burst + beat.settle)), evolution ? 26 : 34,
+      evolution ? 120 : 170, evolution ? 911 : 517);
+    ctx.restore();
   }
 }
-
-function fill(ctx: Ctx, view: ViewSize, color: string, alpha: number, mode: GlobalCompositeOperation = "source-over"): void {
+function fill(ctx: Ctx, view: ViewSize, color: string, alpha: number): void {
   if (alpha <= 0) return;
-  ctx.save();
-  ctx.globalCompositeOperation = mode;
-  ctx.globalAlpha = Math.min(1, alpha);
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, view.width, view.height);
+  ctx.save(); ctx.globalAlpha *= Math.min(1, alpha);
+  rect(ctx, 0, 0, view.width, view.height, color); ctx.restore();
+}
+function frame(ctx: Ctx, view: ViewSize, color: string, alpha: number): void {
+  ctx.save(); ctx.globalAlpha *= alpha;
+  for (let i = 0; i < 4; i++) {
+    const inset = i * 4;
+    rect(ctx, inset, inset, view.width - inset * 2, 4, color);
+    rect(ctx, inset, view.height - inset - 4, view.width - inset * 2, 4, color);
+    rect(ctx, inset, inset, 4, view.height - inset * 2, color);
+    rect(ctx, view.width - inset - 4, inset, 4, view.height - inset * 2, color);
+    ctx.globalAlpha *= .6;
+  }
   ctx.restore();
 }
-/** Darkens the edges and leaves a clear hole around (x, y) so the fight stays readable. */
-function vignette(ctx: Ctx, view: ViewSize, x: number, y: number, inner: number, color: string, alpha: number): void {
-  if (alpha <= 0) return;
-  ctx.save();
-  ctx.globalAlpha = Math.min(1, alpha);
-  const g = ctx.createRadialGradient(x, y, inner, x, y, Math.max(view.width, view.height) * 0.75);
-  g.addColorStop(0, color + "00");
-  g.addColorStop(1, color);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, view.width, view.height);
-  ctx.restore();
-}
-/** A paper chevron pinned to the view edge, pointing at an off-screen world point. */
-function edgeArrow(ctx: Ctx, view: ViewSize, sx: number, sy: number, time: number, alpha: number): void {
-  const m = 30,
-    inside = sx > m && sx < view.width - m && sy > m && sy < view.height - m;
-  const cx = view.width / 2,
-    cy = view.height / 2,
+function edgeArrow(ctx: Ctx, view: ViewSize, sx: number, sy: number, alpha: number): void {
+  const margin = 30, cx = view.width / 2, cy = view.height / 2,
+    inside = sx > margin && sx < view.width - margin && sy > margin && sy < view.height - margin,
     a = Math.atan2(sy - cy, sx - cx),
-    kx = (cx - m) / Math.max(1e-6, Math.abs(Math.cos(a))),
-    ky = (cy - m) / Math.max(1e-6, Math.abs(Math.sin(a))),
-    r = Math.min(kx, ky),
-    x = inside ? sx : cx + Math.cos(a) * r,
-    y = inside ? Math.max(m, sy - 46) : cy + Math.sin(a) * r,
-    dir = inside ? Math.PI / 2 : a,
-    s = 1 + Math.max(0, Math.sin(time * 12)) * 0.3;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.rotate(dir);
-  ctx.scale(s, s);
-  piece(ctx, path([[10, 0], [-6, -9], [-2, 0], [-6, 9]]), "#e58e9f", { shadow: 1, texture: 0.3, thickness: 0.6 });
-  ctx.restore();
+    r = Math.min((cx - margin) / Math.max(1e-6, Math.abs(Math.cos(a))), (cy - margin) / Math.max(1e-6, Math.abs(Math.sin(a)))),
+    x = inside ? sx : cx + Math.cos(a) * r, y = inside ? Math.max(margin, sy - 46) : cy + Math.sin(a) * r,
+    dir = inside ? Math.PI / 2 : a;
+  const points = [[10, 0], [-6, -9], [-2, 0], [-6, 9]].map(([px, py]) =>
+    [x + px! * Math.cos(dir) - py! * Math.sin(dir), y + px! * Math.sin(dir) + py! * Math.cos(dir)] as const);
+  ctx.save(); ctx.globalAlpha *= alpha; polygon(ctx, points, "#f29c8d"); ctx.restore();
 }
-
-/** Screen-space cue layers, drawn after the world and before the HUD frame. */
-export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: Camera, time: number, reduced: boolean, view = cameraProjection(cam)): void {
-  const px = sim.player.x * view.zoom + view.x,
-    py = (sim.player.y - 20) * view.zoom + view.y;
+export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: Camera, _time: number, reduced: boolean, view = cameraProjection(cam)): void {
   for (const c of cues) {
-    const env = cueEnvelope(c, reduced),
-      p = cuePhase(c, reduced);
+    const env = cueEnvelope(c, reduced), p = cuePhase(c, reduced);
     if (!p.phase) continue;
-    if (reduced) {
-      // Short fades only: a tint that clears in REDUCED_BEAT time.
-      const tint = { evolution: "#f0cf83", boss: "#7d1f2e", "boss-down": "#f6dc9a", dawn: "#ffcf8a", finale: "#ffcf8a" }[c.kind];
-      fill(ctx, view, tint, (c.kind === "finale" ? 0.35 : 0.14) * (c.kind === "finale" ? 1 : env));
-      continue;
-    }
-    switch (c.kind) {
-      case "evolution":
-        // The world dims around the cat, then a warm flash at the burst.
-        vignette(ctx, view, px, py, 50, "#070b16", 0.55 * env);
-        if (p.phase === "burst") fill(ctx, view, "#ffe2a6", 0.18 * (1 - p.local), "screen");
-        break;
-      case "boss": {
-        vignette(ctx, view, px, py, 110, "#3a0f22", 0.5 * env);
-        const boss = bossEnemy(sim),
-          bx = (boss?.x ?? c.x ?? cam.x) * view.zoom + view.x,
-          by = (boss?.y ?? c.y ?? cam.y) * view.zoom + view.y;
-        if (p.phase === "anticipation" || p.phase === "reveal") edgeArrow(ctx, view, bx, by, time, Math.min(1, env * 1.4));
-        if (p.phase === "burst") fill(ctx, view, "#f0a3b1", 0.12 * (1 - p.local), "screen");
-        break;
-      }
-      case "boss-down":
-        if (p.phase === "burst") fill(ctx, view, "#fff1cc", 0.3 * (1 - p.local), "screen");
-        vignette(ctx, view, px, py, 120, "#1a0f1d", 0.25 * env);
-        break;
-      case "dawn": {
-        // A cool breath, then warm light sweeps across the town from the east.
-        if (p.phase === "anticipation") fill(ctx, view, "#0b1430", 0.14 * p.local);
-        const sweep = since(c, "reveal");
-        if (sweep >= 0) {
-          const beat = beatFor("dawn", false),
-            k = easeInOut(sweep / (beat.reveal + beat.burst * 0.5)),
-            x = -220 + k * (view.width + 440);
-          ctx.save();
-          ctx.globalCompositeOperation = "screen";
-          ctx.globalAlpha = 0.45 * env;
-          const g = ctx.createLinearGradient(x - 200, 0, x + 60, 0);
-          g.addColorStop(0, "#ffcf8a00");
-          g.addColorStop(0.7, "#ffcf8a");
-          g.addColorStop(1, "#ffcf8a00");
-          ctx.fillStyle = g;
-          ctx.fillRect(0, 0, view.width, view.height);
-          ctx.restore();
-          // The light stays behind the sweep as a warm wash.
-          ctx.save();
-          ctx.globalAlpha = 0.12 * env;
-          ctx.fillStyle = "#f6b866";
-          ctx.globalCompositeOperation = "soft-light";
-          ctx.fillRect(0, 0, Math.max(0, Math.min(view.width, x)), view.height);
-          ctx.restore();
-        }
-        break;
-      }
-      case "finale": {
-        // The sun rises over the town; the wash holds so the result page opens on warm paper.
-        const rise = p.phase === "anticipation" ? easeInOut(p.local) : 1,
-          sx = view.width * 0.5,
-          sy = view.height * (0.32 - 0.12 * rise);
-        fill(ctx, view, "#ffcf8a", 0.12 + 0.3 * p.total, "screen");
-        const b = since(c, "reveal");
-        if (b >= 0) rays(ctx, sx, sy, 160 + easeOutCubic(clamp01(b / 0.8)) * 380, 16, time * 0.1, 0.16, "#ffe2a6");
-        glow(ctx, sx, sy, 110 + rise * 40, "#fff1cc", 0.7 * rise);
-        const k = since(c, "burst");
-        if (k >= 0) confetti(ctx, sx, sy, clamp01(k / 1.05), 30, 340, 1203, 1);
-        break;
-      }
+    const tone = c.kind === "boss" ? "#d5757e" : "#e9c47d";
+    if (reduced) { frame(ctx, view, tone, .4 * env); continue; }
+    if (c.kind === "boss") {
+      frame(ctx, view, "#843c58", .65 * env);
+      const boss = bossEnemy(sim);
+      if (p.phase === "anticipation" || p.phase === "reveal") edgeArrow(ctx, view,
+        (boss?.x ?? c.x ?? cam.x) * view.zoom + view.x,
+        (boss?.y ?? c.y ?? cam.y) * view.zoom + view.y, Math.min(1, env * 1.4));
+    } else if (c.kind === "evolution" || c.kind === "boss-down") {
+      frame(ctx, view, "#e3bf74", .5 * env);
+      if (p.phase === "burst") fill(ctx, view, "#ffe5a6", .1 * (1 - p.local));
+    } else if (c.kind === "dawn") {
+      const beat = beatFor(c.kind, false), k = easeInOut(since(c, "reveal") / (beat.reveal + beat.burst * .5));
+      ctx.save(); ctx.globalAlpha *= .08 * env;
+      rect(ctx, 0, 0, view.width * k, view.height, "#e7bb72"); ctx.restore();
+    } else if (c.kind === "finale") {
+      fill(ctx, view, "#e7bb72", .1 + .16 * p.total);
+      frame(ctx, view, "#f3dc99", .5 * env);
+      const b = since(c, "burst");
+      if (b >= 0) burst(ctx, view.width / 2, view.height * .26, clamp01(b / 1.05), 30, 340, 1203);
     }
   }
 }

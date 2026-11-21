@@ -84,7 +84,7 @@ test("gallery dispatches idle and skill cards through registered cat art", (t) =
   for (const [, , pose] of seen) assert.equal(pose.dashing, false, "generic gallery never chooses a dash");
 });
 
-test("cat skill previews keep the dash for Zero and use the existing fold effect for Nicole", (t) => {
+test("cat skill previews keep the dash for Zero and use a native moon field for Nicole", (t) => {
   drawingEnvironment(t);
   for (const [id, dashing] of [["zero", true], ["nicole", false]]) {
     const art = CAT_ART.get(id), ctx = canvas().getContext("2d"), poses = [];
@@ -93,43 +93,17 @@ test("cat skill previews keep the dash for Zero and use the existing fold effect
     art.skillPreview(ctx, pose);
     assert.deepEqual(poses, [{ ...pose, dashing }]);
     if (id === "nicole") {
-      const color = "#c0b5ef", t = 1 - 0.5 / 0.6, radius = 18 + t * 60,
-        x = pose.x, y = pose.y - 16, starScale = (2 + (1 - t) * 2) / 8;
-      const strokes = ctx.calls.filter((c) => c.op === "stroke");
-      assert.equal(strokes.length, 2, "fold ring has one under-edge and one violet stroke");
-      assert.deepEqual(strokes.map((c) => [c.strokeStyle, c.lineWidth, c.globalAlpha]), [
-        ["#231c30", 2.8, (1 - t) * 0.4], [color, 1.2, 1 - t],
-      ]);
-      assert.equal(strokes[0].args[0], strokes[1].args[0], "both strokes follow the same cut path");
-      assert.deepEqual(strokes[1].args[0].ops, Array.from({ length: 8 }, (_, i) => {
-        const a = i * Math.PI / 4;
-        return [
-          ["moveTo", x + Math.cos(a) * radius, y + Math.sin(a) * radius * 0.65],
-          ["ellipse", x, y, radius, radius * 0.65, 0, a, a + Math.PI / 4 - 0.065],
-        ];
-      }).flat(), "fold uses eight separated arcs at its own centre and radius");
-      const stars = images(ctx);
-      assert.equal(stars.length, 8, "exactly eight orbiting paper stars, with no duplicate face/body");
-      const image = stars[0].args[0], paint = image.getContext("2d").calls,
-        cuts = paint.filter((c) => c.op === "fill" && c.fillStyle === color);
-      assert.equal(cuts.length, 1, "one violet star cut is painted into the shared cached sprite");
-      assert.deepEqual(cuts[0].args[0].ops, [
-        ...Array.from({ length: 8 }, (_, i) => {
-          const a = i * Math.PI / 4, r = i % 2 ? 2.56 : 8;
-          return [i ? "lineTo" : "moveTo", Math.cos(a) * r, Math.sin(a) * r];
-        }), ["closePath"],
-      ]);
-      assert.ok(paint.some((c) => c.op === "stroke"), "cached star retains its paper edge/fold");
-      for (const [i, star] of stars.entries()) {
-        const a = i * Math.PI / 4, at = ctx.calls.indexOf(star);
-        assert.equal(star.args[0], image, "every star reuses the same cached cut");
-        assert.deepEqual(star.args.slice(1), [-13 * starScale, -13 * starScale, 26 * starScale, 26 * starScale]);
-        assert.equal(star.globalAlpha, 1 - t);
-        assert.deepEqual(ctx.calls.slice(at - 2, at).map((c) => [c.op, ...c.args]), [
-          ["translate", x + Math.cos(a) * radius, y + Math.sin(a) * radius * 0.65], ["rotate", a],
-        ], "each cached star keeps its radial position and orientation");
-      }
-      assert.ok(!ctx.calls.some((c) => ["fill", "fillRect"].includes(c.op) && c.fillStyle === color), "violet cuts are not rebuilt as live pixel fills");
+      const field = ctx.calls.filter((c) => c.op === "fillRect" && c.fillStyle === art.colors.tone);
+      assert.ok(field.length >= 16, "moon field retains a visibly separated perimeter");
+      assert.ok(field.every((c) => c.args.every(Number.isInteger) && c.globalAlpha === 0.55));
+      const xs = field.map((c) => c.args[0]), ys = field.map((c) => c.args[1]);
+      assert.equal((Math.min(...xs) + Math.max(...xs)) / 2, pose.x);
+      assert.equal((Math.min(...ys) + Math.max(...ys)) / 2, pose.y - 16);
+      assert.ok(Math.max(...xs) - Math.min(...xs) > Math.max(...ys) - Math.min(...ys), "field follows the ground plane");
+      const moon = ctx.calls.filter((c) => c.op === "fillRect" && c.fillStyle === art.colors.hud);
+      assert.ok(moon.length > 8 && moon.every((c) => c.args.every(Number.isInteger)), "native crescent identifies the moon skill");
+      assert.equal(images(ctx).length, 0, "mocked registered actor draw is the only face/body dispatch");
+      assert.ok(!ctx.calls.some((c) => ["stroke", "ellipse", "createRadialGradient"].includes(c.op)), "preview is authored on a native pixel grid");
     }
   }
 });
@@ -143,9 +117,11 @@ test("landmark previews draw every interaction marker once, after its existing b
     const tall = decor.filter((d) => !FLAT_DECOR.has(d.kind)).sort((a, b) => a.y - b.y);
     let imageCount = 0;
     const offsets = tall.map((d) => {
-      const live = decorPiece(d.kind)?.live, first = imageCount;
-      imageCount += 1 + (live ? 1 : 0);
-      return { first, last: imageCount - 1, live };
+      const piece = decorPiece(d.kind), live = piece?.live, first = imageCount;
+      const expected = canvas().getContext("2d");
+      if (live) live.call(piece, expected, d.x, d.y, Math.round(d.s * 20) / 20, Math.abs(d.seed) % (piece.variants ?? 1), 0);
+      imageCount += 1 + images(expected).length;
+      return { first, last: imageCount - 1, live, expected };
     });
     for (const shape of def.water?.(place) ?? []) {
       const water = canvas().getContext("2d");
@@ -156,36 +132,35 @@ test("landmark previews draw every interaction marker once, after its existing b
     }
     preview.draw(ctx, 0);
     const bodies = images(ctx);
-    assert.equal(bodies.length, imageCount, `${def.id}: exactly one cached body per piece and one extra image per live piece`);
+    assert.equal(bodies.length, imageCount, `${def.id}: exactly one cached body per piece plus registered live sprite layers`);
     for (const [i, d] of tall.entries()) {
       const { first, last, live } = offsets[i];
       if (!live) continue;
-      const piece = decorPiece(d.kind), expected = canvas().getContext("2d"),
-        s = Math.round(d.s * 20) / 20, v = Math.abs(d.seed) % (piece.variants ?? 1);
-      live.call(piece, expected, d.x, d.y, s, v, 0);
+      const { expected } = offsets[i];
       const overlay = images(expected);
-      assert.equal(overlay.length, 1, `${d.kind}: live renderer contributes exactly one rotor image`);
-      assert.notEqual(bodies[first].args[0], bodies[last].args[0], "tower and rotor are separate cached cuts");
+      assert.ok(expected.calls.length > 0, `${d.kind}: live renderer contributes visible commands`);
+      if (overlay.length) assert.notEqual(bodies[first].args[0], bodies[last].args[0], "body and live layer use separate native sprites");
       const start = ctx.calls.indexOf(bodies[first]) + 1;
       assert.deepEqual(ctx.calls.slice(start, start + expected.calls.length).map((c) => [c.op, ...c.args]),
         expected.calls.map((c) => [c.op, ...c.args]), "live overlay follows its own body with the exact placement, scale, variant and time");
-      assert.equal(bodies[last].args[0], overlay[0].args[0], "preview dispatches the registered live piece, not a duplicate body");
+      if (overlay.length) assert.equal(bodies[last].args[0], overlay.at(-1).args[0], "preview dispatches the registered live piece, not a duplicate body");
       livePieces++;
     }
     for (const [i, spot] of spots.entries()) {
       if (spot.kind === "pumpkin") pumpkins++; else lanterns++;
       const expected = canvas().getContext("2d");
       drawInteractable(expected, { ...spot, id: i + 1, lit: 0, cooldown: 0, tick: 0, charge: spot.kind === "lantern" ? MOON_LANTERN.startCharge : 0 }, 0);
-      const color = spot.kind === "pumpkin" ? "#f2a94e" : "#2d3550";
-      const marker = expected.calls.find((c) => c.op === "fill" && c.fillStyle === color);
-      assert.ok(marker);
-      const matching = ctx.calls.map((c, index) => ({ c, index })).filter(({ c }) => c.op === "fill" && c.fillStyle === color && JSON.stringify(signature(c)) === JSON.stringify(signature(marker)));
-      assert.equal(matching.length, 1, `${def.id}: ${spot.kind} marker at ${spot.x},${spot.y}`);
+      assert.ok(expected.calls.length > 0, "interaction painter has visible commands");
+      const expectedSignature = expected.calls.map((c) => JSON.stringify(signature(c)));
+      const matching = ctx.calls.map((_, index) => index).filter((index) =>
+        expectedSignature.every((command, offset) => ctx.calls[index + offset] &&
+          JSON.stringify(signature(ctx.calls[index + offset])) === command));
+      assert.equal(matching.length, 1, `${def.id}: complete ${spot.kind} marker at ${spot.x},${spot.y} is dispatched once`);
       const body = tall.findIndex((d) => d.x === spot.x && d.y === spot.y && d.kind === (spot.kind === "lantern" ? "lamp" : "pumpkin"));
       assert.ok(body >= 0, "registered spot has an existing scene body");
-      assert.ok(ctx.calls.indexOf(bodies[offsets[body].last]) < matching[0].index, "marker follows its complete body, including any live overlay");
+      assert.ok(ctx.calls.indexOf(bodies[offsets[body].last]) < matching[0], "marker follows its complete body, including any live overlay");
       const front = tall.findIndex((d) => d.y > spot.y + 0.1);
-      if (front >= 0) assert.ok(matching[0].index < ctx.calls.indexOf(bodies[offsets[front].first]), "foreground decor covers the marker");
+      if (front >= 0) assert.ok(matching[0] < ctx.calls.indexOf(bodies[offsets[front].first]), "foreground decor covers the marker");
       assert.ok(preview.bounds.t <= spot.y - (spot.kind === "lantern" ? 78 : 33 * spot.s + 9), "marker fits preview bounds");
     }
   }
@@ -248,7 +223,8 @@ test("burning prop damage stays in its cached surface and excludes time/placemen
   const charred = draw();
   const baked = charred.getContext("2d").calls;
   assert.ok(baked.some((c) => c.globalCompositeOperation === "source-atop"), "char is restricted to the original prop alpha");
-  assert.ok(baked.some((c) => c.op === "fill" && c.globalCompositeOperation === "destination-out"), "small burn-throughs are baked into the prop only");
+  const holes = baked.filter((c) => c.op === "fillRect" && c.globalCompositeOperation === "destination-out");
+  assert.ok(holes.length > 0 && holes.every((c) => c.args.every(Number.isInteger) && c.args[2] > 0 && c.args[3] > 0), "native grid burn-throughs are baked into the prop only");
   assert.equal(draw({ ...spot, x: -8, y: 90, s: 1.001, seed: 5 }, 0, false, true, 42), charred);
   assert.equal(painted.length, 1);
   assert.notEqual(draw(spot, 0, false, false), charred);
