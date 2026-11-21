@@ -62,12 +62,7 @@ function recordingCanvas() {
   const record = (op, p) => {
     const raw = bounds(p, state.matrix);
     const half = op === "stroke" ? state.lineWidth * Math.max(Math.hypot(...state.matrix.slice(0, 2)), Math.hypot(...state.matrix.slice(2, 4))) / 2 : 0;
-    let extent = intersect([raw[0] - half, raw[1] - half, raw[2] + half, raw[3] + half], state.clip);
-    if (state.globalCompositeOperation === "source-in" && calls.length) {
-      const painted = calls.filter(c => c.bounds).map(c => c.bounds);
-      extent = intersect(extent, [Math.min(...painted.map(b => b[0])), Math.min(...painted.map(b => b[1])),
-        Math.max(...painted.map(b => b[2])), Math.max(...painted.map(b => b[3]))]);
-    }
+    const extent = intersect([raw[0] - half, raw[1] - half, raw[2] + half, raw[3] + half], state.clip);
     if (extent[0] > extent[2] || extent[1] > extent[3]) return;
     const color = JSON.parse(JSON.stringify(op === "stroke" ? state.strokeStyle : state.fillStyle));
     calls.push({ op, path: p.ops, matrix: [...state.matrix], bounds: extent, color, alpha: state.globalAlpha, composite: state.globalCompositeOperation });
@@ -79,35 +74,18 @@ function recordingCanvas() {
     scale(x, y) { state.matrix = multiply(state.matrix, [x, 0, 0, y, 0, 0]); },
     rotate(a) { state.matrix = multiply(state.matrix, [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]); },
     getTransform() { return new Matrix(state.matrix); },
-    clip(p = current) { state.clip = intersect(state.clip, bounds(p, state.matrix)); },
+    clip(p) { state.clip = intersect(state.clip, bounds(p, state.matrix)); },
     fill(p = current) { record("fill", p); },
     stroke(p = current) { record("stroke", p); },
     fillRect(x, y, w, h) { const p = new RecordingPath(); p.rect(x, y, w, h); record("fillRect", p); },
     beginPath() { current = new RecordingPath(); },
     moveTo(...args) { current.moveTo(...args); },
     lineTo(...args) { current.lineTo(...args); },
-    rect(...args) { current.rect(...args); },
     setLineDash() {},
     createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
     putImageData() {},
     createPattern() { return { kind: "paper-fibre", setTransform() {} }; },
-    drawImage(image, ...args) {
-      const [sx, sy, sw, sh, dx, dy, dw, dh] = args.length === 8 ? args
-        : [0, 0, image.width, image.height, args[0], args[1], args[2] ?? image.width, args[3] ?? image.height];
-      // Include cached section geometry in the existing scenery bounds test;
-      // transparent padding is not geometry, and source sampling clips it.
-      const painted = image.getContext("2d").calls.filter(c => c.bounds);
-      for (const call of painted) {
-        const b = intersect(call.bounds, [sx, sy, sx + sw, sy + sh]);
-        if (b[0] >= b[2] || b[1] >= b[3]) continue;
-        const p = new RecordingPath();
-        p.rect(dx + (b[0] - sx) * dw / sw, dy + (b[1] - sy) * dh / sh,
-          (b[2] - b[0]) * dw / sw, (b[3] - b[1]) * dh / sh);
-        const extent = intersect(bounds(p, state.matrix), state.clip);
-        calls.push({ op: "drawImage", image, args, bounds: extent, color: call.color, alpha: state.globalAlpha,
-          composite: state.globalCompositeOperation });
-      }
-    },
+    drawImage(image, ...args) { calls.push({ op: "drawImage", image, args }); },
   };
   for (const name of ["createLinearGradient", "createRadialGradient"])
     methods[name] = (...args) => ({ kind: name, args, stops: [], addColorStop(at, color) { this.stops.push([at, color]); } });
