@@ -1,3 +1,4 @@
+import { drawPixelReeds } from "./pixel-reeds.js";
 import { drawPixelLaundryLine } from "./pixel-laundry-line.js";
 import { drawPixelPaperLanterns } from "./pixel-paper-lanterns.js";
 import { scarecrowModel } from "./pixel-scarecrow.js";
@@ -137,14 +138,13 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
           if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
             rect(x + .5, 1.5, .5, .5, 0);
         }
-      } else if (/grass|reeds|flowers/.test(id)) {
+      } else if (/grass|flowers/.test(id)) {
         for (let i = 0; i < 9; i++) {
           const height = 0.45 + hash(v * 19 + i) * 0.55;
           if (h > height) continue;
           const x = -W * 0.85 + (i / 8) * W * 1.7 + (h * h * (i % 2 ? 2 : -2)), y = ((i % 3) - 1) * D * 0.5;
           rect(x, y, 1 + (h < 0.2 ? 1 : 0), 1, i % 3);
           if (id.includes("flowers") && h > height - 0.17) { oval(x, y, 2.3, 2, ["#d99885", "#d4bf7c", "#a4b9c8"][i % 3]!); rect(x, y, 1, 1, GOLD[2]); }
-          if (id.includes("reeds") && h > height - 0.2) rect(x, y, 2, 2, GOLD[0]);
         }
       } else if (id === "paper-bush") {
         for (let i = 0; i < 5; i++) {
@@ -195,6 +195,7 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "paper-reeds") { drawPixelReeds(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "laundry-line") { drawPixelLaundryLine(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-lanterns") { drawPixelPaperLanterns(ctx,x,y,s,v,phase,burnt); return; }
       const model = fineModel(propModel(a, v % Math.max(1, a.variants), phase, burnt));

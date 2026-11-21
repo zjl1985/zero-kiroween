@@ -45,6 +45,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Water bucket and ink vat | Rebuilt; all lifecycle variants and desktop/phone fixtures viewed | Hollow vessels, joined handle/stirrer, deliberate damage and grounded curved remnants. Corrected pail stippling and floating vat fragments; user approval pending. |
 | Scarecrow | Rebuilt; lifecycle sheets and farm scene viewed | Grounded high-contrast post, joined sleeves/crossbar, patched coat, sack face and straw hat; original floating appearance corrected. User approval pending. |
 | Laundry line and lantern string | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Exact grounded posts, sagging cord with connected pegs/hangers, recognizable cloth/lantern remnants. Pixel connectivity regression added; user approval pending. |
+| Destructible reeds | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Root-connected arching leaves, unequal cattail heads, cut remnants; corrected wire-like highlights and disconnected taper pixels. Terrain reed fans remain separate; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -317,3 +318,16 @@ Viewed all48 lifecycle combinations at1×/2× (four sheets), then desktop960×54
 Evidence under output/pixel-asset-review: laundry-line-before/after-{states,burnt,detail,desktop,mobile}.png and paper-lanterns-before/after-{states,burnt,detail,desktop,mobile}.png. Scene screenshots are focused render fixtures rather than manual traversal or iPhone performance tests. User art acceptance and whole-game refinement remain open; local only, no push/deployment.
 
 Hanging-fixture verification: `npm run build` passed; targeted connectivity tests2/2 and `npm test`437/437. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all48 states strict bounds and cache round-trip pass; `git diff --check` passed.
+
+
+## Destructible reeds: leaf surfaces and connected tapers
+
+Confirmed the large repeated thin-post plants come from registered paper-reeds, while the low canal terrain fans are drawn separately in pixel-terrain.ts. New pixel-reeds.ts replaces only the registered prop's generic stack branch. Three root groups support arching tapered leaves and three unequal bent cattail stalks/seed heads, with four muted olive palettes. Damage cuts selected leaves/stalks and bends another; scraps are grounded cut stems/blades/head fragments. No water patch is painted, and small separate root contacts replace the broad bar shadow. Original reactions, collision-free footprint and22s/34s regrowth stay untouched.
+
+First actual screenshots still read as bright wire because of full-length narrow crease highlights. Widened three foreground leaf midsections and shortened highlights. The next inspection caught taper rows rounding to zero width and leaving disconnected dots. Added a same-material continuous centre spine, then repainted the leaf surface and short highlight. tests/pixel-reeds.test.mjs reproduces the pre-fix detached pixel(-24,-30) and now passes: all elevated pixels must remain eight-connected to a ground root, inside the original bounds, with Canvas state restored.
+
+Viewed final24 lifecycle combinations at1×/2× and desktop960×540/phone390×844 seed7 fixture at(-1511,309),scale1.1, including adjacent clumps. Strict bounds and intact cache round-trip pass; simulation unchanged and page errors0. Actual gameplay timing/performance and iPhone Safari were not measured.
+
+Evidence: paper-reeds-before-{states,burnt,detail,desktop,mobile}.png, paper-reeds-after-* (first wire-like revision), and paper-reeds-final-* under output/pixel-asset-review. Whole-scene richness, other props/actors/weapons/costumes/UI remain open; this is internal art review, not user approval. Local only, no push/deployment.
+
+Reeds verification: `npm run build` passed; new continuity regression passes after reproducing pre-fix failure; `npm test`438/438. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all24 states strict bounds/cache round-trip pass; `git diff --check` passed.
