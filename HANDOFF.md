@@ -1,5 +1,8 @@
 # Midnight Meow handoff
 
+Latest asset follow-up: scenery fence refined in `src/render/pixel-fence.ts` with joined rails, post caps, nails, material planes and three palettes. Actual 1×/3× and desktop/mobile-near-fence screenshots inspected; browser errors 0. Build and 426 tests passed. Local only; remaining assets tracked in `docs/pixel-asset-review.md`. Movement-only controls remain unchanged.
+
+
 Latest override (2026-11-21): movement only, automatic attacks. Manual dash/active skills and their controls are removed locally; dependent upgrades now affect automatic combat. Historical dash preservation and baseline-equivalence claims below do not apply to this change. This revision is not pushed.
 
 Movement-only verification: `npm run build` and `npm test` passed (426/426). Desktop and 390×844 Chromium flows checked absent skill buttons, keyboard movement, joystick press/release and pause/resume, with zero page errors. Viewed `output/pixel-asset-review/movement-only-mobile.png`; desktop capture is alongside it. Not pushed; no iPhone performance claim. Asset detail work remains pending per the review log.

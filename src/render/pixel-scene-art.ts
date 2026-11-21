@@ -1,3 +1,4 @@
+import { fenceModel } from "./pixel-fence.js";
 import { lanternModel } from "./pixel-lantern.js";
 import { treeModel } from "./pixel-tree.js";
 import { cottageModel } from "./pixel-cottage.js";
@@ -31,10 +32,11 @@ function model(kind: string, variant: number): PixelStackModel {
   if (kind === "cottage") return cottageModel(variant % 3);
   if (kind === "tree") return treeModel(variant);
   if (kind === "lamp") return lanternModel(variant);
+  if (kind === "fence") return fenceModel(variant);
   return {
-    id: `scene:${kind}:${variant % 6}`, width: kind === "fence" ? 48 : 36,
-    depth: kind === "fence" ? 12 : 28,
-    count: kind === "fence" ? 22 : bush ? 19 : 18,
+    id: `scene:${kind}:${variant % 6}`, width: 36,
+    depth: 28,
+    count: bush ? 19 : 18,
     paint(c,z) {
       const box = (x:number,y:number,w:number,h:number,color:string) => { rect(c,x,y,w,h,color); };
       if (bush) {
@@ -58,9 +60,6 @@ function model(kind: string, variant: number): PixelStackModel {
           if(z===8||z===9){box(-5,Math.floor(rr*.7),2,1,"#f6d980");box(3,Math.floor(rr*.7),2,1,"#f6d980");}
           if(z===4)box(-3,Math.floor(rr*.7),6,1,"#593746");
         }else{box(-1,-1,3,2,"#516a4c");}
-      } else if(kind==="fence") {
-        for(const x of [-18,0,18])box(x-2,-2,4,4,z>18?"#d0ae80":"#87644f");
-        if(z===7||z===8||z===15||z===16)box(-22,-1,44,2,z%2?"#b99268":"#5e4650");
       } else if(kind==="candles") {
         for(const [x,y,h] of [[-6,0,12],[1,-2,16],[7,2,10]]) {
           if(z<h!){box(x!,y!,3,3,z===0?"#514350":"#d5b989");box(x!+2,y!,1,3,"#f3dba8");}
