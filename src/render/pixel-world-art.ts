@@ -1,3 +1,6 @@
+import { drawGreenhouseGarden } from "./pixel-greenhouse-garden.js";
+import { greenhouseModel } from "./pixel-greenhouse.js";
+import { greenhouseTrellisModel, greenhousePotsModel, greenhouseWorkbenchModel } from "./pixel-greenhouse-props.js";
 import { observatoryModel } from "./pixel-observatory.js";
 import { observatoryArmillaryModel, observatoryChartModel } from "./pixel-observatory-props.js";
 import { drawObservatoryCourt } from "./pixel-observatory-court.js";
@@ -199,6 +202,10 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "fold-greenhouse-building") return greenhouseModel(v);
+  if (piece.kind === "fold-greenhouse-trellis") return greenhouseTrellisModel(v);
+  if (piece.kind === "fold-greenhouse-pots") return greenhousePotsModel(v);
+  if (piece.kind === "fold-greenhouse-workbench") return greenhouseWorkbenchModel(v);
   if (piece.kind === "windmill") return windmillModel(v);
   if (piece.kind === "star-observatory-building") return observatoryModel(v);
   if (piece.kind === "star-observatory-armillary") return observatoryArmillaryModel(v);
@@ -301,16 +308,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           const yy = -D + (1 - h) / 0.26 * D * 2;
           for (let x = -W; x < W; x += 4) rect(x, yy, 4, 2, Math.floor((x + W) / 4) % 2 ? "#ddc79c" : "#ab6264");
         }
-      } else if (/greenhouse-building/.test(kind)) {
-        const radius = h < 0.5 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.51) ** 2)), ry = D * radius;
-        if (h < 0.08) box(W, D, WOOD[1]);
-        else {
-          // Faceted blue glazing volumes, framed on the actual curved sections.
-          rect(-W * 0.9, -ry, W * 1.8, ry * 2, roof[1]);
-          rect(-W * 0.9, -ry, W * 1.8, 1, roof[2]);
-          for (let i = -2; i <= 2; i++) rect(i * W * 0.4, -ry, 1, ry * 2, "#c7c5a1");
-          if (h < 0.45) rect(-5, ry - 1, 10, 1, "#466a6d");
-        }
       } else if (kind === "clock-tower") {
         const width = h < 0.1 ? W : h < 0.72 ? W * 0.7 : W * 0.82;
         if (h < 0.89) {
@@ -368,6 +365,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "fold-greenhouse") { drawGreenhouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "star-observatory") { drawObservatoryCourt(ctx,l.x,l.y); return; }
       const tile = 8, rx = Math.min(l.radius + 30, 180), ry = rx * 0.55,
         wood = /market|teahouse|theatre/.test(a.id), garden = /field|greenhouse|windmill|hill/.test(a.id),
@@ -390,6 +388,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "fold-greenhouse") return; // Garden already owns its flush approach.
       if (a.id === "star-observatory") return; // Its compass court owns the flush doorway path.
       if (a.id === "stone-bridge") return; // All walkable decks still come from the shared water geometry.
       if (a.id === "moon-hill") {
@@ -415,7 +414,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" || piece.kind.startsWith("star-observatory-") ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" || piece.kind.startsWith("star-observatory-") || piece.kind.startsWith("fold-greenhouse-") ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
       ...(piece.kind === "windmill" ? { live(ctx: Ctx, x: number, y: number, s: number, v: number, time: number, activity?: Parameters<NonNullable<DecorPiece["live"]>>[6]) {
         drawPixelWindmillRotor(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);

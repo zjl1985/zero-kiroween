@@ -33,6 +33,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Enemies and Eraser | Pending | Each silhouette/material, ordinary/elite/attack/washed variants |
 | Windmill landmark | Rebuilt; native/2× and seeded scene fixtures viewed | Grounded masonry tower, real pointed cap, arched door/windows, native lattice sails. Reduced Motion and supplied activity angle verified. User approval pending. |
 | Observatory landmark | Rebuilt; building/instruments and scene fixtures viewed | Faceted drum, arched entry, supported dome/slit/telescope, brass armillary, chart desk and compass court. First roof speckle and chart stripes corrected; user approval pending. |
+| Greenhouse landmark | Rebuilt; native/magnified and scene fixtures viewed | Divided glazing, planted benches, brick footing, continuous roof beam, climbing trellis, terracotta pots and potting bench. Flush garden approach; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -140,3 +141,16 @@ Viewed native/2× building before/after, instrument1×/3× detail, and seeded de
 
 
 Observatory verification: `npm run build` and `npm test` passed432/432. Browser gallery gloss0;127 registered prop/landmark state paints nonempty and within bounds. Rendering does not mutate the seeded simulation. No iPhone frame-time profiling, human full-night run, user art approval or publication. Continue the active goal with the greenhouse/remaining landmark structures, other props, enemies/Boss, outfits, weapons and UI.
+
+
+## Greenhouse architecture and potting garden
+
+Replaced the plain blue volume with a dedicated half-unit stacked greenhouse: brick footing at ground zero, framed double doors, divided glass with visible plant/shelf silhouettes, two sloped roof planes and a ridge. The new model and three garden props use their real ground anchors instead of the generic upward offset. Their static geometry remains cached. No definitions, collisions, interaction timing, simulation, controls or dependencies changed.
+
+The separate garden models include a joined diamond-lattice climbing trellis, terracotta pots with thick lips/dark soil/broad leaves, and a supported workbench with drawers, seedling tray, watering can, spade and lower shelf. Replaced the coarse green platform with a single-pixel contoured flush garden, an earthen apron, doorway stones and small nursery beds; these are decorative baked surfaces, not obstacles.
+
+First screenshot revealed a broken dotted roof crossbeam caused by exposed glazing between narrow slice edges. Extended the beam through the full roof-slab thickness and three fine slices, then recaptured. Viewed native/2× building and all three garden props plus desktop960×540/phone390×844 seed7 world fixtures at site(3778,3713). Both world fixtures preserve simulation state and report zero page errors. These are repositioned scene fixtures, not full manual playthroughs. Evidence in output/pixel-asset-review: greenhouse-before-detail.png, greenhouse-final-detail.png, greenhouse-final-desktop.png, greenhouse-final-mobile.png, greenhouse-tools-detail.png. The first after images intentionally retain the beam defect and old ground.
+
+Remaining whole-screen issue: surrounding procedural spacing and other generic landmarks still fall short of the supplied farm reference. This is one local asset batch, not full-game art approval, iPhone performance verification or publication. Continue the active goal with other architecture and scene composition, then remaining props/actors/weapons/UI.
+
+Greenhouse verification: `npm run build` passed; `npm test`432/432. Gallery gloss0, browser errors0,127 registered prop/landmark paints nonempty and in bounds. Local only; no push/deployment.
