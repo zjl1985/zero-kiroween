@@ -1,3 +1,4 @@
+import { scarecrowModel } from "./pixel-scarecrow.js";
 import { waterBucketModel } from "./pixel-water-bucket.js";
 import { inkVatModel } from "./pixel-ink-vat.js";
 import { drawPumpkinField } from "./pixel-pumpkin-field.js";
@@ -89,6 +90,7 @@ function paletteFor(id: string, burnt: boolean): Palette {
 }
 
 function propModel(art: PropArt, v: number, phase: string, burnt: boolean): PixelStackModel {
+  if (art.id === "scarecrow") return scarecrowModel(v,phase,burnt);
   if (art.id === "water-bucket") return waterBucketModel(v,phase,burnt);
   if (art.id === "ink-vat") return inkVatModel(v,phase,burnt);
   const dims = metrics(art.bounds, /fence|line|lantern|grass|flowers|reeds/.test(art.id)),
@@ -184,11 +186,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
       } else if (id === "signpost") {
         rect(-1, -1, 3, 3, WOOD[1]);
         if (h > 0.62 && h < 0.83 || h > 0.88) { box(W, 2, h > 0.88 ? GOLD[1] : WOOD[2]); if (z % 3 === 0) rect(-W * 0.6, 1, W, 1, WOOD[0]); }
-      } else if (id === "scarecrow") {
-        rect(-1, -1, 2, 2, WOOD[1]);
-        if (h > 0.35 && h < 0.72) { box(W * (h < 0.5 ? 0.5 : 0.3), D * 0.6, "#658a91"); if (h > 0.59) rect(-W, 0, W * 2, 2, "#aa795b"); }
-        if (h > 0.72 && h < 0.91) oval(0, 0, W * 0.26, D * 0.8, GOLD[1]);
-        if (h > 0.87) box(W * (h > 0.92 ? 0.25 : 0.5), D * 0.7, WOOD[1]);
       } else if (id === "mailbox") {
         if (h < 0.45) rect(-1, -1, 3, 3, WOOD[1]);
         else { const r = h < 0.8 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.8) / 0.21) ** 2)); box(W * r, D * 0.8, 1); if (h > 0.62 && h < 0.7) rect(-W * 0.6, D * 0.8 - 1, W * 1.2, 1, 0); }
@@ -213,7 +210,7 @@ export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
       const model = fineModel(propModel(a, v % Math.max(1, a.variants), phase, burnt));
-      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(a.id === "water-bucket" || a.id === "ink-vat" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(a.id === "scarecrow" || a.id === "water-bucket" || a.id === "ink-vat" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
     },
   };
 }

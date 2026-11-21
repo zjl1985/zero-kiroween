@@ -43,6 +43,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Graveyard chapel and tombs | Rebuilt; native/magnified and scene fixtures viewed | Attached bell tower, pitched slate roof, arched stone entry, rose window, six carved tomb variants and quiet moss yard. User approval pending. |
 | Pumpkin field and moon hill | Rebuilt; native/2× and desktop/phone fixtures viewed | Broken soil furrows and root-connected vines; restrained grass contours and flush crescent inlay. Original props/routes unchanged; user approval pending. |
 | Water bucket and ink vat | Rebuilt; all lifecycle variants and desktop/phone fixtures viewed | Hollow vessels, joined handle/stirrer, deliberate damage and grounded curved remnants. Corrected pail stippling and floating vat fragments; user approval pending. |
+| Scarecrow | Rebuilt; lifecycle sheets and farm scene viewed | Grounded high-contrast post, joined sleeves/crossbar, patched coat, sack face and straw hat; original floating appearance corrected. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -287,3 +288,16 @@ Viewed desktop960×540 and phone390×844 seeded scene fixtures: water-bucket at(
 Evidence under output/pixel-asset-review: water-bucket-before-states.png, ink-vat-before-states.png; *-after-states.png retains first defects; water-bucket-final-{states,burnt,detail,desktop,mobile}.png and ink-vat-final-{states,burnt,detail,desktop,mobile}.png. Whole-screen review also exposed an existing floating-looking scarecrow at the upper-right: its support pole uses a timber colour nearly identical to farm soil, plus generic depth lift. This is recorded as next priority, not repaired in this batch. No push/deployment or user art approval; whole-game goal remains open.
 
 Vessel verification: `npm run build` passed; `npm test`435/435. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Additional browser check covers all36 vessel combinations with strict bounds and intact cache round-trip stability. `git diff --check` passed.
+
+
+## Scarecrow grounding and recognizable construction
+
+The previous generic scarecrow had a support post coloured almost identically to farm soil, a separate-looking torso block and a wide detached shadow. Its damaged state simply removed the entire head/hat. Baseline scene and lifecycle images document these defects.
+
+New pixel-scarecrow.ts uses a continuous dark-sided timber post with a pale edge, connected crossbar/sleeves, four original coat colour families, a stitched patch/button seam, shaped sack face, straw cuffs and tapered straw hat. Local tears preserve the head and silhouette when damaged. Scraps place a broken post, fallen hat and cloth around the ground anchor; burnt material uses charcoal and ash tones. pixel-world-art.ts removes the generic vertical lift for this model, with a compact contact shadow. Definitions, placement, collisions, reactions, movement and drops remain unchanged.
+
+Viewed all24 combinations (4 variants ×3 phases ×2 burnt flags) at1×/2×, then actual seeded farm scene at(784,1028),scale1.01 in desktop960×540, phone390×844 and2× detail. The post remains visible on brown soil from coat to ground. Strict original bounds[-32,-82,32,8] pass; intact pixels remain identical after cycling all cache states. World rendering preserves simulation state; page errors0.
+
+Evidence: scarecrow-before-{states,burnt,detail,desktop,mobile}.png and scarecrow-after-{states,burnt,detail,desktop,mobile}.png under output/pixel-asset-review. These are focused render fixtures, not an iPhone performance measurement, manual gameplay playthrough or user art approval. Overall game refinement remains active; no push/deployment.
+
+Scarecrow verification: `npm run build` passed; `npm test`435/435; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Additional browser check covers all24 scarecrow combinations with strict bounds and intact cache round-trip stability. `git diff --check` passed.
