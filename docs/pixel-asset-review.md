@@ -42,6 +42,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Stone bridge and riverbanks | Rebuilt; native/magnified and scene fixtures viewed | Exact shared deck now has stone flagstones and low inset coping; ordinary road crossings keep timber. Quiet dry banks replace checkerboard, no geometry changes. User approval pending. |
 | Graveyard chapel and tombs | Rebuilt; native/magnified and scene fixtures viewed | Attached bell tower, pitched slate roof, arched stone entry, rose window, six carved tomb variants and quiet moss yard. User approval pending. |
 | Pumpkin field and moon hill | Rebuilt; native/2× and desktop/phone fixtures viewed | Broken soil furrows and root-connected vines; restrained grass contours and flush crescent inlay. Original props/routes unchanged; user approval pending. |
+| Water bucket and ink vat | Rebuilt; all lifecycle variants and desktop/phone fixtures viewed | Hollow vessels, joined handle/stirrer, deliberate damage and grounded curved remnants. Corrected pail stippling and floating vat fragments; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -273,3 +274,16 @@ Viewed centered before/after desktop960×540 and phone390×844 scenes, then fina
 Evidence: pumpkin-field-before-desktop.png, pumpkin-field-after-desktop.png (first board-like defect), pumpkin-field-final-{detail,desktop,mobile}.png; moon-hill-before-desktop.png and moon-hill-final-{detail,desktop,mobile}.png under output/pixel-asset-review. Overall world density/composition remains below the supplied farm reference; prop, actor, weapon, costume and UI detail are still open. Local only, no push/deployment or user art acceptance.
 
 Field/hill verification: `npm run build` passed; `npm test`435/435; gallery gloss0, page errors0,127 registered paints nonempty/in bounds; `git diff --check` passed.
+
+
+## Water bucket and ink vat lifecycle detail
+
+New pixel-water-bucket.ts and pixel-ink-vat.ts replace the same generic cylindrical shape with separate half-unit stacked vessels. The pail has a continuous arch handle/lugs, two hoops, recessed water and a hollow rim. The wider vat has stave faces, hoops, contained dark ink, a drip label and an angled stirring stick. Three palettes each; damaged geometry retains the vessel identity with local rim losses/dents, and scraps reuse curved walls/hoops/handle or stick pieces. Burnt variants use charcoal/ash tones. No new liquid hazard, simulation state, reaction, collider or loot was introduced. Both models use ground zero instead of the generic model-depth lift.
+
+First native/2× lifecycle images found two real defects: pail side stippling from independently rounded rectangle origins/widths, and vat fragments starting above the ground with an oversized detached shadow. Fixed pail shared raster endpoints, lowered/grounded curved fragments, and tucked the vat shadow under its base. Recaptured and viewed all 36 combinations (2 props ×3 variants ×3 phases ×2 burnt flags) in four final sheets. Strict registered bounds pass without tolerance; switching through damaged/scrap/burnt cache entries returns identical intact pixels. Burnt ink-vat is defensive rendering coverage, not a new gameplay interaction.
+
+Viewed desktop960×540 and phone390×844 seeded scene fixtures: water-bucket at(-1968,1552),s1.04 and ink-vat at(-1523,1030),s.86. Sim state unchanged, page errors0. These are repositioned render fixtures, not manual interactions or iPhone profiling. Saved native/2× scene closeups as well.
+
+Evidence under output/pixel-asset-review: water-bucket-before-states.png, ink-vat-before-states.png; *-after-states.png retains first defects; water-bucket-final-{states,burnt,detail,desktop,mobile}.png and ink-vat-final-{states,burnt,detail,desktop,mobile}.png. Whole-screen review also exposed an existing floating-looking scarecrow at the upper-right: its support pole uses a timber colour nearly identical to farm soil, plus generic depth lift. This is recorded as next priority, not repaired in this batch. No push/deployment or user art approval; whole-game goal remains open.
+
+Vessel verification: `npm run build` passed; `npm test`435/435. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Additional browser check covers all36 vessel combinations with strict bounds and intact cache round-trip stability. `git diff --check` passed.

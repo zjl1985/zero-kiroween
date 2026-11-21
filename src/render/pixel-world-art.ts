@@ -1,3 +1,5 @@
+import { waterBucketModel } from "./pixel-water-bucket.js";
+import { inkVatModel } from "./pixel-ink-vat.js";
 import { drawPumpkinField } from "./pixel-pumpkin-field.js";
 import { drawMoonHill } from "./pixel-moon-hill.js";
 import { chapelModel } from "./pixel-chapel.js";
@@ -87,6 +89,8 @@ function paletteFor(id: string, burnt: boolean): Palette {
 }
 
 function propModel(art: PropArt, v: number, phase: string, burnt: boolean): PixelStackModel {
+  if (art.id === "water-bucket") return waterBucketModel(v,phase,burnt);
+  if (art.id === "ink-vat") return inkVatModel(v,phase,burnt);
   const dims = metrics(art.bounds, /fence|line|lantern|grass|flowers|reeds/.test(art.id)),
     count = phase === "scraps" ? 5 : phase === "damaged" ? Math.max(3, Math.ceil(dims.count * 0.7)) : dims.count, colors = paletteFor(art.id, burnt),
     W = dims.width / 2 - 2, D = dims.depth / 2 - 1;
@@ -192,11 +196,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
         if (h < 0.12) oval(0, 0, W, D, STONE[1]);
         else if (h < 0.91) { oval(0, 0, W * 0.46, D * 0.6, h > 0.84 ? 0 : 2); if (h < 0.8) rect(W * 0.25, 0, 1, D * 0.4, 1); }
         else rect(0, 0, 1, 1, WOOD[0]);
-      } else if (/bucket|vat/.test(id)) {
-        const r = 0.7 + h * 0.3;
-        oval(0, 0, W * r, D * r, h > 0.83 ? 2 : 1, h > 0.84 ? 0.72 : 0);
-        if (h > 0.82 && h < 0.89) oval(0, 0, W * 0.72, D * 0.72, id.includes("vat") ? "#302c4b" : "#75b4b6");
-        if (id.includes("bucket") && h > 0.7) for (const side of [-1, 1]) rect(side * W * 0.9, -1, 1, 2, WOOD[2]);
       } else if (id === "haybale") {
         const r = Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.53) ** 2));
         oval(0, 0, W, D * Math.max(0.3, r), h < .15 ? 0 : 1);
@@ -214,7 +213,7 @@ export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
       const model = fineModel(propModel(a, v % Math.max(1, a.variants), phase, burnt));
-      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+      drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(a.id === "water-bucket" || a.id === "ink-vat" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
     },
   };
 }
