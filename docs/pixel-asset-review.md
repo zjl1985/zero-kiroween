@@ -40,6 +40,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Wishing well | Rebuilt; native/magnified and scene fixtures viewed | Hollow stone shaft, coping, roof frame/winch/rope/bucket; corrected opaque plaza hiding the actual pond. User approval pending. |
 | Puppet theatre | Rebuilt; stage/benches and scene fixtures viewed | Arched proscenium, gathered curtains, illustrated backdrop/string puppets, joined low benches and quiet audience aisle. Corrected detached shadow and bat silhouette found in first capture; user approval pending. |
 | Stone bridge and riverbanks | Rebuilt; native/magnified and scene fixtures viewed | Exact shared deck now has stone flagstones and low inset coping; ordinary road crossings keep timber. Quiet dry banks replace checkerboard, no geometry changes. User approval pending. |
+| Graveyard chapel and tombs | Rebuilt; native/magnified and scene fixtures viewed | Attached bell tower, pitched slate roof, arched stone entry, rose window, six carved tomb variants and quiet moss yard. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -245,3 +246,16 @@ pixel-bridge-banks.ts replaces checkerboards with restrained dry soil/vegetation
 Viewed native/2× assembled bridge previews plus desktop960×540/phone390×844 seed7 world fixtures at(4455,700), span420. Fixtures reposition the cat for scene review; rendering preserves simulation state and page errors0. Evidence: bridge-before-detail.png, bridge-after-detail.png, bridge-before-desktop.png, bridge-after-desktop.png, bridge-after-mobile.png under output/pixel-asset-review. These are not a full manual traversal, iPhone profiling or user art acceptance. Other scene/prop/actor/weapon/UI details remain open.
 
 Bridge final verification: `npm run build` passed; `npm test`435/435 including new containment/dry-bank regressions and existing bridge-centre/edge traversal/collision checks. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.
+
+
+## Graveyard chapel and six grave markers
+
+Replaced generic chapel and tomb solids with dedicated half-unit stacked models. The chapel has an attached bell tower and cross, pitched slate roof, buttresses, recessed timber door with dressed arch, rose-window tracery and a compact ground-zero footing. Six tomb profiles retain the original cross variants and add arch/shoulder/chipped shapes, inset carvings and restrained moss feet. Existing seven tomb placements, walls, lamps, candles and collisions are unchanged.
+
+A baked moss/earth yard and short stone approach replace the checkerboard plaza. The approach stops before the staggered tomb colliders; no new obstacle, route or gameplay state is introduced. All edits are render-only and reuse existing caches.
+
+Viewed first native/2× building screenshot and all six markers at native/3×. The first chapel roof and facade were still too plain: added complete-slab staggered slate courses, stronger eaves/ridge, dressed door surround and sparse masonry joints, then recaptured. Viewed final desktop960×540 and phone390×844 seed7 scene fixtures at(-3525,544), plus native/2× detail. Render fixtures preserve simulation state; page errors0. They reposition the camera/cat for review and are not a full playthrough or iPhone performance test.
+
+Evidence: graveyard-before-detail.png, graveyard-after-detail.png (first plain-roof revision), graveyard-final-{detail,desktop,mobile}.png and tomb-variants-detail.png under output/pixel-asset-review. Whole-screen density still falls below the user's farm reference; broader composition, remaining props, actors, weapons and UI remain open. Local only; no push, deployment or user art approval.
+
+Graveyard final verification: `npm run build` passed; `npm test`435/435. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. `git diff --check` passed.

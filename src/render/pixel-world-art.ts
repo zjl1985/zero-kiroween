@@ -1,3 +1,6 @@
+import { chapelModel } from "./pixel-chapel.js";
+import { tombModel } from "./pixel-tomb.js";
+import { drawGraveyardGround } from "./pixel-graveyard-ground.js";
 import { drawBridgeBanks } from "./pixel-bridge-banks.js";
 import { theatreModel } from "./pixel-theatre.js";
 import { theatreBenchModel } from "./pixel-theatre-bench.js";
@@ -215,6 +218,8 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "chapel") return chapelModel(v);
+  if (piece.kind === "tomb") return tombModel(v);
   if (piece.kind === "theatre") return theatreModel(v);
   if (piece.kind === "bench") return theatreBenchModel(v);
   if (piece.kind === "well") return wellModel(v);
@@ -270,12 +275,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           }
         }
       };
-      if (kind === "tomb") {
-        const r = h < 0.72 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.72) / 0.3) ** 2));
-        box(Math.max(1, W * r), D * 0.5, h < .08 ? 0 : 1);
-        if (h > 0.28 && h < 0.7) rect(-1, D * 0.5 - 1, 2, 1, 0);
-        if (h > 0.49 && h < 0.58) rect(-W * 0.5, D * 0.5 - 1, W, 1, 0);
-      } else if (/table|bench|workbench/.test(kind)) {
+      if (/table|bench|workbench/.test(kind)) {
         const top = kind === "bench" ? 0.46 : 0.57;
         if (h < top) for (const x of [-W * 0.7, W * 0.7]) for (const y of [-D * 0.6, D * 0.6]) rect(x, y, 2, 2, WOOD[0]);
         if (h >= top && h < top + 0.12) {
@@ -338,6 +338,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "graveyard") { drawGraveyardGround(ctx,l.x,l.y); return; }
       if (a.id === "stone-bridge") { drawBridgeBanks(ctx,l); return; }
       if (a.id === "puppet-theatre") { drawTheatreGround(ctx,l.x,l.y); return; }
       if (a.id === "wishing-well") { drawWellFooting(ctx,l.x,l.y); return; }
@@ -359,6 +360,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "graveyard") return; // Short chapel approach ends before the graves.
       if (a.id === "puppet-theatre") return; // Apron includes the aisle and ticket stubs.
       if (a.id === "wishing-well") { drawWellPondDetails(ctx,l.x,l.y); return; }
       if (a.id === "lantern-market") return; // Board court includes the woven mats.
@@ -391,7 +393,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       paint(ctx, x, y, s, v) {
         if (piece.kind === "lights") { drawMarketLights(ctx,x,y,s,v); return; }
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        const grounded = piece.kind === "theatre" || piece.kind === "bench" || piece.kind === "well" || piece.kind === "stall" || piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
+        const grounded = piece.kind === "chapel" || piece.kind === "tomb" || piece.kind === "theatre" || piece.kind === "bench" || piece.kind === "well" || piece.kind === "stall" || piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
           || piece.kind.startsWith("fold-greenhouse-") || piece.kind.startsWith("paper-teahouse-");
         drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(grounded ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
