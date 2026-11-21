@@ -44,6 +44,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Pumpkin field and moon hill | Rebuilt; native/2× and desktop/phone fixtures viewed | Broken soil furrows and root-connected vines; restrained grass contours and flush crescent inlay. Original props/routes unchanged; user approval pending. |
 | Water bucket and ink vat | Rebuilt; all lifecycle variants and desktop/phone fixtures viewed | Hollow vessels, joined handle/stirrer, deliberate damage and grounded curved remnants. Corrected pail stippling and floating vat fragments; user approval pending. |
 | Scarecrow | Rebuilt; lifecycle sheets and farm scene viewed | Grounded high-contrast post, joined sleeves/crossbar, patched coat, sack face and straw hat; original floating appearance corrected. User approval pending. |
+| Laundry line and lantern string | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Exact grounded posts, sagging cord with connected pegs/hangers, recognizable cloth/lantern remnants. Pixel connectivity regression added; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -301,3 +302,18 @@ Viewed all24 combinations (4 variants ×3 phases ×2 burnt flags) at1×/2×, the
 Evidence: scarecrow-before-{states,burnt,detail,desktop,mobile}.png and scarecrow-after-{states,burnt,detail,desktop,mobile}.png under output/pixel-asset-review. These are focused render fixtures, not an iPhone performance measurement, manual gameplay playthrough or user art approval. Overall game refinement remains active; no push/deployment.
 
 Scarecrow verification: `npm run build` passed; `npm test`435/435; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Additional browser check covers all24 scarecrow combinations with strict bounds and intact cache round-trip stability. `git diff --check` passed.
+
+
+## Laundry line and lantern string: connected hanging fixtures
+
+The old generic adapter rendered the line as a heavy straight beam and used unrelated heights for hanging parts. Damaged-state truncation removed the beam entirely while retaining suspended cloth and lanterns. The projected posts also sat inward of the unchanged collision anchors.
+
+New pixel-laundry-line.ts and pixel-paper-lanterns.ts use cached native raster painters with flat side faces and separate contact shadows. Their visible supports sit at the existing ±42/±34 world anchors with no projection/lift. One sagging curve determines both the cord and each peg or hanger. Laundry distinguishes shirt, sock and folded sheet with hems/patches; lanterns distinguish round and tall shells, caps, ribs and tassels. Damaged laundry drops the sock; a broken right lantern post lowers the cord and one lantern drops. Scraps leave short grounded posts and recognizable collapsed fabric/shells. No bar or shadow closes the open passage. Four variants and charcoal material states each.
+
+Added tests/pixel-hanging-fixtures.test.mjs: raster occupancy must remain inside original bounds, both posts meet their fixed feet, and every elevated intact/damaged pixel has an eight-connected path to a grounded post. This directly guards the old floating suspended-object failure without prescribing the drawing implementation. Canvas state must also be restored.
+
+Viewed all48 lifecycle combinations at1×/2× (four sheets), then desktop960×540 and phone390×844 fixtures. Seed7 laundry(-1856,952),s.94; lanterns(2959,2716),s1.06. Browser strict bounds and cache round-trip checks pass; sim unchanged and page errors0. Definitions, materials, collision, drops, flame metadata and simulation are untouched. Existing propSprite cache owns both painters; no runtime assets/dependencies.
+
+Evidence under output/pixel-asset-review: laundry-line-before/after-{states,burnt,detail,desktop,mobile}.png and paper-lanterns-before/after-{states,burnt,detail,desktop,mobile}.png. Scene screenshots are focused render fixtures rather than manual traversal or iPhone performance tests. User art acceptance and whole-game refinement remain open; local only, no push/deployment.
+
+Hanging-fixture verification: `npm run build` passed; targeted connectivity tests2/2 and `npm test`437/437. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all48 states strict bounds and cache round-trip pass; `git diff --check` passed.

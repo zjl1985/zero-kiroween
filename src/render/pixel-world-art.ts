@@ -1,3 +1,5 @@
+import { drawPixelLaundryLine } from "./pixel-laundry-line.js";
+import { drawPixelPaperLanterns } from "./pixel-paper-lanterns.js";
 import { scarecrowModel } from "./pixel-scarecrow.js";
 import { waterBucketModel } from "./pixel-water-bucket.js";
 import { inkVatModel } from "./pixel-ink-vat.js";
@@ -135,22 +137,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
           if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
             rect(x + .5, 1.5, .5, .5, 0);
         }
-      } else if (id === "laundry-line" || id === "paper-lanterns") {
-        for (const x of [-W + 1, W - 1]) rect(x - 1, -1, 2, 2, WOOD[1]);
-        if (h > 0.9) rect(-W, 0, W * 2, 1, WOOD[0]);
-        if (id === "laundry-line" && h > 0.48 && h < 0.89) for (let i = 0; i < 3; i++) {
-          const x = -W * 0.65 + i * W * 0.62;
-          rect(x - 3, -1, 6, 2, ["#88b1ac", "#d6ad8d", "#a594b7"][i]!);
-          if (h < 0.57) rect(x - 2, -1, 1, 2, WOOD[0]);
-        }
-        if (id === "paper-lanterns" && h > 0.56 && h < 0.87) {
-          const radius = Math.sin((h - 0.56) / 0.31 * Math.PI) * Math.min(4, W / 5);
-          for (let i = 0; i < 4; i++) {
-            const x = -W * 0.72 + i * W * 0.48;
-            oval(x, 0, radius, Math.max(1, radius * 0.8), i % 2 ? "#ce7757" : GOLD[1]);
-            rect(x, -radius * 0.7, 1, radius * 1.4, GOLD[2]);
-          }
-        }
       } else if (/grass|reeds|flowers/.test(id)) {
         for (let i = 0; i < 9; i++) {
           const height = 0.45 + hash(v * 19 + i) * 0.55;
@@ -209,6 +195,8 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "laundry-line") { drawPixelLaundryLine(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-lanterns") { drawPixelPaperLanterns(ctx,x,y,s,v,phase,burnt); return; }
       const model = fineModel(propModel(a, v % Math.max(1, a.variants), phase, burnt));
       drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(a.id === "scarecrow" || a.id === "water-bucket" || a.id === "ink-vat" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
     },
