@@ -228,14 +228,14 @@ test("canal biome motifs are dry towpaths; only shared world geometry paints wat
   }
 });
 
-test("all cached tree and cottage variants fit the unchanged core bounds at world scales", (t) => {
+test("all cached tree and cottage variants fit their declared ground-anchored bounds at world scales", (t) => {
   environment(t);
   const failures = [];
   // Occupied pixels propagate through native slice-atlas crops and projections.
   // The allocated transparent sprite margins are deliberately not counted as ink.
   for (const [kind, painter, variants, bounds] of [
     ["tree", tree, 6, [-82, -158, 82, 16]],
-    ["cottage", cottage, 4, [-120, -144, 100, 16]],
+    ["cottage", cottage, 4, [-120, -144, 100, 52]],
   ]) for (let seed = 0; seed < variants; seed++) for (const s of [0.65, 1, 1.4]) {
     const x = -180, y = 367;
     const calls = paint(painter, x, y, s, seed);
@@ -244,7 +244,7 @@ test("all cached tree and cottage variants fit the unchanged core bounds at worl
     catch (error) { failures.push(error.message); }
     assert.deepEqual(calls, paint(painter, x, y, s, seed), `${kind}: pure cached painter`);
   }
-  assert.deepEqual(failures, [], "all variants remain inside the original bounds");
+  assert.deepEqual(failures, [], "all variants remain inside the declared bounds");
 });
 
 test("world scenery reuses bounded native-resolution caches without repainting details", (t) => {
@@ -264,7 +264,23 @@ test("world scenery reuses bounded native-resolution caches without repainting d
     };
     const first = draw();
     assert.equal(first.op, "drawImage");
-    const size = kind === "tree" ? [164, 174] : [220, 160], s = Math.round(decor.s * 20) / 20;
+    if (kind === "cottage") {
+      for (const [distance, reduced] of [[0,false],[900,false],[900,true],[0,true]]) {
+        const start = ctx.calls.length;
+        const sprite = worldSprites(ctx, seed, cam, distance + 1, {
+          cat: {x:decor.x + distance,y:decor.y}, reduced,
+        }).sprites.find(s => s.y === decor.y);
+        assert.ok(sprite);
+        sprite.draw();
+        const calls = ctx.calls.slice(start);
+        assert.equal(calls.length, 1, "cottage never draws a leftover paper hinge");
+        assert.equal(calls[0].op, "drawImage");
+        assert.deepEqual(calls[0].bounds, first.bounds, "approach and reduced motion never lift or squash the house");
+        assert.equal(calls[0].image, first.image, "grounded cottage keeps its cached shape");
+      }
+    }
+
+    const size = kind === "tree" ? [164, 174] : [220, 196], s = Math.round(decor.s * 20) / 20;
     assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil(n * s + 16)), "same world BOUNDS/PAD, baked at one pixel per world unit");
     const paints = first.image.getContext("2d").calls.length, allocated = created.length;
     assert.equal(draw().image, first.image, "same sprite identity");

@@ -1,5 +1,8 @@
 # Midnight Meow handoff
 
+USER-REPORTED HOUSE GROUNDING FIX: previous internal screenshot review missed hovering cottages. Removed the extra `26 * scale` vertical lift and raised grass platform; replaced it with ground-contact stone footing/steps, adjusted bottom cache bounds and removed cottage distance-fold animation. Same-camera desktop and walking phone screenshots actually viewed; actual map cottage near/far pixels match with zero browser errors. Build + 426 tests passed. Local only; no push. Candle work paused before editing. Do not claim prior cottage art review passed user acceptance.
+
+
 Latest asset follow-up: scenery pumpkin in `src/render/pixel-pumpkin.ts`, revised three times after actual screenshots. Reduced ridge noise, lifted carved eyes, darkened cavities, retained six lobes and curved stem. 1×/3× and desktop/mobile gameplay viewed; build + 426 tests passed. Local only, movement-only input unchanged; see asset review log.
 
 

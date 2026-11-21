@@ -66,5 +66,5 @@ function model(kind: string, variant: number): PixelStackModel {
 }
 export function drawPixelDecor(ctx:Ctx,kind:string,x:number,y:number,s=1,seed=0):void {
   const v=((Math.trunc(seed)%6)+6)%6;
-  drawPixelStack(ctx,fineModel(model(kind,v)),{x,y:y-(kind==="cottage"?26:0)*s,scale:(kind==="cottage"?.9:1)*s,turn:kind==="cottage"?-.58:.22,squash:.75});
+  drawPixelStack(ctx,fineModel(model(kind,v)),{x,y,scale:(kind==="cottage"?.9:1)*s,turn:kind==="cottage"?-.58:.22,squash:.75,shadow:kind!=="cottage"});
 }

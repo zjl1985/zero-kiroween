@@ -98,7 +98,7 @@ export function paperOccludesActor(x: number, y: number, s: number, b: Bounds, a
 /** Generic decor sprites; landmark pieces come from LANDMARK_ART (decorPiece). */
 const BOUNDS: Record<string, Bounds> = {
   tree: { l: -82, r: 82, t: -158, b: 16 },
-  cottage: { l: -120, r: 100, t: -144, b: 16 },
+  cottage: { l: -120, r: 100, t: -144, b: 52 },
   bush: { l: -52, r: 52, t: -34, b: 10 },
   fence: { l: -46, r: 46, t: -42, b: 10 },
   stone: { l: -16, r: 16, t: -16, b: 8 },
@@ -735,7 +735,7 @@ export interface VisibleLamp {
   s: number;
 }
 /** Pieces that fold up like a pop-up book page as the cat approaches. */
-const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree", "cottage"]);
+const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree"]);
 const pops = (kind: DecorKind) => POP_KINDS.has(kind) || !!decorPiece(kind)?.popup;
 /** Render-only fold per piece (never SimState); pieces out of view are forgotten. */
 const folds = new Map<string, number>();

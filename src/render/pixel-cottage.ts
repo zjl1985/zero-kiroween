@@ -15,22 +15,15 @@ export function cottageModel(variant: number): PixelStackModel {
                 c.fillStyle = color;
                 c.fillRect(Math.round(x * 2), Math.round(y * 2), Math.max(1, Math.round(w * 2)), Math.max(1, Math.round(d * 2)));
             };
-            // The plinth, stepping stones and approach have separate elevations.
+            // A shallow stone footing contacts the world plane at z=0. No
+            // raised turf slab: the surrounding grass is the actual terrain.
             if (z < 3) {
-                r(-23, -22, 46, 44, z < 1 ? "#4a4848" : "#60764f");
-                if (z >= 2) {
-                    r(-22, -21, 44, 42, "#758956");
-                    r(-18, -19, 36, 37, "#828e65");
-                    for (const [x, y] of [[-19, -12], [-20, 9], [18, -16], [19, 7]]) {
-                        r(x!, y!, 2, 1, "#9ba16b");
-                        r(x! + .5, y! - .5, 1, .5, "#b0b77c");
-                    }
-                }
-                r(-5, 16, 11, 6, z < 1 ? "#74766e" : z < 2 ? "#969c8c" : "#bac0a8");
-                r(-4, 18, 9, .5, "#777d78");
-                r(-3, 20, 7, .5, "#777d78");
-                if (z < 2)
-                    r(-2, 22, 5, 1, "#a6ad9c");
+                r(-16.5, -18.5, 33, 37, z < .5 ? "#293e38" : z < 1.5 ? "#626d68" : "#898e7f");
+                r(-16.5, -18.5, 1, 37, "#566360");
+                if (z >= 2) r(-15.5, 17.5, 31, 1, "#a4a795");
+                // Steps descend from the door to the same ground plane.
+                if (z < 2) r(-5, 17, 10, z < 1 ? 7 : 4, z < 1 ? "#767e70" : "#a4aa94");
+                if (z < .5) r(-5, 23, 10, 1, "#394d40");
                 return;
             }
             if (z < 28) {
