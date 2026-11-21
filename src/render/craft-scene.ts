@@ -16,8 +16,10 @@ export { LAMPS, YARD_PROPS };
 const W=960,H=540,SKY_H=250;
 /** Footings remain north of the playable boundary; no invisible new colliders. */
 export const OPENING_BUILDINGS = [
-  {kind:"barn",x:390,y:218,s:1.15,seed:0},
-  {kind:"cottage",x:660,y:216,s:1.2,seed:71},
+  // Enlarge toward the skyline, compensating the depth projection so the
+  // front steps still meet the same north edge of the playable lawn.
+  {kind:"barn",x:390,y:207,s:1.4,seed:0},
+  {kind:"cottage",x:660,y:205,s:1.5,seed:71},
 ] as const;
 let background:CanvasSurface|undefined, skyCanvas:CanvasSurface|undefined;
 export interface GroundLamp { x:number;y:number;s?:number; }

@@ -130,6 +130,49 @@ export function drawDistantLandscape(ctx: Ctx, x0: number, x1: number): void {
     rect(base + 430, 180, 27, 1, C.lakeShade);
     rect(base + 714, 182, 32, 1, C.lakeShade);
 
+    // A single shore-side focal group gives the open gap between the two
+    // foreground houses a readable middle distance. The pier meets dry land;
+    // piles and broken reflections continue into the lake, never the playfield.
+    house(base + 552, 150, 30, 14, true);
+    rect(base + 553, 138, 27, 1, C.earthLight);
+    rect(base + 555, 140, 4, 5, C.window);
+    rect(base + 573, 140, 4, 5, C.window);
+    rect(base + 561, 140, 8, 10, C.roof);
+    rect(base + 562, 142, 6, 8, C.wallShade);
+    // Foredeck and narrow jetty have a continuous, grounded connection.
+    rect(base + 548, 150, 38, 3, C.earth);
+    rect(base + 549, 150, 36, 1, C.earthLight);
+    rect(base + 572, 153, 5, 13, C.earth);
+    rect(base + 572, 153, 1, 13, C.wallShade);
+    rect(base + 568, 165, 22, 3, C.earth);
+    rect(base + 568, 165, 22, 1, C.earthLight);
+    for (const [px, py] of [[550, 152], [581, 152], [569, 167], [588, 167]]) {
+      rect(base + px, py - 3, 1, 7, C.roof);
+      rect(base + px, py - 3, 1, 1, C.wall);
+    }
+    for (const [px, py, width] of [[555, 155, 17], [559, 158, 10],
+      [560, 162, 7], [573, 171, 13], [577, 174, 7]])
+      rect(base + px, py, width, 1, C.lakeShade);
+    rect(base + 555, 156, 3, 1, "#898672");
+    rect(base + 558, 159, 2, 1, "#777e73");
+
+    // Quiet cream sail, darker reverse sail and a low wooden hull. These are
+    // contiguous shapes rather than sparkle pixels across the water surface.
+    const boatX = base + 508;
+    rect(boatX, 148, 1, 27, C.wallShade);
+    for (let row = 0; row < 21; row++) {
+      const spread = Math.floor(row * .48);
+      rect(boatX - spread - 1, 150 + row, spread + 1, 1, "#a4b1aa");
+      if (row > 4) rect(boatX + 2, 150 + row, Math.max(1, Math.floor((row - 3) * .34)), 1, "#7b9395");
+    }
+    rect(boatX - 12, 174, 23, 2, C.wallShade);
+    rect(boatX - 10, 176, 19, 2, C.roof);
+    rect(boatX - 7, 178, 13, 1, C.roof);
+    rect(boatX - 9, 174, 17, 1, C.earthLight);
+    rect(boatX - 10, 181, 22, 1, C.lakeShade);
+    rect(boatX - 5, 184, 11, 1, "#607783");
+    rect(boatX - 3, 187, 6, 1, "#607783");
+
     // Unequal settlements and tree pockets leave breathing room for fields.
     house(base + 250, 145, 22, 11, true);
     house(base + 280, 148, 16, 8, false);

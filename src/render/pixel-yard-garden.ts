@@ -42,6 +42,23 @@ function flowerMass(r:GardenPixel,x:number,y:number,tone:number):void {
   }
 }
 
+/** Low overlapping leaves read as cultivated margins, not upright shrubs.
+ * Unequal broad planes give the planting a silhouette without noisy stipple. */
+function borderLeaves(r:GardenPixel,x:number,y:number,lean=0):void {
+  r(x-11,y,22,3,"#405b43");r(x-9,y-3,17,5,"#526e47");
+  r(x-12,y-4,9,3,"#69804e");r(x-9,y-6,7,3,"#768955");
+  r(x-4+lean,y-8,8,6,"#647d4c");r(x-2+lean,y-9,5,3,"#82915d");
+  r(x+3,y-5,9,4,"#728651");r(x+7,y-6,5,2,"#899360");
+  r(x-2,y-2,9,3,"#5d7547");r(x-8,y-3,5,1,"#8b9763");
+}
+
+function plantedMargin(r:GardenPixel,points:readonly (readonly [number,number,number])[]):void {
+  for(const [x,y,bloom] of points){
+    borderLeaves(r,x,y,bloom%3-1);
+    if(bloom>0)flowerMass(r,x-3,y-1,bloom%3);
+  }
+}
+
 /** Join broad terrain bands with one-pixel stepped contours. The authored
  * masses keep their shape without exposing the rectangle grid used to lay them out. */
 function terrainBands(ctx: Ctx, color: string, rows: readonly (readonly number[])[]): void {
@@ -77,8 +94,10 @@ export function drawYardGarden(ctx: Ctx): void {
   // Short, broken bank faces describe shallow cultivated ground, not walls.
   const bed=(x:number,y:number,w:number,h:number)=>{
     r(x+3,y,w-6,h,soil);r(x,y+3,w,h-6,soil);
-    r(x+3,y+h-3,w-6,3,furrow);r(x+3,y,w-6,1,lip);
-    r(x,y+3,2,h-6,bank);r(x+w-2,y+3,2,h-6,furrow);
+    r(x+3,y+h-3,w-6,3,furrow);
+    // Broken shallow earthen shoulders, never a bright rectangular frame.
+    r(x+8,y,Math.floor(w*.38),1,lip);r(x+Math.floor(w*.64),y,w*.22|0,1,bank);
+    r(x,y+7,2,h-14,bank);r(x+w-2,y+5,1,h-10,soil);
     for(let xx=x+9;xx<x+w-5;xx+=19)r(xx,y+h-2,8,1,bank);
   };
   const leaf=(x:number,y:number,tone=0)=>matureCabbage(r,x,y,tone);
@@ -118,15 +137,28 @@ export function drawYardGarden(ctx: Ctx): void {
 
     }
   }
-  // Front flower borders frame, rather than cross, the playable central lane.
+  // Irregular low planted shoulders tie the field to the front border, with
+  // visible grass openings between larger masses. They never enter x450..600.
+  terrainBands(ctx,"#465d43",[
+    [246,347,21,24],[238,371,28,26],[241,397,33,29],[252,426,48,19],
+    [276,445,41,15],[286,460,62,17],[303,477,84,18],
+    [745,349,23,27],[746,376,30,28],[739,404,35,24],
+    [724,428,41,20],[704,448,52,18],[680,466,61,19],
+  ]);
+  plantedMargin(r,[[253,366,0],[247,383,0],[250,406,0],[260,425,2],
+    [279,438,0],[298,458,1],[314,473,0],
+    [759,365,0],[763,388,0],[755,412,1],[747,432,0],[730,452,2],[712,470,0]]);
+  // Front flowers form overlapping drifts of unequal depth instead of a
+  // single picket row; the old flower bed anchors remain recognisable.
   for(const [x,w] of [[302,119],[606,119]] as const){
-    bed(x,487,w,17);
+    terrainBands(ctx,soil,[[x+13,481,w-43,8],[x+2,489,w-4,10],[x+11,499,w-27,10]]);
+    for(let i=0;i<5;i++)borderLeaves(r,x+13+i*21,485+(i%3)*3,i%3-1);
     for(let i=0;i<11;i++){
       const xx=x+7+i*10;
       flowerMass(r,xx,493+(i%2)*3,i%3);
 
     }
-    r(x+5,505,w-10,1,"#4c6148");
+    for(const i of [1,2,6,8])flowerMass(r,x+8+i*10,503+(i%3),i%3);
   }
   // A few stepping patches connect the cultivated areas to existing grass;
   // the central route and start clearance have no extra terrain markings.
@@ -182,6 +214,14 @@ export function drawYardGardenExtension(ctx: Ctx): void {
     [286,801,35,50],[306,899,38,27],[724,553,26,39],
     [733,643,17,53],[731,771,19,50],[720,873,30,38],
   ]);
+  // Cultivated margins widen between the lower allotments and flower drifts.
+  // Their long contours bridge the green/brown transition without inventing
+  // a separate raised island or a hard perimeter around the farm.
+  terrainBands(ctx,"#4b6146",[
+    [273,751,148,26],[284,777,141,26],[294,803,132,29],
+    [300,832,126,33],[313,865,109,28],
+    [617,779,134,26],[621,805,130,28],[623,833,126,30],[629,863,116,28],
+  ]);
   // Long beds run east/west here, alternating standing crop with recently
   // cut rows. A grass cross-path bisects the field rather than duplicating
   // the tightly packed five-row patch in the opening.
@@ -231,6 +271,9 @@ export function drawYardGardenExtension(ctx: Ctx): void {
   }
   r(611,688,143,3,"#526b49");
   for(const [x,y] of [[613,689],[628,691],[648,688]]){r(x!,y!,8,2,"#76805a");}
+  plantedMargin(r,[[274,774,0],[283,793,0],[295,811,1],[306,823,0],
+    [321,841,2],[339,849,0],[741,792,0],[735,810,1],[724,828,0],
+    [705,845,2],[687,852,0]]);
   // Two loose low flower drifts end the near foreground; small separated
   // groups leave grass visible between them, unlike the straight upper beds.
   for(const [origin,w] of [[304,112],[622,108]] as const){
@@ -317,6 +360,26 @@ export function drawYardGroundMasses(ctx: Ctx): void {
   fill("#486b50",[
     [245,482,106,13],[233,495,150,16],[251,511,137,13],
     [661,485,83,12],[641,497,117,17],[655,514,97,12],
+  ]);
+  // Long, overlapping cultivated shoulders replace disconnected plot islands.
+  // Their quieter inner lawn remains empty enough to read enemies and drops.
+  fill("#49654a",[
+    [260,402,162,21],[266,423,156,23],[278,446,145,25],
+    [288,471,139,27],[300,498,132,23],[312,521,120,19],
+    [615,407,149,22],[609,429,151,23],[612,452,143,24],
+    [606,476,148,24],[612,500,141,23],[620,523,131,17],
+  ]);
+  fill("#52684b",[
+    [284,429,103,16],[294,445,110,21],[308,466,104,17],
+    [631,433,103,18],[623,451,103,22],[618,473,100,13],
+  ]);
+  // A few broad mown passes give the side lawn depth; they are interrupted
+  // by the darker margin and never continue into the central combat lane.
+  fill("#40624b",[
+    [77,327,117,15],[58,342,154,20],[49,362,166,18],
+    [95,393,112,16],[79,409,133,19],[81,428,120,14],
+    [790,314,116,17],[776,331,148,22],[786,353,135,15],
+    [802,400,123,20],[811,420,113,18],
   ]);
   ctx.restore();
 }
