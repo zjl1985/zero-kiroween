@@ -1,5 +1,8 @@
 # Midnight Meow handoff
 
+Latest asset follow-up: scenery pumpkin in `src/render/pixel-pumpkin.ts`, revised three times after actual screenshots. Reduced ridge noise, lifted carved eyes, darkened cavities, retained six lobes and curved stem. 1×/3× and desktop/mobile gameplay viewed; build + 426 tests passed. Local only, movement-only input unchanged; see asset review log.
+
+
 Latest asset follow-up: scenery stone in `src/render/pixel-stone.ts`, revised twice to replace a pointed dark cone with a lower faceted rock and broad crown. Three palettes and actual 1×/3×/desktop/mobile images viewed. Build + 426 tests passed; no gameplay changes, no push. See the asset review log for saved evidence and remaining queue.
 
 

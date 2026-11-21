@@ -1,3 +1,4 @@
+import { pumpkinModel } from "./pixel-pumpkin.js";
 import { stoneModel } from "./pixel-stone.js";
 import { fenceModel } from "./pixel-fence.js";
 import { lanternModel } from "./pixel-lantern.js";
@@ -35,6 +36,7 @@ function model(kind: string, variant: number): PixelStackModel {
   if (kind === "lamp") return lanternModel(variant);
   if (kind === "fence") return fenceModel(variant);
   if (kind === "stone") return stoneModel(variant);
+  if (kind === "pumpkin") return pumpkinModel(variant);
   return {
     id: `scene:${kind}:${variant % 6}`, width: 36,
     depth: 28,
@@ -53,12 +55,6 @@ function model(kind: string, variant: number): PixelStackModel {
           const reach=Math.sqrt(1-dz*dz);
           pixelDisc(c,lx!,ly!,lr!*reach,lr!*.7*reach,palettes[dz<.12?1:2]);
         }
-      } else if(kind==="pumpkin") {
-        if(z<14){const rr=Math.max(2,Math.sqrt(Math.max(0,49-(z-7)**2)));
-          for(let l=-2;l<=2;l++)pixelDisc(c,l*2,0,Math.max(1,rr-2),rr*.8,l<0?"#92503e":l===0?"#e1a34e":"#bd713b");
-          if(z===8||z===9){box(-5,Math.floor(rr*.7),2,1,"#f6d980");box(3,Math.floor(rr*.7),2,1,"#f6d980");}
-          if(z===4)box(-3,Math.floor(rr*.7),6,1,"#593746");
-        }else{box(-1,-1,3,2,"#516a4c");}
       } else if(kind==="candles") {
         for(const [x,y,h] of [[-6,0,12],[1,-2,16],[7,2,10]]) {
           if(z<h!){box(x!,y!,3,3,z===0?"#514350":"#d5b989");box(x!+2,y!,1,3,"#f3dba8");}
