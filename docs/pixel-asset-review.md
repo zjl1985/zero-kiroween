@@ -46,6 +46,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Scarecrow | Rebuilt; lifecycle sheets and farm scene viewed | Grounded high-contrast post, joined sleeves/crossbar, patched coat, sack face and straw hat; original floating appearance corrected. User approval pending. |
 | Laundry line and lantern string | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Exact grounded posts, sagging cord with connected pegs/hangers, recognizable cloth/lantern remnants. Pixel connectivity regression added; user approval pending. |
 | Destructible reeds | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Root-connected arching leaves, unequal cattail heads, cut remnants; corrected wire-like highlights and disconnected taper pixels. Terrain reed fans remain separate; user approval pending. |
+| Mailbox and signpost | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Tunnel hood/red flag/envelope and opposed arrow boards/fasteners; grounded supports and recognizable remnants. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -331,3 +332,16 @@ Viewed final24 lifecycle combinations at1×/2× and desktop960×540/phone390×84
 Evidence: paper-reeds-before-{states,burnt,detail,desktop,mobile}.png, paper-reeds-after-* (first wire-like revision), and paper-reeds-final-* under output/pixel-asset-review. Whole-scene richness, other props/actors/weapons/costumes/UI remain open; this is internal art review, not user approval. Local only, no push/deployment.
 
 Reeds verification: `npm run build` passed; new continuity regression passes after reproducing pre-fix failure; `npm test`438/438. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all24 states strict bounds/cache round-trip pass; `git diff --check` passed.
+
+
+## Mailbox and signpost: small readable roadside objects
+
+New pixel-mailbox.ts replaces the anonymous rounded box with a tunnel hood, turned side, dark letter slot, rim/door seam, cream folded envelope and raised red flag. Three blue/plum/olive palettes restore the original identities. The flag fits the existing right18 bound, unlike the legacy source contour reaching21. Damage dents the hood and opens a still-hinged door; scraps retain grounded hood/flag/envelope parts around a short post.
+
+New pixel-signpost.ts supplies two opposing arrow silhouettes, end grain, sparse incised marks, bolts and a capped post in three timber palettes. Damage chips an arrow and tilts the lower board around its attachment; scraps keep recognizable low arrow boards. Both props use ground-zero native painters, separate compact contact shadows and the existing propSprite cache. No definitions, collisions, reactions, drops, simulation, dependencies or assets changed.
+
+Viewed all36 normal/burnt lifecycle combinations at1×/2× and both desktop960×540 and phone390×844 fixtures. Seed7 mailbox(3405,2885),s1.01; signpost(638,875),s.96. Strict bounds and intact cache round-trip checks pass; rendering preserves sim state and reports page errors0. Both remain readable at native scene scale.
+
+Evidence: mailbox-before/after-{states,burnt,detail,desktop,mobile}.png and signpost-before/after-{states,burnt,detail,desktop,mobile}.png under output/pixel-asset-review. These are focused scene renders, not manual gameplay/iPhone profiling/user art acceptance. Whole-game art remains in progress; local only/no push or deployment.
+
+Mailbox/signpost verification: `npm run build` passed; `npm test`438/438. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all36 states strict bounds/cache round-trip pass; `git diff --check` passed.
