@@ -50,7 +50,8 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Destructible wax candle | Rebuilt; lifecycle/live-fire and desktop/phone fixtures viewed | Recessed wax top, connected drips, tray, anchor-preserving damage and pale melted remnants. User approval pending. |
 | Registered grass, flowers and bushes | Rebuilt; revised grass/flower spacing after screenshot review | Rooted leaf fans, grouped flower stems and branch-supported foliage; lifecycle and desktop/phone fixtures viewed. User approval pending. |
 | Registered dead tree, mushrooms and tombstone | Rebuilt; lifecycle and desktop/phone fixtures viewed | Root flare/forked branches, three mushroom caps/stems and four carved slab profiles; material-specific damage/remnants. User approval pending. |
-| Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
+| Registered haybale, cardboard crate and picket fence | Rebuilt; lifecycle/live-fire and desktop/phone fixtures viewed | Straw roll/unrolled mat, taped card package/open lid, four supported pickets/cracked rails. User approval pending. |
+| Architecture and registered props | First individual refinement pass recorded | Whole-screen composition, crowded combat readability and user acceptance remain open. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
 
@@ -387,3 +388,18 @@ Viewed all66 native/2× lifecycle combinations and desktop960×540/phone390×844
 The first full test run reported445/446: the existing foreground-landmark test searched for its mock rectangle by x-coordinate alone. New actual art matched that coordinate inside a cached sprite. Strengthened its sentinel match to all four rectangle arguments; the focused regression passes without changing rendering order or relaxing the opacity/order assertions.
 
 Woodland final verification: npm run build passed; npm test446/446 after sentinel correction; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Three targeted connectivity/bounds regressions pass. git diff --check passed.
+
+
+## Yard props: straw rolls, taped packages and supported picket fences
+
+New pixel-haybale.ts restores a horizontal straw cylinder with rounded end spiral, broad material planes, sparse directional strands and two bindings in four palettes. Damage loosens one binding, opens the roll end and lays out a connected straw mat while preserving material at the existing flame anchors. Scraps are low bundles and broken twine, with charcoal/ash for burnt material.
+
+New pixel-cardboard-crate.ts restores the original card-package identity instead of a wooden shipping crate: three faces, cream tape across top/front and a stamped fish. Damage opens an attached rear lid over a dark cavity, exposes a short corrugated rim and folds a connected flap forward. Scraps are flat marked/taped panels. Three palettes plus charred material. New pixel-prop-fence.ts restores four pointed pickets at the existing positions and two joined rails across the full collider span. Damage removes/shortens/leans selected pickets but retains supported rails rather than suggesting a fully open path while collision remains. Scraps retain short stubs and fallen rails; four timber palettes and charcoal states.
+
+All three use ground-zero native painters and existing propSprite caching. Definitions, collider locations, reactions, drops, flame metadata and simulation are untouched. Removed their obsolete generic branches, retaining only a defensive fallback for future registrations. New tests/pixel-yard-props.test.mjs checks all66 lifecycle combinations for strict bounds/ground connection/Canvas restoration, and verifies actual material remains beneath every original flame anchor in intact and damaged states.
+
+Viewed all66 normal/burnt native/2× states and actual drawProp live-fire sheets. Normal fire probes produce4 hay /3 crate /3 fence distinct frames; reduced motion produces1 each, with immutable prop state. Viewed desktop960×540 and phone390×844 seed7 fixtures hay(331,912),s1.1; crate(-311,1325),s1.02; fence(86,1248),s.96. Simulation unchanged and browser errors0; strict bounds and intact cache round-trip pass.
+
+Evidence under output/pixel-asset-review: haybale-before/after-{states,burnt,detail,desktop,mobile}.png; paper-{crate,fence}-before/after-{states,burnt,detail,desktop,mobile}.png; eachID-live-before/after-{normal,reduced}.png. Reduced captures are backed by pixel-hash motion probes; normal sheets were visually inspected. These are focused render fixtures, not manual gameplay/iPhone profiling or user art acceptance. Whole-game work remains active; local only/no push.
+
+Yard-prop verification: npm run build passed; npm test450/450; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted tests4/4 and all66 browser strict bounds/cache round-trips pass. git diff --check passed.

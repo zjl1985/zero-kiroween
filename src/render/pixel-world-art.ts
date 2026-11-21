@@ -1,3 +1,6 @@
+import { drawPixelHaybale } from "./pixel-haybale.js";
+import { drawPixelCardboardCrate } from "./pixel-cardboard-crate.js";
+import { drawPixelPropFence } from "./pixel-prop-fence.js";
 import { drawPixelDeadTree } from "./pixel-dead-tree.js";
 import { drawPixelMushroom } from "./pixel-mushroom.js";
 import { drawPixelTombstone } from "./pixel-tombstone.js";
@@ -108,11 +111,10 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
   const dims = metrics(art.bounds, /fence|line|lantern|grass|flowers|reeds/.test(art.id)),
     count = phase === "scraps" ? 5 : phase === "damaged" ? Math.max(3, Math.ceil(dims.count * 0.7)) : dims.count, colors = paletteFor(art.id, burnt),
     W = dims.width / 2 - 2, D = dims.depth / 2 - 1;
-  return { ...dims, count, id: `prop:${art.id}:${v}:${phase}:${burnt ? 1 : 0}${art.id === "paper-fence" ? ":joinery-v2" : ""}`,
-    ...(art.id === "paper-fence" ? {groundShadow:{rx:W+1,ry:1.8,dx:.5,dy:1}} : {}),
+  return { ...dims, count, id: `prop:${art.id}:${v}:${phase}:${burnt ? 1 : 0}`,
     paint(ctx, z) {
-      const { rect, oval, box } = shapePainter(ctx, dims.width, dims.depth, colors, burnt),
-        h = z / Math.max(1, dims.count - 1), id = art.id;
+      const { rect, box } = shapePainter(ctx, dims.width, dims.depth, colors, burnt),
+        h = z / Math.max(1, dims.count - 1);
       if (phase === "scraps") {
         for (let i = 0; i < 7; i++) if (z < 1 + Math.floor(hash(v * 17 + i) * 4)) {
           const x = (hash(i * 13 + v) - 0.5) * W * 1.5, y = (hash(i * 23 + v) - 0.5) * D;
@@ -120,42 +122,10 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
         }
         return;
       }
-      // Missing upper sections vary by material; the surviving cross-section
-      // shows its pale inner material instead of a generic front-facing tear.
-      const damagedTop = phase === "damaged" && h > 0.6;
-      if (id === "paper-fence") {
-        // The old mid-tone is nearly identical to farm soil. Exposed timber
-        // faces must describe the whole structure, not only the upper rail.
-        for (const [bottom, top] of [[0.22, 0.35], [0.65, 0.78]]) {
-          if (h <= bottom! || h >= top!) continue;
-          rect(-W, -1, W * 2, 3, 1);
-          rect(-W, 1.5, W * 2, .5, 2);
-          rect(-W, -1, 1, 3, 0);
-          rect(W - 1, -1, 1, 3, 2);
-          if (h < bottom! + .035) rect(-W, 1.5, W * 2, .5, 0);
-          if (h > top! - .035) rect(-W, -1, W * 2, 3, 2);
-        }
-        // Posts stand in front of the rails, with dark left faces and narrow
-        // illuminated front faces continuing all the way down to the footing.
-        for (const x of [-W + 2, W - 2]) {
-          rect(x - 1, -1, 3, 3, damagedTop ? 2 : 1);
-          rect(x - 1, -1, 1, 3, 0);
-          rect(x, 1.5, 2, .5, 2);
-          if (h > .94 || damagedTop) rect(x - 1, -1, 3, 3, 2);
-          if (h < .04) rect(x - 1, 1.5, 3, .5, 0);
-          // Two small iron pins join rails to posts; no repeated slice stripes.
-          if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
-            rect(x + .5, 1.5, .5, .5, 0);
-        }
-      } else if (id === "haybale") {
-        const r = Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.53) ** 2));
-        oval(0, 0, W, D * Math.max(0.3, r), h < .15 ? 0 : 1);
-        for (const x of [-W * 0.55, W * 0.55]) rect(x, -D * r, 2, D * r * 2, WOOD[0]);
-      } else { // Crate: slab, plank seams, bands, and a top seam in actual sections.
-        box(W * 0.88, D * 0.9, h < .05 || h > .94 ? 2 : 1);
-        for (const x of [-W * 0.74, W * 0.74]) rect(x, -D * 0.9, 2, D * 1.8, 2);
-        if (h > 0.94) rect(-1, -D * 0.9, 1, D * 1.8, 0);
-      }
+      // Defensive generic fallback for future unreviewed registrations.
+      box(W * 0.88, D * 0.9, h < .05 || h > .94 ? 2 : 1);
+      for (const x of [-W * 0.74, W * 0.74]) rect(x, -D * 0.9, 2, D * 1.8, 2);
+      if (h > .94) rect(-1, -D * .9, 1, D * 1.8, 0);
     },
   };
 }
@@ -163,6 +133,9 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "haybale") { drawPixelHaybale(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-crate") { drawPixelCardboardCrate(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-fence") { drawPixelPropFence(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "dead-tree") { drawPixelDeadTree(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-mushroom") { drawPixelMushroom(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-tombstone") { drawPixelTombstone(ctx,x,y,s,v,phase,burnt); return; }
