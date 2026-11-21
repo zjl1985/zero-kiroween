@@ -4,7 +4,6 @@ import type { FrameInput } from "./types.js";
 export interface PointerStick {
   ax: number;
   ay: number;
-  dashQueued: boolean;
 }
 
 export function createInput(): {
@@ -14,28 +13,16 @@ export function createInput(): {
   wantsPause: () => boolean;
   consumePause: () => boolean;
   reset: () => void;
-  queueSkill: () => void;
   consumeChoice: () => number | null;
 } {
   const keys = new Set<string>();
-  let dashQueued = false;
   let pauseQueued = false;
   let choiceQueued: number | null = null;
   let attached: Window | null = null;
 
   const down = (event: KeyboardEvent) => {
     const code = event.code;
-    if (
-      code === "Space" &&
-      event.target instanceof HTMLElement &&
-      event.target.closest("button")
-    )
-      return;
     keys.add(code);
-    if (code === "Space" && !event.repeat) {
-      event.preventDefault();
-      dashQueued = true;
-    }
     const digit = /^(?:Digit|Numpad)([1-3])$/.exec(code);
     if (digit && !event.repeat) choiceQueued = Number(digit[1]) - 1;
     if ((code === "Escape" || code === "KeyP") && !event.repeat) {
@@ -56,7 +43,6 @@ export function createInput(): {
   };
   const blur = () => {
     keys.clear();
-    dashQueued = false;
     pauseQueued = false;
     choiceQueued = null;
   };
@@ -78,9 +64,6 @@ export function createInput(): {
 
   return {
     reset: blur,
-    queueSkill: () => {
-      dashQueued = true;
-    },
     attach(target) {
       if (attached) return;
       attached = target;
@@ -104,15 +87,12 @@ export function createInput(): {
         ax = stick.ax;
         ay = stick.ay;
       }
-      const dash = dashQueued || stick.dashQueued;
-      dashQueued = false;
-      stick.dashQueued = false;
       const len = length(ax, ay);
       if (len > 1) {
         ax /= len;
         ay /= len;
       }
-      return { ax, ay, dash };
+      return { ax, ay };
     },
     wantsPause() {
       return pauseQueued;

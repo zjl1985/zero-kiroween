@@ -10,10 +10,12 @@ Midnight Meow (猫猫守夜) is a browser survival roguelike for Kiroween 2026. 
 
 ## Product and art boundaries
 
+- **Latest user override: movement only.** No manual dash, displacement, active skill buttons or Space/Shift activation. Retain automatic attacks and automatic costume effects; do not restore removed cat actives. This supersedes historical mechanics-preservation instructions.
+
 - **One active style: native pixel art with sprite-stacked scenery**, following `danielwh2/sprite-stacking`. No style toggle. This explicit user direction supersedes paper-only / approved-paper-contour constraints in older steering and skill recipes. Preserve cat identities and gameplay, not the previous rendering technique.
 - Draw game art and effects in code (Canvas / CSS); synthesize sound with Web Audio. No image or audio assets. Reference images are art targets, never backgrounds, textures or generated game assets. Offscreen canvases may cache procedural drawing.
 - The explicitly authorized, unmodified Allo fonts in `assets/fonts/` are the typography exception. Use them for English UI and Canvas text, retain Chinese fallbacks, the build font allowlist and OFL license.
-- Choose Zero (male) or Nicole (female) at the start. Only the chosen cat appears in a run; the other is never a follower or companion. Preserve their distinct starting weapons, actives, passives, exclusive equipment and chest-triggered evolutions (Echo Legion and Full Moon).
+- Choose Zero (male) or Nicole (female) at the start. Only the chosen cat appears in a run; the other is never a follower or companion. Preserve their distinct starting weapons, passives, exclusive equipment and chest-triggered evolutions (Echo Legion and Full Moon).
 - The meme cats are costumes the chosen cat wears (unlocked by play, one small skill each, makeup only as a layer over the untouched approved head); random helper cats as separate characters are not built, so ask before starting them. Do not expand the game's scope just to complete a technical task.
 - Keep the reference's pixel lattice, compact volume, hue-shifted palettes and readable silhouettes. Preserve the cats' face/accessory identity and original source data. A passing build is not art approval.
 - Ideas from public descriptions of [Snapblocks](https://www.snapblocks.site/) and the rhythm ideas of [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft) may be rebuilt in Canvas / CSS; never copy their code.

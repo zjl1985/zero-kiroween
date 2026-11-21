@@ -72,17 +72,6 @@
             </details>
             <details class="skill-row" open>
               <summary>
-                <canvas id="icon-active" width="64" height="64" aria-hidden="true"></canvas>
-                <span class="skill-fold-label">
-                  <small id="skill-active-type"></small>
-                  <strong id="skill-active-name"></strong>
-                  <kbd id="profile-skill-key">SPACE</kbd>
-                </span>
-              </summary>
-              <p id="skill-active-desc"></p>
-            </details>
-            <details class="skill-row" open>
-              <summary>
                 <canvas id="icon-passive" width="64" height="64" aria-hidden="true"></canvas>
                 <span class="skill-fold-label">
                   <small id="skill-passive-type"></small>
@@ -188,13 +177,6 @@
             aria-live="polite"
           ></div>
           <div class="seam-dock">
-            <button type="button" id="btn-skill" class="wick">
-              <canvas id="hud-wick" width="80" height="128" aria-hidden="true"></canvas
-              ><span class="wick-label"
-                ><strong id="hud-skill-name"></strong
-                ><small id="hud-dash"></small
-                ><kbd id="hud-skill-key"></kbd></span>
-            </button>
             <div class="seam-col">
               <div id="hud-upgrades" class="seam-tags"></div>
               <div class="seam-row">
@@ -208,7 +190,6 @@
         <section id="pause-screen" class="panel journal-page folded hidden">
           <p id="pause-kit" class="eyebrow"></p>
           <h2 id="pause-title"></h2>
-          <p id="pause-skill" class="panel-copy"></p>
           <p id="pause-note" class="hint"></p>
           <div class="actions">
             <button type="button" id="btn-resume" class="btn primary"></button
@@ -276,7 +257,6 @@
         </section>
         <div id="touch" class="touch hidden">
           <div id="stick" class="stick" aria-hidden="true"><i></i></div>
-          <button type="button" id="dash-btn" class="dash-btn"></button>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { fireBolt } from "./meow-bolt.js";
 
 const VALUES = {
   fireInterval: 0.32,
+  summonInterval: 6,
   range: 190,
   burstRadius: 74,
   burstDamage: 3,
@@ -32,7 +33,7 @@ export function echoBurst(state: SimState, ctx: SimContext): void {
       ctx.hurtEnemy(state, e, VALUES.burstDamage);
 }
 
-/** Zero's evolution (max Meow Bolt + Long Shadow): the decoy keeps firing its own bolts. */
+/** Automatic evolution: periodically anchors a firing afterimage, without moving the cat. */
 export const ECHO_LEGION: WeaponDef = {
   id: "echo-legion",
   pool: "zero",
@@ -47,7 +48,25 @@ export const ECHO_LEGION: WeaponDef = {
   },
   step(state, ps, dt, _rng, ctx) {
     const d = state.decoy;
-    if (!d.live || !ps.echo) return;
+    if (!ps.echo) return;
+    state.weaponTimers["echo-legion"] = Math.max(0, (state.weaponTimers["echo-legion"] ?? 0) - dt);
+    if (d.live) {
+      d.time = Math.max(0, d.time - dt);
+      if (d.time <= 0) {
+        d.live = false;
+        echoBurst(state, ctx);
+      }
+    }
+    if (!d.live && state.weaponTimers["echo-legion"] <= 0 &&
+      ctx.nearestEnemy(state, state.player.x, state.player.y, VALUES.range)) {
+      d.live = true;
+      d.x = state.player.x;
+      d.y = state.player.y;
+      d.time = ps.decoyLife;
+      d.fire = VALUES.fireInterval * ps.attackIntervalScale * 0.5;
+      state.weaponTimers["echo-legion"] = VALUES.summonInterval;
+    }
+    if (!d.live) return;
     d.fire -= dt;
     if (d.fire > 0) return;
     const target = ctx.nearestEnemy(state, d.x, d.y, VALUES.range);
@@ -57,7 +76,7 @@ export const ECHO_LEGION: WeaponDef = {
     }
     const dir = normalize(target.x - d.x, target.y - d.y);
     if (!dir.x && !dir.y) return;
-    d.fire = VALUES.fireInterval;
+    d.fire = VALUES.fireInterval * ps.attackIntervalScale;
     fireBolt(state, ctx, d.x, d.y, dir.x, dir.y, false, true);
   },
 };

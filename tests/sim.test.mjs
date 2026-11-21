@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { FIXED_DT } from "../dist/game/clock.js";
 import { createSim, snapshot, step } from "../dist/game/sim.js";
-import { STATS } from "../dist/game/types.js";
 import { SCREEN, WORLD, viewCentre } from "../dist/game/world-gen.js";
 
 function run(seed, frames, input) {
@@ -27,26 +26,17 @@ test("a different seed or a different stick changes the result", () => {
   assert.notDeepEqual(a, c);
 });
 
-test("dash leaves a 1.2s decoy without spending a random roll", () => {
-  const state = createSim({ seed: 9, sessionSeconds: 30 });
-  const before = state.rngState;
-  step(state, { ax: 1, ay: 0, dash: true }, FIXED_DT);
-  assert.equal(state.decoy.live, true);
-  assert.equal(Number(state.decoy.time.toFixed(4)), STATS.decoyTime);
-  assert.ok(state.player.dashCooldown > 2.9);
-  assert.equal(state.rngState, before);
-  const decoyX = state.decoy.x;
-  let frames = 0;
-  while (state.decoy.live && frames < 120) {
-    step(state, { ax: 1, ay: 0, dash: false }, FIXED_DT);
-    frames += 1;
-  }
-  assert.ok(frames >= 70 && frames <= 80, `decoy lasted ${frames} frames`);
-  assert.equal(state.decoy.live, false);
-  void decoyX;
+test("legacy dash flag is a simulation no-op, including movement and RNG", () => {
+  const normal=run(9,180,{ax:1,ay:0}), legacy=run(9,180,{ax:1,ay:0,dash:true});
+  assert.deepEqual(snapshot(legacy),snapshot(normal));
+  assert.equal(legacy.rngState,normal.rngState);
+  assert.equal(legacy.decoy.live,false);
+  assert.equal(legacy.player.dashTime,0);
+  assert.equal(legacy.player.dashCooldown,0);
+  assert.equal(legacy.stats.skillUses,0);
 });
 
-test("the chosen cat is the only player, with no companion after movement or a dash", () => {
+test("the chosen cat is the only player, with no companion after movement or legacy dash input", () => {
   for (const cat of ["zero", "nicole"]) {
     const sim = createSim({ cat, seed: 22 });
     assert.equal(sim.player.id, cat);

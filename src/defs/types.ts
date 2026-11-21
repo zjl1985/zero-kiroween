@@ -185,10 +185,6 @@ export interface CharacterDef<K extends CatBaseStats = CatBaseStats> {
   copyParams?(): Readonly<Record<string, number>>;
   /** Speed factor of ink slowed by this cat's skill and weapons (1 = no slow). */
   readonly enemySlow?: number;
-  /** Element the shared dash applies along its path every step (a cut through the page). */
-  readonly dashTrail?: { readonly element: Element; readonly power: number; readonly radius: number };
-  /** Skill effect after the shared dash has started. */
-  onSkill(state: SimState, ps: PlayerStats, ctx: SimContext): void;
   /** Adds the kit's own fields to the stat view (runs for every registered cat). */
   kitStats?(s: PlayerStats, q: StatQuery): void;
   /** Passive hooks, only called while this cat is the one in the run. */

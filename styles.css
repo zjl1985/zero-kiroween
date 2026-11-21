@@ -172,13 +172,6 @@ kbd { display: inline-block; padding: 2px 5px; border: 1px solid var(--edge); bo
 .hurt-vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; border: 5px solid #d15c5d; }
 .critical-health .hurt-vignette { opacity: .5; }
 .seam-dock { position: absolute; left: 24px; right: 24px; bottom: 18px; display: flex; align-items: flex-end; gap: 16px; }
-.wick { flex: 0 0 78px; display: flex; align-items: flex-end; gap: 5px; padding: 0; color: var(--muted); border: 0; background: transparent; text-align: left; }
-.wick canvas { width: 28px; height: 45px; flex: 0 0 auto; }
-.wick-label { display: grid; gap: 3px; }
-#hud-skill-name { font-size: 10px; color: #e5ce97; }
-#hud-dash { font-size: 9px; }
-.wick.ready #hud-dash { color: #9ad2ad; }
-.wick kbd { width: fit-content; font-size: 8px; }
 .seam-col { flex: 1; min-width: 0; display: grid; gap: 7px; }
 .seam-tags { display: flex; flex-wrap: wrap; gap: 10px; }
 .tag-group { display: flex; gap: 4px; }
@@ -249,10 +242,7 @@ body:is([data-screen="pause"], [data-screen="upgrade"]) #hud { opacity: .18; poi
 .stick::after { top: 50%; left: 12px; right: 12px; height: 2px; margin-top: -1px; }
 .stick i { position: absolute; z-index: 1; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; background: #d6cc9d; border: 3px solid #f7e4ad; box-shadow: 3px 3px 0 #4b5b57; pointer-events: none; }
 .stick.is-active { border-color: #9bcab4; }
-.dash-btn { width: 78px; height: 78px; border: 3px solid #ffe0a0; border-radius: 0; color: #172834; background: #edbf69; box-shadow: 5px 5px 0 #0b1c25; font-size: 14px; font-weight: 800; padding: 8px; }
-.dash-btn:disabled { background: #35535b; color: #bdcab7; border-color: #74928a; opacity: .8; }
 .has-touch .seam-dock { bottom: 120px; }
-.has-touch .wick { display: none; }
 .has-touch .seam-tag.empty { display: none; }
 .has-touch .game-hint { display: none; }
 .has-touch .game-hint.context-hint { display: block; }
@@ -322,7 +312,6 @@ body[data-screen="gallery"] { overflow: auto; }
   .seam b.on { border-top-width: 1px; }
   .touch { left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); bottom: max(17px, env(safe-area-inset-bottom)); }
   .stick { width: 86px; height: 86px; }
-  .dash-btn { width: 76px; height: 76px; }
   .panel { margin-top: max(60px, calc(env(safe-area-inset-top) + 30px)); padding: 22px; }
   .panel h2 { font-size: 28px; }
   .result-panel { margin-top: 28px; }
@@ -366,7 +355,6 @@ body[data-screen="gallery"] { overflow: auto; }
   .has-touch .seam-dock { left: 125px; right: 110px; bottom: 13px; }
   .has-touch .seam-tag.empty { display: none; }
   .stick { width: 74px; height: 74px; }
-  .dash-btn { width: 65px; height: 65px; }
   .boss-bar { top: 94px; }
   .notice { top: 120px; }
   .streak-badge, .chest-reveal { top: 110px; }

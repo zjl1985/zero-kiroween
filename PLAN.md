@@ -1,10 +1,13 @@
 # 猫猫守夜：当前执行方案
 
+Latest override (2026-11-21): movement only, automatic attacks. Manual dash/active skills and their controls are removed locally; dependent upgrades now affect automatic combat. Historical dash preservation and baseline-equivalence claims below do not apply to this change. This revision is not pushed.
+
+
 版本：v0.19 / 2026-11-19（在 v0.18 之上本地提交了服装（梗猫）一轮，见下文“服装（梗猫）”；构建与 382 项测试通过；未推送、未上线；服装美术与界面都没有在浏览器中查看，美术未获认可）。下一位 agent 先读 [HANDOFF.md](HANDOFF.md)，扩展内容时按 [`.kiro/skills/midnight-meow-dev/SKILL.md`](.kiro/skills/midnight-meow-dev/SKILL.md) 操作。
 
 ## 当前优先要求（2026-11-21，取代下方旧美术方案）
 
-最新执行要求：用户已授权推送当前可玩版供体验（`4fd9245` 已上 `main` 并部署）；后续按素材逐个细化，做一个就看实际1×/放大/游戏截图，精灵检查走路、冲刺与减弱动态姿势，发现问题返工。工作进度和待办以 [素材检查表](docs/pixel-asset-review.md) 为准，不能用构建通过或整体像素化代替美术过关。后续细化暂留工作分支，不覆盖正在体验的线上版。
+最新执行要求：用户已授权推送当前可玩版供体验（`4fd9245` 已上 `main` 并部署）；后续按素材逐个细化，做一个就看实际1×/放大/游戏截图，精灵检查走路、受伤与减弱动态姿势，发现问题返工。工作进度和待办以 [素材检查表](docs/pixel-asset-review.md) 为准，不能用构建通过或整体像素化代替美术过关。后续细化暂留工作分支，不覆盖正在体验的线上版。
 
 用户明确要求：参考 `danielwh2/sprite-stacking`，全游戏重构为像素风，当前纸艺版先封版。
 已封存 tag `archive/papercraft-2026-11-21`（`d26859b`），在 `refactor/pixel-stacking` 分支实现。

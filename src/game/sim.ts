@@ -770,12 +770,12 @@ function runWeapons(
 }
 function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): void {
   const p = state.player,
-    cat = CATS.get(p.id),
-    def = cat.stats,
     ps = playerStats(state),
     from = { x: p.x, y: p.y };
   p.invuln = Math.max(0, p.invuln - dt);
-  p.dashCooldown = Math.max(0, p.dashCooldown - dt);
+  // Legacy serialized fields cannot restore a removed movement ability.
+  p.dashCooldown = 0;
+  p.dashTime = 0;
   p.attackCooldown = Math.max(0, p.attackCooldown - dt);
   p.empowerTime = Math.max(0, p.empowerTime - dt);
   p.shieldTime = Math.max(0, p.shieldTime - dt);
@@ -792,36 +792,14 @@ function stepPlayer(state: SimState, input: FrameInput, dt: number, rng: Rng): v
   // One water slow at most: shallow water, or else wet washed paper (not on top of a puddle slow either).
   if (waterAt(state.seed, p.x, p.y, bridgeDecks(state.fold.bridges)) === "shallow") p.slow *= WATER.shallowSlow;
   else if (p.slow >= unslowed && washWetTouches(state, p.x, p.y, 0)) p.slow *= WASH.wetSlow;
-  if (input.dash && p.dashCooldown <= 0 && p.dashTime <= 0) {
-    const dir =
-      length(input.ax, input.ay) < 0.15
-        ? { x: p.facing, y: 0 }
-        : normalize(input.ax, input.ay);
-    p.dashTime = def.dashTime;
-    p.dashCooldown = ps.cooldown;
-    p.invuln = Math.max(p.invuln, def.invulnerability);
-    p.vx = dir.x * def.dashSpeed;
-    p.vy = dir.y * def.dashSpeed;
-    if (dir.x) p.facing = dir.x < 0 ? -1 : 1;
-    state.stats.skillUses++;
-    cat.onSkill(state, ps, ctx);
-    emit("dash", state, { dx: dir.x, dy: dir.y });
-  }
-  if (p.dashTime > 0) {
-    p.dashTime = Math.max(0, p.dashTime - dt);
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    // A kit's dash may mark the page it crosses (a cut through the paper).
-    const trail = cat.dashTrail;
-    if (trail) washElement(state, p.x, p.y, trail.radius, trail.element, trail.power);
-  } else {
-    const dir = normalize(input.ax, input.ay);
-    p.vx = dir.x * ps.speed * p.slow;
-    p.vy = dir.y * ps.speed * p.slow;
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    if (Math.abs(dir.x) > 0.1) p.facing = dir.x < 0 ? -1 : 1;
-  }
+  // Movement is the only player action. Legacy ability bits are ignored even
+  // when supplied by old recordings or an external caller.
+  const dir = normalize(input.ax, input.ay);
+  p.vx = dir.x * ps.speed * p.slow;
+  p.vy = dir.y * ps.speed * p.slow;
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  if (Math.abs(dir.x) > 0.1) p.facing = dir.x < 0 ? -1 : 1;
   const bank = resolveWaterMove(state.seed, from, p, STATS.playerRadius, bridgeDecks(state.fold.bridges));
   const pos = safePosition(state, bank.x, bank.y, STATS.playerRadius);
   p.x = pos.x;

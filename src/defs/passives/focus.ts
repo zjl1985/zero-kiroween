@@ -1,14 +1,17 @@
 import type { PassiveDef } from "../types.js";
 
-const VALUES = { cooldown: 0.1 } as const;
+const VALUES = { rate: 0.1 } as const;
 
 declare module "../types.js" {
+  interface PlayerStats {
+    attackIntervalScale: number;
+  }
   interface UpgradeValueMap {
     "focus": typeof VALUES;
   }
 }
 
-/** Shorter skill cooldown. */
+/** Shorter automatic attack intervals, with no manual skill dependency. */
 export const FOCUS: PassiveDef = {
   id: "focus",
   pool: "any",
@@ -16,6 +19,6 @@ export const FOCUS: PassiveDef = {
   values: VALUES,
   percent: true,
   modify(s, level) {
-    s.cooldown = s.cooldown * (1 - VALUES.cooldown * level);
+    s.attackIntervalScale = 1 - VALUES.rate * level;
   },
 };

@@ -51,7 +51,7 @@ test("every district shows a washed-paper swatch: painted, colourless, blank and
 test("gallery states match cat poses, elite eligibility and the prop's fire rules", () => {
   const cells = galleryLayout(gallerySections(), 1000).cells;
   for (const id of CATS.ids())
-    assert.deepEqual(cells.filter((c) => c.id === id && c.kind === "cat").map((c) => c.state), ["idle", "skill"]);
+    assert.deepEqual(cells.filter((c) => c.id === id && c.kind === "cat").map((c) => c.state), ["idle"]);
   for (const def of ENEMY_DEFS.all())
     assert.equal(cells.some((c) => c.kind === "enemy" && c.id === def.id && c.state === "elite"), def.eliteable);
   const states = (id) => cells.filter((c) => c.kind === "prop" && c.id === id).map((c) => c.state);

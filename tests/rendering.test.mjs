@@ -67,7 +67,7 @@ const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
 const tints = (ctx) => ctx.calls.filter((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-atop");
 const signature = (c) => [c.op, c.fillStyle, c.args.map((a) => a instanceof RecordingPath ? a.ops : a)];
 
-test("gallery dispatches idle and skill cards through registered cat art", (t) => {
+test("gallery dispatches movement-only cat cards through registered art", (t) => {
   drawingEnvironment(t);
   const seen = [];
   for (const art of CAT_ART.all()) {
@@ -76,7 +76,7 @@ test("gallery dispatches idle and skill cards through registered cat art", (t) =
   }
   assert.ok(paintGallery(canvas(), "en", 760, 1) > 0);
   const plain = seen.filter(([, , pose]) => pose.costume === undefined);
-  assert.deepEqual(plain.map(([id, state]) => [id, state]), CATS.ids().flatMap((id) => [[id, "idle"], [id, "skill"]]));
+  assert.deepEqual(plain.map(([id, state]) => [id, state]), CATS.ids().flatMap((id) => [[id, "idle"]]));
   // The wardrobe draws every costume on every cat, in wardrobe order.
   const worn = seen.filter(([, , pose]) => pose.costume !== undefined);
   assert.deepEqual(worn.map(([id, state, pose]) => [pose.costume, id, state]),

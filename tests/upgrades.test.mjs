@@ -315,21 +315,26 @@ test("the extra weapons hit ink: night claw, star fall, paper crane, pumpkin see
   }
 });
 
-test("re-dashing over a live Echo Legion decoy still bursts the old echo", () => {
+test("Echo Legion autonomously anchors an afterimage without dashing or activating the cat skill", () => {
   const z = quiet("zero");
   z.upgrades["echo-legion"] = 1;
-  step(z, { ax: 1, ay: 0, dash: true }, DT);
-  assert.equal(z.decoy.live, true);
-  const first = { x: z.decoy.x, y: z.decoy.y };
-  const e = enemy(z, first.x, first.y + 10, 1000);
-  z.player.dashCooldown = 0;
-  z.player.dashTime = 0;
-  z.impacts = [];
-  const hp = e.hp;
-  step(z, { ax: 1, ay: 0, dash: true }, DT);
-  assert.equal(z.decoy.live, true, "a fresh decoy replaced the old one");
-  assert.ok(z.impacts.some((i) => i.kind === "echo-burst"), "old echo burst");
-  assert.ok(e.hp < hp, "burst hurt the enemy next to the old echo");
+  const origin = {x:z.player.x,y:z.player.y};
+  step(z,idle,DT);
+  assert.equal(z.decoy.live,false,"no target: no idle summon");
+  const e=enemy(z,z.player.x+40,z.player.y,1000); e.stun=1000;
+  step(z,idle,DT);
+  assert.equal(z.decoy.live,true);
+  assert.deepEqual({x:z.decoy.x,y:z.decoy.y},origin);
+  assert.deepEqual({x:z.player.x,y:z.player.y},origin,"summoning never teleports or dashes");
+  assert.equal(z.player.empowerTime,0); assert.equal(z.stats.skillUses,0);
+  const end=z.elapsed+playerStats(z).decoyLife+DT;
+  while(z.elapsed<end) step(z,idle,DT);
+  assert.equal(z.decoy.live,false,"lifetime ends before the next summon");
+  assert.ok(z.impacts.some(i=>i.kind==="echo-burst"),"the expired echo bursts once");
+  assert.ok(e.hp<1000);
+  const limit=z.elapsed+UPGRADE_VALUES["echo-legion"].summonInterval;
+  while(!z.decoy.live&&z.elapsed<limit) step(z,idle,DT);
+  assert.equal(z.decoy.live,true,"a later automatic attack cycle summons another echo");
 });
 
 test("the Boss banner survives routine notices such as a skill use", () => {
@@ -347,12 +352,12 @@ test("the Boss banner survives routine notices such as a skill use", () => {
   assert.equal(z.notice.kind, "evolve-zero", "major notices still replace routine ones");
 });
 
-test("Echo Legion decoy fires bolts and bursts; Full Moon adds stars and pulses", () => {
+test("autonomous Echo Legion fires bolts and bursts; Full Moon adds stars and pulses", () => {
   const z = quiet("zero");
   z.upgrades["echo-legion"] = 1;
   enemy(z, 600, 360);
   z.player.x = 700;
-  step(z, { ax: 1, ay: 0, dash: true }, DT);
+  step(z, idle, DT);
   assert.equal(z.decoy.time.toFixed(3), playerStats(z).decoyLife.toFixed(3));
   let echo = 0;
   for (let i = 0; i < 200 && z.decoy.live; i++) {
@@ -411,4 +416,41 @@ test("every upgrade has a name and description in both language packs", () => {
     assert.ok(MESSAGE_KEYS.includes(k));
   assert.deepEqual(missingKeys("zh"), []);
   assert.deepEqual(missingKeys("en"), []);
+});
+
+
+test("Focus improves automatic bolt, orbit contact and additional weapon cadence", () => {
+  for(const cat of ["zero","nicole"]) {
+    const s=quiet(cat); s.upgrades["paper-crane"]=1;
+    const base=playerStats(s); s.upgrades.focus=2; const focused=playerStats(s);
+    assert.ok(Math.abs(focused.attackInterval/base.attackInterval-.8)<1e-9);
+    assert.ok(Math.abs(focused.crane.interval/base.crane.interval-.8)<1e-9);
+    assert.equal(focused.cooldown,base.cooldown,"no manual skill cooldown dependency");
+  }
+  const n=quiet("nicole"); n.upgrades.focus=2;
+  const star=orbitPositions(n)[0], e=enemy(n,star.x,star.y,1000); e.stun=1000;
+  step(n,idle,DT);
+  assert.ok(Math.abs(e.orbitCooldown-C.nicole.orbitHitInterval*.8)<1e-9);
+});
+
+test("exclusive passives remain useful before their automatic evolutions", () => {
+  const z=quiet("zero"), before=playerStats(z); z.upgrades["long-shadow"]=1;
+  const after=playerStats(z); assert.equal(after.pickupRadius,before.pickupRadius+20);
+  assert.equal(after.decoyLife,before.decoyLife+.4);
+  const n=quiet("nicole"), radius=playerStats(n).orbitRadius;
+  n.upgrades["deep-fold"]=2; assert.ok(Math.abs(playerStats(n).orbitRadius-radius*1.2)<1e-9);
+  n.pendingChoice={options:["moon-shield"]}; chooseUpgrade(n,0);
+  assert.equal(n.player.shield,1); assert.equal(n.player.shieldTime,12);
+  n.player.shield=0; n.player.shieldTime=0; feed(n,xpForLevel(n.level));
+  assert.equal(n.player.shield,1,"level-up refreshes passive shield without a skill input");
+  assert.ok(n.player.shieldTime>11);
+});
+
+// Unlock progression must remain reachable with movement and automatic attacks alone.
+import { emptyProgress, unlocksAfter } from "../dist/game/costumes.js";
+test("Twelve Notes unlocks at level twelve without any manual skill uses", () => {
+  const s=quiet("zero"); s.level=11;
+  assert.equal(unlocksAfter(emptyProgress(),s).newly.includes("levels"),false);
+  s.level=12; assert.equal(s.stats.skillUses,0);
+  assert.equal(unlocksAfter(emptyProgress(),s).newly.includes("levels"),true);
 });

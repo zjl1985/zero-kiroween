@@ -1,6 +1,6 @@
 import type { PassiveDef } from "../types.js";
 
-const VALUES = { radius: 14, duration: 0.8 } as const;
+const VALUES = { area: 0.1 } as const;
 
 declare module "../types.js" {
   interface UpgradeValueMap {
@@ -8,14 +8,14 @@ declare module "../types.js" {
   }
 }
 
-/** Nicole's exclusive: a wider, longer fold-moon field. */
+/** Nicole's exclusive: wider automatic attack areas. */
 export const DEEP_FOLD: PassiveDef = {
   id: "deep-fold",
   pool: "nicole",
   maxLevel: 3,
   values: VALUES,
+  percent: true,
   modify(s, level) {
-    s.fieldRadius = s.fieldRadius + VALUES.radius * level;
-    s.fieldDuration = s.fieldDuration + VALUES.duration * level;
+    s.area += VALUES.area * level;
   },
 };

@@ -26,10 +26,20 @@ export function playerStats(state: SimState): PlayerStats {
     xpMultiplier: 1,
     hurtIframes: 0,
     area: 1,
+    attackIntervalScale: 1,
   } as PlayerStats;
   for (const c of CATS.all()) c.kitStats?.(s, q);
   for (const p of PASSIVE_DEFS.all()) p.modify?.(s, level(p.id), q);
   for (const w of WEAPON_DEFS.all()) w.stats?.(s, weaponLevel(w.id), q);
+  // Weapon stats are assembled first; interval-bearing attacks then share the passive rate.
+  // Orbit contact cadence and evolution-local timers consume the same scale in their defs.
+  s.attackInterval *= s.attackIntervalScale;
+  s.empoweredInterval *= s.attackIntervalScale;
+  for (const value of Object.values(s)) {
+    if (value && typeof value === "object" && "interval" in value && typeof value.interval === "number")
+      value.interval *= s.attackIntervalScale;
+  }
+  if (s.paperCut) s.paperCut.edgeInterval *= s.attackIntervalScale;
   // The worn costume's timed buffs come last (a plain run skips this).
   if (state.costume) COSTUME_DEFS.find(state.costume.id)?.stats?.(s, q);
   return s;

@@ -20,7 +20,7 @@ import type { CostumeId } from "./defs/types.js";
 import { PREF_KEY, readPrefs, type Prefs } from "./ui/prefs.js";
 import { wardrobeEntries } from "./ui/wardrobe.js";
 import { bossEnemy, chooseUpgrade, createSim, step } from "./game/sim.js";
-import { evolutionFor, playerStats } from "./game/upgrades.js";
+import { evolutionFor } from "./game/upgrades.js";
 import { paintUpgradeCards } from "./ui/upgrade-cards.js";
 import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
@@ -89,7 +89,6 @@ function cueState(s: SimState) {
     shots: s.nextShotId,
     dealt: s.stats.damageDealt,
     kills: s.stats.kills,
-    skills: s.stats.skillUses,
     taken: s.stats.damageTaken,
     blocks: s.stats.shieldBlocks,
     shards: s.stats.shardsCollected,
@@ -182,12 +181,11 @@ function boot(): void {
   };
   const app = must<HTMLElement>("app"),
     stage = must<HTMLCanvasElement>("game"),
-    overlay = must<HTMLElement>("overlay"),
-    skillButton = must<HTMLButtonElement>("dash-btn");
+    overlay = must<HTMLElement>("overlay");
   const ctx = stage.getContext("2d")!;
   const input = createInput();
   input.attach(window);
-  const touch = createTouch(must("touch"), must("stick"), must("dash-btn")),
+  const touch = createTouch(must("touch"), must("stick")),
     useTouch = prefersTouch();
   if (useTouch) touch.attach();
   document.body.classList.toggle("has-touch", useTouch);
@@ -236,11 +234,6 @@ function boot(): void {
     buff: must<HTMLElement>("hud-buff"),
     map: must<HTMLCanvasElement>("hud-map"),
     pause: must<HTMLButtonElement>("btn-hud-pause"),
-    skill: must<HTMLButtonElement>("btn-skill"),
-    skillName: must<HTMLElement>("hud-skill-name"),
-    skillKey: must<HTMLElement>("hud-skill-key"),
-    dash: must<HTMLElement>("hud-dash"),
-    wick: must<HTMLCanvasElement>("hud-wick"),
     hint: must<HTMLElement>("hud-hint"),
     level: must<HTMLElement>("hud-level"),
     xp: must<HTMLElement>("hud-xp"),
@@ -296,7 +289,6 @@ function boot(): void {
     if (now.shots > p.shots) sfx.play("shot");
     if (now.kills > p.kills) sfx.play("defeat", now.kills - p.kills);
     else if (now.dealt > p.dealt) sfx.play("hit");
-    if (now.skills > p.skills) sfx.play("skill");
     if (now.blocks > p.blocks) sfx.play("shield");
     else if (now.taken > p.taken) sfx.play("hurt");
     if (now.shards > p.shards) sfx.play("pickup", s.streak.count);
@@ -384,11 +376,6 @@ function boot(): void {
       ...(hiddenPause ? [t(locale, "pause.hidden")] : []),
       t(locale, "help.paper-world"),
     ].join(" ");
-    skillButton.textContent = characterCopy(
-      locale,
-      selectedCat,
-      "active.short",
-    );
     must("btn-fullscreen").setAttribute(
       "aria-label",
       t(locale, "hud.fullscreen"),
@@ -401,11 +388,6 @@ function boot(): void {
         locale,
         "pause.kit",
         characterValues(locale, id),
-      );
-      must("pause-skill").textContent = characterCopy(
-        locale,
-        id,
-        "active.desc",
       );
       if (screen === "result") {
         // Dawn with the Eraser still loose is its own loss, not a fall.
@@ -615,9 +597,6 @@ function boot(): void {
       button.click();
     });
   must("btn-start").addEventListener("click", start);
-  must("btn-skill").addEventListener("click", () => {
-    if (screen === "play") input.queueSkill();
-  });
   must("btn-retry").addEventListener("click", start);
   must("btn-lang").addEventListener("click", language);
   must("btn-pause-lang").addEventListener("click", language);
@@ -740,17 +719,6 @@ function boot(): void {
       );
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;
-    }
-    if (useTouch && sim && screen === "play") {
-      skillButton.disabled = sim.player.dashCooldown > 0;
-      const label = skillButton.disabled
-        ? `${sim.player.dashCooldown.toFixed(1)}s`
-        : characterCopy(locale, sim.player.id, "active.short");
-      if (skillButton.textContent !== label) skillButton.textContent = label;
-      skillButton.style.setProperty(
-        "--charge",
-        `${100 * (1 - sim.player.dashCooldown / playerStats(sim).cooldown)}%`,
-      );
     }
     if (profiling) frameReview?.record(now, {
       gen: updateCpu, mask: renderProfile.mask,

@@ -1,5 +1,10 @@
 # Midnight Meow handoff
 
+Latest override (2026-11-21): movement only, automatic attacks. Manual dash/active skills and their controls are removed locally; dependent upgrades now affect automatic combat. Historical dash preservation and baseline-equivalence claims below do not apply to this change. This revision is not pushed.
+
+Movement-only verification: `npm run build` and `npm test` passed (426/426). Desktop and 390×844 Chromium flows checked absent skill buttons, keyboard movement, joystick press/release and pause/resume, with zero page errors. Viewed `output/pixel-asset-review/movement-only-mobile.png`; desktop capture is alongside it. Not pushed; no iPhone performance claim. Asset detail work remains pending per the review log.
+
+
 Midnight Meow is a code-drawn pixel-art survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
 ## Published play checkpoint and individual asset review (2026-11-21)

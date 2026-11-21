@@ -65,23 +65,23 @@ test("only Zero fires aimed bolts; Nicole attacks with three moving stars", () =
   advance(n, 10);
   assert.notDeepEqual(a, orbitPositions(n));
 });
-test("Zero dash creates an attracting decoy and a timed rapid-fire window", () => {
-  const s = quiet(),
-    e = enemy(s, 515, 360, 99);
-  step(s, { ax: 1, ay: 0, dash: true }, DT);
-  assert.equal(s.decoy.live, true);
-  assert.equal(s.player.empowerTime, C.zero.empowerDuration);
-  assert.ok(s.shots[0].empowered);
-  advance(s, 15);
-  const before = e.x;
-  step(s, idle, DT);
-  assert.ok(
-    e.x < before,
-    "enemy goes back toward the decoy, away from the escaped player",
-  );
-  advance(s, 120);
-  assert.equal(s.decoy.live, false);
-  assert.equal(s.player.empowerTime, 0);
+test("legacy dash input leaves Zero movement and automatic bolts unchanged", () => {
+  const normal=quiet(), legacy=quiet();
+  for(const state of [normal,legacy])enemy(state,650,360,99);
+  let sawShot=false;
+  for(let i=0;i<30;i++){
+    step(normal,{ax:1,ay:0},DT);step(legacy,{ax:1,ay:0,dash:true},DT);
+    sawShot ||= legacy.shots.length>0;
+    assert.ok(legacy.shots.every(shot=>!shot.empowered));
+    assert.deepEqual(snapshot(legacy),snapshot(normal));
+    assert.equal(legacy.decoy.live,false);
+    assert.equal(legacy.player.empowerTime,0);
+    assert.equal(legacy.player.invuln,0);
+    assert.equal(legacy.player.dashTime,0);
+  }
+  assert.ok(legacy.player.x>480,"movement still runs");
+  assert.ok(sawShot,"automatic targeting still fires before bolts hit or expire");
+  assert.ok(legacy.shots.every(shot=>!shot.empowered));
 });
 test("empowered bolts hit exactly two distinct targets and do not hit one target every frame", () => {
   for (const empowered of [false, true]) {
@@ -125,17 +125,18 @@ test("orbit damage respects a per-enemy hit cooldown even with continuous overla
   step(s, idle, DT);
   assert.ok(e.hp <= 99 - C.nicole.orbitDamage * 2);
 });
-test("Moonfold produces a field and shield, never a decoy or empowered bolts", () => {
-  const s = quiet("nicole");
-  step(s, { ax: 1, ay: 0, dash: true }, DT);
-  assert.equal(s.decoy.live, false);
-  assert.equal(s.player.empowerTime, 0);
-  assert.equal(s.fields.length, 1);
-  assert.equal(s.player.shield, C.nicole.shieldCharges);
-  assert.equal(s.player.dashCooldown, C.nicole.cooldown);
-  advance(s, 300);
-  assert.equal(s.fields.length, 0);
-  assert.equal(s.player.shield, 0);
+test("legacy dash input gives Nicole no manual field, shield or invulnerability", () => {
+  const normal=quiet("nicole"), legacy=quiet("nicole");
+  for(let i=0;i<60;i++){
+    step(normal,{ax:1,ay:0},DT);step(legacy,{ax:1,ay:0,dash:true},DT);
+  }
+  assert.deepEqual(snapshot(legacy),snapshot(normal));
+  assert.equal(legacy.fields.length,0);
+  assert.equal(legacy.player.shield,0);
+  assert.equal(legacy.player.invuln,0);
+  assert.equal(legacy.player.dashCooldown,0);
+  assert.equal(legacy.decoy.live,false);
+  assert.equal(orbitPositions(legacy).length,3,"automatic stars remain active");
 });
 test("Moonfold field actually slows enemies and the effect expires", () => {
   const slow = quiet("nicole"),
@@ -205,13 +206,16 @@ test("Nicole emergency protection triggers once per run and does not resurrect a
   advance(s, 30);
   assert.deepEqual(snapshot(s), before);
 });
-test("repeated ability inputs respect each character cooldown", () => {
-  const z = quiet(),
-    n = quiet("nicole");
-  advance(z, 200, { ax: 0, ay: 0, dash: true });
-  advance(n, 200, { ax: 0, ay: 0, dash: true });
-  assert.equal(z.stats.skillUses, 2);
-  assert.equal(n.stats.skillUses, 1);
+test("holding legacy ability input never spends a skill or starts a cooldown", () => {
+  for(const cat of ["zero","nicole"]){
+    const normal=quiet(cat), legacy=quiet(cat);
+    advance(normal,200,{ax:0,ay:0});advance(legacy,200,{ax:0,ay:0,dash:true});
+    assert.deepEqual(snapshot(legacy),snapshot(normal));
+    assert.equal(legacy.stats.skillUses,0);
+    assert.equal(legacy.player.dashCooldown,0);
+    assert.equal(legacy.fields.length,0);
+    assert.equal(legacy.decoy.live,false);
+  }
 });
 test("a full night reaches dawn once, with finite state and enemies under the hard cap", () => {
   for (const cat of ["zero", "nicole"]) {

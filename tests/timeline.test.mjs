@@ -113,7 +113,7 @@ test("presentation slow motion runs fewer FIXED_DT steps but leaves the sim iden
     { ax: 1, ay: 0.1, dash: false },
   ];
   const total = 900;
-  const run = (speedAt) => {
+  const run = (speedAt, legacy = false) => {
     const sim = createSim({ cat: "nicole", seed: 77, sessionSeconds: 600 });
     const clock = createClock();
     let steps = 0,
@@ -121,7 +121,8 @@ test("presentation slow motion runs fewer FIXED_DT steps but leaves the sim iden
     while (steps < total) {
       const n = presentationSteps(clock, 1 / 60, speedAt(frames));
       for (let i = 0; i < n && steps < total; i++, steps++) {
-        step(sim, inputs[Math.floor(steps / 40) % inputs.length], FIXED_DT);
+        const input=inputs[Math.floor(steps / 40) % inputs.length];
+        step(sim, {...input,dash:legacy&&input.dash}, FIXED_DT);
         if (sim.pendingChoice) chooseUpgrade(sim, 0);
       }
       frames++;
@@ -133,4 +134,6 @@ test("presentation slow motion runs fewer FIXED_DT steps but leaves the sim iden
   const slowed = run((f) => (f % 90 < 30 ? 0.3 : f % 90 < 45 ? 0.6 : 1));
   assert.ok(slowed.frames > normal.frames + 100, `${slowed.frames} vs ${normal.frames}`);
   assert.deepEqual(slowed.snap, normal.snap);
+  const legacy=run(() => 1,true);
+  assert.deepEqual(legacy.snap,normal.snap,"legacy ability flags do not change timed simulation");
 });

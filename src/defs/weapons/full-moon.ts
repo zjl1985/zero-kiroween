@@ -42,7 +42,7 @@ export const FULL_MOON: WeaponDef = {
     const p = state.player;
     state.pulseTimer -= dt;
     if (state.pulseTimer > 0) return;
-    state.pulseTimer = VALUES.pulseInterval;
+    state.pulseTimer = VALUES.pulseInterval * ps.attackIntervalScale;
     const reach = ps.orbitRadius + ps.pulseReach;
     ctx.effect(state, p.x, p.y, "moon-pulse", EFFECT_LIFE["moon-pulse"], { radius: reach });
     for (const e of state.enemies) {

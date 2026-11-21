@@ -10,7 +10,7 @@ pixel art, referencing `danielwh2/sprite-stacking`; first seal the previous pape
 version. Frozen tag: `archive/papercraft-2026-11-21` at `d26859b`, work branch:
 `refactor/pixel-stacking`. Older paper-only, no-pixel and approved-paper-head
 contour requirements below are superseded for this refactor. Keep native pixel
-cat identities, simulation, input and mechanics; no runtime style toggle.
+cat identities; no runtime style toggle. The latest user correction requires movement-only input: remove manual dash/displacement and active skill controls, retain automatic attacks. This supersedes old active-skill preservation rules below.
 Code-authored pixel slices/sprites may be cached. User-requested actual screenshots
 are authorized in the working Linux Chromium environment; the historical macOS
 launch failure is not this environment. Do not claim device performance or art approval.

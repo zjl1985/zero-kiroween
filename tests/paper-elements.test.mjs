@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MATERIALS, PROP_DEFS, REACTIONS, reactionFor } from "../dist/defs/index.js";
-import { NICOLE, NICOLE_FOLD_POWER } from "../dist/defs/cats/nicole/def.js";
+import { NICOLE } from "../dist/defs/cats/nicole/def.js";
 import { SMUDGE, SMUDGE_DEF } from "../dist/defs/enemies/smudge/def.js";
 import { INK_VAT } from "../dist/defs/props/ink-vat/def.js";
 import { WAX_CANDLE } from "../dist/defs/props/wax-candle/def.js";
@@ -209,16 +209,11 @@ test("smudge drops apply ink exactly once on landing while retaining puddle and 
   assert.equal(s.rngState, rng);
 });
 
-test("Nicole's skill supplies fold at its real field radius without replacing shields or the slowing field", () => {
-  const s = state("nicole"), ctx = context(), ps = playerStats(s), rng = s.rngState;
-  NICOLE.onSkill(s, ps, ctx);
-  assert.deepEqual(ctx.calls.elements, [{ x: s.player.x, y: s.player.y, radius: ps.fieldRadius, element: "fold", power: NICOLE_FOLD_POWER }]);
-  assert.equal(s.fields.length, 1);
-  assert.equal(s.fields[0].radius, ps.fieldRadius);
-  assert.equal(s.fields[0].life, ps.fieldDuration);
-  assert.equal(s.player.shield, ps.shieldCharges);
-  assert.equal(s.notice.kind, "nicole-fold");
-  assert.equal(s.rngState, rng);
+test("Nicole exposes no manual skill hook; fold is supplied by automatic weapons", () => {
+  assert.equal("onSkill" in NICOLE,false);
+  const s=state("nicole");
+  assert.equal(s.fields.length,0);
+  assert.equal(s.player.shield,0);
 });
 
 test("both cats' crane volleys add exactly one fold pulse but preserve shot fan, homing, timing and RNG", (t) => {

@@ -24,19 +24,19 @@ function element() {
 }
 
 function setup() {
-  const root = element(), base = element(), dash = element(), knob = element();
+  const root = element(), base = element(), knob = element();
   knob.offsetWidth = 26;
   base.querySelector = () => knob;
   let reads = 0;
   const rect = { left: 0, top: 0, width: 90, height: 90 };
   base.getBoundingClientRect = () => { reads++; return rect; };
-  const touch = createTouch(root, base, dash);
+  const touch = createTouch(root, base);
   touch.attach();
   const fire = (type, clientX, clientY, pointerId = 1, target = base) => {
     const event = Object.assign(new Event(type, { cancelable: true }), { clientX, clientY, pointerId });
     target.dispatchEvent(event);
   };
-  return { base, dash, knob, touch, rect, fire, reads: () => reads };
+  return { base, knob, touch, rect, fire, reads: () => reads };
 }
 
 test("touch drag updates direction immediately without remeasuring the layout on every move", () => {
@@ -62,20 +62,19 @@ test("touch drag updates direction immediately without remeasuring the layout on
   assert.equal(reads(), 2);
 });
 
-test("secondary touches do not hijack the stick or lose a queued skill when it is released", () => {
-  const { touch, fire, base, dash, knob } = setup();
+test("secondary touches do not hijack the movement stick and cancellation clears its axes", () => {
+  const { touch, fire, base, knob } = setup();
   const input = createInput();
   fire("pointerdown", 77, 45);
   fire("pointerdown", 12, 45, 2);
   fire("pointermove", 12, 45, 2);
   fire("pointerup", 12, 45, 2);
   assert.equal(input.sample(touch.stick).ax, 1);
-  fire("pointerdown", 200, 300, 3, dash);
   fire("pointercancel", 77, 45);
   assert.equal(knob.style.translate, "");
   assert.equal(base.classList.contains("is-active"), false);
-  assert.deepEqual(input.sample(touch.stick), { ax: 0, ay: 0, dash: true });
-  assert.equal(input.sample(touch.stick).dash, false);
+  assert.deepEqual(input.sample(touch.stick), { ax: 0, ay: 0 });
+  assert.deepEqual(Object.keys(touch.stick).sort(), ["ax", "ay"]);
   fire("pointerdown", 77, 45, 4);
   fire("lostpointercapture", 77, 45, 4);
   assert.equal(touch.stick.ax, 0);
@@ -108,4 +107,72 @@ test("the built touch upgrade hand skips the desktop deal and forces flat cards"
   assert.match(main, /show\("upgrade"\);\s*(?:\/\/[^\n]*\n\s*)?if \(useTouch\)\s*return;[\s\S]*?replay\(hand, "dealt"\)/);
   assert.match(css, /\.has-touch \.upgrade-cards\s*\{\s*perspective: none/);
   assert.match(css, /\.has-touch \.upgrade-card:hover[^\{]*\{\s*transform: none;\s*filter: none;\s*transition: none/);
+});
+
+function keyboardInput() {
+  const target = new EventTarget(), input = createInput();
+  input.attach(target);
+  const fire = (code, repeat = false, type = "keydown") => {
+    const event = Object.assign(new Event(type, { cancelable: true }), { code, repeat });
+    target.dispatchEvent(event);
+    return event;
+  };
+  return { input, target, fire };
+}
+
+test("Space, Shift and repeated keydown cannot queue an ability or boost movement", () => {
+  const { input, fire } = keyboardInput(), stick = { ax: 0, ay: 0 };
+  assert.equal("queueSkill" in input, false);
+  fire("KeyD");
+  const normal = input.sample(stick);
+  for (const code of ["Space", "ShiftLeft", "ShiftRight"]) {
+    for (const repeat of [false, true, true]) {
+      const event = fire(code, repeat);
+      assert.deepEqual(input.sample(stick), normal);
+      assert.equal(event.defaultPrevented, false, "unbound keys retain browser/button behavior");
+    }
+  }
+  assert.deepEqual(normal, { ax: 1, ay: 0 });
+  const speed = (frame) => {
+    const state = createSim({ seed: 9 });
+    step(state, frame, FIXED_DT);
+    return Math.hypot(state.player.vx, state.player.vy);
+  };
+  assert.equal(speed(input.sample(stick)), speed(normal));
+  fire("KeyD", false, "keyup");
+  assert.deepEqual(input.sample(stick), { ax: 0, ay: 0 });
+  input.detach();
+});
+
+test("keyboard diagonal and pointer axes remain normalized with the existing stick priority", () => {
+  const { input, fire, target } = keyboardInput();
+  fire("KeyW"); fire("KeyD");
+  const diagonal = input.sample({ ax: 0, ay: 0 });
+  assert.ok(Math.abs(Math.hypot(diagonal.ax, diagonal.ay) - 1) < 1e-12);
+  assert.ok(diagonal.ax > 0 && diagonal.ay < 0);
+  assert.deepEqual(input.sample({ ax: 0, ay: 0.04 }), diagonal, "tiny pointer jitter does not replace keyboard movement");
+  assert.deepEqual(input.sample({ ax: -3, ay: 4 }), { ax: -0.6, ay: 0.8 });
+  assert.deepEqual(input.sample({ ax: 0, ay: 0.5 }), { ax: 0, ay: 0.5 });
+  target.dispatchEvent(new Event("blur"));
+  assert.deepEqual(input.sample({ ax: 0, ay: 0 }), { ax: 0, ay: 0 });
+  input.detach();
+});
+
+test("menu choice and pause shortcuts remain single-consumption actions", () => {
+  const { input, fire } = keyboardInput();
+  fire("Digit2"); assert.equal(input.consumeChoice(), 1); assert.equal(input.consumeChoice(), null);
+  fire("Digit2", true); assert.equal(input.consumeChoice(), null);
+  fire("Numpad3"); assert.equal(input.consumeChoice(), 2);
+  for (const code of ["Escape", "KeyP"]) {
+    assert.equal(fire(code).defaultPrevented, true);
+    assert.equal(input.wantsPause(), true);
+    assert.equal(input.consumePause(), true);
+    assert.equal(input.consumePause(), false);
+    fire(code, true); assert.equal(input.wantsPause(), false);
+  }
+  assert.equal(fire("ArrowLeft").defaultPrevented, true);
+  fire("Digit1"); fire("Escape"); input.reset();
+  assert.equal(input.consumeChoice(), null); assert.equal(input.consumePause(), false);
+  assert.deepEqual(input.sample({ ax: 0, ay: 0 }), { ax: 0, ay: 0 });
+  input.detach();
 });

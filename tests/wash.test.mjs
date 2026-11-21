@@ -218,13 +218,14 @@ test("restoration: pigment from kills, lantern and pumpkin light, and dawn", () 
   assert.equal(quiet().stats.colourKept, 100, "nothing washed: all colour kept");
 });
 
-test("kit interplay through element hits: a large fold protects, a dash cut leaves a white hole", () => {
+test("automatic fold protects paper while legacy dash input neither folds nor cuts", () => {
   const n = quiet("nicole");
   run(n, DT, { ax: 0, ay: 0, dash: true });
-  assert.equal(n.fields.length, 1);
-  assert.equal(cellCount(n), 0, "Nicole's skill on painted ground stores no wash cells");
+  assert.equal(n.fields.length, 0);
+  assert.equal(n.wash.folds.length,0);
+  assert.equal(cellCount(n), 0);
   spillWater(n, n.player.x, n.player.y, 40, 1);
-  assert.ok(!isColourless(washCellAt(n, n.player.x, n.player.y)), "the fold field keeps the paint dry");
+  assert.ok(isColourless(washCellAt(n, n.player.x, n.player.y)), "legacy input supplies no protective field");
   // Small fold hits (crane shots in flight) never mark the page.
   const f = quiet();
   applyElement(f, 600, 300, 5, "fold", 1);
@@ -238,20 +239,19 @@ test("kit interplay through element hits: a large fold protects, a dash cut leav
   assert.ok(!isColourless(washCellAt(f, 600, 300)), "the fold circle keeps the paint dry");
   run(f, WASH.fold.seconds + 0.5);
   assert.equal(f.wash.folds.length, 0, "fold circles expire");
-  // Zero's mirror dash on painted, never-washed ground leaves no mark at all.
-  const p = quiet("zero");
-  run(p, DT * 4, { ax: 1, ay: 0, dash: true });
-  assert.equal(cellCount(p), 0, "a dash over painted ground stores no wash cells");
-  // Through colourless paper the dash cuts a white hole.
-  const z = quiet("zero"), x0 = z.player.x;
-  washAt(z, x0 + 60, z.player.y, 120, 1);
-  const keptBefore = colourKept(z);
-  run(z, DT * 4, { ax: 1, ay: 0, dash: true });
-  assert.ok(z.player.x > x0 + 20);
-  assert.ok(washBlankAt(z, (x0 + z.player.x) / 2, z.player.y), "a cut hole along the dash");
-  assert.equal(colourKept(z), keptBefore, "a cut hole is not lost colour");
-  run(z, WASH.cut.seconds + 1);
-  assert.ok(!washBlankAt(z, (x0 + z.player.x) / 2, z.player.y), "the cut closes again");
+  const normal=quiet("zero"), legacy=quiet("zero");
+  for(const state of [normal,legacy])washAt(state,state.player.x+60,state.player.y,120,1);
+  const x0=legacy.player.x, keptBefore=colourKept(legacy);
+  run(normal,DT*4,{ax:1,ay:0});run(legacy,DT*4,{ax:1,ay:0,dash:true});
+  assert.deepEqual(snapshot(legacy),snapshot(normal));
+  assert.equal(legacy.player.x,normal.player.x,"no movement boost on washed paper");
+  assert.ok(!washBlankAt(legacy,(x0+legacy.player.x)/2,legacy.player.y),"legacy input does not cut a hole");
+  assert.equal(colourKept(legacy),keptBefore);
+  // An actual weapon cut retains its independent terrain lifecycle.
+  applyElement(legacy,legacy.player.x,legacy.player.y,20,"cut",1);
+  assert.ok(washBlankAt(legacy,legacy.player.x,legacy.player.y));
+  run(legacy,WASH.cut.seconds+1);
+  assert.ok(!washBlankAt(legacy,legacy.player.x,legacy.player.y),"weapon cut closes again");
 });
 
 test("pencil sketches wake only on colourless, unblank cells near the cat and respect the caps", () => {

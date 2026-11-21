@@ -13,18 +13,17 @@ Weapons attack automatically. Collect ink shards from defeated enemies to level 
 | Action | Desktop control |
 | --- | --- |
 | Move | WASD or arrow keys |
-| Use your cat's skill | Space |
 | Pause | Esc or P |
 | Choose an upgrade | 1, 2, or 3, or click a card |
 
-On touch screens, move with the stick and tap the skill button. English is the default, and you can switch to Chinese in the game.
+On touch screens, move with the stick; attacks are automatic. English is the default, and you can switch to Chinese in the game.
 
 ## Meet the cats
 
-| Cat | Starting weapon and skill | Weapon evolution |
+| Cat | Starting weapon | Weapon evolution |
 | --- | --- | --- |
-| **Zero** | Meowline fires at nearby enemies. His dash leaves an afterimage that distracts enemies and briefly boosts his shots. | With maxed Meowline and Long Shadow, open a chest to unlock **Echo Legion**. The afterimage fires its own shots and bursts as it fades. |
-| **Nicole** | Moonstars orbit her. Moonfold slows enemies in its field and gives her a shield. | With maxed Moonstars and Deep Fold, open a chest to unlock **Full Moon**. More stars join the orbit and a recurring pulse pushes enemies away. |
+| **Zero** | Meowline fires at nearby enemies. He keeps his distance using ordinary movement. | With maxed Meowline and Long Shadow, open a chest to unlock **Echo Legion**. Automatic afterimages fire their own shots and burst as they fade. |
+| **Nicole** | Moonstars orbit her. Move to keep enemies within their orbit. | With maxed Moonstars and Deep Fold, open a chest to unlock **Full Moon**. More stars join the orbit and a recurring pulse pushes enemies away. |
 
 ## Explore the paper town
 

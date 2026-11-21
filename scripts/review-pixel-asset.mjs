@@ -62,9 +62,9 @@ try {
       const cases=[['idle right',0,false,1,false,false,false],['idle left',0,false,-1,false,false,false],
         ['walk 0',0,true,1,false,false,false],['walk 1',1,true,1,false,false,false],
         ['walk 2',2,true,1,false,false,false],['walk 3',3,true,1,false,false,false],
-        ['dash right',1,true,1,true,false,false],['dash left',1,true,-1,true,false,false],
+        ['walk left 1',1,true,-1,false,false,false],['walk left 2',2,true,-1,false,false,false],
         ['hurt',0,false,1,false,true,false],['reduced walk',2,true,1,false,false,true],
-        ['reduced dash',2,true,1,true,false,true],['walk left',3,true,-1,false,false,false]];
+        ['reduced left',2,true,-1,false,false,true],['walk left',3,true,-1,false,false,false]];
       ctx.fillStyle='#101e2b';ctx.fillRect(0,0,1024,768);ctx.font='14px monospace';
       cases.forEach(([label,frame,moving,facing,dashing,hurt,reduced],i)=>{
         const x=(i%4)*256,y=Math.floor(i/4)*256;

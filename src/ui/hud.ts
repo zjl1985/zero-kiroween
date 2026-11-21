@@ -7,12 +7,12 @@ import { bossEnemy, enemyMaxHp, nightPhase } from "../game/sim.js";
 import { catName, characterCopy, paintPortrait } from "./character-panel.js";
 import { catArt } from "../render/art-index.js";
 import type { Camera } from "../render/camera.js";
-import { BUILD, playerStats, upgradeDef, type UpgradeId } from "../game/upgrades.js";
+import { BUILD, upgradeDef, type UpgradeId } from "../game/upgrades.js";
 import { paintCardEmblem, paintUpgradeIcon } from "../render/upgrade-icons.js";
 import { upgradeName } from "./upgrade-cards.js";
 import { landmarks } from "../game/world-gen.js";
-import { moonArc, SEAM_STITCHES, seamStitches, viewChunks, wickCharge } from "./journal-geometry.js";
-import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc, paintWick } from "../render/journal-ui.js";
+import { moonArc, SEAM_STITCHES, seamStitches, viewChunks } from "./journal-geometry.js";
+import { lanternWidth, paintLanterns, paintMinimap, paintSkyArc } from "../render/journal-ui.js";
 import { DEAL } from "../render/timeline.js";
 import { environmentCopy } from "./environment-copy.js";
 import { COSTUME_DEFS } from "../defs/index.js";
@@ -29,11 +29,6 @@ export interface HudRefs {
   buff: HTMLElement;
   map: HTMLCanvasElement;
   pause: HTMLButtonElement;
-  skill: HTMLButtonElement;
-  skillName: HTMLElement;
-  skillKey: HTMLElement;
-  dash: HTMLElement;
-  wick: HTMLCanvasElement;
   hint: HTMLElement;
   level: HTMLElement;
   xp: HTMLElement;
@@ -284,7 +279,6 @@ function text(el: HTMLElement, value: string) {
 }
 export function renderHud(refs: HudRefs, locale: Locale, sim: SimState, camera: Camera = sim.player): void {
   const p = sim.player,
-    ready = p.dashCooldown <= 0,
     still = reduced(),
     clock = still ? 0 : sim.elapsed;
   // Moon arc: the moon walks the dotted arc and turns into the sun at dawn.
@@ -335,27 +329,13 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState, camera: 
   renderChest(refs.chest, locale, sim);
   renderBoss(refs, locale, sim);
   renderMap(refs, locale, sim, camera);
-  // Wick: the flame grows back as the signature skill recharges.
-  const charge = wickCharge(p.dashCooldown, playerStats(sim).cooldown);
-  paintIf(refs.wick, `${Math.round(charge * 40)}|${ready}|${Math.floor(clock * 10)}`, () =>
-    paintWick(refs.wick, charge, ready, clock),
-  );
-  text(refs.skillName, characterCopy(locale, p.id, "active.name"));
-  text(refs.skillKey, t(locale, "hud.space"));
-  text(refs.dash, ready ? t(locale, "hud.ready") : `${p.dashCooldown.toFixed(1)}s`);
-  refs.skill.classList.toggle("ready", ready);
-  refs.skill.disabled = !ready;
-  refs.skill.setAttribute("aria-label", `${characterCopy(locale, p.id, "active.name")} · ${refs.dash.textContent}`);
   refs.pause.setAttribute("aria-label", t(locale, "hud.pause"));
   renderNotice(refs, locale, sim);
   renderStreak(refs, locale, sim);
   renderBanner(refs, locale, sim);
   text(
     refs.hint,
-    environment.hint ?? t(locale, "hud.skill_hint", {
-      skill: characterCopy(locale, p.id, "active.name"),
-      tactic: characterCopy(locale, p.id, "tactic"),
-    }),
+    environment.hint ?? characterCopy(locale, p.id, "tactic"),
   );
   refs.hint.classList.toggle("context-hint", !!environment.hint);
   refs.hint.classList.toggle("danger-hint", environment.danger);

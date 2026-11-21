@@ -5,7 +5,8 @@ import type { CatId, CostumeId, EnemyKind, Point } from "../defs/types.js";
 export interface FrameInput {
   ax: number;
   ay: number;
-  dash: boolean;
+  /** Legacy replay input accepted but never acted on. Live input has axes only. */
+  dash?: boolean;
   /** Index (0..2) of an upgrade card while a choice is pending. */
   choose?: number;
 }

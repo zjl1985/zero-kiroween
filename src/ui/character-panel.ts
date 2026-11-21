@@ -108,7 +108,6 @@ export function paintCharacterPanel(
   document.body.dataset.cat = id;
   set("cat-choice-label", t(locale, "selector.title"));
   set("selector-kicker", t(locale, "selector.kicker"));
-  set("profile-skill-key", t(locale, "hud.space"));
   set("profile-name", catName(locale, id));
   set("profile-role", characterCopy(locale, id, "role"));
   set("profile-story", characterCopy(locale, id, "story"));
@@ -136,7 +135,7 @@ export function paintCharacterPanel(
     stage.dataset.cat = stageSig;
   }
   if (progress) paintWardrobe(locale, id, costume, progress);
-  for (const kind of ["attack", "active", "passive"] as const) {
+  for (const kind of ["attack", "passive"] as const) {
     set(`skill-${kind}-type`, t(locale, `selector.${kind}`));
     set(`skill-${kind}-name`, characterCopy(locale, id, `${kind}.name`));
     set(`skill-${kind}-desc`, characterCopy(locale, id, `${kind}.desc`));

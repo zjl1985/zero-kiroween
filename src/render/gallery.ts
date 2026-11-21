@@ -54,8 +54,7 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     ctx.translate(st.x + st.w / 2, st.y + st.h - 10);
     ctx.scale(k, k);
     const pose = { id: cell.id, x: 0, y: 0, facing: 1 as const, moving: false, dashing: false, hurt: false, time: 0 };
-    if (cell.state === "skill") art.skillPreview(ctx, pose);
-    else art.draw(ctx, pose);
+    art.draw(ctx, pose);
     ctx.restore();
   },
   enemy(ctx, cell, st) {

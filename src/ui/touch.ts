@@ -4,7 +4,6 @@ import type { PointerStick } from "../game/input.js";
 export function createTouch(
   root: HTMLElement,
   stickEl: HTMLElement,
-  dashEl: HTMLElement,
 ): {
   stick: PointerStick;
   attach: () => void;
@@ -12,7 +11,7 @@ export function createTouch(
   reset: () => void;
   invalidateGeometry: () => void;
 } {
-  const stick: PointerStick = { ax: 0, ay: 0, dashQueued: false };
+  const stick: PointerStick = { ax: 0, ay: 0 };
   // A small radial dead zone keeps thumb jitter from starting the cat.
   const deadZone = 0.14;
   const knob = stickEl.querySelector<HTMLElement>("i")!;
@@ -59,7 +58,6 @@ export function createTouch(
   };
   const reset = () => {
     releaseStick();
-    stick.dashQueued = false;
   };
 
   const onDown = (event: PointerEvent) => {
@@ -77,10 +75,6 @@ export function createTouch(
     if (event.pointerId !== pointerId) return;
     releaseStick();
   };
-  const onDash = (event: Event) => {
-    event.preventDefault();
-    stick.dashQueued = true;
-  };
 
   return {
     stick,
@@ -93,7 +87,6 @@ export function createTouch(
       stickEl.addEventListener("pointerup", onUp);
       stickEl.addEventListener("pointercancel", onUp);
       stickEl.addEventListener("lostpointercapture", onUp);
-      dashEl.addEventListener("pointerdown", onDash);
     },
     detach() {
       root.classList.remove("is-on");
@@ -102,7 +95,6 @@ export function createTouch(
       stickEl.removeEventListener("pointerup", onUp);
       stickEl.removeEventListener("pointercancel", onUp);
       stickEl.removeEventListener("lostpointercapture", onUp);
-      dashEl.removeEventListener("pointerdown", onDash);
       reset();
     },
   };

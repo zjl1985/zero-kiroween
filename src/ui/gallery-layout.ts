@@ -75,7 +75,7 @@ export function gallerySections(): GallerySection[] {
     items: list,
   });
   return [
-    section("cat", "cats", items("cat", CATS.ids(), (id) => `${id}.name`, () => ["idle", "skill"])),
+    section("cat", "cats", items("cat", CATS.ids(), (id) => `${id}.name`, () => ["idle"])),
     section(
       "enemy",
       "enemies",

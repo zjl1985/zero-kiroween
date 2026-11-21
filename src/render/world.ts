@@ -213,27 +213,6 @@ function drawWorldFrame(
     });
   };
   if (sim) {
-    if (sim.player.dashTime > 0) {
-      const len = Math.hypot(sim.player.vx, sim.player.vy) || 1,
-        dx = sim.player.vx / len,
-        dy = sim.player.vy / len;
-      ctx.save();
-      for (let i = 0; i < 4; i++) {
-        ctx.globalAlpha = 0.45 - i * 0.09;
-        const x = sim.player.x - dx * (12 + i * 8),
-          y = sim.player.y - 20 - dy * (12 + i * 8);
-        line(
-          ctx,
-          x - dy * 5,
-          y + dx * 5,
-          x - dx * 14 - dy * 5,
-          y - dy * 14 + dx * 5,
-          "#b8d3cc",
-          2,
-        );
-      }
-      ctx.restore();
-    }
     drawPixelStroke(
       ctx,
       sim.stroke.points,
@@ -309,10 +288,9 @@ function drawWorldFrame(
       y: sim.player.y,
       facing: sim.player.facing,
       moving: Math.hypot(sim.player.vx, sim.player.vy) > 8,
-      dashing: sim.player.dashTime > 0,
+      dashing: false,
       hurt:
         sim.impacts.some((e) => e.kind === "hurt") &&
-        sim.player.dashTime <= 0 &&
         Math.floor(view.time * 16) % 2 === 0,
       time: view.time,
       wear: catWear(sim.player.hp / Math.max(1, sim.player.maxHp), sim.player.healAt, sim.elapsed),
