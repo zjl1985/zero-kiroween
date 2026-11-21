@@ -266,7 +266,7 @@ test("world scenery reuses bounded native-resolution caches without repainting d
     };
     const first = draw();
     assert.equal(first.op, "drawImage");
-    if (kind === "cottage") {
+    {
       for (const [distance, reduced] of [[0,false],[900,false],[900,true],[0,true]]) {
         const start = ctx.calls.length;
         const sprite = worldSprites(ctx, seed, cam, distance + 1, {
@@ -275,10 +275,10 @@ test("world scenery reuses bounded native-resolution caches without repainting d
         assert.ok(sprite);
         sprite.draw();
         const calls = ctx.calls.slice(start);
-        assert.equal(calls.length, 1, "cottage never draws a leftover paper hinge");
+        assert.equal(calls.length, 1, `${kind} never draws a leftover paper hinge`);
         assert.equal(calls[0].op, "drawImage");
-        assert.deepEqual(calls[0].bounds, first.bounds, "approach and reduced motion never lift or squash the house");
-        assert.equal(calls[0].image, first.image, "grounded cottage keeps its cached shape");
+        assert.deepEqual(calls[0].bounds, first.bounds, "approach and reduced motion never lift or squash scenery");
+        assert.equal(calls[0].image, first.image, "grounded scenery keeps its cached shape");
       }
     }
 

@@ -235,7 +235,7 @@ test("burning prop damage stays in its cached surface and excludes time/placemen
   assert.deepEqual(painted[0], { s: 1, v: 1, phase: "intact", burnt: false });
 });
 
-test("folded scenery uses bounded masked shade sprites and identifies foreground overlap", (t) => {
+test("native landmark scenery stays upright at every distance and preserves foreground overlap", (t) => {
   drawingEnvironment(t);
   const art = LANDMARK_ART.all().find((a) => a.pieces?.some((p) => p.popup));
   const piece = art.pieces.find((p) => p.popup), seed = 24681357;
@@ -253,18 +253,15 @@ test("folded scenery uses bounded masked shade sprites and identifies foreground
     assert.equal(tints(ctx).length, 0);
     return { image: images(ctx)[0].args[0], ctx, occludesPlayer: sprite.occludesPlayer };
   };
-  const upright = draw(0), folded = draw(POPUP.far);
+  const upright = draw(0), distant = draw(POPUP.far);
   assert.equal(upright.occludesPlayer, true);
-  assert.equal(folded.occludesPlayer, false);
-  assert.notEqual(folded.image, upright.image);
-  assert.equal(draw(POPUP.far).image, folded.image, "same fold reuses the tint");
-  assert.ok(folded.ctx.calls.some((c) => c.op === "scale" && c.args[0] === 1 && c.args[1] === POPUP.min));
-  assert.ok(folded.ctx.calls.some((c) => c.op === "stroke" && c.strokeStyle === "#e7cf9c"), "hinge lip remains");
-  assert.ok(tints(folded.image.getContext("2d")).length === 1);
-  // Independent static distance samples, not an animation or browser capture.
-  const shades = new Set(Array.from({ length: 33 }, (_, i) => draw(POPUP.near + (POPUP.far - POPUP.near) * i / 32).image));
-  assert.ok(shades.size > 2 && shades.size <= 9, `bounded shade count: ${shades.size}`);
-  assert.equal(painted, 1, "shade changes never repaint the registered piece");
+  assert.equal(distant.occludesPlayer, false);
+  assert.equal(distant.image, upright.image, "distance never creates a flattened or tinted copy");
+  assert.ok(!distant.ctx.calls.some(c => c.op === "scale"), "native landmark retains its upright volume");
+  assert.ok(!distant.ctx.calls.some(c => c.op === "stroke"), "no detached paper hinge under the building");
+  const imagesAtDistance = new Set(Array.from({length:33},(_,i)=>draw(POPUP.near+(POPUP.far-POPUP.near)*i/32).image));
+  assert.equal(imagesAtDistance.size, 1, "approach reuses the one cached native shape");
+  assert.equal(painted, 1, "moving around the landmark never repaints geometry");
 });
 
 test("the two hot paths have no filter assignments or generic cat-id branches", () => {

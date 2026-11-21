@@ -7,7 +7,7 @@ import { hash, type Ctx } from "./paper-material.js";
 
 import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 
-export const ROAD_STOCK = { face: "#95886f", rim: "#b9aa8c" } as const;
+export const ROAD_STOCK = { face: "#95886f", rim: "#a4977a" } as const;
 
 interface RoadSegment {
   start: { x: number; y: number };
@@ -72,8 +72,39 @@ function drawVerges(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number
       if (!nearTile(tile, x, y, 22)) continue;
       const extent = 11 + hash(sd + 3) * 8;
       if (waterRegionsNear(seed, x, y, extent).some((water) => touchesWaterShore(water, x, y, extent))) continue;
-      const sheet = sheetAt(seed, x, y), color = sheet?.fringe ?? "#777758";
+      const sheet = sheetAt(seed, x, y);
       pixelTerrainCluster(ctx, x, y, sd, sheet?.seam ?? "scallop");
+    }
+  }
+}
+
+/** Broken wheel-worn lanes and inset paving remain inside the shared road
+ * footprint. These are static cache detail, not new routes or collision edges. */
+function drawTravelBands(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
+  const {start,width,length,ux,uy,salt}=segment;
+  for(let d=8;d<length-8;d+=4){
+    const x=start.x+ux*d,y=start.y+uy*d;
+    if(!nearTile(tile,x,y,width+12))continue;
+    const block=Math.floor(d/28), tone=hash(salt+block*37);
+    if(sheetAt(seed,x,y)?.seam==="ruled"){
+      if(d%12!==8)continue;
+      // Staggered, irregular flagstones with recessed joints, never a grid
+      // covering every part of the road. Route intersections share the mask.
+      for(const side of [-1,0,1]){
+        if(hash(salt+block*71+side*19)<.3)continue;
+        const off=side*width*.52,px=x-uy*off+ux*(side===0?3:0),py=y+ux*off+uy*(side===0?3:0);
+        pixelRect(ctx,px-5,py-2,10,5,"#827866");
+        pixelRect(ctx,px-4,py-3,8,4,tone>.5?"#a4987e":"#9e937b");
+        pixelRect(ctx,px-3,py-3,5,1,"#b2a58a");
+      }
+    }else{
+      if(tone<.2)continue;
+      for(const side of [-1,1]){
+        const offset=side*(width*.43+Math.sin(d/43+salt)*1.5),px=x-uy*offset,py=y+ux*offset;
+        pixelRect(ctx,px-3,py-2,6,4,tone>.64?"#897b61":"#8e8167");
+        if(d%16===8)pixelRect(ctx,px+1,py,3,1,"#a19272");
+      }
+      if(tone>.72)pixelRect(ctx,x-2,y-1,4,3,"#9c8e71");
     }
   }
 }
@@ -119,6 +150,7 @@ export function* drawRoadNetwork(ctx: Ctx, seed: number, tile: ViewRect): Genera
   // Filled union avoids drawing the overlapping capsule caps as rings at junctions.
   yield;
   for (const segment of segments) {
+    drawTravelBands(ctx, segment, tile, seed);
     drawRoadWear(ctx, segment, tile, seed);
     yield;
   }

@@ -37,9 +37,7 @@ import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
 import { cameraProjection, viewRect } from "./camera.js";
-import { popupStep, popupTarget } from "./timeline.js";
 import { drawInteractable } from "./craft-juice.js";
-import { tintedSprite } from "./sprite-tint.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
 import { constructionLine, hatch, pencilFootprint, pencilGround, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
@@ -117,7 +115,7 @@ function decorBounds(d: Decor): Bounds | null {
   const b = BOUNDS[d.kind] ?? decorPiece(d.kind)?.bounds;
   return b ? { l: b.l * d.s, r: b.r * d.s, t: b.t * d.s, b: b.b * d.s } : null;
 }
-function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Readonly<SimState["landmarkEvents"][string]>, pencil = 0): void {
+function drawDecor(ctx: Ctx, d: Decor, time: number, activity?: Readonly<SimState["landmarkEvents"][string]>, pencil = 0): void {
   if (d.kind === "lamp") {
     drawLamp(ctx, { x: d.x, y: d.y, s: Math.round(d.s * 20) / 20 }, time);
     return;
@@ -147,7 +145,7 @@ function drawDecor(ctx: Ctx, d: Decor, time: number, shade = 0, activity?: Reado
       { x: ax / w, y: ay / h },
     );
   // Pieces standing on colourless paper show their pencil version (cached per sprite and step).
-  sketchedSprite(tintedSprite(sprite, "#000000", 0.28 * shade), pencil).draw(ctx, { x: d.x, y: d.y });
+  sketchedSprite(sprite, pencil).draw(ctx, { x: d.x, y: d.y });
   const live = extra?.live;
   if (live) drawSketched(ctx, pencil, d.x, d.y, { l: b.l * s, r: b.r * s, t: b.t * s, b: b.b * s }, (c) => live(c, d.x, d.y, s, v, time, activity));
 }
@@ -714,8 +712,6 @@ export function clearWorldRenderCache(): void {
   wantedChunks.clear();
   for (const image of chunkCache.values()) releaseChunk(image);
   chunkCache.clear();
-  folds.clear();
-  foldTime = null;
 }
 
 // ---------------------------------------------------------------- sprites
@@ -729,53 +725,19 @@ export interface VisibleLamp {
   y: number;
   s: number;
 }
-/** Pieces that fold up like a pop-up book page as the cat approaches. */
-const POP_KINDS: ReadonlySet<DecorKind> = new Set<DecorKind>(["tree"]);
-const pops = (kind: DecorKind) => POP_KINDS.has(kind) || !!decorPiece(kind)?.popup;
-/** Render-only fold per piece (never SimState); pieces out of view are forgotten. */
-const folds = new Map<string, number>();
-let foldTime: number | null = null;
 export interface PopupView {
-  /** The cat's position; without it everything stands. */
+  /** The cat's position for foreground occlusion; never deforms scenery. */
   cat: { x: number; y: number } | null;
   reduced: boolean;
   activities?: Readonly<SimState["landmarkEvents"]>;
   /** Pencil amount (0 painted .. 1 colourless) at a piece's base, when the page has washed cells. */
   sketch?: (x: number, y: number) => number;
 }
-/** Current fold (0..1) of a piece, eased toward its distance target. */
-function foldOf(d: Decor, pop: PopupView, dt: number): number {
-  if (!pop.cat) return 1;
-  const key = `${d.kind}:${d.x},${d.y}`,
-    target = popupTarget(Math.hypot(d.x - pop.cat.x, d.y - pop.cat.y)),
-    // A piece entering the view starts where it should be.
-    next = popupStep(folds.get(key) ?? target, target, dt, pop.reduced);
-  folds.set(key, next);
-  return next;
-}
-/** The hinge crease and darkening of a page that is not fully up. */
-function drawFolded(ctx: Ctx, d: Decor, bd: Bounds, f: number, paint: (shade: number) => void): void {
-  if (f >= 0.995) {
-    paint(0);
-    return;
-  }
-  ctx.save();
-  ctx.translate(d.x, d.y);
-  ctx.scale(1, f);
-  ctx.translate(-d.x, -d.y);
-  // Eight shade intervals keep tinted sprite keys bounded while the fold stays smooth.
-  paint(Math.round((1 - f) * 8) / 8);
-  ctx.restore();
-  // Paper hinge: a dark crease with a pale lip along the base.
-  const l = d.x + bd.l * 0.75,
-    r = d.x + bd.r * 0.75;
-  line(ctx, l, d.y + 2, r, d.y + 2, "#14101f", 2, 0.45 * (1 - f));
-  line(ctx, l, d.y + 0.5, r, d.y + 0.5, "#e7cf9c", 0.8, 0.5 * (1 - f));
-}
 /**
  * Tall decor (trees, cottages, lamps, landmark buildings) inside the view,
  * as y-sorted sprites. Lamps are also returned for ground light and glow.
- * With `pop`, buildings and trees fold up near the cat (pop-up book).
+ * Native scenery keeps its full volume at every distance. View metadata only
+ * controls actor occlusion, washed appearance and reduced-motion live details.
  */
 export function worldSprites(
   ctx: Ctx,
@@ -784,9 +746,6 @@ export function worldSprites(
   time: number,
   pop?: PopupView,
 ): { sprites: WorldSprite[]; lamps: VisibleLamp[] } {
-  const dt = foldTime === null ? 0 : Math.min(0.1, Math.max(0, time - foldTime));
-  foldTime = time;
-  if (folds.size > 800) folds.clear();
   const view = viewRect(cam),
     { a, b } = chunkRange(viewRect(cam, 480)),
     sprites: WorldSprite[] = [],
@@ -802,13 +761,11 @@ export function worldSprites(
         // Cull by the sprite's own bounds.
         if (d.x + bd.r < view.x0 || d.x + bd.l > view.x1 || d.y + bd.b < view.y0 || d.y + bd.t > view.y1) continue;
         if (d.kind === "lamp") lamps.push(d);
-        const f = pop && pops(d.kind) ? foldOf(d, pop, dt) : 1,
-          pencil = pop?.sketch?.(d.x, d.y) ?? 0;
+        const pencil = pop?.sketch?.(d.x, d.y) ?? 0;
         sprites.push({
           y: d.y,
-          occludesPlayer: !!pop?.cat && paperOccludesActor(d.x, d.y, 1, { ...bd, t: bd.t * f, b: bd.b * f }, pop.cat),
-          draw: () => drawFolded(ctx, d, bd, f, (shade) =>
-            drawDecor(ctx, d, pop?.reduced ? 0 : time, shade, pop?.reduced ? undefined : activity, pencil)),
+          occludesPlayer: !!pop?.cat && paperOccludesActor(d.x, d.y, 1, bd, pop.cat),
+          draw: () => drawDecor(ctx, d, pop?.reduced ? 0 : time, pop?.reduced ? undefined : activity, pencil),
         });
       }
     }

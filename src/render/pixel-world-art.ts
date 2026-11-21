@@ -16,6 +16,7 @@ type Palette = readonly [string, string, string];
 
 function fineModel(m:PixelStackModel):PixelStackModel {
   return {...m,id:m.id+":fine",width:m.width*2,depth:m.depth*2,count:m.count*2-1,
+    ...(m.groundShadow ? {groundShadow:{rx:m.groundShadow.rx*2,ry:m.groundShadow.ry*2,dx:(m.groundShadow.dx??0)*2,dy:(m.groundShadow.dy??0)*2}} : {}),
     paint(c,z){m.paint(c,z/2);}};
 }
 
@@ -63,7 +64,8 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
   const dims = metrics(art.bounds, /fence|line|lantern|grass|flowers|reeds/.test(art.id)),
     count = phase === "scraps" ? 5 : phase === "damaged" ? Math.max(3, Math.ceil(dims.count * 0.7)) : dims.count, colors = paletteFor(art.id, burnt),
     W = dims.width / 2 - 2, D = dims.depth / 2 - 1;
-  return { ...dims, count, id: `prop:${art.id}:${v}:${phase}:${burnt ? 1 : 0}`,
+  return { ...dims, count, id: `prop:${art.id}:${v}:${phase}:${burnt ? 1 : 0}${art.id === "paper-fence" ? ":joinery-v2" : ""}`,
+    ...(art.id === "paper-fence" ? {groundShadow:{rx:W+1,ry:1.8,dx:.5,dy:1}} : {}),
     paint(ctx, z) {
       const { rect, oval, box } = shapePainter(ctx, dims.width, dims.depth, colors, burnt),
         h = z / Math.max(1, dims.count - 1), id = art.id;
@@ -78,8 +80,29 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
       // shows its pale inner material instead of a generic front-facing tear.
       const damagedTop = phase === "damaged" && h > 0.6;
       if (id === "paper-fence") {
-        for (const x of [-W + 2, W - 2]) rect(x - 1, -1, 3, 3, damagedTop ? 2 : 1);
-        if (h > 0.22 && h < 0.35 || h > 0.65 && h < 0.78) rect(-W, -1, W * 2, 3, h > 0.7 ? 2 : 1);
+        // The old mid-tone is nearly identical to farm soil. Exposed timber
+        // faces must describe the whole structure, not only the upper rail.
+        for (const [bottom, top] of [[0.22, 0.35], [0.65, 0.78]]) {
+          if (h <= bottom! || h >= top!) continue;
+          rect(-W, -1, W * 2, 3, 1);
+          rect(-W, 1.5, W * 2, .5, 2);
+          rect(-W, -1, 1, 3, 0);
+          rect(W - 1, -1, 1, 3, 2);
+          if (h < bottom! + .035) rect(-W, 1.5, W * 2, .5, 0);
+          if (h > top! - .035) rect(-W, -1, W * 2, 3, 2);
+        }
+        // Posts stand in front of the rails, with dark left faces and narrow
+        // illuminated front faces continuing all the way down to the footing.
+        for (const x of [-W + 2, W - 2]) {
+          rect(x - 1, -1, 3, 3, damagedTop ? 2 : 1);
+          rect(x - 1, -1, 1, 3, 0);
+          rect(x, 1.5, 2, .5, 2);
+          if (h > .94 || damagedTop) rect(x - 1, -1, 3, 3, 2);
+          if (h < .04) rect(x - 1, 1.5, 3, .5, 0);
+          // Two small iron pins join rails to posts; no repeated slice stripes.
+          if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
+            rect(x + .5, 1.5, .5, .5, 0);
+        }
       } else if (id === "laundry-line" || id === "paper-lanterns") {
         for (const x of [-W + 1, W - 1]) rect(x - 1, -1, 2, 2, WOOD[1]);
         if (h > 0.9) rect(-W, 0, W * 2, 1, WOOD[0]);
