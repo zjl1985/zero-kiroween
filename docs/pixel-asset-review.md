@@ -31,6 +31,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Nicole | Revised twice; internal screenshot review passed | Shaped tee/sleeves, denim legs/pockets/cuffs and curved tail. 1×/3×, 12-pose and mobile game images viewed; dash detached-sleeve defect found and fixed, then pose sheet recaptured. Face/glasses preserved; user approval pending. |
 | Costumes | Pending | Every registered outfit must survive front/back layering and bounds |
 | Ink blob and smudge | Rebuilt; native/magnified state sheets and mixed-world fixtures viewed | Grounded asymmetric blob and folded carrier/ink reservoir; side charge clears elite crown, full washed palettes. User approval pending. |
+| Water drop and paper bat | Rebuilt; six native/3× sheets and normal/reduced desktop/phone fixtures viewed | Connected charge bead, complete hinged wing poses, washed palettes and clear elite crown. User approval pending. |
 | Remaining enemies and Eraser | Pending | Each silhouette/material, ordinary/elite/attack/washed variants |
 | Windmill landmark | Rebuilt; native/2× and seeded scene fixtures viewed | Grounded masonry tower, real pointed cap, arched door/windows, native lattice sails. Reduced Motion and supplied activity angle verified. User approval pending. |
 | Observatory landmark | Rebuilt; building/instruments and scene fixtures viewed | Faceted drum, arched entry, supported dome/slit/telescope, brass armillary, chart desk and compass court. First roof speckle and chart stripes corrected; user approval pending. |
@@ -419,3 +420,11 @@ Viewed desktop960×540 and phone390×844 mixed-enemy world fixtures at seed7,(51
 Evidence under output/pixel-asset-review: ink-blob-before/after/final-wash{0,0.5,1}.png; smudge-before/after/final-wash{0,0.5,1}.png (after records crown conflict); ink-enemies-before/final-{desktop,mobile}[-reduced].png. Remaining enemies, Boss, costumes, weapons, UI and whole-screen composition remain unfinished. Local only/no push or user art acceptance.
 
 Ink-enemy verification: npm run build passed; npm test452/452; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted body tests2/2, browser still-frame/attack/cache/read-only probes all pass; git diff --check passed.
+
+## Water drop and paper bat follow-up
+
+Replaced their initial generic body grids with dedicated cached native painters. Water retains the pointed silhouette, broad soaked belly and pooled foot; its windup swells the belly and joins a bead to the mouth. Bat now changes the complete wing contour between two shoulder-hinged poses, retaining clear ears, fangs and the elite crown corridor. All details use explicit normal/partial/full washed palettes. No simulation, collision, attack, swoop, elite or timing changes.
+
+Viewed six `wash-after-wash{0,0.5,1}.png` / `paper-bat-after-wash{0,0.5,1}.png` native/3× sheets and all four `flight-enemies-after-{desktop,mobile}[-reduced].png` actual renderer fixtures under `output/pixel-asset-review/`. Fixtures stage18 enemies alongside3 original enemies; they are visual fixtures, not a performance run. State remains unchanged; console errors0; reduced/stun frame0 and finite cache reuse verified over200 IDs/times/positions. Two raster tests cover24 body combinations, connectivity, envelope, Canvas state and bat crown clearance. `npm run build`, `npm test`454/454 and gallery gloss0/127 bounds checks passed.
+
+Whole-screen review remains below the requested reference: broad flat ground and small repetitive vegetation weaken depth and richness. Opening composition and grounded building mass are the immediate next priority; remaining actors, weapons, costumes and UI still need review. No iPhone performance measurement or user art approval claimed. Local only, not published.

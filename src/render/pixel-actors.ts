@@ -1,3 +1,5 @@
+import { drawPixelWashEnemy } from "./pixel-wash-enemy.js";
+import { drawPixelPaperBat } from "./pixel-paper-bat.js";
 import { drawPixelInkBlob } from "./pixel-ink-blob.js";
 import { drawPixelSmudge } from "./pixel-smudge.js";
 /** Native pixel actor painters. Shapes are authored on integer grids, never
@@ -322,6 +324,8 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
   const wash = liveSketchStep();
   return cachedSprite(`pixel-enemy:${art.id}:${frame}:${attack}:${wash}`, 104, 112, 1, c => {
     c.translate(52, 104);
+    if (art.id === "wash") { drawPixelWashEnemy(c,frame,attack,wash); return; }
+    if (art.id === "paper-bat") { drawPixelPaperBat(c,frame,attack,wash); return; }
     if (art.id === "ink-blob") { drawPixelInkBlob(c,frame,attack,wash); return; }
     if (art.id === "smudge") { drawPixelSmudge(c,frame,attack,wash); return; }
     if (art.id === "eraser-boss") {
@@ -381,20 +385,9 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
         }
       }
     });
-    if (art.id === "paper-bat") {
-      // Long membrane ribs connect the shoulder to stepped wing tips.
-      for (const side of [-1, 1]) for (let i = 0; i < 5; i++)
-        block(c, side < 0 ? -20 + i * 3 : 18 - i * 3, oy + 5 + i * 2, 2, 1, colors[1]);
-      block(c, -2, oy + 13, 1, 2, LIGHT); block(c, 2, oy + 13, 1, 2, LIGHT);
-    } else if (art.id === "wash") {
-      block(c, -7, oy + 10, 2, 5, glint); block(c, -8, oy + 16, 1, 3, glint);
-      block(c, 6, oy + 20, 3, 1, colors[0]);
-    } else if (art.id === "kiro-ghost") {
+    if (art.id === "kiro-ghost") {
       block(c, -10, oy + 8, 1, 6, glint); block(c, -2, oy + 18, 4, 1, colors[1]);
       block(c, -1, oy + 19, 2, 2, colors[1]);
-    }
-    if (art.id === "paper-bat" && frame) {
-      block(c, -24, -23, 9, 3, colors[0]); block(c, 15, -23, 9, 3, colors[0]);
     }
     if (attack) { block(c, -7, -rows.length * 2 - 4, 14, 2, "#f18e66"); }
   }, { x: 0.5, y: 104 / 112 });
