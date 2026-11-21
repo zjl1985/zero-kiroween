@@ -1,3 +1,5 @@
+import { clockTowerModel } from "./pixel-clock-tower.js";
+import { drawClockCourt } from "./pixel-clock-court.js";
 import { teahouseModel } from "./pixel-teahouse.js";
 import { teahouseTableModel, teahousePlanterModel } from "./pixel-teahouse-props.js";
 import { drawTeahouseGarden } from "./pixel-teahouse-garden.js";
@@ -205,6 +207,7 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "clock-tower") return clockTowerModel(v);
   if (piece.kind === "paper-teahouse-building") return teahouseModel(v);
   if (piece.kind === "paper-teahouse-table") return teahouseTableModel(v);
   if (piece.kind === "paper-teahouse-planter") return teahousePlanterModel(v);
@@ -314,19 +317,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           const yy = -D + (1 - h) / 0.26 * D * 2;
           for (let x = -W; x < W; x += 4) rect(x, yy, 4, 2, Math.floor((x + W) / 4) % 2 ? "#ddc79c" : "#ab6264");
         }
-      } else if (kind === "clock-tower") {
-        const width = h < 0.1 ? W : h < 0.72 ? W * 0.7 : W * 0.82;
-        if (h < 0.89) {
-          box(width, D * 0.9, 1);
-          windows(0.18, 0.3, 2, W * 0.45, D * 0.9);
-          windows(0.44, 0.56, 2, W * 0.45, D * 0.9);
-          if (h > 0.72 && h < 0.86) {
-            const hh = (h - 0.79) / 0.07, span = W * 0.5 * Math.sqrt(Math.max(0, 1 - hh * hh));
-            rect(-span, D * 0.9 - 1, span * 2, 1, "#e0d4ae");
-            if (h > 0.78 && h < 0.8) rect(0, D * 0.9 - 1, W * 0.32, 1, STONE[0]);
-            if (h > 0.79 && h < 0.84) rect(-1, D * 0.9 - 1, 1, 1, STONE[0]);
-          }
-        } else roofSection(0.89, 1, W, D);
       } else if (kind === "theatre") {
         if (h < 0.12) box(W, D, WOOD[1]);
         if (h >= 0.12 && h < 0.83) {
@@ -371,6 +361,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "clock-tower") { drawClockCourt(ctx,l.x,l.y); return; }
       if (a.id === "paper-teahouse") { drawTeahouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "fold-greenhouse") { drawGreenhouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "star-observatory") { drawObservatoryCourt(ctx,l.x,l.y); return; }
@@ -395,6 +386,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "clock-tower") return; // Court owns the flush entry stones.
       if (a.id === "paper-teahouse") return; // Baked garden includes the rest marker and approach.
       if (a.id === "fold-greenhouse") return; // Garden already owns its flush approach.
       if (a.id === "star-observatory") return; // Its compass court owns the flush doorway path.
@@ -422,7 +414,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        const grounded = piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
+        const grounded = piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
           || piece.kind.startsWith("fold-greenhouse-") || piece.kind.startsWith("paper-teahouse-");
         drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(grounded ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },

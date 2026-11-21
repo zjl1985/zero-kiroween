@@ -35,6 +35,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Observatory landmark | Rebuilt; building/instruments and scene fixtures viewed | Faceted drum, arched entry, supported dome/slit/telescope, brass armillary, chart desk and compass court. First roof speckle and chart stripes corrected; user approval pending. |
 | Greenhouse landmark | Rebuilt; native/magnified and scene fixtures viewed | Divided glazing, planted benches, brick footing, continuous roof beam, climbing trellis, terracotta pots and potting bench. Flush garden approach; user approval pending. |
 | Teahouse landmark | Rebuilt; building/furnishings and scene fixtures viewed | Timber facade, lattice windows, double hipped roofs, tea table and potted shrubs, quiet gravel garden and rest marker. User approval pending. |
+| Clocktower landmark | Rebuilt; native/magnified and scene fixtures viewed | Grounded masonry, corner quoins, arched entry/windows, readable near-midnight clock, open bell chamber and tapered roof. First dial-striping defect fixed; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -169,3 +170,16 @@ Baseline and first revision viewed at native/2× building size, native/3× furni
 Corrected the crown material to reach each exposed cross-section: continuous broad light plane and dark lower/left plane replace buried highlight discs. Final furnishings and desktop/phone images viewed; table remains unchanged. Final evidence: teahouse-final-detail.png, teahouse-tools-detail.png, teahouse-final-desktop.png, teahouse-final-mobile.png under output/pixel-asset-review. Before and first after captures are retained for comparison. Overall surrounding spacing, remaining generic structures and actor/effect/UI detail still need work against the reference; this is not whole-game acceptance or iPhone profiling.
 
 Teahouse final verification: `npm run build` passed; `npm test`432/432 after the leaf-plane correction. Browser gallery gloss0, errors0,127 nonempty/in-bounds registered paints. Seeded scene render state unchanged. Local only, no push or deployment.
+
+
+## Clocktower and civic court
+
+Replaced the generic gray shaft/flat cap with a dedicated half-unit clocktower: shallow stepped masonry footing, corner quoins, recessed arched doorway, front/side windows, brass/ivory dial, open supported bell chamber, tapered slate roof and finial. The dial preserves the original near-midnight hand pose. The model draws at ground zero; footprint and shadow fit the existing registered bounds. Removed the superseded generic clock model branch. Landmark placement, collision and all simulation/controls remain unchanged.
+
+The baked civic court uses one-pixel octagonal corners, large quiet flagstones, a flush mortar/inlay ring and short doorway approach. Existing authoritative roads still render over it. No raised platform, new wall or gameplay deck.
+
+First actual native/2× screenshot exposed full-height dark stripes across the clockface: the thin ivory face and marks left the dark backing visible through rotated/scaled slice coverage. Fixed all dial layers to share a solid six-native-pixel depth while retaining the original front surface; recaptured and verified the complete ivory face, ticks and two hands. No generic sprite-stack change was needed.
+
+Viewed native/2× before/after, then final desktop960×540 and phone390×844 seed7 world fixtures at(-996,1674). Fixtures reposition the cat for scene review, not a full manual playthrough; rendering preserves simulation state and page errors0. Evidence: clocktower-before-detail.png, clocktower-after-detail.png (retained striped failure), clocktower-final-detail.png, clocktower-final-desktop.png, clocktower-final-mobile.png in output/pixel-asset-review. Whole-game scenery richness and other asset families remain open; no iPhone performance or user art approval claim.
+
+Clocktower final verification: `npm run build` passed; `npm test`432/432. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push or deployment.
