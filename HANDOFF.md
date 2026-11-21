@@ -1,5 +1,8 @@
 # Midnight Meow handoff
 
+Latest asset follow-up: scenery stone in `src/render/pixel-stone.ts`, revised twice to replace a pointed dark cone with a lower faceted rock and broad crown. Three palettes and actual 1×/3×/desktop/mobile images viewed. Build + 426 tests passed; no gameplay changes, no push. See the asset review log for saved evidence and remaining queue.
+
+
 Latest asset follow-up: scenery fence refined in `src/render/pixel-fence.ts` with joined rails, post caps, nails, material planes and three palettes. Actual 1×/3× and desktop/mobile-near-fence screenshots inspected; browser errors 0. Build and 426 tests passed. Local only; remaining assets tracked in `docs/pixel-asset-review.md`. Movement-only controls remain unchanged.
 
 

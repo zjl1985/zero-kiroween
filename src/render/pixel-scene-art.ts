@@ -1,3 +1,4 @@
+import { stoneModel } from "./pixel-stone.js";
 import { fenceModel } from "./pixel-fence.js";
 import { lanternModel } from "./pixel-lantern.js";
 import { treeModel } from "./pixel-tree.js";
@@ -33,6 +34,7 @@ function model(kind: string, variant: number): PixelStackModel {
   if (kind === "tree") return treeModel(variant);
   if (kind === "lamp") return lanternModel(variant);
   if (kind === "fence") return fenceModel(variant);
+  if (kind === "stone") return stoneModel(variant);
   return {
     id: `scene:${kind}:${variant % 6}`, width: 36,
     depth: 28,
@@ -51,9 +53,6 @@ function model(kind: string, variant: number): PixelStackModel {
           const reach=Math.sqrt(1-dz*dz);
           pixelDisc(c,lx!,ly!,lr!*reach,lr!*.7*reach,palettes[dz<.12?1:2]);
         }
-      } else if(kind==="stone") {
-        const rr=Math.max(1,11-z*.65);
-        if(z<13){pixelDisc(c,0,0,rr,rr*.65,"#40465a");pixelDisc(c,1,-1,Math.max(1,rr-2),Math.max(1,rr*.65-1),z>6?"#9b9e97":"#6e7880");}
       } else if(kind==="pumpkin") {
         if(z<14){const rr=Math.max(2,Math.sqrt(Math.max(0,49-(z-7)**2)));
           for(let l=-2;l<=2;l++)pixelDisc(c,l*2,0,Math.max(1,rr-2),rr*.8,l<0?"#92503e":l===0?"#e1a34e":"#bd713b");
