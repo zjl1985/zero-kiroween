@@ -25,13 +25,14 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Scenery fence | Revised; internal screenshot review passed | Solid rails, exposed ends, joined post caps, side planes, nail heads and sparse grain; three timber palettes. Original dimensions and collision retained. Interactive paper-fence lifecycle remains in the registered-prop queue. |
 | Scenery stone | Revised twice; internal screenshot review passed | Angular cross-sections, lower off-centre crown, broad lit/shaded faces, one crown fissure and three mineral palettes. First revision too pointed; revised silhouette checked at 1×/3× and in desktop/mobile gameplay. User approval pending. |
 | Scenery pumpkin | Revised three times; internal screenshot review passed | Six real lobes, broad skin lighting, curved stem, carved eye/mouth contours and three palettes. Initial sparkling ridges rejected; eye placement and cavity contrast revised. 1×/3× and desktop/mobile captures viewed. User approval pending. |
-| Candles | Pending | Wax drips, recessed wick and deliberate grouped silhouettes |
-| Ground, roadside vegetation, water/deck | Pending | Grouping, edge transitions, floor contrast beneath warnings |
+| Candles | Revised; native/magnified and scene images viewed | Wax shoulders, drips, recessed wick, small flames and compact contact shadow. User approval pending. |
+| Ground and roadside vegetation | Five-district pass viewed; further composition work remains | Crops, paving/drains, roots/ferns, reeds and flower groups; road wear and opening farm contours. Water/deck detail remains pending. |
 | Zero | Revised; internal screenshot review passed | Stepped shoulders/waist, separate coat tails, curved tail, shaped sleeves/feet and four poses. 1×/3×, 12-pose sheet and phone gameplay viewed; face preserved, cat-art17/17. Dark coat remains subdued; user approval pending. |
 | Nicole | Revised twice; internal screenshot review passed | Shaped tee/sleeves, denim legs/pockets/cuffs and curved tail. 1×/3×, 12-pose and mobile game images viewed; dash detached-sleeve defect found and fixed, then pose sheet recaptured. Face/glasses preserved; user approval pending. |
 | Costumes | Pending | Every registered outfit must survive front/back layering and bounds |
 | Enemies and Eraser | Pending | Each silhouette/material, ordinary/elite/attack/washed variants |
-| Registered props and landmarks | Pending | Lifecycle consistency, individual architecture and all cache edges |
+| Windmill landmark | Rebuilt; native/2× and seeded scene fixtures viewed | Grounded masonry tower, real pointed cap, arched door/windows, native lattice sails. Reduced Motion and supplied activity angle verified. User approval pending. |
+| Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
 
@@ -114,3 +115,14 @@ The farm fixture also exposed a separate apparent floating-fence defect. Browser
 
 
 Verification: `npm run build` and `npm test` passed (430/430). Five seeded district browser fixtures reported unchanged simulation state and zero page errors; their images were inspected, and the final farm capture confirms both fence posts/lower rail are now visible. Actual three-second keyboard walking captures at1280×720 and390×844 were viewed, including nearby automatic-combat enemies. Gallery gloss0;127 prop/landmark lifecycle paints nonempty and within bounds. Before/after region images are `pixel-region-<biome>-terrain-before.png` / `-terrain-after.png`, plus `terrain-south-desktop.png` and `terrain-south-mobile.png` in `output/pixel-asset-review/`. No iPhone frame-time measurement, human full-night playtest, publication or user art approval. The windmill cap/body and many registered landmark/prop silhouettes still require detailed individual work; goal remains active.
+
+
+## Windmill architecture and live rotor
+
+Replaced the generic tube/rectangular roof block with `pixel-windmill.ts`: half-unit stacked faceted masonry, shallow ground-contact footing, tapering tower, arched door and warm inset glazing, timber cornice, and a cap tapering in both axes. The windmill now draws at its ground anchor without the generic landmark upward offset; its compact contact shadow and complete live silhouette fit the existing bounds. Other landmark painters are untouched.
+
+`pixel-windmill-rotor.ts` rasterises four asymmetric flax-covered timber sails onto integer pixel runs, with spars, lattice battens, open slits and a layered hub. Fixed rotor hub and interaction/idle angular timing are preserved. No image assets, per-frame canvas allocation, clock reads or unbounded pose cache. The shared geometry remains unchanged; this is rendering only.
+
+Viewed actual native/2× before/after images and seeded desktop960×540/phone390×844 world-render fixtures at windmill site(4287,1482), seed7. These fixtures reposition the cat for review; they are not a full manually played run. Saved `windmill-before-detail.png`, `windmill-after-detail.png`, `windmill-before-desktop.png`, `windmill-after-desktop.png`, `windmill-before-mobile.png`, `windmill-after-mobile.png` under `output/pixel-asset-review/`. Simulation state before/after rendering is identical, browser errors0.
+
+Validation: `npm run build`, `npm test`432/432. New tests sample96 angles at3 scales for integer runs, existing live bounds, bounded≤1800 fill calls and canvas-state restoration; explicit interaction angle overrides time without mutating activity. Actual browser isolated native sprite comparison: Reduced Motion time1 vs31 pixels identical, normal-mode pixels change. Isolated full-sprite drawing probe including world-sprite lookup and pixel readback in Linux Chromium: p50≈1.9ms,p95≈2.1ms. This is not whole-frame, GPU, first-load or iPhone performance evidence. Gallery gloss0;127 prop/landmark state paints nonempty and within bounds. Local only; user approval and remaining landmark/prop/actor/UI art reviews are still open.

@@ -1,3 +1,5 @@
+import { windmillModel } from "./pixel-windmill.js";
+import { drawPixelWindmillRotor } from "./pixel-windmill-rotor.js";
 /** Native-resolution voxel sections for world props and landmark dressing.
  * Adapters retain simulation identity, placements, bounds and lifecycle. Every
  * contour is authored in XY sections; the stack renderer bakes the projection.
@@ -194,6 +196,7 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "windmill") return windmillModel(v);
   const kind = piece.kind, dims = metrics(piece.bounds, /lights|trellis|chart/.test(kind)),
     colors = paletteFor(kind, false), W = dims.width / 2 - 2, D = dims.depth / 2 - 1,
     roof: Palette = /greenhouse/.test(kind) ? ["#315565", "#608b91", "#b0ccc0"]
@@ -343,13 +346,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
             if (h > 0.79 && h < 0.84) rect(-1, D * 0.9 - 1, 1, 1, STONE[0]);
           }
         } else roofSection(0.89, 1, W, D);
-      } else if (kind === "windmill") {
-        if (h < 0.73) {
-          const taper = 0.65 - h * 0.4;
-          oval(0, 0, W * taper, D * (0.8 - h * 0.3), "#c6bb97");
-          windows(0.15, 0.28, 1, W * 0.3, D * (0.8 - h * 0.3));
-          windows(0.4, 0.5, 1, W * 0.3, D * (0.8 - h * 0.3));
-        } else roofSection(0.73, 0.9, W * 0.4, D * 0.7);
       } else if (kind === "theatre") {
         if (h < 0.12) box(W, D, WOOD[1]);
         if (h >= 0.12 && h < 0.83) {
@@ -389,22 +385,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
       }
     },
   };
-}
-
-function pixelWindmillSails(ctx: Ctx, x: number, y: number, s: number, v: number, angle: number): void {
-  const step = 2 * s, turn = angle + 0.35 + v * 0.5;
-  // Rotated rotor is authored directly on the native grid, without rotating
-  // a screen bitmap into antialiased diagonal fringes or caching time keys.
-  for (let arm = 0; arm < 4; arm++) {
-    const a = turn + arm * Math.PI / 2, cs = Math.cos(a), sn = Math.sin(a);
-    for (let r = 5; r <= 40; r++) for (let w = -2; w <= 3; w++) {
-      if (r < 14 && Math.abs(w) > 0) continue;
-      ctx.fillStyle = r % 7 === 0 || w === -2 ? WOOD[1] : w === 3 ? "#a6ad9a" : "#ddd0ae";
-      ctx.fillRect(Math.round((x - 4 * s) / step + cs * r - sn * w) * step,
-        Math.round((y - 118 * s) / step + sn * r + cs * w) * step, step, step);
-    }
-  }
-  ctx.fillStyle = WOOD[0]; ctx.fillRect(Math.round((x - 8 * s) / step) * step, Math.round((y - 122 * s) / step) * step, step * 4, step * 4);
 }
 
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
@@ -455,10 +435,10 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
       ...(piece.kind === "windmill" ? { live(ctx: Ctx, x: number, y: number, s: number, v: number, time: number, activity?: Parameters<NonNullable<DecorPiece["live"]>>[6]) {
-        pixelWindmillSails(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);
+        drawPixelWindmillRotor(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);
       } } : {}),
     })),
   };
