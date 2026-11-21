@@ -37,6 +37,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Teahouse landmark | Rebuilt; building/furnishings and scene fixtures viewed | Timber facade, lattice windows, double hipped roofs, tea table and potted shrubs, quiet gravel garden and rest marker. User approval pending. |
 | Clocktower landmark | Rebuilt; native/magnified and scene fixtures viewed | Grounded masonry, corner quoins, arched entry/windows, readable near-midnight clock, open bell chamber and tapered roof. First dial-striping defect fixed; user approval pending. |
 | Lantern market | Rebuilt; stalls/lights and scene fixtures viewed | Joined timber counters, supported striped canopy/valance, seasonal goods, connected sagging lantern cord, flush plank court. User approval pending. |
+| Wishing well | Rebuilt; native/magnified and scene fixtures viewed | Hollow stone shaft, coping, roof frame/winch/rope/bucket; corrected opaque plaza hiding the actual pond. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -197,3 +198,19 @@ The flush market court now uses long staggered timber planks, sparse joint/nail/
 Viewed native/2× stalls and cord/lantern detail plus desktop960×540/phone390×844 seed7 world fixtures at(-1641,554). The cat is repositioned for scene review, not a full manual playthrough. Rendering preserves simulation state, page errors0. Evidence: market-before-detail.png, market-after-detail.png, market-lights-detail.png, market-after-desktop.png, market-after-mobile.png under output/pixel-asset-review. Remaining whole-map composition and other asset families are still open; this is not user art approval or iPhone profiling.
 
 Also viewed both rose/teal stall variants at native/3× in market-stall-variants.png. Final verification: `npm run build` passed; `npm test`432/432. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push or deployment.
+
+
+## Wishing well, visible pond and floating details
+
+Replaced the generic solid gray cylinder with a half-unit hollow masonry well: staggered stone joints/coping, joined timber posts and braces, a true gable roof, supported winch/spool/crank, rope and bucket. It uses the actual ground anchor with a compact shadow, keeping the existing footprint and registered bounds.
+
+The baseline world screenshot exposed a real rendering defect: the generic opaque landmark plaza was drawn after the water pass and covered the wishing well's authoritative pond. Replaced that full plaza with a small damp footing and separate stones north of the existing shore. Restored native folded boats and clipped lily leaves in the ground-detail pass using the existing POND dimensions. No new water polygons, collision geometry, rewards, interaction or movement changes. Original water/deck rendering stays authoritative.
+
+Added a focused regression through the registered landmark painter: at three world placements, opaque footing pixels must stay outside the real water polygon, boats/leaves must stay inside it with bounded sparse coverage, and the painter must restore Canvas state. This guards water visibility, not a snapshot of implementation details.
+
+Viewed native/2× before/after and seed7desktop960×540/phone390×844 fixture at(-3287,4842); initial after shows the restored pond, boats and shoreline. Fixtures reposition the cat for review; rendering preserves simulation state and page errors0. First detail review found thin inner-wall strips made the opening look spiky and the bucket was too buried in the rim; refinement recorded below.
+
+
+Refined the inner-wall material into broad spans and a recessed continuous dark floor, then lifted the visual bucket three author units while preserving spool/rope/handle connections. Final native/2×, desktop and phone captures were viewed. Evidence: well-before-detail.png, well-after-detail.png (first opening/bucket issue), well-final-detail.png, well-final-desktop.png and well-final-mobile.png in output/pixel-asset-review. The visible pond fixes gameplay readability without changing its water definition. Whole-game art acceptance and iPhone performance remain unverified; continue other assets and scene composition.
+
+Wishing-well final verification: `npm run build` passed; `npm test`433/433 including the water-visibility regression. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.
