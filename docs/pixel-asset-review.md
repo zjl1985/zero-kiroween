@@ -49,6 +49,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Mailbox and signpost | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Tunnel hood/red flag/envelope and opposed arrow boards/fasteners; grounded supports and recognizable remnants. User approval pending. |
 | Destructible wax candle | Rebuilt; lifecycle/live-fire and desktop/phone fixtures viewed | Recessed wax top, connected drips, tray, anchor-preserving damage and pale melted remnants. User approval pending. |
 | Registered grass, flowers and bushes | Rebuilt; revised grass/flower spacing after screenshot review | Rooted leaf fans, grouped flower stems and branch-supported foliage; lifecycle and desktop/phone fixtures viewed. User approval pending. |
+| Registered dead tree, mushrooms and tombstone | Rebuilt; lifecycle and desktop/phone fixtures viewed | Root flare/forked branches, three mushroom caps/stems and four carved slab profiles; material-specific damage/remnants. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -371,3 +372,18 @@ Viewed desktop960×540 and phone390×844 fixtures: seed7 grass(280,711),s.95; fl
 Evidence under output/pixel-asset-review: paper-{grass,flowers,bush}-before/after/final-{states,burnt}.png; paper-{grass,flowers}-final-{detail,desktop,mobile}.png and paper-bush-after-{detail,desktop,mobile}.png. Local only/no push, whole-game goal remains active.
 
 Ground-flora verification: npm run build passed; npm test443/443; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted continuity/bounds tests3/3 and all84 browser strict bounds/cache round-trips pass. git diff --check passed.
+
+
+## Woodland props: branching trees, mushroom clusters and carved grave markers
+
+New pixel-dead-tree.ts restores a broad crooked trunk, buttress roots, tapered multi-joint branches/twigs, a dark knot and restrained bark planes in four purple/brown palettes. Connected body-colour spines keep thin branch tips attached. Damage retains a jagged broken trunk and one attached arm; scraps keep a grounded stump and forked fallen branches.
+
+New pixel-mushroom.ts restores three overlapping sizes with cream stems, dark cap undersides, restrained spots and red/ochre/lilac variants. Damaged central stalk remains between two smaller mushrooms with fallen cap material; scraps retain stalks and cap wedges. New pixel-tombstone.ts distinguishes four top profiles, shaded slab thickness, inset face, recessed cross/short incisions and moss at the foot. Damage chips the upper slab and leaves an engraved lower piece; scraps retain low slabs and matching faced fragments. Charred states use muted charcoal/ash palettes. The tombstone simulation material remains card.
+
+All three replace generic depth-lifted origins/default shadows with ground-zero cached native painters and compact contacts. No definitions, collider locations, regrowth, drops, reactions, flame metadata, simulation or dependencies changed. New tests/pixel-woodland-props.test.mjs checks all66 combinations for strict bounds, Canvas-state restoration and eight-connected elevated material to ground-level support. Browser strict bounds and intact cache round-trips pass.
+
+Viewed all66 native/2× lifecycle combinations and desktop960×540/phone390×844 scene fixtures: seed7 dead-tree(1822,998),s.85; mushroom(774,1264),s1.16; tombstone(1493,1233),s.98. Errors0, simulation unchanged. Evidence under output/pixel-asset-review: dead-tree-before/after-{states,burnt,detail,desktop,mobile}.png and paper-{mushroom,tombstone}-before/after-{states,burnt,detail,desktop,mobile}.png. Focused render fixtures are not manual gameplay or iPhone performance acceptance. Whole-screen composition and remaining assets are still unfinished; local only/no push.
+
+The first full test run reported445/446: the existing foreground-landmark test searched for its mock rectangle by x-coordinate alone. New actual art matched that coordinate inside a cached sprite. Strengthened its sentinel match to all four rectangle arguments; the focused regression passes without changing rendering order or relaxing the opacity/order assertions.
+
+Woodland final verification: npm run build passed; npm test446/446 after sentinel correction; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Three targeted connectivity/bounds regressions pass. git diff --check passed.

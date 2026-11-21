@@ -1,3 +1,6 @@
+import { drawPixelDeadTree } from "./pixel-dead-tree.js";
+import { drawPixelMushroom } from "./pixel-mushroom.js";
+import { drawPixelTombstone } from "./pixel-tombstone.js";
 import { drawPixelGrass } from "./pixel-grass.js";
 import { drawPixelFlowers } from "./pixel-flowers.js";
 import { drawPixelBush } from "./pixel-bush.js";
@@ -144,24 +147,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
           if (Math.abs(h - .29) < .02 || Math.abs(h - .71) < .02)
             rect(x + .5, 1.5, .5, .5, 0);
         }
-      } else if (id === "dead-tree") {
-        rect(-2 + Math.sin(h * 5 + v) * 1.3, -1, 4 - h * 2, 3, 1);
-        if (h > 0.38) for (const side of [-1, 1]) {
-          const b = Math.max(0, (h - (side < 0 ? 0.38 : 0.5)) * W * 1.5);
-          if (b < W) rect(side * b, -1 + side, 2, 2, side < 0 ? 0 : 2);
-        }
-      } else if (id === "paper-mushroom") {
-        if (h < 0.5) oval(0, 0, W * 0.19, D * 0.25, 2);
-        else {
-          const r = Math.sqrt(Math.max(0, 1 - ((h - 0.55) / 0.5) ** 2));
-          oval(0, 0, W * r, D * r, h < 0.58 ? 0 : "#b85c62");
-          if (z % 4 === 0) for (let i = 0; i < 3; i++) rect((i - 1) * W * 0.4, (i % 2 ? 1 : -1) * D * 0.25, 2, 2, 2);
-        }
-      } else if (id === "paper-tombstone") {
-        const r = h < 0.75 ? 1 : Math.sqrt(Math.max(0, 1 - ((h - 0.75) / 0.26) ** 2));
-        box(W * r, Math.max(1.5, D * 0.4), damagedTop ? 2 : 1);
-        if (h > 0.38 && h < 0.68) rect(-1, D * 0.4 - 1, 2, 1, 0);
-        if (h > 0.53 && h < 0.6) rect(-W * 0.4, D * 0.4 - 1, W * 0.8, 1, 0);
       } else if (id === "haybale") {
         const r = Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.53) ** 2));
         oval(0, 0, W, D * Math.max(0.3, r), h < .15 ? 0 : 1);
@@ -178,6 +163,9 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "dead-tree") { drawPixelDeadTree(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-mushroom") { drawPixelMushroom(ctx,x,y,s,v,phase,burnt); return; }
+      if (a.id === "paper-tombstone") { drawPixelTombstone(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-grass") { drawPixelGrass(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-flowers") { drawPixelFlowers(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-bush") { drawPixelBush(ctx,x,y,s,v,phase,burnt); return; }

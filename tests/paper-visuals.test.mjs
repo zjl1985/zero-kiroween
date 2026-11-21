@@ -936,8 +936,12 @@ test("the selected cat retains its colours and draws above a foreground landmark
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: sim.player, reducedMotion: true });
   const draws = ctx.calls;
-  const withRect = marker => draws.findIndex(c => c.op === "fillRect" && c.args[0] === marker || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(op => op.op === "fillRect" && op.args[0] === marker));
-  const building = withRect(45), cat = withRect(51);
+  // Match the complete sentinel: real cached pixel art can also draw at x45/51.
+  const withRect = marker => {
+    const matches = op => op.op === "fillRect" && marker.every((value, i) => op.args[i] === value);
+    return draws.findIndex(c => matches(c) || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(matches));
+  };
+  const building = withRect([45,46,47,48]), cat = withRect([51,52,53,54]);
   assert.ok(building >= 0 && cat > building);
   assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");
   assert.equal(draws[cat].globalAlpha, 1);
