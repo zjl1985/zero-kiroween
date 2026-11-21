@@ -2,6 +2,14 @@
 
 Midnight Meow is a code-drawn pixel-art survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Published play checkpoint and individual asset review (2026-11-21)
+
+User explicitly authorized pushing the current version for playtesting, then refining assets individually with actual screenshot self-review, including sprites. Pushed `4fd924511d39b0a4173f7fe20eafecc19d459e1c` to `origin/main` and `origin/refactor/pixel-stacking`, plus the paper archive tag. Verified both remote heads; Vercel commit status succeeded and live `/dist/render/pixel-resolution.js` matched the local build SHA256. Subsequent refinement stays local while the user tries that version.
+
+First internally reviewed batch: cottage, tree, street lantern, Zero body and Nicole body. Each has actual native/magnified and in-game captures; cats also have 12-pose sheets. Tree crown proportions, Nicole's detached dash sleeve and lantern hood checker artifacts were found in screenshots, revised and recaptured. Cottage/tree/lantern now live in separate authored model modules; official cat heads and all simulation definitions remain unchanged. Full `npm run build` + `npm test` passed (420/420); baseline gameplay comparison passed all64 states. Gallery probe reported0 gloss violations; browser alpha bounds probe reported127 nonempty in-bounds prop/landmark states. No iPhone frame-time or user art approval is claimed. Remaining assets are explicitly pending, not completed.
+
+Follow [the per-asset review log](docs/pixel-asset-review.md). A developer-only `scripts/review-pixel-asset.mjs` captures actual 1×/magnified painters and cat pose sheets, records source base/dirty-tree metadata and browser errors. It uses externally installed Playwright, adds no runtime dependency, and writes ignored evidence into `output/pixel-asset-review/`. Don't call unfinished assets perfect or substitute test results for visual review.
+
 ## Pixel detail refinement after user rejection (2026-11-21)
 
 User rejected `1267c23` as too coarse and asked for much finer pixel art. Current follow-up raises the native world backing and ground/decor caches from 0.5× to 1×, while keeping logical camera/input sizes. Scene/prop stacks now have finer XY and height sections, detailed architectural windows/shutters/doors, controlled foliage lighting, and fine surface fittings. Actors gain tailoring and material details; equipment icons/projectiles have distinct fine silhouettes. Ground marks are finer and quieter; overlapping road-cap strokes were removed. The earlier coarse pixel commit remains in Git.

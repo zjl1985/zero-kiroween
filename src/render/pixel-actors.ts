@@ -91,50 +91,146 @@ function headSprite(art: CatArt, costume: CostumeArt | undefined) {
 function bodySprite(art: CatArt, costume: CostumeArt | undefined, frame: number, dash: boolean) {
   return cachedSprite(`pixel-body:${art.id}:${costume?.id ?? "plain"}:${frame}:${dash}`, 84, 42, 1, c => {
     c.translate(42, 35);
-    const b = art.body, over = b.tailoring === "split-coat" ? costume?.outfit.coat : costume?.outfit.tee,
-      coat = { ...b, ...over }, stride = [-2, 0, 2, 0][frame], accent = costume?.colors.tag ?? art.colors.hud;
-    block(c, -26, -11, 14, 4, INK); block(c, -28, -17, 4, 8, INK);
-    block(c, -25, -11, 11, 2, b.tail); block(c, -27, -16, 2, 6, b.tail);
+    const b = art.body, stride = [-2, 0, 2, 0][frame], accent = costume?.colors.tag ?? art.colors.hud;
     if (b.tailoring === "split-coat") {
-      block(c, -17, -28, 34, 24, INK); block(c, -15, -26, 30, 21, coat.body);
-      block(c, -20 - (dash ? 5 : 0), -21, 8, 15, coat.bodyEdge);
-      block(c, -12, -25, 4, 19, accent); block(c, 8, -25, 4, 19, accent);
-      block(c, -8, -24, 16, 17, coat.fold); block(c, -1, -23, 2, 15, accent);
-      block(c, -11, -10, 22, 3, b.belt); block(c, -2, -10, 4, 3, b.metal);
-      // Single-pixel tailoring: lapel steps, turned cuffs, pocket mouths and
-      // a split hem give the small coat a construction rather than a flat slab.
-      block(c, -14, -25, 1, 14, coat.bodyEdge); block(c, 13, -25, 1, 18, coat.fold);
-      block(c, -7, -24, 2, 3, coat.body); block(c, -5, -21, 2, 3, coat.body);
-      block(c, 5, -24, 2, 3, coat.body); block(c, 3, -21, 2, 3, coat.body);
-      block(c, -12, -15, 5, 1, coat.fold); block(c, 7, -15, 5, 1, coat.fold);
-      block(c, -12, -14, 4, 1, coat.bodyEdge); block(c, 7, -14, 4, 1, coat.bodyEdge);
-      block(c, -1, -18, 1, 1, b.metal); block(c, -1, -14, 1, 1, b.metal);
-      block(c, -14, -6, 11, 1, coat.bodyEdge); block(c, 3, -6, 10, 1, coat.bodyEdge);
-      block(c, -1, -7, 2, 3, INK); block(c, -1, -9, 2, 1, coat.fold);
+      const look = { ...b, ...costume?.outfit.coat }, lean = dash ? 2 : 0,
+        palette = { "#": INK, b: look.body, h: look.bodyEdge, s: look.fold,
+          p: look.paw, l: look.pawEdge, a: look.arm, t: look.trim,
+          c: look.cape, e: look.capeEdge, n: look.lining, f: b.tail };
+      // The tail turns through small steps; the two dark pixels at the root
+      // keep it behind the coat, instead of attaching a square pipe to its side.
+      grid(c, [
+        "..####............", ".#ffff#...........", "#ff##ff#..........",
+        "#f#..#ff#.........", "#f#...#f#.........", "#f#...#f#.........",
+        "#ff#..#f#.........", ".#ff##ff#.........", "..#fffff#.........",
+        "...##fff##........", ".....#ffff###.....", "......##fffff####.",
+        "........###ffffff#", "...........######.",
+      ], palette, dash ? -34 : -29, dash ? -20 : -17, 1);
+      // Legs are painted before the flared hem. Walk phases change both the
+      // forward reach and sole height, while the screen anchor stays fixed.
+      for (const side of [-1, 1]) {
+        const dy = dash ? (side < 0 ? -2 : 0) : side * stride,
+          x = (side < 0 ? -12 : 3) + (dash ? (side < 0 ? -4 : 4) : side * (frame === 1 ? 1 : frame === 3 ? -1 : 0));
+        grid(c, [
+          "...#####....", "..#ssssp#...", "..#spppp#...", ".#pplllpp#..",
+          ".#plpppppp#.", "#pppppppppp#", "#pplllllppp#", ".##########.",
+        ], palette, x, -6 + dy, 1);
+      }
+      // Back cloth has a separate silhouette and muted lining. The dash
+      // stretches its stepped tip back without rotating the official head.
+      grid(c, [
+        ".........####", ".......##ccch", ".....##cccnnh", "...##ccccnnhh",
+        "..#cccccnnnh.", ".#cccccnnnh..", "#cccccnnnh...", ".##cccnnh....",
+        "...##nnh.....", ".....##......",
+      ], palette, dash ? -27 : -22, dash ? -23 : -20, 1);
+      // Scanline shoulders taper into a waist and separate into two coat
+      // skirts. Larger contiguous shadow planes keep the tiny form legible.
+      const edges = [
+        [-11, 10], [-13, 12], [-15, 14], [-16, 15], [-17, 16],
+        [-17, 16], [-16, 15], [-15, 14], [-14, 13], [-13, 12],
+        [-12, 11], [-12, 11], [-11, 10], [-11, 10], [-12, 11],
+        [-12, 12], [-13, 13], [-14, 14], [-15, 15], [-16, 16],
+        [-17, 17], [-17, 17], [-16, 16], [-14, 14],
+      ];
+      edges.forEach(([left, right], row) => {
+        const y = -28 + row, x = left + lean;
+        block(c, x, y, right - left + 1, 1, INK);
+        if (row > 0) {
+          block(c, x + 1, y, right - left - 1, 1, look.body);
+          block(c, x + 1, y, 2, 1, look.bodyEdge);
+          block(c, right - 3 + lean, y, 3, 1, look.fold);
+        }
+        if (row >= 17) block(c, lean - 1, y, 2 + Math.floor((row - 17) / 2), 1, INK);
+      });
+      // An overlapping pair of tapered lapels, rather than parallel gold
+      // bars. Their bottom points remain visible below the chin.
+      grid(c, [
+        "hhh........hhhh", ".hht......tbbh.", ".hhtt....tbbh..", "..hbtt..tbbh...",
+        "...hbtttbbh....", "....hbttbh.....", ".....hbbh......", "......hh.......",
+      ], palette, -8 + lean, -24, 1);
+      block(c, -3 + lean, -17, 5, 5, look.bib);
+      block(c, -1 + lean, -16, 1, 1, look.metal); block(c, -1 + lean, -13, 1, 1, look.metal);
+      block(c, -10 + lean, -12, 20, 3, look.belt);
+      block(c, -9 + lean, -12, 17, 1, look.lining);
+      block(c, -2 + lean, -12, 5, 3, look.metal); block(c, -1 + lean, -11, 3, 1, look.fold);
+      block(c, -11 + lean, -8, 5, 1, look.fold); block(c, 7 + lean, -8, 5, 1, look.fold);
+      block(c, -13 + lean, -6, 7, 1, look.trim); block(c, 6 + lean, -6, 8, 1, look.bodyEdge);
+      // Sleeves turn into cuffs and small paws; opposite walk phases move
+      // the elbow horizontally as well as vertically, avoiding piston limbs.
+      for (const side of [-1, 1]) {
+        const dy = dash ? (side < 0 ? 2 : -2) : -side * stride,
+          x = (side < 0 ? -21 : 13) + lean + (dash ? (side < 0 ? -2 : 3) : side * (frame % 2));
+        const sleeve = [
+          "...####..", "..#hhaa#.", ".#haaaa#.", ".#haaas#.", "#haaaas#.",
+          "#haaass#.", "#haaass#.", ".#aaass#.", ".#aasst#.", "..#tttt#.",
+          "..#pppp#.", "..#plppp#", "...#pppp#", "....####.",
+        ];
+        grid(c, side < 0 ? sleeve : sleeve.map(row => [...row].reverse().join("")), palette, x, -23 + dy, 1);
+      }
     } else {
-      rimBox(c, -14, -28, 28, 17, coat.body, LIGHT);
-      block(c, -14, -11, 28, 9, INK); block(c, -12, -10, 24, 7, costume?.outfit.tee?.denim ?? b.denim);
-      block(c, -2, -10, 3, 9, "#244362"); block(c, -10, -9, 5, 2, "#8fb3cb");
-      block(c, -12, -25, 1, 12, coat.bodyEdge); block(c, 11, -24, 2, 11, coat.fold);
-      block(c, -10, -13, 20, 1, coat.bodyEdge); block(c, -8, -26, 16, 1, coat.fold);
-      block(c, -5, -25, 10, 1, coat.bodyEdge); block(c, -3, -24, 6, 1, coat.bodyEdge);
-      block(c, 5, -21, 4, 1, coat.bodyEdge); block(c, 5, -20, 1, 3, coat.bodyEdge);
-      block(c, 8, -20, 1, 3, coat.fold); block(c, 6, -17, 2, 1, coat.bodyEdge);
-      block(c, -11, -7, 1, 4, "#8fb3cb"); block(c, 9, -7, 1, 4, "#244362");
-      block(c, 5, -9, 5, 1, "#8fb3cb"); block(c, 8, -8, 1, 2, "#244362");
-      block(c, 1, -9, 1, 1, b.denimEdge);
-    }
-    for (const side of [-1, 1]) {
-      const dy = side * stride;
-      rimBox(c, side < 0 ? -13 : 3, -6 + dy, 10, 8, coat.paw, coat.pawEdge);
-      rimBox(c, side < 0 ? -20 : 14, -22 - dy, 6, 13, coat.arm, coat.bodyEdge);
-      block(c, side < 0 ? -20 : 14, -10 - dy, 6, 4, coat.paw);
-      const armX = side < 0 ? -20 : 14, footX = side < 0 ? -13 : 3;
-      block(c, armX + 1, -19 - dy, 1, 6, coat.bodyEdge);
-      block(c, armX + 1, -12 - dy, 4, 1, coat.fold);
-      block(c, armX + 1, -7 - dy, 4, 1, coat.pawEdge);
-      block(c, footX + 2, -3 + dy, 5, 1, coat.pawEdge);
-      block(c, footX + 2, dy, 6, 1, coat.fold);
+      const look = { ...b, ...costume?.outfit.tee }, lean = dash ? 2 : 0,
+        palette = { "#": INK, b: look.body, h: look.bodyEdge,
+          s: costume?.outfit.tee?.fold ?? "#cecac2", d: look.denim,
+          e: look.denimEdge, n: "#344d69", p: look.paw, l: look.pawEdge,
+          a: look.arm, f: b.tail };
+      grid(c, [
+        "..####............", ".#ffff#...........", "#ff##ff#..........",
+        "#f#..#ff#.........", "#f#...#f#.........", "#ff#..#f#.........",
+        ".#ff##ff#.........", "..#fffff#.........", "...##fff##........",
+        ".....#ffff###.....", "......##fffff####.", "........###ffffff#",
+        "...........######.",
+      ], palette, dash ? -32 : -28, dash ? -20 : -16, 1);
+      // Separate trouser legs tuck underneath the tee. Pocket welts and one
+      // outside seam are enough to read denim without a stripe on every edge.
+      for (const side of [-1, 1]) {
+        const dy = dash ? (side < 0 ? -2 : 0) : side * stride,
+          x = (side < 0 ? -12 : 2) + (dash ? (side < 0 ? -3 : 4) : side * (frame === 1 ? 1 : frame === 3 ? -1 : 0));
+        const leg = [
+          ".##########.", "#edddddddnn#", "#edddddddnn#", "#eddeddndnn#",
+          "#eddeddndnn#", ".#ddddddnn#.", ".#edddddnn#.", ".#edddddnn#.",
+          "..#eeeeen#..", "..#pppppp#..", ".#plllllpp#.", ".#ppppppppp#",
+          "..#########.",
+        ];
+        grid(c, side < 0 ? leg : leg.map(row => [...row].reverse().join("")), palette, x, -10 + dy, 1);
+      }
+      block(c, -11 + lean, -12, 23, 3, look.denim);
+      block(c, -10 + lean, -11, 21, 1, "#344d69");
+      block(c, 0 + lean, -11, 2, 1, look.denimEdge);
+      // Sloped shoulder lines and a slightly asymmetric lower hem make the
+      // shirt drape over the waist instead of reading as a white signboard.
+      const edges = [
+        [-10, 9], [-12, 11], [-14, 13], [-15, 14], [-16, 15],
+        [-16, 15], [-15, 14], [-14, 13], [-13, 12], [-13, 12],
+        [-12, 12], [-12, 12], [-12, 11], [-13, 11], [-13, 12],
+        [-12, 12], [-11, 11],
+      ];
+      edges.forEach(([left, right], row) => {
+        const y = -28 + row;
+        block(c, left + lean, y, right - left + 1, 1, INK);
+        if (row > 0) {
+          block(c, left + 1 + lean, y, right - left - 1, 1, look.body);
+          block(c, left + 1 + lean, y, 1, 1, look.bodyEdge);
+          if (row > 5) block(c, right - 2 + lean, y, 2, 1, palette.s);
+        }
+      });
+      // Soft collar, one lower fold and a small shaped chest pocket. The
+      // dark fold colour is limited to tiny occlusion marks, not outlines.
+      grid(c, ["hhsssssshh", ".hhsssshh.", "..hhhhhh.."], palette, -5 + lean, -26, 1);
+      grid(c, ["sssss", "hbbbs", "hbbbs", ".hbs.", "..s.."], palette, 4 + lean, -21, 1);
+      block(c, -10 + lean, -16, 2, 1, palette.s); block(c, -8 + lean, -15, 4, 1, palette.s);
+      block(c, -10 + lean, -13, 13, 1, palette.s); block(c, 3 + lean, -14, 6, 1, palette.s);
+      // The short sleeve joins the shoulder and exposes a bent forearm;
+      // hand and cuff silhouettes advance with the opposite walking leg.
+      for (const side of [-1, 1]) {
+        const dy = dash ? (side < 0 ? 2 : -2) : -side * stride,
+          x = (side < 0 ? -21 : 13) + lean + (dash ? 0 : side * (frame % 2));
+        const arm = [
+          "...####..", "..#hbbb#.", ".#hbbbb#.", ".#hbbbs#.", ".#hbbss#.",
+          "..#sss#..", "..#aaa#..", "..#alp#..", ".#alpp#..", ".#alpp#..",
+          ".#lpppp#.", "..#pppp#.", "...####..",
+        ];
+        grid(c, side < 0 ? arm : arm.map(row => [...row].reverse().join("")), palette, x, -23 + dy, 1);
+      }
     }
     if (costume) {
       // Preserve outfit functions with a native vocabulary: back garment, hand tool,
