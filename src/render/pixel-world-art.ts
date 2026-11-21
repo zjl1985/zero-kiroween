@@ -1,3 +1,4 @@
+import { drawPixelWaxCandle } from "./pixel-wax-candle.js";
 import { drawPixelMailbox } from "./pixel-mailbox.js";
 import { drawPixelSignpost } from "./pixel-signpost.js";
 import { drawPixelReeds } from "./pixel-reeds.js";
@@ -171,10 +172,6 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
         box(W * r, Math.max(1.5, D * 0.4), damagedTop ? 2 : 1);
         if (h > 0.38 && h < 0.68) rect(-1, D * 0.4 - 1, 2, 1, 0);
         if (h > 0.53 && h < 0.6) rect(-W * 0.4, D * 0.4 - 1, W * 0.8, 1, 0);
-      } else if (id === "wax-candle") {
-        if (h < 0.12) oval(0, 0, W, D, STONE[1]);
-        else if (h < 0.91) { oval(0, 0, W * 0.46, D * 0.6, h > 0.84 ? 0 : 2); if (h < 0.8) rect(W * 0.25, 0, 1, D * 0.4, 1); }
-        else rect(0, 0, 1, 1, WOOD[0]);
       } else if (id === "haybale") {
         const r = Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.53) ** 2));
         oval(0, 0, W, D * Math.max(0.3, r), h < .15 ? 0 : 1);
@@ -191,6 +188,7 @@ function propModel(art: PropArt, v: number, phase: string, burnt: boolean): Pixe
 export function pixelPropArt(a: PropArt): PropArt {
   return { ...a, look: { ...a.look, angle: [0, 0] },
     paint(ctx, x, y, s, v, phase, burnt) {
+      if (a.id === "wax-candle") { drawPixelWaxCandle(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "mailbox") { drawPixelMailbox(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "signpost") { drawPixelSignpost(ctx,x,y,s,v,phase,burnt); return; }
       if (a.id === "paper-reeds") { drawPixelReeds(ctx,x,y,s,v,phase,burnt); return; }

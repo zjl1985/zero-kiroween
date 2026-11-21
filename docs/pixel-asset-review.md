@@ -47,6 +47,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Laundry line and lantern string | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Exact grounded posts, sagging cord with connected pegs/hangers, recognizable cloth/lantern remnants. Pixel connectivity regression added; user approval pending. |
 | Destructible reeds | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Root-connected arching leaves, unequal cattail heads, cut remnants; corrected wire-like highlights and disconnected taper pixels. Terrain reed fans remain separate; user approval pending. |
 | Mailbox and signpost | Rebuilt; lifecycle sheets and desktop/phone fixtures viewed | Tunnel hood/red flag/envelope and opposed arrow boards/fasteners; grounded supports and recognizable remnants. User approval pending. |
+| Destructible wax candle | Rebuilt; lifecycle/live-fire and desktop/phone fixtures viewed | Recessed wax top, connected drips, tray, anchor-preserving damage and pale melted remnants. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -345,3 +346,14 @@ Viewed all36 normal/burnt lifecycle combinations at1×/2× and both desktop960×
 Evidence: mailbox-before/after-{states,burnt,detail,desktop,mobile}.png and signpost-before/after-{states,burnt,detail,desktop,mobile}.png under output/pixel-asset-review. These are focused scene renders, not manual gameplay/iPhone profiling/user art acceptance. Whole-game art remains in progress; local only/no push or deployment.
 
 Mailbox/signpost verification: `npm run build` passed; `npm test`438/438. Gallery gloss0/errors0,127 registered paints nonempty/in bounds. Browser all36 states strict bounds/cache round-trip pass; `git diff --check` passed.
+
+
+## Destructible wax candle: live flame alignment and melted remnants
+
+New pixel-wax-candle.ts replaces the generic pillar with three wax palettes, a recessed top, attached rounded drips, broad cylinder faces and a shallow grounded metal tray. Standing damage chips the side while retaining the wick under existing live flame metadata (2,-47). The cached painter stays unlit; existing ignition logic owns the flame. Cut remnants retain wax chunks, while burnt scraps become a low pale wax pool and spent black wick, restoring the original material distinction instead of generic charcoal. No definitions, collision, reactions or simulation changes.
+
+Viewed all18 lifecycle combinations at1×/2×, plus actual craft-props.drawProp fire overlays for intact/damaged variants in normal and reduced motion. Baseline damaged fire floated above its truncated pillar; the new standing states retain the same wick height. Live overlay probes produce2 normal frames and1 reduced-motion frame, with immutable prop state. New tests cover wick alignment and grounded melted-remnant bounds.
+
+Viewed desktop960×540 and phone390×844 seed7 fixture(1546,837),scale1.01. Rendering leaves simulation unchanged and reports no browser errors. Strict original bounds and intact cache round-trip pass. Evidence under output/pixel-asset-review: wax-candle-before/after-{states,burnt,detail,desktop,mobile}.png and wax-live-before/after-{normal,reduced}.png. These are render fixtures, not iPhone performance or gameplay acceptance. Whole-game refinement remains active; local only/no push.
+
+Wax verification: npm run build passed; npm test440/440; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Two targeted regressions pass; git diff --check passed.
