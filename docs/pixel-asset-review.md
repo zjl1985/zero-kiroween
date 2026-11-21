@@ -38,6 +38,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Clocktower landmark | Rebuilt; native/magnified and scene fixtures viewed | Grounded masonry, corner quoins, arched entry/windows, readable near-midnight clock, open bell chamber and tapered roof. First dial-striping defect fixed; user approval pending. |
 | Lantern market | Rebuilt; stalls/lights and scene fixtures viewed | Joined timber counters, supported striped canopy/valance, seasonal goods, connected sagging lantern cord, flush plank court. User approval pending. |
 | Wishing well | Rebuilt; native/magnified and scene fixtures viewed | Hollow stone shaft, coping, roof frame/winch/rope/bucket; corrected opaque plaza hiding the actual pond. User approval pending. |
+| Puppet theatre | Rebuilt; stage/benches and scene fixtures viewed | Arched proscenium, gathered curtains, illustrated backdrop/string puppets, joined low benches and quiet audience aisle. Corrected detached shadow and bat silhouette found in first capture; user approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -214,3 +215,19 @@ Viewed native/2× before/after and seed7desktop960×540/phone390×844 fixture at
 Refined the inner-wall material into broad spans and a recessed continuous dark floor, then lifted the visual bucket three author units while preserving spool/rope/handle connections. Final native/2×, desktop and phone captures were viewed. Evidence: well-before-detail.png, well-after-detail.png (first opening/bucket issue), well-final-detail.png, well-final-desktop.png and well-final-mobile.png in output/pixel-asset-review. The visible pond fixes gameplay readability without changing its water definition. Whole-game art acceptance and iPhone performance remain unverified; continue other assets and scene composition.
 
 Wishing-well final verification: `npm run build` passed; `npm test`433/433 including the water-visibility regression. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.
+
+
+## Puppet theatre, benches and audience apron
+
+Replaced the generic flat stage and two coloured columns with a dedicated half-unit toy theatre: shallow plank stage/footlights, load-bearing pilasters and curved gold-trimmed arch, pediment/medallion, gathered red curtain folds/ties, thick moon/mountain backdrop, string-connected cat and bat puppets. The puppets are fixed stage ornaments, never additional gameplay actors. Joined low benches have trestles/stretchers, two seat boards, end grain and three restrained wood palettes; their low silhouette fits the old bounds and collision layout.
+
+The baked audience apron is now a quiet fan-shaped timber surface with sparse seams, a muted woven central aisle, worn patches beneath the existing seats and two low-contrast ticket stubs. Roads remain authoritative. No gameplay definitions, placement, collision, input, dependencies or simulation changed.
+
+Viewed baseline and first native/2× stage plus seed7desktop960×540/phone390×844 fixture at(2724,639); rendering preserves simulation state and page errors0. Also viewed all three bench colours at native/4×. First stage review caught a detached broad shadow making the stage look airborne and an overly diamond-shaped bat. Refinement recorded below. These are repositioned render fixtures, not full manual playthroughs.
+
+
+Reduced the unrotated broad stage ellipse to a small tucked contact shadow while retaining the actual ground-zero footing; this removes the detached black oval under the slanted stage base. Rebuilt the bat with raised wing tips, stepped/scalloped membrane bays, finger bones and small ears. Final native/2×, desktop and phone screenshots were viewed; the stage now visually joins its apron and the bat silhouette reads separately from the cat puppet.
+
+Evidence: theatre-before-detail.png, theatre-after-detail.png (retained first shadow/bat defects), theatre-final-detail.png, theatre-final-desktop.png, theatre-final-mobile.png, theatre-bench-variants.png in output/pixel-asset-review. Remaining scene composition and prop/actor/weapon/UI families remain open; no user art approval or iPhone performance claim.
+
+Theatre final verification: `npm run build` passed; `npm test`433/433. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.

@@ -1,3 +1,6 @@
+import { theatreModel } from "./pixel-theatre.js";
+import { theatreBenchModel } from "./pixel-theatre-bench.js";
+import { drawTheatreGround } from "./pixel-theatre-ground.js";
 import { wellModel } from "./pixel-well.js";
 import { drawWellFooting, drawWellPondDetails } from "./pixel-well-ground.js";
 import { marketStallModel } from "./pixel-market-stall.js";
@@ -212,6 +215,8 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "theatre") return theatreModel(v);
+  if (piece.kind === "bench") return theatreBenchModel(v);
   if (piece.kind === "well") return wellModel(v);
   if (piece.kind === "stall") return marketStallModel(v);
   if (piece.kind === "clock-tower") return clockTowerModel(v);
@@ -301,18 +306,6 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
           rect(x, 0, 1, 1, WOOD[1]);
           if ((z + i * 3) % 9 < 4) oval(x + Math.sin(z * 0.4) * 2, 1, 3, 2, i % 2 ? LEAF[1] : LEAF[2]);
         }
-      } else if (kind === "theatre") {
-        if (h < 0.12) box(W, D, WOOD[1]);
-        if (h >= 0.12 && h < 0.83) {
-          rect(-W * 0.88, -D, W * 1.76, 3, "#3c344e");
-          for (const side of [-1, 1]) {
-            rect(side * W * 0.84 - 2, -D, 4, D * 2, GOLD[1]);
-            const curtain = W * (0.18 + Math.max(0, h - 0.55) * 1.3);
-            rect(side < 0 ? -W * 0.78 : W * 0.78 - curtain, D - 3, curtain, 3, side < 0 ? "#a35369" : "#b96778");
-          }
-          if (h < 0.36) { oval(-W * 0.22, 0, 3, 2, "#c0aa7b"); oval(W * 0.3, 0, 3, 2, "#81a5a2"); }
-        }
-        roofSection(0.82, 1, W, D);
       } else { // Teahouse and chapel keep distinct roof volumes and facades.
         const teahouse = /teahouse-building/.test(kind), bodyTop = teahouse ? 0.53 : 0.65;
         if (h < bodyTop) {
@@ -345,6 +338,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "puppet-theatre") { drawTheatreGround(ctx,l.x,l.y); return; }
       if (a.id === "wishing-well") { drawWellFooting(ctx,l.x,l.y); return; }
       if (a.id === "lantern-market") { drawMarketGround(ctx,l.x,l.y); return; }
       if (a.id === "clock-tower") { drawClockCourt(ctx,l.x,l.y); return; }
@@ -372,6 +366,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "puppet-theatre") return; // Apron includes the aisle and ticket stubs.
       if (a.id === "wishing-well") { drawWellPondDetails(ctx,l.x,l.y); return; }
       if (a.id === "lantern-market") return; // Board court includes the woven mats.
       if (a.id === "clock-tower") return; // Court owns the flush entry stones.
@@ -403,7 +398,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       paint(ctx, x, y, s, v) {
         if (piece.kind === "lights") { drawMarketLights(ctx,x,y,s,v); return; }
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        const grounded = piece.kind === "well" || piece.kind === "stall" || piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
+        const grounded = piece.kind === "theatre" || piece.kind === "bench" || piece.kind === "well" || piece.kind === "stall" || piece.kind === "clock-tower" || piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
           || piece.kind.startsWith("fold-greenhouse-") || piece.kind.startsWith("paper-teahouse-");
         drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(grounded ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
