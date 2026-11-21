@@ -2,6 +2,31 @@
 
 Midnight Meow is a code-drawn papercraft survivor-like for Kiroween 2026. Read [AGENTS.md](AGENTS.md), the [development skill](.kiro/skills/midnight-meow-dev/SKILL.md) (wash-out contract in [paper-ecology.md](.kiro/skills/midnight-meow-dev/references/paper-ecology.md)) and [PLAN.md](PLAN.md). Finished work lives in Git history, not here.
 
+## Sprite-stacking correction (2026-11-21)
+
+The user clarified that the implementation must follow `danielwh2/sprite-stacking`.
+The flat facades in `113072c` did not satisfy that requirement. See
+[docs/sprite-stacking.md](docs/sprite-stacking.md) for the reference, implementation
+and remaining scope. Horizontal procedural XY sections now form the two opening
+cottages and street lamps, with shared rotation, camera squash, Z lift and projected
+hard shadows. They bake through existing scenery caches. No sim, RNG, collision,
+input, head art or dependencies changed. Other objects remain unconverted.
+
+The user explicitly requested screenshots; static Linux Chromium captures of the
+old and new actual seed-7 opening plus a four-angle lamp study were inspected.
+This supersedes the old environment-specific screenshot restriction for this
+request only. Desktop static captures are not iPhone performance evidence or art
+approval. Enlarged slice stepping and the mixed old/new scene remain review items.
+Screenshots are in `/workspace/scratch/paper-shots/` (not shipped game assets).
+
+Verification on this correction: `npm run build` passed; `npm test` **418/418**;
+fixed-input baseline/current comparison **64/64 full-state checkpoints**;
+`git diff --check` passed. New tests cover section projection, stable ground anchors,
+atlas reuse/packing/bounds, allocation guards, caller-state restoration and isolated
+shadow compositing. The existing scenery recorder now measures sampled cached
+section geometry rather than ignoring bitmap draws. No iPhone, audio, full-run or
+frame-time measurements. Local commit only, not pushed or deployed.
+
 ## Playable paper refactor prototype (2026-11-21)
 
 User authorized implementation and committing all work after the prototype plan. Frozen baseline: `6d1eab6`, local tag `paper-baseline-6d1eab6`. Deliverable is a playable opening/canal A/B sample; broader districts, actors and UI remain behind the requested visual/device gate, not silently expanded.
