@@ -39,6 +39,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Lantern market | Rebuilt; stalls/lights and scene fixtures viewed | Joined timber counters, supported striped canopy/valance, seasonal goods, connected sagging lantern cord, flush plank court. User approval pending. |
 | Wishing well | Rebuilt; native/magnified and scene fixtures viewed | Hollow stone shaft, coping, roof frame/winch/rope/bucket; corrected opaque plaza hiding the actual pond. User approval pending. |
 | Puppet theatre | Rebuilt; stage/benches and scene fixtures viewed | Arched proscenium, gathered curtains, illustrated backdrop/string puppets, joined low benches and quiet audience aisle. Corrected detached shadow and bat silhouette found in first capture; user approval pending. |
+| Stone bridge and riverbanks | Rebuilt; native/magnified and scene fixtures viewed | Exact shared deck now has stone flagstones and low inset coping; ordinary road crossings keep timber. Quiet dry banks replace checkerboard, no geometry changes. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -231,3 +232,16 @@ Reduced the unrotated broad stage ellipse to a small tucked contact shadow while
 Evidence: theatre-before-detail.png, theatre-after-detail.png (retained first shadow/bat defects), theatre-final-detail.png, theatre-final-desktop.png, theatre-final-mobile.png, theatre-bench-variants.png in output/pixel-asset-review. Remaining scene composition and prop/actor/weapon/UI families remain open; no user art approval or iPhone performance claim.
 
 Theatre final verification: `npm run build` passed; `npm test`433/433. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.
+
+
+## Stone bridge and authoritative river geometry
+
+The bridge has no independent decorative building model: its real walkable top is a shared water-crossing polygon. The previous native adapter rendered this named stone bridge as wooden planks and repeated a bright checkerboard along both banks. Added pixel-stone-deck.ts and route only existing authored :deck crossings through it; generated road crossings retain the existing timber painter. The exact original base-fill polygon and clip remain intact.
+
+The stone finish inverse-maps the polygon basis to draw staggered flagstones, broad muted faces, selective bevel/wear and low lateral coping. Both crossing ends remain open. Every emitted integer pixel is contained by the polygon, including rotated/skewed quadrilateral cases. No rail, new obstacle, enlarged deck, shore/collision edit, simulation change, random state or animated allocation.
+
+pixel-bridge-banks.ts replaces checkerboards with restrained dry soil/vegetation strips, flat shoreline stones and flush landing pavers. All decoration stays outside the authoritative river. Added pixel-bridge-art.test.mjs to verify finish containment with negative/rotated/skewed/reversed polygons, immutable geometry/restored Canvas state, and registered bank painters outside actual water at three spans and two placements. Existing water tests still check exact shared Canvas vertices and crossing accessibility.
+
+Viewed native/2× assembled bridge previews plus desktop960×540/phone390×844 seed7 world fixtures at(4455,700), span420. Fixtures reposition the cat for scene review; rendering preserves simulation state and page errors0. Evidence: bridge-before-detail.png, bridge-after-detail.png, bridge-before-desktop.png, bridge-after-desktop.png, bridge-after-mobile.png under output/pixel-asset-review. These are not a full manual traversal, iPhone profiling or user art acceptance. Other scene/prop/actor/weapon/UI details remain open.
+
+Bridge final verification: `npm run build` passed; `npm test`435/435 including new containment/dry-bank regressions and existing bridge-centre/edge traversal/collision checks. Browser gallery gloss0, errors0,127 registered paints nonempty/in bounds. Local only; no push/deployment.

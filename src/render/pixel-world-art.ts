@@ -1,3 +1,4 @@
+import { drawBridgeBanks } from "./pixel-bridge-banks.js";
 import { theatreModel } from "./pixel-theatre.js";
 import { theatreBenchModel } from "./pixel-theatre-bench.js";
 import { drawTheatreGround } from "./pixel-theatre-ground.js";
@@ -27,7 +28,6 @@ import type { ArtBounds, DecorPiece, LandmarkArt, PropArt } from "./art-registry
 import { drawPixelStack, type PixelStackModel } from "./pixel-stack.js";
 import { hash, type Ctx } from "./paper-material.js";
 import { LANDMARK_ACTIONS } from "../defs/landmark-activities.js";
-import { RIVER } from "../defs/landmarks/stone-bridge/def.js";
 
 const WOOD = ["#473c48", "#87634e", "#bd9566"] as const;
 const STONE = ["#45495c", "#77818a", "#b7b7a1"] as const;
@@ -338,6 +338,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "stone-bridge") { drawBridgeBanks(ctx,l); return; }
       if (a.id === "puppet-theatre") { drawTheatreGround(ctx,l.x,l.y); return; }
       if (a.id === "wishing-well") { drawWellFooting(ctx,l.x,l.y); return; }
       if (a.id === "lantern-market") { drawMarketGround(ctx,l.x,l.y); return; }
@@ -348,14 +349,6 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       const tile = 8, rx = Math.min(l.radius + 30, 180), ry = rx * 0.55,
         wood = /market|teahouse|theatre/.test(a.id), garden = /field|greenhouse|windmill|hill/.test(a.id),
         colors = wood ? WOOD : garden ? LEAF : STONE;
-      if (a.id === "stone-bridge") {
-        const span = l.span ?? RIVER.halfLength;
-        for (const side of [-1, 1]) for (let px = -span; px < span; px += tile) for (let py = 10; py < 40; py += tile) {
-          ctx.fillStyle = LEAF[(Math.floor(px / tile) + Math.floor(py / tile) + 300) % 3]!;
-          ctx.fillRect(Math.round((l.x + px) / 2) * 2, Math.round((l.y + side * (RIVER.halfWidth + py)) / 2) * 2, tile, tile);
-        }
-        return;
-      }
       for (let iy = -Math.ceil(ry / tile); iy <= Math.ceil(ry / tile); iy++) for (let ix = -Math.ceil(rx / tile); ix <= Math.ceil(rx / tile); ix++) {
         if ((ix * tile / rx) ** 2 + (iy * tile / ry) ** 2 > 1) continue;
         const h = hash(l.seed + ix * 7919 + iy * 131), c = colors[1]!;

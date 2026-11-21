@@ -1,3 +1,4 @@
+import { drawStoneDeckDetail } from "./pixel-stone-deck.js";
 import type { WaterPolygon, WaterRegion, WaterShape } from "../defs/types.js";
 import { prepareWater } from "../defs/water.js";
 import { hash, path, type Ctx, type Point } from "./paper-material.js";
@@ -59,6 +60,12 @@ export function drawWaterCrossings(ctx: Ctx, region: WaterRegion): void {
     ctx.save(); ctx.translate(2, 4); ctx.fillStyle = "#293740"; ctx.fill(p); ctx.restore();
     ctx.fillStyle = "#9a8b7e"; ctx.fill(p);
     ctx.clip(p);
+    // Authored landmark decks keep stone; generated road crossings retain timber.
+    if (crossing.id.endsWith(":deck")) {
+      drawStoneDeckDetail(ctx, crossing.polygon);
+      ctx.restore();
+      continue;
+    }
     const wx = d.x - a.x, wy = d.y - a.y, count = Math.max(1, Math.ceil(len / 12));
     for (let i = 0; i < count; i++) {
       const from = (i + 0.08) / count, to = (i + 0.87) / count,
