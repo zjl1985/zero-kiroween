@@ -34,6 +34,7 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Windmill landmark | Rebuilt; native/2× and seeded scene fixtures viewed | Grounded masonry tower, real pointed cap, arched door/windows, native lattice sails. Reduced Motion and supplied activity angle verified. User approval pending. |
 | Observatory landmark | Rebuilt; building/instruments and scene fixtures viewed | Faceted drum, arched entry, supported dome/slit/telescope, brass armillary, chart desk and compass court. First roof speckle and chart stripes corrected; user approval pending. |
 | Greenhouse landmark | Rebuilt; native/magnified and scene fixtures viewed | Divided glazing, planted benches, brick footing, continuous roof beam, climbing trellis, terracotta pots and potting bench. Flush garden approach; user approval pending. |
+| Teahouse landmark | Rebuilt; building/furnishings and scene fixtures viewed | Timber facade, lattice windows, double hipped roofs, tea table and potted shrubs, quiet gravel garden and rest marker. User approval pending. |
 | Other registered props and landmarks | Pending | Fence contrast repaired; individual architecture, lifecycle detail and all cache edges still need review. |
 | Weapons, passives and status effects | Pending | Distinct forms in motion and at HUD size; preserve hazard footprint |
 | UI portraits/cards/HUD | Pending | Readability, deliberate spacing and consistent miniature materials |
@@ -154,3 +155,17 @@ First screenshot revealed a broken dotted roof crossbeam caused by exposed glazi
 Remaining whole-screen issue: surrounding procedural spacing and other generic landmarks still fall short of the supplied farm reference. This is one local asset batch, not full-game art approval, iPhone performance verification or publication. Continue the active goal with other architecture and scene composition, then remaining props/actors/weapons/UI.
 
 Greenhouse verification: `npm run build` passed; `npm test`432/432. Gallery gloss0, browser errors0,127 registered prop/landmark paints nonempty and in bounds. Local only; no push/deployment.
+
+
+## Teahouse architecture, tea furnishings and garden
+
+Replaced the generic upright roof slabs and narrow-window facade with a dedicated half-unit timber teahouse: two real hipped roof tiers, glazed clerestory, warm lattice windows, posts/girts/braces, recessed door, supported entrance awning and tea tins on the serving ledges. Shallow steps/footing and all three models use ground zero without the generic upward offset. The tea table includes a connected teapot handle/spout, cups, cookie plate, woven runner, joined low frame and two short stools. Paired glazed pots support branch-connected tea shrubs.
+
+Replaced the loud checkerboard court with a flush gravel garden, sparse curved rake marks, planted islands, doorway pavers and table mat. A small cup inlay marks the existing TEA.point; interaction definitions and reach remain unchanged. No physics, simulation, controls, dependencies or landmark layouts changed. Native static geometry and garden remain cached.
+
+Baseline and first revision viewed at native/2× building size, native/3× furnishings, and seed7 desktop960×540/phone390×844 world fixtures at(-2871,3919). These are repositioned scene fixtures, not full manually played runs. Rendering preserves simulation state and page errors0. First furnishing inspection found leaf highlights hidden inside the sliced crowns, leaving overly flat circular silhouettes; refinement recorded below.
+
+
+Corrected the crown material to reach each exposed cross-section: continuous broad light plane and dark lower/left plane replace buried highlight discs. Final furnishings and desktop/phone images viewed; table remains unchanged. Final evidence: teahouse-final-detail.png, teahouse-tools-detail.png, teahouse-final-desktop.png, teahouse-final-mobile.png under output/pixel-asset-review. Before and first after captures are retained for comparison. Overall surrounding spacing, remaining generic structures and actor/effect/UI detail still need work against the reference; this is not whole-game acceptance or iPhone profiling.
+
+Teahouse final verification: `npm run build` passed; `npm test`432/432 after the leaf-plane correction. Browser gallery gloss0, errors0,127 nonempty/in-bounds registered paints. Seeded scene render state unchanged. Local only, no push or deployment.

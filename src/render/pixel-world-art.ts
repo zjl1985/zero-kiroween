@@ -1,3 +1,6 @@
+import { teahouseModel } from "./pixel-teahouse.js";
+import { teahouseTableModel, teahousePlanterModel } from "./pixel-teahouse-props.js";
+import { drawTeahouseGarden } from "./pixel-teahouse-garden.js";
 import { drawGreenhouseGarden } from "./pixel-greenhouse-garden.js";
 import { greenhouseModel } from "./pixel-greenhouse.js";
 import { greenhouseTrellisModel, greenhousePotsModel, greenhouseWorkbenchModel } from "./pixel-greenhouse-props.js";
@@ -202,6 +205,9 @@ export function pixelPropArt(a: PropArt): PropArt {
 }
 
 function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
+  if (piece.kind === "paper-teahouse-building") return teahouseModel(v);
+  if (piece.kind === "paper-teahouse-table") return teahouseTableModel(v);
+  if (piece.kind === "paper-teahouse-planter") return teahousePlanterModel(v);
   if (piece.kind === "fold-greenhouse-building") return greenhouseModel(v);
   if (piece.kind === "fold-greenhouse-trellis") return greenhouseTrellisModel(v);
   if (piece.kind === "fold-greenhouse-pots") return greenhousePotsModel(v);
@@ -365,6 +371,7 @@ function landmarkModel(piece: DecorPiece, v: number): PixelStackModel {
 export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
   return { ...a,
     base(ctx, l) {
+      if (a.id === "paper-teahouse") { drawTeahouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "fold-greenhouse") { drawGreenhouseGarden(ctx,l.x,l.y); return; }
       if (a.id === "star-observatory") { drawObservatoryCourt(ctx,l.x,l.y); return; }
       const tile = 8, rx = Math.min(l.radius + 30, 180), ry = rx * 0.55,
@@ -388,6 +395,7 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
       }
     },
     ground(ctx, l) {
+      if (a.id === "paper-teahouse") return; // Baked garden includes the rest marker and approach.
       if (a.id === "fold-greenhouse") return; // Garden already owns its flush approach.
       if (a.id === "star-observatory") return; // Its compass court owns the flush doorway path.
       if (a.id === "stone-bridge") return; // All walkable decks still come from the shared water geometry.
@@ -414,7 +422,9 @@ export function pixelLandmarkArt(a: LandmarkArt): LandmarkArt {
     pieces: a.pieces?.map(piece => ({ ...piece,
       paint(ctx, x, y, s, v) {
         const model = fineModel(landmarkModel(piece, v % (piece.variants ?? 1)));
-        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(piece.kind === "windmill" || piece.kind.startsWith("star-observatory-") || piece.kind.startsWith("fold-greenhouse-") ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
+        const grounded = piece.kind === "windmill" || piece.kind.startsWith("star-observatory-")
+          || piece.kind.startsWith("fold-greenhouse-") || piece.kind.startsWith("paper-teahouse-");
+        drawPixelStack(ctx, model, { x: Math.round(x), y: Math.round(grounded ? y : y - model.depth * s * 0.2), scale: s, turn: 0.2, shadow: true });
       },
       ...(piece.kind === "windmill" ? { live(ctx: Ctx, x: number, y: number, s: number, v: number, time: number, activity?: Parameters<NonNullable<DecorPiece["live"]>>[6]) {
         drawPixelWindmillRotor(ctx, x, y, s, v, activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn);
