@@ -30,7 +30,8 @@ Serve the built `site/` on localhost:4175. `PIXEL_REVIEW_CHROMIUM` optionally sp
 | Zero | Revised; internal screenshot review passed | Stepped shoulders/waist, separate coat tails, curved tail, shaped sleeves/feet and four poses. 1×/3×, 12-pose sheet and phone gameplay viewed; face preserved, cat-art17/17. Dark coat remains subdued; user approval pending. |
 | Nicole | Revised twice; internal screenshot review passed | Shaped tee/sleeves, denim legs/pockets/cuffs and curved tail. 1×/3×, 12-pose and mobile game images viewed; dash detached-sleeve defect found and fixed, then pose sheet recaptured. Face/glasses preserved; user approval pending. |
 | Costumes | Pending | Every registered outfit must survive front/back layering and bounds |
-| Enemies and Eraser | Pending | Each silhouette/material, ordinary/elite/attack/washed variants |
+| Ink blob and smudge | Rebuilt; native/magnified state sheets and mixed-world fixtures viewed | Grounded asymmetric blob and folded carrier/ink reservoir; side charge clears elite crown, full washed palettes. User approval pending. |
+| Remaining enemies and Eraser | Pending | Each silhouette/material, ordinary/elite/attack/washed variants |
 | Windmill landmark | Rebuilt; native/2× and seeded scene fixtures viewed | Grounded masonry tower, real pointed cap, arched door/windows, native lattice sails. Reduced Motion and supplied activity angle verified. User approval pending. |
 | Observatory landmark | Rebuilt; building/instruments and scene fixtures viewed | Faceted drum, arched entry, supported dome/slit/telescope, brass armillary, chart desk and compass court. First roof speckle and chart stripes corrected; user approval pending. |
 | Greenhouse landmark | Rebuilt; native/magnified and scene fixtures viewed | Divided glazing, planted benches, brick footing, continuous roof beam, climbing trellis, terracotta pots and potting bench. Flush garden approach; user approval pending. |
@@ -403,3 +404,18 @@ Viewed all66 normal/burnt native/2× states and actual drawProp live-fire sheets
 Evidence under output/pixel-asset-review: haybale-before/after-{states,burnt,detail,desktop,mobile}.png; paper-{crate,fence}-before/after-{states,burnt,detail,desktop,mobile}.png; eachID-live-before/after-{normal,reduced}.png. Reduced captures are backed by pixel-hash motion probes; normal sheets were visually inspected. These are focused render fixtures, not manual gameplay/iPhone profiling or user art acceptance. Whole-game work remains active; local only/no push.
 
 Yard-prop verification: npm run build passed; npm test450/450; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted tests4/4 and all66 browser strict bounds/cache round-trips pass. git diff --check passed.
+
+
+## Ink enemies: grounded mass versus folded ranged carrier
+
+New pixel-ink-blob.ts and pixel-smudge.ts replace the initial enlarged-grid bodies through the existing pixelEnemyArt/enemySprite cache. The blob has two asymmetric contours deforming at one ground row, connected flowing lobes, shaped amber eyes and restrained broad purple planes. Smudge restores a folded light card carrier around a dark ink reservoir, a distinct wide-set face and attached front ink tongue. Both use explicit painted/half-washed/fully-washed palettes. Their bodies no longer use the generic whole-sprite bounce or overhead attack bar. The smudge charging drop remains visible in frame0 under Reduced Motion/stun.
+
+First actual sprite sheets exposed the elite crown covering the charging drop neck. Moved only the smudge body cue to its right shoulder, with a bent connected ink neck, preserving the shared crown position and all attack mechanics. Final sheets show the cue and crown separately. Increased the review-sheet cell spacing so enlarged elite bodies are fully visible; this was a capture-layout correction, not a game-scale change.
+
+Viewed native/3× sheets for two frames, idle/attack, Reduced Motion, stun, hit, spawn and elite variants across wash0/.5/1. The blob attack pose is defensive adapter coverage, not a new chase attack. Browser probes confirm different motion frames and attack poses, stable reduced/stun frame0, unchanged enemy objects, and no cache growth while cycling200 IDs/times/positions per wash case. New pixel-ink-enemies.test.mjs checks all24 body combinations for grounded pixel connectivity, conservative envelopes and Canvas state restoration; smudge charge must exist in the still frame. Existing cache104×112 anchored(52,104) remains unchanged.
+
+Viewed desktop960×540 and phone390×844 mixed-enemy world fixtures at seed7,(512,1250), normal/reduced. Eighteen staged enemies plus three existing seed enemies make21 total; staged cases include locked-target lob warnings, elite, hit, stun and spawn. Browser errors0, simulation unchanged. The player and circular hazard warning remain readable. These are controlled rendering fixtures, not a simulated full battle or iPhone performance measurement. No damage, radius, speed, timing, targeting, warning geometry or RNG changes.
+
+Evidence under output/pixel-asset-review: ink-blob-before/after/final-wash{0,0.5,1}.png; smudge-before/after/final-wash{0,0.5,1}.png (after records crown conflict); ink-enemies-before/final-{desktop,mobile}[-reduced].png. Remaining enemies, Boss, costumes, weapons, UI and whole-screen composition remain unfinished. Local only/no push or user art acceptance.
+
+Ink-enemy verification: npm run build passed; npm test452/452; gallery gloss0/errors0,127 registered paints nonempty/in bounds. Targeted body tests2/2, browser still-frame/attack/cache/read-only probes all pass; git diff --check passed.

@@ -1,3 +1,5 @@
+import { drawPixelInkBlob } from "./pixel-ink-blob.js";
+import { drawPixelSmudge } from "./pixel-smudge.js";
 /** Native pixel actor painters. Shapes are authored on integer grids, never
  * rasterised from the archived paper paths. Simulation state is read only.
  */
@@ -320,6 +322,8 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
   const wash = liveSketchStep();
   return cachedSprite(`pixel-enemy:${art.id}:${frame}:${attack}:${wash}`, 104, 112, 1, c => {
     c.translate(52, 104);
+    if (art.id === "ink-blob") { drawPixelInkBlob(c,frame,attack,wash); return; }
+    if (art.id === "smudge") { drawPixelSmudge(c,frame,attack,wash); return; }
     if (art.id === "eraser-boss") {
       block(c, -30, -85, 60, 73, INK); block(c, -26, -88, 52, 8, INK);
       block(c, -26, -84, 52, 68, wash ? "#bbb9aa" : "#c88592"); block(c, -22, -83, 42, 12, wash ? "#ddd7bc" : "#e8b0b5");
@@ -388,8 +392,6 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
     } else if (art.id === "kiro-ghost") {
       block(c, -10, oy + 8, 1, 6, glint); block(c, -2, oy + 18, 4, 1, colors[1]);
       block(c, -1, oy + 19, 2, 2, colors[1]);
-    } else if (art.id === "ink-blob" || art.id === "smudge") {
-      block(c, -8, oy + 4, 5, 1, glint); block(c, -10, oy + 5, 2, 2, glint);
     }
     if (art.id === "paper-bat" && frame) {
       block(c, -24, -23, 9, 3, colors[0]); block(c, 15, -23, 9, 3, colors[0]);
