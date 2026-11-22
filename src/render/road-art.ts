@@ -7,7 +7,10 @@ import { hash, type Ctx } from "./paper-material.js";
 
 import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 
-export const ROAD_STOCK = { face: "#95886f", rim: "#a4977a" } as const;
+export const ROAD_STOCK = {
+  face: "#9b876b", rim: "#aa9475", bank: "#665c48",
+  worn: "#907c60", packed: "#a48e71",
+} as const;
 
 interface RoadSegment {
   start: { x: number; y: number };
@@ -59,6 +62,23 @@ function sheetAt(seed: number, x: number, y: number) {
   return BIOME_ART.find(biomeAt(seed, Math.floor(x / CHUNK.width), Math.floor(y / CHUNK.height)).id)?.sheet;
 }
 
+/** Low, uneven turf runs into the compacted shoulder of the farm lanes. */
+function drawFarmVerge(ctx: Ctx, x: number, y: number, salt: number): void {
+  const r = (dx: number, dy: number, w: number, h: number, color: string) =>
+    pixelRect(ctx, x + dx, y + dy, w, h, color);
+  const lean = hash(salt + 8) > .5 ? 1 : -1;
+  r(-12, -1, 24, 5, "#74674c");
+  r(-8, -3, 16, 6, "#687048");
+  r(-11, 1, 18, 3, "#71774c");
+  r(-6, 4, 12, 2, "#74674c");
+  for (const [dx, height] of [[-6, 5], [-2, 8], [2, 6], [6, 4]] as const) {
+    r(dx, 2 - height, 2, height, "#7e8657");
+    r(dx + lean, 1 - height, 1, 3, "#979568");
+  }
+  r(10, 2, 3, 2, "#a18d6b");
+  r(-13, 4, 3, 1, "#928269");
+}
+
 /** Low grass cuts tuck under the road edge and leave the water approaches open. */
 function drawVerges(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
   const { start, width, length, ux, uy, salt } = segment;
@@ -73,7 +93,8 @@ function drawVerges(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number
       const extent = 11 + hash(sd + 3) * 8;
       if (waterRegionsNear(seed, x, y, extent).some((water) => touchesWaterShore(water, x, y, extent))) continue;
       const sheet = sheetAt(seed, x, y);
-      pixelTerrainCluster(ctx, x, y, sd, sheet?.seam ?? "scallop");
+      if (sheet?.seam === "furrow") drawFarmVerge(ctx, x, y, sd);
+      else pixelTerrainCluster(ctx, x, y, sd, sheet?.seam ?? "scallop");
     }
   }
 }
@@ -98,13 +119,15 @@ function drawTravelBands(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: n
         pixelRect(ctx,px-3,py-3,5,1,"#b2a58a");
       }
     }else{
-      if(tone<.2)continue;
+      if(tone<.25)continue;
       for(const side of [-1,1]){
-        const offset=side*(width*.43+Math.sin(d/43+salt)*1.5),px=x-uy*offset,py=y+ux*offset;
-        pixelRect(ctx,px-3,py-2,6,4,tone>.64?"#897b61":"#8e8167");
-        if(d%16===8)pixelRect(ctx,px+1,py,3,1,"#a19272");
+        // Broad wear varies between wheel paths and breaks before turns.
+        if (hash(salt + block * 71 + side * 19) < .28) continue;
+        const offset=side*(width*.41+Math.sin(d/43+salt)*2),px=x-uy*offset,py=y+ux*offset;
+        pixelRect(ctx,px-3,py-2,6,4,tone>.64?ROAD_STOCK.worn:"#958164");
+        if(d%16===8)pixelRect(ctx,px+1,py,3,1,ROAD_STOCK.packed);
       }
-      if(tone>.72)pixelRect(ctx,x-2,y-1,4,3,"#9c8e71");
+      if(tone>.72)pixelRect(ctx,x-2,y-1,4,3,ROAD_STOCK.packed);
     }
   }
 }
@@ -125,8 +148,9 @@ function drawRoadWear(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: numb
         pixelRect(ctx, px - 5, py, 9, 4, "#a3967e");
         pixelRect(ctx, px - 3, py, 6, 1, "#b8aa8e");
       } else {
-        pixelRect(ctx, px - 6, py, 8, 1, i % 2 ? "#827154" : "#a99672");
-        if (hash(sd + i) > 0.65) pixelRect(ctx, px, py - 2, 3, 1, "#b5a47f");
+        // Two nearby chips read as flush gravel instead of road markings.
+        pixelRect(ctx, px - 5, py, 4, 2, i % 2 ? "#87755b" : "#b39b79");
+        if (hash(sd + i) > 0.65) pixelRect(ctx, px + 1, py - 2, 3, 1, "#b39b79");
       }
     }
   }
@@ -142,7 +166,7 @@ export function* drawRoadNetwork(ctx: Ctx, seed: number, tile: ViewRect): Genera
     yield;
   }
   ctx.save();
-  ctx.fillStyle = "#5b5949"; ctx.fill(roadFootprint(segments, 3));
+  ctx.fillStyle = ROAD_STOCK.bank; ctx.fill(roadFootprint(segments, 3));
   ctx.fillStyle = ROAD_STOCK.rim; ctx.fill(face);
   ctx.fillStyle = ROAD_STOCK.face; ctx.fill(roadFootprint(segments, -1));
   ctx.clip(face);

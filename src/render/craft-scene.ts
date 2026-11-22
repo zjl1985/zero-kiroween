@@ -103,10 +103,16 @@ function buildStartYard():CanvasSurface{
     const join=Math.max(0,Math.min(1,(y-480)/60)),
       center=pathCenter(y)*(1-join)+START_ROAD_EXIT.x*join,
       width=(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join;
-    pixelRect(ctx,center-width-3,y,width*2+6,1,"#5b5949");
+    pixelRect(ctx,center-width-3,y,width*2+6,1,ROAD_STOCK.bank);
     pixelRect(ctx,center-width,y,width*2,1,ROAD_STOCK.face);
     pixelRect(ctx,center-width,y,1,1,ROAD_STOCK.rim);pixelRect(ctx,center+width-1,y,1,1,ROAD_STOCK.rim);
-    if(y%16===0)for(let j=-1;j<=1;j++)pixelRect(ctx,center+j*12-3,y,5,1,"#b7a682");
+    for (const side of [-1,1]) {
+      const section = Math.floor((y + side * 11) / 27);
+      if (y > H - 5 || hash(section * 41 + side * 29) < .42) continue;
+      const offset = side * (width * .42 + Math.sin(y / 34) * 1.5);
+      pixelRect(ctx,center + offset - 2,y,4,1,ROAD_STOCK.worn);
+      if (y % 19 === 0) pixelRect(ctx,center + offset + 3,y,3,1,ROAD_STOCK.packed);
+    }
   }
   drawYardGarden(ctx);
   tree(ctx,304,250,1.05,10);tree(ctx,746,250,1.13,7);tree(ctx,505,258,.5,11);

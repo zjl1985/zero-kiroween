@@ -1,6 +1,6 @@
 # Pixel asset review log
 
-The user rejected the coarse pixel pass and requests asset-by-asset refinement with actual screenshots, including actors. Current playable checkpoint `4fd9245` was pushed to `main` on 2026-11-21; Vercel reported success and the live native-resolution module matched the built file. Keep subsequent work local while that checkpoint is being tried.
+The user rejected the coarse pixel pass and requests asset-by-asset refinement with actual screenshots, including actors. The initial playtest checkpoint `4fd9245` was pushed to `main` on 2026-11-21 and verified on Vercel. A separate push was authorized on 2026-11-22 for the refined farm and asset work.
 
 ## Review procedure
 
@@ -438,3 +438,9 @@ A connected shore house/deck/jetty and a two-sided sailboat now occupy the open 
 Captured and viewed804×1000 (reference aspect),1280×720 desktop and390×844 phone at seed7. `composition-before-reference.png`, `composition-first-reference.png` and `composition-after-reference.png` preserve the before/first/final comparison in ignored `output/pixel-asset-review/`; final desktop/phone use the same prefix. First capture still showed undersized houses, prompting the second revision. Final buildings are visibly larger and their steps remain grounded; narrow phone framing intentionally crops outer scenery while the centre lane stays clear. The overall image is still flatter and less organically composed than the supplied reference: this is a local improvement, not whole-game art approval.
 
 Final verification: `npm run build` and `npm test`454/454 passed; gallery gloss0/errors0 and127 bounds clean. All four normal/reduced desktop/phone `composition-crowd-final-*` fixtures viewed, with21 mixed enemies around the opening player(512,350), simulation unchanged and console errors0. Player/telegraph remain distinguishable against the planting; fixtures do not establish real-device performance. No iPhone Safari measurement. Local only, not pushed.
+
+## Farm lane and crop follow-up
+
+The shared road palette ties the opening lane into the town road. Wear breaks at uneven intervals and the farm shoulders have low turf and gravel. Wheat heads vary in height and ripeness, standing rows have shorter ends and occasional gaps, and the vegetable beds have staggered lengths. The original footprints continue through the painted ground and water crossings.
+
+Viewed `south-before-south-{desktop,mobile}.png` and `south-final-south-{desktop,mobile}.png` after the same seed 7 keyboard walk, and `south-release-start-reference.png` at 804×1000. The road remains clear across the junction and the cat remains readable against the new road colors. The two outer field blocks still read as flat terrain shapes, especially on portrait screens.

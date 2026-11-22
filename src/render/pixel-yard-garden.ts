@@ -3,17 +3,23 @@ import type { Ctx } from "./paper-material.js";
 type GardenPixel=(x:number,y:number,w:number,h:number,c:string)=>void;
 // Low plant silhouettes remain walkable; grouped leaves and seed heads carry
 // the mass at phone scale, instead of making density out of isolated dots.
-function ripeWheat(r:GardenPixel,x:number,y:number,shift=0):void {
+function ripeWheat(r:GardenPixel,x:number,y:number,variant=0):void {
   r(x-6,y-2,13,5,"#666e43");r(x-5,y-6,12,5,"#8b854f");
-  for(const [dx,dy] of [[-4,-7],[1,-10],[5,-6],[-1,-5]]){
-    r(x+dx!,y+dy!+3,1,7,"#a2975e");
-    r(x+dx!-2,y+dy!,4,5,"#b4a169");
-    r(x+dx!-1,y+dy!-1,2,7,"#c2ae75");
-    r(x+dx!-2,y+dy!+1,1,2,"#d0b97f");
+  const heads = WHEAT_HEADS[variant % WHEAT_HEADS.length]!;
+  const ripe = variant % WHEAT_HEADS.length !== 1;
+  for (const [dx, dy] of heads) {
+    r(x+dx,y+dy+3,1,-dy-2,"#a2975e");
+    r(x+dx-2,y+dy,4,5,ripe?"#b4a169":"#a69460");
+    r(x+dx-1,y+dy-1,2,7,ripe?"#c2ae75":"#b8a46a");
+    r(x+dx-2,y+dy+1,1,2,"#d0b97f");
   }
   r(x-5,y+1,10,1,"#817e4b");
-  if(shift)r(x+3,y-1,3,1,"#b5a46a");
 }
+const WHEAT_HEADS = [
+  [[-4,-7],[1,-12],[5,-8],[-1,-6]],
+  [[-4,-7],[0,-9],[4,-6]],
+  [[-5,-9],[-1,-12],[4,-10],[6,-7]],
+] as const;
 function matureCabbage(r:GardenPixel,x:number,y:number,tone=0):void {
   r(x-7,y,15,4,"#3c5741");r(x-7,y-4,6,5,"#617d4e");
   r(x+1,y-5,7,6,tone?"#7b8b55":"#728950");
@@ -114,23 +120,25 @@ export function drawYardGarden(ctx: Ctx): void {
   // Left: a modest wheat allotment with five individually legible furrows.
   // The small break at the southeast corner connects to the grass approach.
   bed(267,335,137,86);
-  for(let row=0;row<5;row++){
-    const yy=346+row*15;
-    r(275,yy+4,118,2,furrow);r(278,yy+6,112,1,bank);
-    for(let col=0;col<9;col++){
-      if(row===4&&col>6)continue;
-      const x=280+col*13+(row%2)*2;
-      ripeWheat(r,x,yy,row%2);
-
+  const wheatRows = [[285,346,8],[279,360,9],[281,375,9],[282,391,8],[293,406,7]] as const;
+  for (const [row, [start, y, count]] of wheatRows.entries()) {
+    r(start-5,y+4,count*13,2,furrow);
+    r(start-2,y+6,count*13-7,1,bank);
+    for(let col=0;col<count;col++){
+      if ((row === 0 && col === 2) || (row === 4 && col === 5)) continue;
+      const x=start+col*13;
+      ripeWheat(r,x,y+(col % 3 === 1 ? 2 : 0),(Math.floor(col/2)+row)%3);
     }
   }
   // Right: three parallel vegetable beds separated by narrow grass walks.
   // Crops vary by row: mature cabbage rosettes, ripe tomatoes, and bronze-leaf cabbage.
-  for(let row=0;row<3;row++){
-    const yy=347+row*28;bed(613,yy,132,20);
-    r(621,yy+13,113,1,furrow);
-    for(let col=0;col<8;col++){
-      const x=624+col*15,y=yy+11;
+  const vegetableBeds = [[616,347,126,8],[611,374,139,8],[625,403,112,7]] as const;
+  for(const [row,[left,yy,width,count]] of vegetableBeds.entries()){
+    bed(left,yy,width,20);
+    r(left+8,yy+13,width-18,1,furrow);
+    for(let col=0;col<count;col++){
+      if (row === 2 && col === 1) continue;
+      const x=left+10+col*15,y=yy+11+(col % 3 === 2 ? 2 : 0);
       if(row===0)leaf(x,y,col%3===0?1:0);
       else if(row===1)ripeTomato(r,x,y);
       else {leaf(x,y,1);r(x+3,y-4,3,3,"#a28365");}
@@ -240,7 +248,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
         r(xx-2,y+10,1,2,"#b0a06a");
         if(col%3===1){r(xx-2,y+4,6,1,"#9b935e");r(xx+1,y+5,4,1,"#7e8051");}
       }else{
-        ripeWheat(r,xx,y+10,col%2);
+        ripeWheat(r,xx,y+10+(col%4===0?1:0),(Math.floor(col/2)+cut+y)%3);
 
       }
     }
