@@ -171,6 +171,7 @@ export const MESSAGE_KEYS = [
   "landmark.moon-hill",
   "nav.boss",
   "nav.chest",
+  "nav.toward",
   "notice.elite",
   "notice.chest",
   "upgrade.weapon",

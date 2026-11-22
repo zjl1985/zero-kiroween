@@ -62,10 +62,10 @@ function renderCostume(el: HTMLElement, locale: Locale, sim: SimState): void {
   el.classList.toggle("ready", charge >= 1);
   el.title = `${costumeCopy(locale, worn.id, "name")} · ${skill}`;
 }
-/** The badge line when no shield or empower is up: the cat's own status, or its role. */
+/** Keep the combat badge for actual state; the title already introduces the cat's role. */
 function statusLine(locale: Locale, sim: SimState): string {
   const key = catArt(sim.player.id).status?.(sim);
-  return key ? t(locale, key) : characterCopy(locale, sim.player.id, "role");
+  return key ? t(locale, key) : "";
 }
 /** Chunks each run has seen, kept outside the sim (presentation state only). */
 const explored = new WeakMap<SimState, Set<number>>();
@@ -321,6 +321,7 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState, camera: 
         ? t(locale, "hud.empowered", { time: p.empowerTime.toFixed(1) })
         : statusLine(locale, sim));
   text(refs.buff, buff);
+  refs.buff.classList.toggle("hidden", !buff);
   refs.buff.classList.toggle("buff-burning", environment.danger);
   refs.buff.classList.toggle("buff-wet", (p.wetTime ?? 0) > 0);
   refs.buff.classList.toggle("buff-active", p.shield > 0 || p.empowerTime > 0);

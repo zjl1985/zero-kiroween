@@ -217,7 +217,7 @@ function effectFor(id: string, kind: string): EffectPainter {
         }
         else if (kind === 'page-fold') {
             const a = (e.angle ?? 0) + Math.PI / 2;
-            line(ctx, e.x - Math.cos(a) * r * .8, e.y - Math.sin(a) * r * .8, e.x + Math.cos(a) * r * .8, e.y + Math.sin(a) * r * .8, FX.cream, 3);
+            line(ctx, e.x - Math.cos(a) * r * .8, e.y - Math.sin(a) * r * .8, e.x + Math.cos(a) * r * .8, e.y + Math.sin(a) * r * .8, FX.cream, 1);
         }
         else if (kind === 'costume-pull') {
             pixelRing(ctx, e.x, e.y, r * (1 - .8 * k), FX.blue, .62);
@@ -247,7 +247,8 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                 line(ctx, s.x - 7, s.y - 19, s.x - 3, s.y - 16, FX.cream, 1);
         };
     if (id === 'moon-stars') {
-        art.ground = (c, s) => { c.save(); c.globalAlpha *= .3; pixelRing(c, s.player.x, s.player.y, playerStats(s).orbitRadius, FX.purple, .6); c.restore(); };
+        // The moving stars already describe their exact orbit. A second
+        // permanent ground ring obscures nearby attacks without adding a cue.
         art.sprites = (c, s, time, add) => orbitPositions(s).forEach((p, i) => add(p.y, () => equipmentGlyph(c, 'star', p.x, p.y - 12, i % 2 ? FX.gold : FX.purple, playerStats(s).fullMoon ? 18 : 16)));
     }
     if (id === 'full-moon') {
@@ -326,11 +327,47 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                 const age = s.elapsed - f.at;
                 if (age < 0 || age >= PAGE_FOLD.flapLife)
                     continue;
-                const tx = -f.ny, ty = f.nx, pts = [{ x: f.x - tx * f.half, y: f.y - ty * f.half }, { x: f.x + tx * f.half, y: f.y + ty * f.half }, { x: f.x + tx * f.half - f.nx * f.band, y: f.y + ty * f.half - f.ny * f.band }, { x: f.x - tx * f.half - f.nx * f.band, y: f.y - ty * f.half - f.ny * f.band }];
+                const tx = -f.ny, ty = f.nx, fade = 1 - age / PAGE_FOLD.flapLife;
+                const calm = reducedPaperMotion(), turn = Math.min(1, age / .38);
+                // A narrow turning edge crosses the actual affected band;
+                // never tint its whole rectangle over the scene and actors.
+                // Calm mode keeps a fixed folded lip beside the same hinge.
+                const depth = calm ? 5 : f.band * (1 - turn);
+                const width = calm ? 5 : 2 + Math.sin(turn * Math.PI) * 7;
+                const outer = Math.min(f.band, depth + width);
+                const ax = f.x - tx * f.half, ay = f.y - ty * f.half;
+                const bx = f.x + tx * f.half, by = f.y + ty * f.half;
                 c.save();
-                c.globalAlpha *= .65 * (1 - age / PAGE_FOLD.flapLife);
-                area(c, pts, FX.purple);
-                edge(c, pts, FX.cream);
+                c.globalAlpha *= fade;
+                // Warm paper front and cool back form two shallow facets.
+                c.save();
+                c.globalAlpha *= .42;
+                area(c, [
+                    { x: ax - f.nx * depth, y: ay - f.ny * depth },
+                    { x: bx - f.nx * depth, y: by - f.ny * depth },
+                    { x: bx - f.nx * outer, y: by - f.ny * outer },
+                    { x: f.x - f.nx * outer, y: f.y - f.ny * outer },
+                ], '#ddd0b4');
+                area(c, [
+                    { x: ax - f.nx * depth, y: ay - f.ny * depth },
+                    { x: f.x - f.nx * outer, y: f.y - f.ny * outer },
+                    { x: ax - f.nx * outer, y: ay - f.ny * outer },
+                ], '#8c8b98');
+                c.restore();
+                c.globalAlpha *= .58;
+                line(c, ax, ay, bx, by, '#c6b99e', 1);
+                line(c, ax - f.nx * depth, ay - f.ny * depth,
+                    bx - f.nx * depth, by - f.ny * depth, FX.cream, 1);
+                // Short corner returns preserve the true range without a
+                // closed perimeter or an opaque area-of-effect slab.
+                const corner = Math.min(8, f.half, f.band);
+                for (const side of [-1, 1]) for (const d of [0, f.band]) {
+                    const px = f.x + tx * f.half * side - f.nx * d;
+                    const py = f.y + ty * f.half * side - f.ny * d;
+                    line(c, px, py, px - tx * side * corner, py - ty * side * corner, '#bcb2a3', 1);
+                    const inward = d === 0 ? -1 : 1;
+                    line(c, px, py, px + f.nx * inward * corner, py + f.ny * inward * corner, '#bcb2a3', 1);
+                }
                 c.restore();
             }
         };

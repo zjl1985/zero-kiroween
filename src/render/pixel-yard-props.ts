@@ -1,6 +1,7 @@
-/** Authored opening-yard still life, in the 960 × 540 title-scene coordinates.
- * Call during the opening background bake. These props are visual furnishings,
- * never simulation obstacles; no state, timers, assets or random source needed. */
+/** Authored opening-yard furniture. Baked independently so the world can
+ * sort it against actors at the same ground anchor used by collision. */
+import { cachedSprite } from "../engine/sprite.js";
+import type { YARD_FURNITURE } from "../game/scenery.js";
 import { rect, line, polygon, type Ctx } from './pixel-art.js';
 const P = {
     shadow: '#25262d', contact: '#1e2228',
@@ -137,12 +138,18 @@ function toolRack(ctx: Ctx): void {
     line(ctx, 752, 326, 752, 329, P.ironLight);
     line(ctx, 752, 329, 755, 330, P.ironLight);
 }
-/** Static scene groups: x306–394/y448–489, x652–735/y297–340,
- * and x346–395/y320–345. The central x460–560 path is left entirely clear. */
-export function drawYardProps(ctx: Ctx): void {
-    ctx.save();
-    ctx.save();ctx.translate(140,0);woodpile(ctx);ctx.restore();
-    ctx.save();ctx.translate(-100,0);toolRack(ctx);planter(ctx,797,321,28);ctx.restore();
-    planter(ctx,348,327,37,true);
-    ctx.restore();
+type Furniture = typeof YARD_FURNITURE[number];
+const parts = {
+    woodpile: { origin: [210,482], paint: woodpile },
+    "west-planter": { origin: [368,340], paint: (c:Ctx) => planter(c,348,327,37,true) },
+    "tool-rack": { origin: [772,334], paint: toolRack },
+    "east-planter": { origin: [813,334], paint: (c:Ctx) => planter(c,797,321,28) },
+} as const;
+
+export function drawYardFurniture(ctx: Ctx, p: Furniture): void {
+    const { origin, paint } = parts[p.kind];
+    cachedSprite(`yard-furniture:${p.kind}`, 96, 56, 1, c => {
+        c.translate(48 - origin[0], 44 - origin[1]);
+        paint(c);
+    }, { x: .5, y: 44 / 56 }).draw(ctx, { x: p.x, y: p.y });
 }

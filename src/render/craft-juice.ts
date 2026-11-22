@@ -104,7 +104,9 @@ export function drawJuiceEffect(ctx: Ctx, e: Impact): boolean {
     const life = (EFFECT_LIFE as Record<string, number>)[e.kind] ?? .5, t = clamp01(1 - e.life / life), k = reducedPaperMotion() ? .25 : t;
     if (e.kind === 'damage') {
         const amount = e.amount ?? 0;
-        if (amount <= 0)
+        // Ordinary contact already has a spark and hit reaction. A decimal
+        // on every orbiting star hit reads like an unexplained timer.
+        if (amount < 2)
             return true;
         const label = Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
         ctx.save();

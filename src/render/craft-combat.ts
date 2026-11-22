@@ -128,6 +128,14 @@ export function crescent(cx: number, cy: number, r: number, rot: number): Path2D
     return path(pts);
 }
 export function drawInkShard(ctx: Ctx, x: number, y: number, time: number, id: number, value = 1): void {
+    if (value <= 1) {
+        // Ordinary drops read as small ground chips. Save the bright raised
+        // crescent for richer drops, especially when a field is full of ink.
+        pxRect(ctx, x - 2, y, 5, 2, FX.dark);
+        pxRect(ctx, x - 1, y - 3, 3, 4, "#af965f");
+        pxRect(ctx, x - 1, y - 3, 2, 1, "#dac389");
+        return;
+    }
     const lift = reducedPaperMotion() ? 8 : 8 + Math.floor(Math.sin(time * 4 + id) * 2);
     pxRect(ctx, x - 4, y, 8, 2, FX.dark);
     glyph(ctx, 'moon', x, y - lift, 4 + Math.min(3, value - 1), FX.gold);

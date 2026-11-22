@@ -1,6 +1,5 @@
 import { drawDistantLandscape } from "./pixel-distant-landscape.js";
 import { drawYardGarden, drawYardGroundMasses } from "./pixel-yard-garden.js";
-import { drawYardProps } from "./pixel-yard-props.js";
 /** Pixel diorama scene. Static terrain and volume stacks are authored at one
  * native pixel per world unit; their world anchors and gameplay remain unchanged. */
 import type { CanvasSurface } from "../engine/surface.js";
@@ -11,6 +10,7 @@ import { STATS } from "../game/types.js";
 import { LAMPS, YARD_PROPS, pathCenter as oldPathCenter, type SceneProp } from "./scene.js";
 import { drawPixelDecor } from "./pixel-scene-art.js";
 import { pixelDisc } from "./pixel-stack.js";
+import { polygon as pixelPolygon } from "./pixel-art.js";
 import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 export { LAMPS, YARD_PROPS };
 const W=960,H=540,SKY_H=250;
@@ -115,13 +115,21 @@ function buildStartYard():CanvasSurface{
     }
   }
   drawYardGarden(ctx);
+  // Broad shadows start within each footing and continue onto the lawn.
+  // Bake them with the ground so they stay attached during camera movement.
+  ctx.save();
+  ctx.globalAlpha = .25;
+  for (const { x, y, s } of OPENING_BUILDINGS) {
+    pixelPolygon(ctx, [[x - 28*s,y + 9*s], [x + 23*s,y + 6*s],
+      [x + 56*s,y + 31*s], [x + 18*s,y + 43*s], [x - 18*s,y + 31*s]], "#253b39");
+  }
+  pixelPolygon(ctx, [[304,245],[311,248],[350,270],[343,278],[306,254]], "#253b39");
+  pixelPolygon(ctx, [[744,245],[751,247],[797,274],[788,281],[746,255]], "#253b39");
+  ctx.restore();
   tree(ctx,304,250,1.05,10);tree(ctx,746,250,1.13,7);tree(ctx,505,258,.5,11);
   tree(ctx,99,247,.8,8);tree(ctx,872,243,.78,6);
   for(const b of OPENING_BUILDINGS)drawPixelDecor(ctx,b.kind,b.x,b.y,b.s,b.seed);
-  for(const [x,y,s] of [[340,316,.85],[414,316,.85],[645,324,.85],[718,324,.85]])fence(ctx,x!,y!,s!);
-  drawYardProps(ctx);
-  for(const [x,y,s,seed] of [[540,280,.7,31],[365,320,.48,32],[846,274,.68,41]])pumpkin(ctx,x!,y!,s!,seed!);
-  for(let i=0;i<18;i++){const x=130+i*40;if(x>340&&x<610)continue;flower(ctx,x,266+(i%3)*10,.65,i);}
+  for(const [x,y,s,seed] of [[540,280,.7,31],[846,274,.68,41]])pumpkin(ctx,x!,y!,s!,seed!);
   candles(ctx,112,261,.8);
   for(const [x,y] of [[915,370],[892,380],[46,398]])stone(ctx,x!,y!,x!>900?1.6:.8,x!);
   return c;

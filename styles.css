@@ -332,6 +332,27 @@ body[data-screen="gallery"] { overflow: auto; }
 }
 /* A phone's minimap shares the empty control band opposite the direction stick. */
 @media (max-width: 760px) and (orientation: portrait) {
+  /* Health and time lead; the kill tally belongs with the quiet map footer. */
+  .has-touch .night-sky, .has-touch .sky-arc { width: 140px; }
+  .has-touch .sky-arc { height: 34px; }
+  .has-touch .sky-time { top: 1px; }
+  .has-touch #hud-time { font-size: 20px; }
+  .has-touch #hud-phase { margin-top: 1px; font-size: 8px; }
+  .has-touch .lantern-string { margin-top: 0; }
+  .has-touch .streak-badge {
+    top: auto;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(max(24px, env(safe-area-inset-bottom)) + 66px);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 3px 6px;
+    border-width: 1px;
+    background: #102632ed;
+  }
+  .has-touch .streak-badge strong { font-size: 12px; }
+  .has-touch .streak-badge span { font-size: 8px; }
+  .has-touch .streak-badge.bump { animation: none; }
   .has-touch #hud-map {
     position: absolute;
     right: max(10px, env(safe-area-inset-right));

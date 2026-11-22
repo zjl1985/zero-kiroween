@@ -817,7 +817,10 @@ const NAV_INSET = { side: 44, top: 78, bottom: 70 } as const;
 /** Native-pixel plaques on the screen edge, pointing at off-screen targets. */
 export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Locale, time: number, projection = cameraProjection(cam)): void {
   const { width: W, height: H, zoom } = projection;
-  for (const target of navTargets(sim)) {
+  const targets = navTargets(sim);
+  const urgent = targets.some(target => target.kind !== "landmark");
+  for (const target of targets) {
+    if (urgent && target.kind === "landmark") continue;
     const sx = target.x * zoom + projection.x,
       sy = target.y * zoom + projection.y;
     if (sx > 0 && sx < W && sy > 0 && sy < H) continue;
@@ -849,7 +852,8 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
     });
     pointer.closePath();ctx.fill(pointer);
     // The label tab sits on the inner side of the pointer.
-    const label = t(locale, target.label);
+    const name = t(locale, target.label);
+    const label = target.kind === "landmark" ? t(locale, "nav.toward", { place: name }) : name;
     ctx.font = "700 12px monospace";
     const tw = ctx.measureText(label).width + 14,
       idealLeft = -Math.cos(ang) * (tw / 2 + 10) - tw / 2,

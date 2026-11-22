@@ -4,6 +4,7 @@ import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { createSim, snapshot, step } from "../dist/game/sim.js";
 import { STATS } from "../dist/game/types.js";
 import { ENEMY_DEFS } from "../dist/defs/index.js";
+import { YARD_FURNITURE } from "../dist/game/scenery.js";
 import {
   CHUNK,
   LANDMARK,
@@ -38,6 +39,26 @@ function hold(s, ax, ay, frames) {
     step(s, { ax, ay, dash: false }, DT);
   }
 }
+
+test("the opening woodpile blocks both approaches while the central lane stays open", () => {
+  const pile = YARD_FURNITURE.find(p => p.kind === "woodpile");
+  assert.ok(pile);
+  const contact = pile.y + pile.contactY;
+  const clearance = pile.radius + STATS.playerRadius;
+  for (const side of [-1, 1]) {
+    const sim = quiet(22, "nicole");
+    sim.player.x = pile.x;
+    sim.player.y = contact + side * (clearance + 12);
+    hold(sim, 0, -side, 40);
+    assert.ok(Math.abs(sim.player.y - (contact + side * clearance)) < .01,
+      "the cat stops at the timber footprint");
+  }
+  const sim = quiet(22, "nicole");
+  sim.player.x = 525;
+  sim.player.y = 420;
+  hold(sim, 0, 1, 60);
+  assert.ok(sim.player.y > pile.y + clearance, "the lane still passes between the fields");
+});
 /** A y (or x) whose straight line to the edge crosses no collider. */
 function openLane(seed, fixed, from, to, horizontal) {
   for (let k = 0; k < 400; k++) {

@@ -613,7 +613,20 @@ test("washed chunks reuse one native overlay per dirty tile without repainting u
   const draw = () => { const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim)); return c; };
   const a=draw(), tiles=images(a).map(c=>c.args[0]), counts=tiles.map(c=>c.getContext("2d").calls.length);
   assert.ok(tiles.length>0); assert.equal(new Set(tiles).size,tiles.length);
-  assert.ok(allPaint(a).some(c=>c.op==="fillRect" && c.fillStyle==="#717e83"), "desaturated feature hatches survive");
+  const stains = tiles.flatMap(tile => {
+    const occupied = new Set();
+    const runs = tile.getContext("2d").calls.filter(c => c.op === "fillRect" && c.fillStyle === "#bcc0aa");
+    for (const { args: [x,y,w,h], globalAlpha } of runs) {
+      assert.ok(globalAlpha > 0 && globalAlpha <= .26, "the neutral wash lets terrain show through");
+      for (let row = y; row < y+h; row++) for (let col = x; col < x+w; col++) {
+        const pixel = row * tile.width + col;
+        assert.ok(!occupied.has(pixel), "overlapping cells tint each pixel only once");
+        occupied.add(pixel);
+      }
+    }
+    return runs;
+  });
+  assert.ok(stains.length > 0, "there is visible pigment loss");
   const b=draw(); assert.deepEqual(images(b).map(c=>c.args[0]),tiles);
   assert.deepEqual(tiles.map(c=>c.getContext("2d").calls.length),counts,"unchanged frames do no mask work");
   assert.deepEqual(sim,before); assert.deepEqual(gloss(allPaint(a)),[]); restored(a); restored(b);
@@ -1106,7 +1119,7 @@ test("washed cells render immediately without a secondary terrain bake", (t) => 
   const sim=washedSim(), before=structuredClone(sim); environment(t); clearWorldRenderCache(); clearWashRender(); t.after(clearWorldRenderCache);
   const {cx,cy}=chunkOf(WASH_AT.x,WASH_AT.y); assert.equal(sketchTile(sim.seed,cx,cy),undefined);
   const c=canvas().getContext("2d"); drawWashGround(c,WASH_AT,washFrame(sim));
-  assert.ok(images(c).length>0); assert.ok(allPaint(c).some(c=>c.op==="fill"&&c.globalAlpha<1),"wash preserves underlying terrain");
+  assert.ok(images(c).length>0); assert.ok(allPaint(c).some(c=>c.op==="fillRect"&&c.globalAlpha>0&&c.globalAlpha<1),"wash preserves underlying terrain");
   assert.ok(!allPaint(c).some(c=>c.op==="getImageData"||c.op==="filter")); assert.deepEqual(sim,before); restored(c);
 });
 

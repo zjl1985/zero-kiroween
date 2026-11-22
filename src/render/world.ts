@@ -1,4 +1,6 @@
 import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
+import { YARD_FURNITURE, YARD_RAILS } from "../game/scenery.js";
+import { drawYardFurniture } from "./pixel-yard-props.js";
 import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
 import { drawCraftShot, drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import {
@@ -174,8 +176,20 @@ function drawWorldFrame(
     addSprite(p.y, () => drawProp(ctx, p),
       !!sim && paperOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player));
   }
+  let solidForeground = Infinity;
+  const addSolid = (x: number, y: number, s: number, bounds: { l: number; r: number; t: number; b: number }, draw: () => void) => {
+    if (!inView(near, x, y)) return;
+    addSprite(y, draw);
+    if (sim && paperOccludesActor(x, y, s, bounds, sim.player)) solidForeground = Math.min(solidForeground, y);
+  };
+  for (const p of YARD_FURNITURE)
+    addSolid(p.x, p.y, 1, { l: p.left - p.radius, r: p.right + p.radius, t: -44, b: 12 }, () => drawYardFurniture(ctx, p));
+  for (const p of YARD_RAILS)
+    addSolid(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS.fence, () => drawProp(ctx, { ...p, kind: "fence", seed: 0 }));
   // The selected cat sorts just after the last scenery cut that could cover it.
-  const playerDepth = sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0);
+  // Solid furniture stays opaque and keeps the cat behind it when seen from the north.
+  const playerDepth = Math.min(solidForeground - .01,
+    sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0));
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
       const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>

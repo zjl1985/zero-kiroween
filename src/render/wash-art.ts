@@ -47,6 +47,8 @@ interface Bucket {
 interface Mask {
     sig: number;
     pixels: CanvasSurface;
+    /** Reused only on dirty rebuilds. One channel per translucent material. */
+    coverage: Uint8Array;
 }
 /** What the world renderer needs this frame: chunks ("cx,cy") with something to draw. */
 export interface WashFrame {
@@ -198,51 +200,82 @@ export function swatchBlot(x: number, y: number, r: number, seed: number, scale 
                 p.rect(Math.round(x + i * cell), Math.round(y + j * cell * .7), cell, cell);
     return p;
 }
+// Two native pixels keep the irregular edge crisp without exposing the 32px
+// simulation grid. Neighbouring marks union by maximum coverage, never alpha
+// accumulation: shared cell borders cannot become dark rectangular seams.
+const MASK_PIXEL = 2;
+const MASK_COLS = Math.ceil(CHUNK.width / MASK_PIXEL);
+const MASK_ROWS = Math.ceil(CHUNK.height / MASK_PIXEL);
+const MASK_TONES = [
+    { color: '#bcc0aa', opacity: .26 / 16 },
+    { color: '#899d9b', opacity: .075 / 4 },
+    { color: '#d3c9aa', opacity: .68 / 4 },
+] as const;
+const CHANNELS = MASK_TONES.length;
 function buildMask(seed: number, key: string, bucket: Bucket): Mask {
-    const [cx, cy] = key.split(',').map(Number) as [
-        number,
-        number
-    ];
-    const pixels = masks.get(key)?.pixels ?? surface(CHUNK.width, CHUNK.height);
+    const [cx, cy] = key.split(',').map(Number) as [number, number];
+    const old = masks.get(key), pixels = old?.pixels ?? surface(CHUNK.width, CHUNK.height),
+        coverage = old?.coverage ?? new Uint8Array(MASK_COLS * MASK_ROWS * CHANNELS),
+        originX = cx * CHUNK.width, originY = cy * CHUNK.height;
+    coverage.fill(0);
     const c = pixels.getContext('2d')!;
     c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalAlpha = 1;
     c.clearRect(0, 0, CHUNK.width, CHUNK.height);
     c.imageSmoothingEnabled = false;
     for (const mark of bucket.marks) {
-        const x = mark.ix * WASH.cell - cx * CHUNK.width, y = mark.iy * WASH.cell - cy * CHUNK.height, step = mark.code & 7;
-        // Overlapping stepped silhouettes avoid isolated square-cell outlines.
-        const stain = new Path2D();
-        stain.rect(x, y, WASH.cell, WASH.cell);
-        stain.rect(x - 4, y + 4, WASH.cell + 8, WASH.cell - 8);
-        if (step) {
-            c.globalAlpha = step * .19;
-            c.fillStyle = '#b0b4a5';
-            c.fill(stain);
-            c.globalAlpha = step * .12;
-            pxRect(c, x + 8, y + 12, 8, 2, '#717e83');
-            pxRect(c, x + 16, y + 18, 4, 2, '#717e83');
+        if (!(mark.code & (7 | 8 | 64))) continue;
+        const x = (mark.ix + .5) * WASH.cell - originX,
+            y = (mark.iy + .5) * WASH.cell - originY, step = mark.code & 7,
+            radius = WASH.cell * BLOT + (visHash(seed + mark.ix * 193 + mark.iy * 7919) - .5) * 2,
+            core = WASH.cell * .72, feather = radius - core,
+            radius2 = radius * radius, edge1 = (radius - feather * .25) ** 2,
+            edge2 = (radius - feather * .5) ** 2, edge3 = (radius - feather * .75) ** 2,
+            x0 = Math.max(0, Math.floor((x - radius - 1) / MASK_PIXEL)),
+            x1 = Math.min(MASK_COLS - 1, Math.ceil((x + radius + 1) / MASK_PIXEL)),
+            y0 = Math.max(0, Math.floor((y - radius - 1) / MASK_PIXEL)),
+            y1 = Math.min(MASK_ROWS - 1, Math.ceil((y + radius + 1) / MASK_PIXEL));
+        for (let row = y0; row <= y1; row++) for (let col = x0; col <= x1; col++) {
+            const dx = col * MASK_PIXEL + 1 - x, dy = row * MASK_PIXEL + 1 - y,
+                distance2 = dx * dx + dy * dy,
+                // Four small, crisp contour steps; no square roots per pixel.
+                edge = distance2 >= radius2 ? 0 : distance2 < edge3 ? 4 : distance2 < edge2 ? 3 : distance2 < edge1 ? 2 : 1,
+                at = (row * MASK_COLS + col) * CHANNELS;
+            if (!edge) continue;
+            if (step) coverage[at] = Math.max(coverage[at], step * edge);
+            if (mark.code & 64) coverage[at + 1] = Math.max(coverage[at + 1], edge);
+            if (mark.code & 8) coverage[at + 2] = Math.max(coverage[at + 2], edge);
         }
-        if (mark.code & 64) {
-            c.globalAlpha = .22;
-            c.fillStyle = FX.blue;
-            c.fill(stain);
-            c.globalAlpha = .6;
-            pxRect(c, x + 4, y + 22, 10, 2, FX.blue);
-        }
-        if (mark.code & 8) {
-            c.globalAlpha = .95;
-            c.fillStyle = '#d3c9aa';
-            c.fill(stain);
-        }
-        if (mark.code & 16) {
-            c.globalAlpha = 1;
-            pxRect(c, x + 3, y + 3, WASH.cell - 6, WASH.cell - 6, FX.dark);
-            pxRect(c, x + 3, y + 3, WASH.cell - 6, 2, FX.cream);
+    }
+    // Keep topology visible through a neutral lifted-pigment veil. Fully
+    // colourless, wet and erased are separate cues, without blue paint baths.
+    for (const [channel, { color, opacity }] of MASK_TONES.entries()) {
+        c.fillStyle = color;
+        for (let row = 0; row < MASK_ROWS; row++) {
+            let start = 0, value = 0;
+            for (let col = 0; col <= MASK_COLS; col++) {
+                const next = col < MASK_COLS ? coverage[(row * MASK_COLS + col) * CHANNELS + channel]! : 0;
+                if (next === value) continue;
+                if (value) {
+                    c.globalAlpha = value * opacity;
+                    c.fillRect(start * MASK_PIXEL, row * MASK_PIXEL, (col - start) * MASK_PIXEL, MASK_PIXEL);
+                }
+                start = col; value = next;
+            }
         }
     }
     c.globalAlpha = 1;
+    // Cutouts are solid paper geometry, separate from translucent stains.
+    // Keep their narrow pale edge so a cut reads differently from an erasure.
+    for (const mark of bucket.marks) {
+        if (!(mark.code & 16)) continue;
+        const x = mark.ix * WASH.cell - originX + 3;
+        const y = mark.iy * WASH.cell - originY + 3;
+        pxRect(c, x, y, WASH.cell - 6, WASH.cell - 6, FX.dark);
+        pxRect(c, x, y, WASH.cell - 6, 2, FX.cream);
+    }
     revisions.set(key, (revisions.get(key) ?? 0) + 1);
-    return { sig: bucket.sig, pixels };
+    return { sig: bucket.sig, pixels, coverage };
 }
 /** The chunk's mask, rebuilt only when its quantised cells changed. */
 function maskFor(seed: number, key: string, bucket: Bucket): Mask {
@@ -287,8 +320,7 @@ function forChunks(view: ViewRect, fn: (cx: number, cy: number) => void): void {
 }
 /**
  * Washed ground for the visible chunks, under everything that stands on it:
- * tide line, pencil layer through the level blots (raw cream until the tile
- * is baked), wet film, blank paper and cut holes, then blooms.
+ * joined pigment loss, wet film, blank paper and cut holes, then recolour cues.
  */
 export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): void {
     if (!frame)
@@ -303,20 +335,24 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
     });
     drawBlooms(ctx, view, frame);
 }
-/** Fresh changes bloom: lifted pigment and a pushed tide line, or new pigment drying in. */
+/** Splashes already show their own impact. Only returning pigment needs a
+ * separate quiet cue here, so a wet field never sparkles on every grid cell. */
 function drawBlooms(ctx: Ctx, view: ViewRect, frame: WashFrame): void {
     let n = 0;
     for (const [key, m] of memory) {
         const age = frame.elapsed - m.at;
-        if (age < 0 || age >= WASH_LOOK.seconds)
+        if (m.dir >= 0 || age < 0 || age >= WASH_LOOK.seconds)
             continue;
         const [ix, iy] = key.split(',').map(Number), x = (ix! + .5) * WASH.cell, y = (iy! + .5) * WASH.cell;
         if (x < view.x0 - WASH.cell || x > view.x1 + WASH.cell || y < view.y0 - WASH.cell || y > view.y1 + WASH.cell)
             continue;
         if (n++ >= WASH_LOOK.maxBlooms)
             break;
-        const t = age / WASH_LOOK.seconds, color = m.dir < 0 ? FX.green : FX.blue;
-        burst(ctx, x, y, t, WASH.cell * .55, color, 4);
+        const t = age / WASH_LOOK.seconds;
+        ctx.save();
+        ctx.globalAlpha *= (1 - t) * .45;
+        pxRect(ctx, x - 2, y, 5, 2, FX.green);
+        ctx.restore();
     }
 }
 /** Splashes and pigment confetti; true when the impact was one of them. */
