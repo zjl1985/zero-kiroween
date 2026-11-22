@@ -337,6 +337,19 @@ body[data-screen="gallery"] { overflow: auto; }
 /* A phone's minimap shares the empty control band opposite the direction stick. */
 @media (max-width: 760px) and (orientation: portrait) {
   /* Health and time lead; the kill tally belongs with the quiet map footer. */
+  /* Routine hints live inside the HUD, never as a floating panel over signs.
+     Keep the original full text in the DOM and its existing expiry; danger
+     instructions may wrap so their safety information is not truncated. */
+  .has-touch .game-hint.context-hint {
+    position: static; width: 100%; max-width: 100%; margin: 0;
+    padding: 0; background: none; border: 0;
+    font-size: 9px; line-height: 14px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .has-touch .game-hint.context-hint.danger-hint {
+    white-space: normal; overflow: visible; overflow-wrap: anywhere;
+  }
+  .has-touch .game-hint:empty { display: none; }
   .has-touch .night-sky, .has-touch .sky-arc { width: 140px; }
   .has-touch .sky-arc { height: 34px; }
   .has-touch .sky-time { top: 1px; }

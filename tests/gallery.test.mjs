@@ -24,7 +24,7 @@ test("every registered cat, enemy, prop, landmark, townsfolk, biome, weapon, pas
     assert.deepEqual([...idsOf(layout, "wash")], BIOME_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "townsfolk")], TOWNSFOLK_DEFS.ids());
     assert.deepEqual([...idsOf(layout, "costume")], COSTUME_DEFS.ids());
-    assert.equal(layout.headers.length, 10);
+    assert.equal(layout.headers.length, 11);
   }
 });
 
@@ -141,4 +141,44 @@ test("paper kit keeps the legacy tornEdge export working", () => {
   assert.equal(legacyTornEdge, tornEdge);
   assert.deepEqual(tornEdge(0, 0, 10, 0, 4, 2, 3), tornEdge(0, 0, 10, 0, 4, 2, 3));
   assert.equal(tornEdge(0, 0, 10, 0, 4, 2, 3).length, 5);
+});
+
+
+test("generated workshop previews every current compiled asset, including both houses and trees", async () => {
+  const { VILLAGE_PIXELS } = await import('../dist/render/village-pixels.js');
+  const sections = gallerySections(true);
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].kind, 'scenery');
+  assert.deepEqual(sections[0].items.map(i=>i.id), Object.keys(VILLAGE_PIXELS));
+  for(const key of ['barn','cottage','tree0','tree1','lamp','fence','meadow','earth'])
+    assert.ok(sections[0].items.some(i=>i.id===key));
+  for(const width of [300,393,900,1240]){
+    const layout=galleryLayout(sections,width);
+    assert.equal(layout.cells.length,Object.keys(VILLAGE_PIXELS).length);
+    assert.ok(layout.height<16000,'the focused workshop fits a browser backing canvas');
+  }
+});
+
+test("focused workshop actually stamps all compiled sprites through the shared game renderer", async (t) => {
+  const { paintGallery } = await import('../dist/render/gallery.js');
+  const { clearSpriteCache } = await import('../dist/engine/sprite.js');
+  const { VILLAGE_PIXELS } = await import('../dist/render/village-pixels.js');
+  const created=[], stamps=[], labels=[];
+  const makeCanvas=()=>{
+    const canvas={width:0,height:0,style:{}};
+    const ctx={runs:0,save(){},restore(){},setTransform(){},clearRect(){},scale(){},translate(){},beginPath(){},rect(){},clip(){},
+      fillRect(){this.runs++;},fillText(text){labels.push(text);},
+      drawImage(image,...args){assert.ok(args.every(Number.isFinite));stamps.push(image);}};
+    canvas.getContext=()=>ctx;created.push(canvas);return canvas;
+  };
+  const old=Object.getOwnPropertyDescriptor(globalThis,'document');
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{createElement(tag){assert.equal(tag,'canvas');return makeCanvas();}}});
+  clearSpriteCache();
+  t.after(()=>{clearSpriteCache();if(old)Object.defineProperty(globalThis,'document',old);else delete globalThis.document;});
+  const canvas=makeCanvas();
+  const height=paintGallery(canvas,'en',393,1,'none',true);
+  assert.ok(height>0&&height<16000);
+  assert.equal(stamps.length,Object.keys(VILLAGE_PIXELS).length);
+  assert.ok(stamps.every(image=>image.getContext('2d').runs>0),'no empty cached placeholders');
+  for(const key of Object.keys(VILLAGE_PIXELS))assert.ok(labels.includes(key),`${key} is painted and named`);
 });

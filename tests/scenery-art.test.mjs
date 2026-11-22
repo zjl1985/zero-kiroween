@@ -1,3 +1,4 @@
+import { VILLAGE_PIXELS, VILLAGE_PALETTE } from "../dist/render/village-pixels.js";
 import { OPENING_BUILDINGS } from "../dist/render/craft-scene.js";
 import { barnModel } from "../dist/render/pixel-barn.js";
 import assert from "node:assert/strict";
@@ -290,9 +291,15 @@ test("world scenery reuses bounded native-resolution caches without repainting d
     assert.equal(created.length, allocated, "no new offscreen canvas on a cache hit");
     assert.equal(first.image.getContext("2d").calls.length, paints, "details are not repainted on a cache hit");
     assert.ok(ctx.calls.every((c) => c.op === "drawImage"), "live pass only stamps the cached sprite");
-    const sections = created.flatMap(c => c.getContext("2d").calls.filter(call => call.op === "drawImage" && call.args.length === 8));
-    assert.ok(sections.length > 20, "many native XY sections are cropped into a real stacked volume");
-    assert.ok(sections.every(call => call.smoothing === false), "section projections use nearest-neighbour sampling");
+    const asset = VILLAGE_PIXELS[kind === "tree" ? Math.abs(decor.seed) % 2 ? "tree1" : "tree0" : "cottage"];
+    const stamps = first.image.getContext("2d").calls.filter(c => c.op === "drawImage");
+    assert.equal(stamps.length, 1, "the scenery cache stamps one complete artist-authored raster, not a projected stack");
+    const raster = stamps[0].image;
+    assert.deepEqual([raster.width,raster.height],[asset.width*2,asset.height*2],"native source pixels use a shared 2x raster grid");
+    const runs = raster.getContext("2d").calls.filter(c=>c.op === "fillRect");
+    assert.ok(runs.length>20,"real source pixel contours and internal detail are present");
+    assert.ok(runs.every(c=>VILLAGE_PALETTE.includes(c.color)),"one asset palette, not stack lighting");
+    assert.ok(stamps.every(call => call.smoothing === false), "raster stamps use nearest-neighbour sampling");
     assert.ok(spriteCacheSize() <= SPRITE_CACHE_LIMIT, "stack and decor sprites share the bounded LRU");
     assert.equal(JSON.stringify(decor), before, "rendering does not mutate decor");
   }

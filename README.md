@@ -6,6 +6,12 @@ Choose a cat and keep watch until dawn in a pixel-art town with sprite-stacked s
 
 The playable pixel checkpoint `4fd9245` is published. Further asset-by-asset art refinement is on `refactor/pixel-stacking`; see [the review log](docs/pixel-asset-review.md). The previous paper-art version is preserved at `archive/papercraft-2026-11-21` (`d26859b`). Run `npm install`, `npm run build`, then `npm start` to preview locally. See [pixel refactor notes](docs/pixel-refactor.md) for architecture and verification.
 
+## Pixel art workshop / 像素素材工坊
+
+后续模型请先读 **[像素素材工坊与接手说明](docs/PIXEL_ART_WORKSHOP.md)**：原始生成表、提示词与参考、裁切透明化/调色/编译、脚点与 Y 排序、验证命令及待优化项均已入仓。
+
+运行后打开 `/?gallery=1&assets=generated` 预览全部现用素材，`npm run art:prepare` 从仓库内原图重建；这不是重新调用云端模型。
+
 ## How to play
 
 Weapons attack automatically. Collect ink shards from defeated enemies to level up and choose upgrades. Elites and the Eraser drop treasure chests. Defeat the Eraser and survive until dawn to win; if the Eraser is still loose at dawn, the night is lost.
@@ -68,7 +74,8 @@ Open <http://localhost:4173/>. Run `npm test` for the automated tests. The build
 | URL option | What it opens |
 | --- | --- |
 | `/?start=1&seed=7` | A run with the saved cat and a fixed world seed |
-| `/?gallery=1` | The Paper Workshop Gallery of characters, weapons, props, and landmarks |
+| `/?gallery=1` | Pixel Town Atlas, including generated scenery, characters, weapons, props, and landmarks |
+| `/?gallery=1&assets=generated` | Focused generated-asset workshop; same compiled sprites as the game |
 
 For the playable paper-prototype A/B, run `node scripts/prepare-paper-comparison.mjs`,
 then `python3 -m http.server 4174 --directory output/paper-comparison`.
@@ -78,7 +85,7 @@ timings; it is not a player-facing art switch. See the [iPhone review protocol](
 
 ## Credits
 
-The world and characters are drawn in TypeScript with Canvas. Sound is synthesized with Web Audio.
+Characters and effects are drawn in TypeScript with Canvas. Village scenery uses generated pixel sprites compiled into synchronous Canvas row runs; original sheets, generation records and the inactive previous pack attribution are preserved in [the workshop](docs/PIXEL_ART_WORKSHOP.md). Sound is synthesized with Web Audio.
 
 The original cat designs come from [Meow Wall](https://meow-wall.vercel.app/).
 

@@ -11,3 +11,7 @@ output/releases/
 output/pixel-comparison/
 
 output/pixel-asset-review/
+
+# Optional local art-tool environment, never source assets.
+.venv-art/
+assets/village/legacy/village-pixels.ts

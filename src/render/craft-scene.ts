@@ -1,15 +1,15 @@
-import { HOMESTEADS, roadArrival } from "./homestead-layout.js";
+import { drawVillageGrass } from "./village-art.js";
+import { HOMESTEADS } from "./homestead-layout.js";
 import { drawHomesteadGround } from "./homestead-ground.js";
 import { drawDistantLandscape } from "./pixel-distant-landscape.js";
-import { drawYardGarden, drawYardGroundMasses } from "./pixel-yard-garden.js";
+import { drawYardGarden } from "./pixel-yard-garden.js";
 /** Pixel diorama scene. Static terrain and volume stacks are authored at one
  * native pixel per world unit; their world anchors and gameplay remain unchanged. */
 import type { CanvasSurface } from "../engine/surface.js";
 import { surface, hash, type Ctx, type Point } from "./paper-material.js";
-import { START_ROAD_EXIT } from "../game/world-gen.js";
-import { ROAD_STOCK } from "./road-art.js";
+import { drawRasterRoad, openingRoadDistance } from "./road-art.js";
 import { STATS } from "../game/types.js";
-import { LAMPS, YARD_PROPS, pathCenter as oldPathCenter, type SceneProp } from "./scene.js";
+import { LAMPS, YARD_PROPS, type SceneProp } from "./scene.js";
 import { drawPixelDecor } from "./pixel-scene-art.js";
 import { pixelDisc } from "./pixel-stack.js";
 import { polygon as pixelPolygon } from "./pixel-art.js";
@@ -21,7 +21,6 @@ export const OPENING_BUILDINGS = HOMESTEADS;
 let background:CanvasSurface|undefined, skyCanvas:CanvasSurface|undefined;
 export interface GroundLamp { x:number;y:number;s?:number; }
 const q=(n:number)=>Math.round(n/2)*2;
-function pathCenter(y:number):number{return oldPathCenter(y)+(y<348?17*Math.max(0,1-(y-222)/126):0);}
 function moon(ctx:Ctx,x:number,y:number):void {
   ctx.save();ctx.translate(Math.round(x),Math.round(y));
   pixelDisc(ctx,0,0,34,34,"#a5b4c7");pixelDisc(ctx,1,-1,32,32,"#e4d7ad");
@@ -56,20 +55,16 @@ export function groundUnderlay(ctx:Ctx,x:number,y:number,w:number,h:number,top:b
   const p=groundOutline(x,y,w,h,top);ctx.save();ctx.clip(p);ctx.fillStyle="#3d624e";ctx.fill(p);
   for(let gy=Math.floor(y/28);gy*28<y+h;gy++)for(let gx=Math.floor(x/28);gx*28<x+w;gx++){
     const sd=gx*92821+gy*68917;if(hash(sd)>.7)pixelRect(ctx,gx*28+hash(sd+1)*18,gy*28+hash(sd+2)*18,4,1,"#496b52");
-  }ctx.restore();
+  }
+  drawVillageGrass(ctx,{x0:x,y0:y,x1:x+w,y1:y+h});
+  ctx.restore();
 }
 export function groundTile(ctx:Ctx,x:number,y:number,w:number,h:number,lamps:readonly GroundLamp[],top:boolean,yard=false):void{
   for(const _ of groundTilePasses(ctx,x,y,w,h,lamps,top,yard)){/* same incremental bake */}
 }
 export function* groundTilePasses(ctx:Ctx,x:number,y:number,w:number,h:number,_lamps:readonly GroundLamp[],top:boolean,_yard=false):Generator<void>{
   groundUnderlay(ctx,x,y,w,h,top);yield;
-  const p=groundOutline(x,y,w,h,top);ctx.save();ctx.clip(p);
-  for(let gy=Math.floor(y/76);gy*76<y+h;gy++){
-    for(let gx=Math.floor(x/76);gx*76<x+w;gx++){
-      const sd=gx*1931+gy*7841;if(hash(sd)<.55)continue;
-      pixelTerrainCluster(ctx,gx*76+hash(sd+1)*40,gy*76+hash(sd+2)*38,sd,"scallop");
-    }yield;
-  }ctx.restore();
+  // Raster turf is included in the shared underlay, including worker fallback.
 }
 export function leaf(ctx:Ctx,x:number,y:number,length:number,width:number,angle:number,color:string,_seed:number,_stitched=false):void{
   for(let i=0;i<Math.ceil(length/2);i++){
@@ -94,38 +89,12 @@ export function grassTuft(ctx:Ctx,x:number,y:number,s:number,seed:number):void{
 function buildStartYard():CanvasSurface{
   const c=surface(W,H),ctx=c.getContext("2d")!;ctx.imageSmoothingEnabled=false;
   horizonHills(ctx,0,W);groundTile(ctx,0,0,W,H,LAMPS,true,true);
-  drawYardGroundMasses(ctx);
   drawHomesteadGround(ctx);
-  // Original opening route centre remains identical; only its raster materials change.
-  for(let y=245;y<H;y++){
-    const join=roadArrival((y-480)/60),
-      center=pathCenter(y)*(1-join)+START_ROAD_EXIT.x*join,
-      width=(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join;
-    pixelRect(ctx,center-width-3,y,width*2+6,1,ROAD_STOCK.bank);
-    pixelRect(ctx,center-width,y,width*2,1,ROAD_STOCK.face);
-    pixelRect(ctx,center-width,y,1,1,ROAD_STOCK.rim);pixelRect(ctx,center+width-1,y,1,1,ROAD_STOCK.rim);
-    for (const side of [-1,1]) {
-      const section = Math.floor((y + side * 11) / 27);
-      if (y > H - 5 || hash(section * 41 + side * 29) < .6) continue;
-      const offset = side * (width * .42 + Math.sin(y / 34) * 1.5);
-      pixelRect(ctx,center + offset - 2,y,4,1,ROAD_STOCK.worn);
-      if (y % 37 === 0) pixelRect(ctx,center + offset + 3,y,3,1,ROAD_STOCK.packed);
-    }
-  }
+  // Same surface sampler as the world road; exact existing opening route mask.
+  for(const _ of drawRasterRoad(ctx,{x0:240,y0:245,x1:600,y1:H},openingRoadDistance)){/* static bake */}
   drawYardGarden(ctx);
-  // Broad shadows start within each footing and continue onto the lawn.
-  // Bake them with the ground so they stay attached during camera movement.
-  ctx.save();
-  ctx.globalAlpha = .28;
-  for (const { x, y, s } of OPENING_BUILDINGS) {
-    pixelPolygon(ctx, [[x - 28*s,y + 9*s], [x + 23*s,y + 6*s],
-      [x + 56*s,y + 31*s], [x + 18*s,y + 43*s], [x - 18*s,y + 31*s]], "#293c4b");
-  }
-  for(const [x,y,s] of [[291,254,.67],[763,251,.65]]){
-    pixelPolygon(ctx, [[x!-4*s!,y!],[x!+4*s!,y!],[x!+48*s!,y!+25*s!],
-      [x!+37*s!,y!+31*s!],[x!-2*s!,y!+5*s!]], "#293c4b");
-  }
-  ctx.restore();
+  // Tree pockets frame two front-facing raster houses; neither casts the old
+  // isometric polygon onto the lane. Footings retain their original anchors.
   tree(ctx,284,233,.87,8);tree(ctx,316,219,.67,9);
   tree(ctx,775,225,.9,7);tree(ctx,809,240,.72,6);
   tree(ctx,99,247,.8,8);tree(ctx,872,243,.78,6);

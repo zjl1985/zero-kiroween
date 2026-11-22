@@ -419,6 +419,7 @@ export const EN: Messages = {
   "costume.dario.line": "This patch is put away for tonight.",
   "costume.dario.unlock": "Clear {at} ink in one night.",
   "notice.costume-dario": "Put it away tonight · The seal comes down",
+  "gallery.section.scenery": "Generated village assets",
   "gallery.section.wardrobe": "Wardrobe",
   "gallery.state.worn": "Worn",
 };

@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-22 Asia/Shanghai",
+  "tool": "cursor.studio.GenerateImage",
+  "reference": "reference-target.jpg",
+  "reference_role": "Previously generated full-scene target, visual reference only; not runtime background and no copied character.",
+  "reference_generation": "Earlier parent call; its prompt/model/seed were not recorded here. The following are the four actual asset calls in this batch.",
+  "model": "Not exposed by tool",
+  "seed": "Not exposed by tool; cloud generation is not exactly locally reproducible.",
+  "requests": [
+    {
+      "raw_file": "raw/cottages.jpg",
+      "original_output_filename": "372fcc3a9ae16a0f3ed40377c471f8fe3caeac65f79c37fcff986cd8eb7da5f3.jpg",
+      "aspect_ratio": "16:9",
+      "reference_image_paths": [
+        "reference-target.jpg"
+      ],
+      "description": "Create a professional production pixel-art game environment SPRITE SHEET, not an illustration. Match the supplied reference's richly detailed cozy spooky autumn village style, warm amber windows, moss, rustic timber, nuanced clusters of pixels. Exactly TWO separate small cottages on perfectly uniform pure MAGENTA #ff00ff background with no floor, no grass, no shadows outside sprite, no characters, no text, no panels. Canvas landscape. Cottage A centered at x=25% y=50%, cottage B at x=75% y=50%. Each fully inside its own half, lots of magenta padding, nothing touching. Front-facing orthographic top-down RPG three-quarter view, see roof top and front facade, no side wall, horizontal roof eaves. A: blue charcoal shingle roof with tiny central gable, ivory plaster and dark timber, golden windows, front door and short stone doorstep. B: weathered terracotta roof, pale plaster, dark timber, same size, golden window and front door. Low squat village cottages, roofs broad, not tall towers. Exceptional hand-placed pixel detail at an intended logical resolution of roughly 180 pixels wide per house, crisp square pixel clusters, limited harmonious muted olive/ochre/slate palette, no blur, no antialias gradients, consistent upper-left lighting. Keep the reference richness but simplify overall cottage silhouette to be cleanly extractable game sprites. No character or pumpkin face from the reference."
+    },
+    {
+      "raw_file": "raw/nature-props.jpg",
+      "original_output_filename": "d79cbe67e183de2689dfa0552e6793fc62261a203e17a78509426d2c27779613.jpg",
+      "aspect_ratio": "16:9",
+      "reference_image_paths": [
+        "reference-target.jpg"
+      ],
+      "description": "Production pixel-art RPG environment sprite sheet matching supplied autumn spooky village reference, beautifully nuanced dense hand-placed pixel clusters, warm olive green orange rust slate colors, crisp square pixels, no soft painting. Pure uniform MAGENTA #ff00ff background everywhere between objects; no scene, no terrain, no text, no characters, no frame. Layout exactly 4 columns and 2 rows of isolated sprites with wide magenta gutters, each object completely contained in its cell. Top row left to right: large round olive deciduous tree with visible twisting trunk; large rusty orange autumn tree with visible twisting trunk; dark green conifer tree with visible trunk; wide rounded dense green shrub. Bottom row left to right: clustered gray mossy boulder; waist-high rustic wooden fence section straight horizontal with five pickets; amber glowing lantern on dark wooden post with broad dark cap; tree stump with growth rings and small roots. Consistent orthographic front facing three-quarter top down camera like Zelda Stardew Valley but higher handcrafted detail, no isometric diamonds, upper left lighting. All sprites have a single clearly visible footpoint at lower center. No cast shadows, no ground patch. Trees should be lush rounded canopies with individually defined leaf pixel clusters, dappled highlights and deep textured shadow, reference quality not low-detail tiny icons. Fence and lamp intricate weathered wood detail. This is a clean asset sheet for automatic cell extraction, no overlaps, each cell holds only one asset."
+    },
+    {
+      "raw_file": "raw/surfaces.jpg",
+      "original_output_filename": "809cff78ac2d0bec1cbf4ab9bafa1d8f4f3f780bce13f9929d09dc093937982c.jpg",
+      "aspect_ratio": "1:1",
+      "reference_image_paths": [
+        "reference-target.jpg"
+      ],
+      "description": "Create a clean production texture sheet for a highly detailed pixel-art top down autumn village game, matching provided reference ground palette. Exact two by two grid, each square is a full filled seamlessly repeating texture, no labels no borders no objects no characters. Upper left square: muted dark olive meadow grass with delicate tiny hand placed blade pixel clusters, subtle tonal dither, very sparse ochre fallen leaves. Upper right square: warm desaturated ochre packed dirt path with tiny irregular pebbles and grain, subtle pixel clusters, no large cobbles. Bottom left square: mossy gray stone paving, small uneven handcut stones and green cracks. Bottom right square: dark olive forest floor with scattered rust leaves. Orthographic straight overhead surface textures ONLY, no perspective, no lighting gradient across sheet, flat even illumination. Each quadrant should be internally seamless and low contrast enough to repeat without strong pattern, rich handmade tiny pixel detail not blurry noise. A restrained palette olive #424d29 grass, earth #74603e, moss #52603a, tiny ochre details, deepest #293524, mid-value matching the reference. Distinct crisp square logical pixels, no photographic texture, no soft brush. Fill canvas edge to edge."
+    },
+    {
+      "raw_file": "raw/yard-details.jpg",
+      "original_output_filename": "0f274103023f482f3a7af22986e038d8d8010db410795fa14847550e385286bd.jpg",
+      "aspect_ratio": "16:9",
+      "reference_image_paths": [
+        "reference-target.jpg"
+      ],
+      "description": "Production game pixel art sprite sheet matching the provided cozy dark autumn village style. Exact grid THREE columns TWO rows, each isolated item fully inside its own cell with generous blank space. Pure uniform MAGENTA #ff00ff background, no ground, no text, no characters. Top row: one small naturally ribbed orange pumpkin with curved stem NO face; cluster of three ivory candles of different heights on tiny dark holders lit with amber flame; wooden terracotta planter with detailed dense green herb foliage and few orange flowers. Bottom row: small weathered timber garden cabinet with two closed doors and low dark slate roof; dense small fern plant with finely defined green leaflets; terracotta pot holding a small rust-orange leafy shrub. Front facing orthographic three-quarter top down RPG camera, match reference, see tops of pots and cabinet roof. Rich handcrafted square pixel clusters, tiny weathering, complex warm amber light, olive moss timber palette, crisp pixels not vector, not blurry, no photographic texture. No external shadow or terrain, each cell one separate sprite with center bottom footpoint. Same pixel scale as reference cottages, refined and detailed rather than oversimplified icons."
+    }
+  ]
+}

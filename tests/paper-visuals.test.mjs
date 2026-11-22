@@ -575,20 +575,16 @@ test("chunk ground baking is deterministic and the budgeted fallback bakes the s
   clearWorldRenderCache();
 });
 
-test("neighbouring painted and pencil tiles use the same irregular lawn boundary", (t) => {
+test("painted and washed neighbouring tiles do not resurrect obsolete raised stock panels", t=>{
   environment(t);
-  const contour = (cx, layer) => {
-    const ctx = buildChunk(7, cx, 1, layer).getContext("2d");
-    const clip = ctx.calls.find((call) => call.op === "clip" && call.args[1] === "evenodd");
-    assert.ok(clip, `district sheets are cut around the lawn in ${layer} tile ${cx}`);
-    const lawn = clip.args[0].ops.find(([op]) => op === "addPath")?.[1];
-    assert.ok(lawn instanceof Path, "the clip contains a lawn cutout");
-    return lawn.ops;
-  };
-  const painted = contour(0, "paint");
-  assert.ok(painted.some(([op]) => op === "quadraticCurveTo"), "the lawn edge breaks up the straight tile boundary");
-  assert.deepEqual(contour(1, "paint"), painted, "adjacent terrain shares the same contour");
-  assert.deepEqual(contour(1, "sketch"), painted, "the pencil tiles share the painted outline");
+  for(const layer of ["paint","sketch"])for(const cx of [0,1]){
+    const ctx=buildChunk(7,cx,1,layer).getContext("2d");
+    const commands=stream(ctx);
+    assert.ok(commands.some(c=>c.op==="fillRect"),`${layer} contains native ground coverage`);
+    assert.ok(commands.some(c=>c.op==="stroke"||c.op==="drawImage"),`${layer} contains terrain or outline detail`);
+    assert.ok(!ctx.calls.some(c=>c.op==="clip"&&c.args[1]==="evenodd"&&c.args[0]?.ops?.some(op=>op[0]==="addPath")),`${layer} has no obsolete district-panel cutout`);
+    assert.equal(ctx.depth,0,"both representations restore their drawing state");
+  }
 });
 
 // ---------------------------------------------------------------- washed paper rendering (FEAT-005)
@@ -661,7 +657,7 @@ test("the pencil layer is flat graphite on cream: no gradients, filters or pixel
   t.after(clearWorldRenderCache);
   const sim = washedSim(), { cx, cy } = chunkOf(WASH_AT.x, WASH_AT.y);
   const full = stream(buildChunk(sim.seed, cx, cy, "sketch").getContext("2d"));
-  assert.ok(full.length > 100, `a real pencil tile (${full.length} commands)`);
+  assert.ok(full.some(c=>c.op==="stroke"&&c.args.some(a=>Array.isArray(a)&&a.some(op=>["moveTo","lineTo","quadraticCurveTo"].includes(op[0])))), "the underlayer retains actual world outline geometry, not obsolete panel command counts");
   assert.deepEqual(full, stream(buildChunk(sim.seed, cx, cy, "sketch").getContext("2d")), "deterministic");
   assert.ok(full.some((c) => c.op === "fillRect" && c.fill === "#eee4cf"), "raw cream paper");
   assert.ok(full.some((c) => c.op === "stroke" && c.stroke === "#45434f"), "graphite lines");

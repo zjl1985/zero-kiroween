@@ -39,13 +39,13 @@ import type { Camera, ViewRect } from "./camera.js";
 import { cameraProjection, viewRect } from "./camera.js";
 import { drawInteractable } from "./craft-juice.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
-import { patchSpots, sheetGround, sheetOutline, sheetsIn } from "./paper-ground.js";
+import { patchSpots } from "./paper-ground.js";
 import { constructionLine, hatch, pencilFootprint, pencilGround, pencilLine, pencilPatch, PENCIL, rawPaper, shadeAlong, subdivide } from "./pencil.js";
 import { insidePolygon } from "../defs/weapons/paper-geometry.js";
 import { PAPER_VALUE } from "./paper-rules.js";
 import { gradeCanvas } from "./paper-value.js";
 import { drawRoadNetwork } from "./road-art.js";
-import { clipOutsideLawn, drawLawnEdge, drawLawnVerge, lawnContour, reachesLawn, yardDistance } from "./start-lawn.js";
+import { yardDistance } from "./start-lawn.js";
 import {
   bush,
   candles,
@@ -325,17 +325,9 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   if (cy === 0) horizonHills(ctx, x0, x1);
   yield;
   yield* groundTilePasses(ctx, x0, y0, c.w, c.h, lamps, cy === 0);
-  // Large district paper sheets over the pulp, clipped to the ground silhouette (horizon row).
-  ctx.save();
-  ctx.clip(groundOutline(x0, y0, c.w, c.h, cy === 0));
-  ctx.save();
-  clipOutsideLawn(ctx, tile);
-  yield* sheetGround(ctx, seed, x0, y0, x1, y1);
-  ctx.restore();
-  // The stock is cut around the lawn: shadow, card side, rim, lip and fringe, not a raw clip line.
-  drawLawnEdge(ctx, tile, seed);
-  ctx.restore();
-  drawLawnVerge(ctx, tile, seed);
+  // Pixel terrain is one continuous world-phased lawn. Legacy district stock
+  // sheets and their raised lawn bank are not part of this raster art direction:
+  // those overlapping coloured panels caused rectangular mats at road junctions.
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
   if (cy === 1 && (cx === 0 || cx === 1)) drawYardGardenExtension(ctx);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
@@ -415,22 +407,8 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   ctx.translate(-x0, -y0);
   rawPaper(ctx, x0, y0, c.w, c.h);
   yield;
-  if (!c.start) {
-    ctx.save();
-    clipOutsideLawn(ctx, { x0, y0, x1, y1 });
-    for (const s of sheetsIn(seed, x0, y0, x1, y1)) {
-      const pts = sheetOutline(s.corners, s.art.sheet, s.sd),
-        // Sheets that fade out near the yard still show their outline in pencil.
-        k = Math.max(SKETCH_SEAM_FLOOR, s.opacity);
-      pencilLine(ctx, pts, s.sd, { weight: 0.55, alpha: 0.26 * k, closed: true, color: PENCIL.soft });
-      const [, , br, bl] = s.corners as [Point, Point, Point, Point];
-      shadeAlong(ctx, subdivide([bl, br], 40), 0.5, 6, 0.16 * k, s.sd);
-    }
-    ctx.restore();
-    // The same torn cut around the lawn, drawn in graphite.
-    if (reachesLawn({ x0, y0, x1, y1 }, 24))
-      pencilLine(ctx, lawnContour(), 1931, { weight: 0.7, alpha: 0.5, closed: false, color: PENCIL.soft });
-  }
+  // The washed underlayer must not resurrect district panels that no longer
+  // exist in the pixel scene. Water masks and route/shore geometry stay intact.
   yield;
   for (const p of patchSpots(seed, x0, y0, x1, y1)) pencilPatch(ctx, p.x, p.y, p.r, p.seed);
   yield;
@@ -536,7 +514,6 @@ function* paintSketchChunk(canvas: CanvasSurface, seed: number, cx: number, cy: 
   gradeCanvas(canvas, PAPER_VALUE.washed);
 }
 /** Lowest share of the sheet-seam pencil strength (sheets faded near the yard still show in pencil). */
-const SKETCH_SEAM_FLOOR = 0.6;
 function segmentDistance(px: number, py: number, a: Point, b: Point): number {
   const dx = b[0] - a[0], dy = b[1] - a[1], d = dx * dx + dy * dy,
     t = d <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / d));

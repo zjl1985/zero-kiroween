@@ -5,7 +5,7 @@ import "../dist/render/art-index.js";
 import { buildChunk, clearWorldRenderCache, drawChunks } from "../dist/render/craft-world.js";
 import { drawLawnEdge, drawLawnVerge, lawnContour } from "../dist/render/start-lawn.js";
 import { groundUnderlay } from "../dist/render/craft-scene.js";
-import { ROAD_STOCK } from "../dist/render/road-art.js";
+import { openingRoadProfile, openingRoadDistance, worldRoadDistance } from "../dist/render/road-art.js";
 import { CHUNK, SCREEN, START_ROAD_EXIT, roads } from "../dist/game/world-gen.js";
 
 // Ground seams around the start lawn and unbaked tiles (FEAT-003). Static command
@@ -106,19 +106,13 @@ test("district grass banks follow the lawn clip with native pixel verge details"
   assert.ok(new Set(pixels.map(c => c.fillStyle)).size >= 3, "clusters have distinct shadow, midtone and light pixels");
 });
 
-test("neighbouring native tiles paint the same lawn footprint after cutting the district patches", (t) => {
+test("neighbouring start-adjacent chunks use a continuous raster underlay, not raised district panels", t => {
   environment(t);
-  const probe = canvas().getContext("2d");
-  drawLawnEdge(probe, { x0: 0, y0: CHUNK.height, x1: CHUNK.width, y1: 2 * CHUNK.height }, 7);
-  const lawnOps = probe.calls.find(c => c.op === "clip").args[0].ops;
-  for (const cx of [0, 1]) {
-    const tile = buildChunk(7, cx, 1), calls = tile.getContext("2d").calls;
-    assert.equal(tile.width, CHUNK.width, "one native pixel represents one world unit");
-    assert.equal(tile.height, CHUNK.height);
-    const outside = calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd");
-    const lawn = calls.findIndex((c, i) => i > outside && c.op === "clip" && JSON.stringify(c.args[0]?.ops) === JSON.stringify(lawnOps));
-    assert.ok(outside >= 0 && lawn > outside, `tile ${cx},1 paints the bank after clipping its district patches`);
-    assert.ok(calls.slice(lawn + 1).some(c => c.op === "stroke" && c.lineWidth === 6), "bank remains visible in each neighbour");
+  for(const cx of [0,1]){
+    const calls=buildChunk(7,cx,1).getContext("2d").calls;
+    assert.ok(calls.some(c=>c.op==="fill" && c.fillStyle==="#3d624e"),"native lawn covers every chunk");
+    assert.ok(!calls.some(c=>c.op==="stroke" && [6,2].includes(c.lineWidth)),"no obsolete raised lawn bank across the roads");
+    assert.ok(!calls.some(c=>c.op==="clip" && c.args[1]==="evenodd"),"no old rectangular district stock cut-outs");
   }
 });
 
@@ -156,19 +150,13 @@ test("an unbaked tile has continuous base coverage plus native pixel detail", (t
   assert.equal(ctx.depth, 0);
 });
 
-test("the opening road meets the world road with the same native width, centre and material", t => {
-  environment(t);
-  const cx = Math.floor(START_ROAD_EXIT.x / CHUNK.width),
-    opening = allCalls(buildChunk(7, cx, 0).getContext("2d")),
-    below = allCalls(buildChunk(7, cx, 1).getContext("2d")),
-    lastRow = opening.find(c => c.op === "fillRect" && c.fillStyle === ROAD_STOCK.face && c.args[1] === SCREEN.height - 1);
-  assert.ok(lastRow, "opening draws road pixels through the final native row");
-  const [x, y, width, height] = lastRow.args;
-  assert.equal(width, START_ROAD_EXIT.width * 2, "opening does not flare out before the narrow world road");
-  assert.ok(Math.abs(x + width / 2 - START_ROAD_EXIT.x) <= 1, "centres agree within native half-pixel rounding");
-  assert.equal(y + height, START_ROAD_EXIT.y, "last native row reaches the shared boundary without a gap");
-  assert.deepEqual(roads(7)[0].points[0], { x: START_ROAD_EXIT.x, y: START_ROAD_EXIT.y });
-  assert.ok(below.some(c => c.op === "fill" && c.fillStyle === ROAD_STOCK.rim && c.args[0]?.ops.some(
-    ([op, px, py, radius]) => op === "arc" && px === START_ROAD_EXIT.x && py === START_ROAD_EXIT.y && radius === START_ROAD_EXIT.width)),
-    "the lower tile paints the unchanged world-road join with the same outer material edge and half-width");
+test("opening and world road meet at their unchanged centre, width and world-phased raster boundary",()=>{
+  const p=openingRoadProfile(540);
+  assert.equal(p.center,START_ROAD_EXIT.x);assert.equal(p.width,START_ROAD_EXIT.width);
+  assert.deepEqual(roads(7)[0].points[0],{x:START_ROAD_EXIT.x,y:START_ROAD_EXIT.y});
+  for(let x=480;x<=580;x+=2){
+    const a=openingRoadDistance(x,540),b=worldRoadDistance(7,x,540);
+    assert.ok(Math.abs(a-b)<.5,"horizontal opening width and sloped world capsule agree within half a world pixel");
+    assert.equal(a<=0,b<=0,"the native road mask has no gap or extra branch at the join");
+  }
 });

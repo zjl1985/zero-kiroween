@@ -6,10 +6,11 @@
  * here names a single id, so new defs appear automatically. No DOM, import-safe
  * in Node (tested in tests/gallery.test.mjs).
  */
+import { VILLAGE_PIXELS } from "../render/village-pixels.js";
 import type { MessageKey } from "../content/keys.js";
 import { BIOME_DEFS, CATS, COSTUME_DEFS, ENEMY_DEFS, LANDMARK_DEFS, MATERIALS, PASSIVE_DEFS, PROP_DEFS, TOWNSFOLK_DEFS, WEAPON_DEFS } from "../defs/index.js";
 
-export type GalleryKind = "cat" | "enemy" | "prop" | "landmark" | "townsfolk" | "biome" | "wash" | "weapon" | "passive" | "costume";
+export type GalleryKind = "scenery" | "cat" | "enemy" | "prop" | "landmark" | "townsfolk" | "biome" | "wash" | "weapon" | "passive" | "costume";
 export type GalleryState =
   | "idle"
   | "skill"
@@ -48,6 +49,7 @@ export const stateLabel = (s: GalleryState): MessageKey => `gallery.state.${s}` 
 
 /** Cell sizes per section (presentation only). */
 export const GALLERY_CELL: Readonly<Record<GalleryKind, { readonly w: number; readonly h: number }>> = {
+  scenery: { w: 220, h: 210 },
   cat: { w: 190, h: 200 },
   enemy: { w: 170, h: 170 },
   prop: { w: 170, h: 140 },
@@ -67,14 +69,19 @@ const items = (kind: GalleryKind, ids: readonly string[], label: (id: string) =>
   ids.flatMap((id) => states(id).map((state) => ({ kind, id, label: label(id) as MessageKey, state })));
 
 /** Every section of the gallery, built from the registries in registration order. */
-export function gallerySections(): GallerySection[] {
+export function gallerySections(generatedOnly = false): GallerySection[] {
   const section = (kind: GalleryKind, title: string, list: GalleryItem[]): GallerySection => ({
     kind,
     title: `gallery.section.${title}` as MessageKey,
     cell: GALLERY_CELL[kind],
     items: list,
   });
+  const scenery = section("scenery", "scenery", Object.keys(VILLAGE_PIXELS).map(id => ({
+    kind: "scenery", id, label: "gallery.section.scenery", state: "intact",
+  })));
+  if (generatedOnly) return [scenery];
   return [
+    scenery,
     section("cat", "cats", items("cat", CATS.ids(), (id) => `${id}.name`, () => ["idle"])),
     section(
       "enemy",

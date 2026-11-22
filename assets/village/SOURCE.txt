@@ -1,0 +1,57 @@
+ACTIVE ENVIRONMENT: Generated village art, 2026-11-22 Asia/Shanghai
+
+The current environment uses four real cursor.studio.GenerateImage calls made
+for the user's explicit request to redraw higher-detail pixel scenery. The tool
+exposes no model selector; no particular model or "best model" is claimed.
+The supplied full-scene target was style reference only, never used as a backdrop.
+No generated characters were copied. Gameplay/character/weapon art is unchanged.
+
+Original generation outputs: generated/raw/{cottages,nature-props,surfaces,yard-details}.jpg
+Extracted transparent sprites / periodic surface tiles: generated/*.png
+Exact hashes, extraction boxes and processing: generated/PROVENANCE.json
+Rebuild: python3 scripts/prepare-generated-village.py (Pillow + numpy)
+Runtime: src/render/village-pixels.ts (synchronous indexed rows, offline/worker safe)
+
+Processing: JPEG chroma key and alpha cleanup; connected sprite silhouettes;
+nearest-neighbour common logical lattice; 224-colour shared palette quantization;
+small opposite-edge crossfade for seamless repeating ground. House anchors are
+at their doorsteps; other objects retain independent bottom footpoints/Y sorting.
+
+The older pack below is retained on disk solely to preserve previous local work.
+It is NOT read by the active generated compiler and supplies NO active pixels.
+Its CC0 status does not apply to the newly generated art.
+
+--- PREVIOUS PACK PROVENANCE (INACTIVE) ---
+Ninja Adventure — Pixel-Boy and AAA
+Official asset page: https://pixel-boy.itch.io/ninja-adventure-asset-pack
+Official source repository linked by the author: https://github.com/pixel-boy/NinjaAdventure
+Pinned source commit: 6ac78232d5aedcc85ce5f27d060ea92366f7c24a
+Original files: content/map/tileset_village_abandoned.png, content/map/tileset_floor.png
+The two files above were downloaded from raw.githubusercontent.com at the pinned commit.
+The same CC0 pack's complete nature sheet (not in the author's limited example):
+File: TilesetNature.png
+Public redistribution: CoderDojo-Ennis/ScratchyGodot
+Pinned mirror commit: 774e780658d3cbff0ba340be1b73d99af8bfc4af
+Path: Graphics2D/TileSets/NinjaAdventure/TilesetNature.png
+https://github.com/CoderDojo-Ennis/ScratchyGodot/blob/774e780658d3cbff0ba340be1b73d99af8bfc4af/Graphics2D/TileSets/NinjaAdventure/TilesetNature.png
+The author's official asset page below is the CC0 license source for this pack.
+The mirror's code is not included or executed.
+License: Creative Commons Zero v1.0 Universal (CC0).
+Official author page explicitly permits commercial use, with attribution optional.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Only the selected environment sheets and project retouch are included, not source code, audio,
+characters or gameplay from the Godot example. Crops are in manifest.json.
+Additional same-pack sheets from the pinned mirror above:
+Graphics2D/TileSets/NinjaAdventure/Props/TilesetHouse.png
+Graphics2D/TileSets/NinjaAdventure/Props/TilesetElement.png
+Buildings use complete low-rise, roof-visible sprites from TilesetHouse, not
+vertically compressed versions of the previous tall gables. Tree crop begins
+y=288, deliberately excluding the unrelated ore sprites at y=272.
+scene-retouch.png: original project pixel retouch for flat Halloween pumpkins
+and candles, using the source pack's ramp, no generative AI / third-party art.
+Our adaptation uses a shared twilight palette and source pixels, not generated
+vector shapes or AI images. scripts/prepare-village-assets.py reproducibly emits
+src/render/village-pixels.ts from these PNGs. Pillow is an offline authoring
+requirement only; the committed data builds with the existing npm workflow.
+No remote runtime requests, new account, paid credits or generation service.

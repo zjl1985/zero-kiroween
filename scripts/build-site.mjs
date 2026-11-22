@@ -32,5 +32,7 @@ for (const file of ["index.html", "styles.css"]) copyFileSync(join(root, file), 
 mkdirSync(join(output, "assets/fonts"), { recursive: true });
 for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"])
   copyFileSync(join(root, "assets/fonts", file), join(output, "assets/fonts", file));
+mkdirSync(join(output, "assets/village"), { recursive: true });
+copyFileSync(join(root, "assets/village/SOURCE.txt"), join(output, "assets/village/SOURCE.txt"));
 publishModules(source);
 console.log("Static site built in site/ (HTML, CSS, JavaScript and licensed fonts).");

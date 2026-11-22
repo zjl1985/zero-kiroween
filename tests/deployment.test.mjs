@@ -32,7 +32,7 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
 test("the published site contains only entry files and current compiled modules", () => {
   const modules = files(new URL("src/", root)).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
   const fontFiles = ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"];
-  const expected = ["index.html", "styles.css", ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
+  const expected = ["index.html", "styles.css", "assets/village/SOURCE.txt", ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
   assert.deepEqual(files(site), expected);
   for (const file of ["index.html", "styles.css"])
     assert.equal(readFileSync(new URL(file, site), "utf8"), readFileSync(new URL(file, root), "utf8"));
@@ -80,6 +80,8 @@ test("packaging removes old site output and excludes stale modules, maps and pri
   mkdirSync(join(fixture, "assets/fonts"), { recursive: true });
   for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"])
     copyFileSync(new URL(`assets/fonts/${file}`, root), join(fixture, "assets/fonts", file));
+  mkdirSync(join(fixture, "assets/village"), { recursive: true });
+  copyFileSync(new URL("assets/village/SOURCE.txt", root), join(fixture, "assets/village/SOURCE.txt"));
   mkdirSync(join(fixture, "scripts"));
   copyFileSync(new URL("scripts/build-site.mjs", root), join(fixture, "scripts/build-site.mjs"));
   execFileSync(process.execPath, [join(fixture, "scripts/build-site.mjs")], { cwd: tmpdir(), timeout: 10000 });

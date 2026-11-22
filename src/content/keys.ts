@@ -405,6 +405,7 @@ export const MESSAGE_KEYS = [
   "costume.dario.line",
   "costume.dario.unlock",
   "notice.costume-dario",
+  "gallery.section.scenery",
   "gallery.section.wardrobe",
   "gallery.state.worn",
 ] as const;

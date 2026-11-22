@@ -1,0 +1,3 @@
+# Offline extraction/compiler versions used for this checkpoint.
+Pillow==13.0.0
+numpy==2.5.5

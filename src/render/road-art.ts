@@ -1,183 +1,92 @@
-import { CHUNK, biomeAt, roads } from "../game/world-gen.js";
-import { touchesWaterShore } from "../defs/water.js";
-import { waterRegionsNear } from "../game/water.js";
-import { BIOME_ART } from "./art-registry.js";
+/** One world-phased raster surface for the exact union of simulation roads.
+ * No segment outlines, capsule-bank overlaps, or independently phased strips. */
+import { roads, START_ROAD_EXIT } from "../game/world-gen.js";
+import { pathCenter } from "./scene.js";
+import { roadArrival } from "./homestead-layout.js";
+import type { Ctx } from "./paper-material.js";
 import type { ViewRect } from "./camera.js";
-import { hash, type Ctx } from "./paper-material.js";
-
-import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
-
-export const ROAD_STOCK = {
-  face: "#797967", rim: "#82816d", bank: "#555d54",
-  worn: "#70715f", packed: "#83816c",
-} as const;
-
-interface RoadSegment {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-  width: number;
-  length: number;
-  angle: number;
-  ux: number;
-  uy: number;
-  salt: number;
+import { VILLAGE_PALETTE, VILLAGE_PIXELS } from "./village-pixels.js";
+export const ROAD_STOCK = { face:"#74603e", rim:"#52603a", bank:"#424d29", worn:"#6a5639", packed:"#806943" } as const;
+interface Segment { ax:number; ay:number; dx:number; dy:number; length2:number; width:number; }
+function segments(seed:number, view?:ViewRect):Segment[] {
+  const out:Segment[]=[];
+  for(const r of roads(seed)) for(let i=1;i<r.points.length;i++){
+    const a=r.points[i-1]!,b=r.points[i]!,pad=r.width+8;
+    if(view && (Math.max(a.x,b.x)+pad<view.x0 || Math.min(a.x,b.x)-pad>view.x1 ||
+      Math.max(a.y,b.y)+pad<view.y0 || Math.min(a.y,b.y)-pad>view.y1))continue;
+    const dx=b.x-a.x,dy=b.y-a.y,length2=dx*dx+dy*dy;
+    if(length2)out.push({ax:a.x,ay:a.y,dx,dy,length2,width:r.width});
+  }
+  return out;
 }
-
-function segmentsNear(seed: number, tile: ViewRect): RoadSegment[] {
-  const segments: RoadSegment[] = [];
-  for (const [roadIndex, road] of roads(seed).entries()) {
-    const pad = road.width + 46;
-    for (let i = 0; i < road.points.length - 1; i++) {
-      const start = road.points[i]!, end = road.points[i + 1]!;
-      if (Math.max(start.x, end.x) + pad < tile.x0 || Math.min(start.x, end.x) - pad > tile.x1 ||
-          Math.max(start.y, end.y) + pad < tile.y0 || Math.min(start.y, end.y) - pad > tile.y1) continue;
-      const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
-      if (length === 0) continue;
-      segments.push({ start, end, width: road.width, length, angle: Math.atan2(dy, dx),
-        ux: dx / length, uy: dy / length, salt: seed + roadIndex * 100003 + i * 7919 });
+function capsuleUnionField(parts:readonly Segment[],x:number,y:number):number{
+  let d=Infinity;
+  for(const s of parts){
+    const t=Math.max(0,Math.min(1,((x-s.ax)*s.dx+(y-s.ay)*s.dy)/s.length2));
+    d=Math.min(d,Math.hypot(x-s.ax-t*s.dx,y-s.ay-t*s.dy)-s.width);
+  }
+  return d;
+}
+/** The minimum capsule SDF gives membership, NOT distance to a union's
+ * external edge in overlaps. For our 2-unit raster, search the nearest truly
+ * uncovered sample, capped beyond the 6-unit grass fringe. Internal joins can
+ * never become a turf edge. Samples are absolute and independent of chunk cuts. */
+const EDGE_RADIUS = 6;
+const EXTERIOR_SAMPLES = Array.from({length:49},(_,i)=>({
+  dx:(i%7-3)*2, dy:(Math.floor(i/7)-3)*2,
+})).filter(p=>(p.dx!==0||p.dy!==0)&&Math.hypot(p.dx,p.dy)<=EDGE_RADIUS)
+  .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy));
+function distanceToUnion(parts:readonly Segment[],x:number,y:number):number{
+  const field=capsuleUnionField(parts,x,y);
+  if(field>0 || field<=-EDGE_RADIUS)return field;
+  // If the deepest capsule's nearest surface is exposed, its analytic distance
+  // is already the exact union distance. Keep subpixel precision on single roads.
+  for(const s of parts){
+    const t=Math.max(0,Math.min(1,((x-s.ax)*s.dx+(y-s.ay)*s.dy)/s.length2));
+    const cx=s.ax+t*s.dx,cy=s.ay+t*s.dy,n=Math.hypot(x-cx,y-cy);
+    if(Math.abs(n-s.width-field)>.0001)continue;
+    const nx=n>.0001?(x-cx)/n:-s.dy/Math.sqrt(s.length2),
+      ny=n>.0001?(y-cy)/n:s.dx/Math.sqrt(s.length2);
+    if(capsuleUnionField(parts,cx+nx*s.width,cy+ny*s.width)>=-.0001)return field;
+  }
+  for(const p of EXTERIOR_SAMPLES)
+    if(capsuleUnionField(parts,x+p.dx,y+p.dy)>0)
+      return -Math.max(.5,Math.hypot(p.dx,p.dy)-1);
+  return -EDGE_RADIUS;
+}
+export function worldRoadDistance(seed:number,x:number,y:number):number{return distanceToUnion(segments(seed),x,y);}
+export function openingRoadProfile(y:number):{center:number;width:number}{
+  const old=pathCenter(y)+(y<348?17*Math.max(0,1-(y-222)/126):0),join=roadArrival((y-480)/60);
+  return {center:old*(1-join)+START_ROAD_EXIT.x*join,width:(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join};
+}
+export function openingRoadDistance(x:number,y:number):number{
+  const p=openingRoadProfile(y);return Math.abs(x-p.center)-p.width;
+}
+const mod=(v:number,n:number)=>((v%n)+n)%n;
+/** Artist-authored turf teeth are sampled inward from the UNION boundary.
+ * Inside overlap, the deeper segment wins; no internal segment bank is drawn.
+ * Both edge and earth pixels retain absolute world phase at every junction. */
+export function roadRasterColor(distance:number,x:number,y:number):string{
+  if(distance>0)return "";
+  const px=Math.floor(x/2),py=Math.floor(y/2),earth=VILLAGE_PIXELS.earth;
+  // World-phased full generated texture, not a repeated sixteen-pixel stripe.
+  const turf=distance>-3 && mod(px*7+py*11,7)<(3+distance)*1.2;
+  const source=turf?VILLAGE_PIXELS.meadow:earth;
+  return VILLAGE_PALETTE[source.rows[mod(py,source.height)]!.charCodeAt(mod(px,source.width))-33]!;
+}
+export function* drawRasterRoad(ctx:Ctx,view:ViewRect,distance:(x:number,y:number)=>number):Generator<void>{
+  for(let y=Math.floor(view.y0/2)*2;y<view.y1;y+=2){
+    let start=Math.floor(view.x0/2)*2,last="";
+    const flush=(end:number)=>{if(last && end>start){ctx.fillStyle=last;ctx.fillRect(start,y,end-start,2);}};
+    for(let x=start;x<view.x1;x+=2){
+      const next=roadRasterColor(distance(x+1,y+1),x,y);
+      if(next!==last){flush(x);start=x;last=next;}
     }
-  }
-  return segments;
-}
-
-/** Each round-ended segment winds the same way, so a nonzero fill joins the whole road surface. */
-function roadFootprint(segments: readonly RoadSegment[], outset = 0): Path2D {
-  const outline = new Path2D();
-  const quarter = Math.PI / 2;
-  for (const { start, end, width, angle, ux, uy } of segments) {
-    const radius = width + outset;
-    outline.moveTo(start.x + uy * radius, start.y - ux * radius);
-    outline.arc(end.x, end.y, radius, angle - quarter, angle + quarter);
-    outline.arc(start.x, start.y, radius, angle + quarter, angle + 3 * quarter);
-    outline.closePath();
-  }
-  return outline;
-}
-
-function nearTile(tile: ViewRect, x: number, y: number, pad: number): boolean {
-  return x >= tile.x0 - pad && x <= tile.x1 + pad && y >= tile.y0 - pad && y <= tile.y1 + pad;
-}
-
-function sheetAt(seed: number, x: number, y: number) {
-  return BIOME_ART.find(biomeAt(seed, Math.floor(x / CHUNK.width), Math.floor(y / CHUNK.height)).id)?.sheet;
-}
-
-/** Low, uneven turf runs into the compacted shoulder of the farm lanes. */
-function drawFarmVerge(ctx: Ctx, x: number, y: number, salt: number): void {
-  const r = (dx: number, dy: number, w: number, h: number, color: string) =>
-    pixelRect(ctx, x + dx, y + dy, w, h, color);
-  const lean = hash(salt + 8) > .5 ? 1 : -1;
-  r(-12, -1, 24, 5, "#74674c");
-  r(-8, -3, 16, 6, "#687048");
-  r(-11, 1, 18, 3, "#71774c");
-  r(-6, 4, 12, 2, "#74674c");
-  for (const [dx, height] of [[-6, 5], [-2, 8], [2, 6], [6, 4]] as const) {
-    r(dx, 2 - height, 2, height, "#7e8657");
-    r(dx + lean, 1 - height, 1, 3, "#7e8865");
-  }
-  r(10, 2, 3, 2, "#858269");
-  r(-13, 4, 3, 1, "#797a65");
-}
-
-/** Low grass cuts tuck under the road edge and leave the water approaches open. */
-function drawVerges(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
-  const { start, width, length, ux, uy, salt } = segment;
-  for (let d = 22; d < length - 12; d += 48) {
-    for (const side of [-1, 1]) {
-      const sd = salt + d * 17 + side * 119;
-      if (hash(sd) < 0.42) continue;
-      const along = d + (hash(sd + 1) - 0.5) * 18;
-      const across = side * (width + 4 + hash(sd + 2) * 4);
-      const x = start.x + ux * along - uy * across, y = start.y + uy * along + ux * across;
-      if (!nearTile(tile, x, y, 22)) continue;
-      const extent = 11 + hash(sd + 3) * 8;
-      if (waterRegionsNear(seed, x, y, extent).some((water) => touchesWaterShore(water, x, y, extent))) continue;
-      const sheet = sheetAt(seed, x, y);
-      if (sheet?.seam === "furrow") drawFarmVerge(ctx, x, y, sd);
-      else pixelTerrainCluster(ctx, x, y, sd, sheet?.seam ?? "scallop");
-    }
+    flush(Math.ceil(view.x1/2)*2);
+    if(y%32===0)yield;
   }
 }
-
-/** Broken wheel-worn lanes and inset paving remain inside the shared road
- * footprint. These are static cache detail, not new routes or collision edges. */
-function drawTravelBands(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
-  const {start,width,length,ux,uy,salt}=segment;
-  for(let d=8;d<length-8;d+=8){
-    const x=start.x+ux*d,y=start.y+uy*d;
-    if(!nearTile(tile,x,y,width+12))continue;
-    const block=Math.floor(d/28), tone=hash(salt+block*37);
-    if(sheetAt(seed,x,y)?.seam==="ruled"){
-      if(d%12!==8)continue;
-      // Staggered, irregular flagstones with recessed joints, never a grid
-      // covering every part of the road. Route intersections share the mask.
-      for(const side of [-1,0,1]){
-        if(hash(salt+block*71+side*19)<.3)continue;
-        const off=side*width*.52,px=x-uy*off+ux*(side===0?3:0),py=y+ux*off+uy*(side===0?3:0);
-        pixelRect(ctx,px-5,py-2,10,5,"#697268");
-        pixelRect(ctx,px-4,py-3,8,4,tone>.5?"#818574":"#7c8272");
-        pixelRect(ctx,px-3,py-3,5,1,"#90917b");
-      }
-    }else{
-      if(tone<.48)continue;
-      for(const side of [-1,1]){
-        // Broad wear varies between wheel paths and breaks before turns.
-        if (hash(salt + block * 71 + side * 19) < .28) continue;
-        const offset=side*(width*.41+Math.sin(d/43+salt)*2),px=x-uy*offset,py=y+ux*offset;
-        pixelRect(ctx,px-3,py-2,6,4,tone>.64?ROAD_STOCK.worn:"#747462");
-        if(d%16===8)pixelRect(ctx,px+1,py,3,1,ROAD_STOCK.packed);
-      }
-      if(tone>.72)pixelRect(ctx,x-2,y-1,4,3,ROAD_STOCK.packed);
-    }
-  }
-}
-
-/** World-anchored pixel flags, pebbles and worn earthen bands. */
-function drawRoadWear(ctx: Ctx, segment: RoadSegment, tile: ViewRect, seed: number): void {
-  const { start, width, length, ux, uy, salt } = segment;
-  for (let d = 16; d < length - 8; d += 56) {
-    const sd = salt + d * 31, along = d + (hash(sd) - 0.5) * 12,
-      x = start.x + ux * along, y = start.y + uy * along;
-    if (!nearTile(tile, x, y, width + 25)) continue;
-    const stone = sheetAt(seed, x, y)?.seam === "ruled";
-    for (let i = 0; i < (stone ? 3 : 2); i++) {
-      const across = (i - 1) * width * 0.55,
-        px = x - uy * across, py = y + ux * across;
-      if (stone) {
-        pixelRect(ctx, px - 5, py + 2, 11, 4, "#626e64");
-        pixelRect(ctx, px - 5, py, 9, 4, "#7d8271");
-        pixelRect(ctx, px - 3, py, 6, 1, "#8c907a");
-      } else {
-        // Two nearby chips read as flush gravel instead of road markings.
-        pixelRect(ctx, px - 5, py, 4, 2, i % 2 ? "#70705e" : "#89856e");
-        if (hash(sd + i) > 0.85) pixelRect(ctx, px + 1, py - 2, 3, 1, "#89856e");
-      }
-    }
-  }
-}
-
-/** One continuous route mask; styling never changes route positions or widths. */
-export function* drawRoadNetwork(ctx: Ctx, seed: number, tile: ViewRect): Generator<void> {
-  const segments = segmentsNear(seed, tile);
-  if (!segments.length) return;
-  const face = roadFootprint(segments);
-  for (const segment of segments) {
-    drawVerges(ctx, segment, tile, seed);
-    yield;
-  }
-  ctx.save();
-  ctx.fillStyle = ROAD_STOCK.bank; ctx.fill(roadFootprint(segments, 3));
-  ctx.fillStyle = ROAD_STOCK.rim; ctx.fill(face);
-  ctx.fillStyle = ROAD_STOCK.face; ctx.fill(roadFootprint(segments, -1));
-  ctx.clip(face);
-  // A quiet shoulder and sparse packed-earth wear keep broad intersections
-  // below actor contrast; the shared route union remains exactly unchanged.
-  // Filled union avoids drawing the overlapping capsule caps as rings at junctions.
-  yield;
-  for (const segment of segments) {
-    drawTravelBands(ctx, segment, tile, seed);
-    drawRoadWear(ctx, segment, tile, seed);
-    yield;
-  }
-  ctx.restore();
+export function* drawRoadNetwork(ctx:Ctx,seed:number,view:ViewRect):Generator<void>{
+  const parts=segments(seed,view);if(!parts.length)return;
+  yield* drawRasterRoad(ctx,view,(x,y)=>distanceToUnion(parts,x,y));
 }

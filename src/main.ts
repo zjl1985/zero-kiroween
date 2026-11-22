@@ -126,7 +126,8 @@ function bootGallery(): void {
   document.body.dataset.cat = prefs.cat;
   let painted = "";
   // Developer-only check views, selected by the URL alone (?gallery=1&check=value|gloss).
-  const check = galleryCheck(location.search);
+  const check = galleryCheck(location.search),
+    generatedOnly = new URLSearchParams(location.search).get("assets") === "generated";
   const paint = () => {
     const width = Math.max(280, Math.floor(canvas.parentElement!.clientWidth)),
       dpr = Math.min(2, window.devicePixelRatio || 1),
@@ -139,7 +140,7 @@ function bootGallery(): void {
     must("gallery-sub").textContent = t(locale, check === "none" ? "gallery.subtitle" : `gallery.check.${check}`);
     must("btn-gallery-lang").textContent = t(locale, "title.language");
     canvas.setAttribute("aria-label", t(locale, "gallery.title"));
-    paintGallery(canvas, locale, width, dpr, check);
+    paintGallery(canvas, locale, width, dpr, check, generatedOnly);
   };
   must("btn-gallery-lang").addEventListener("click", () => {
     locale = locale === "zh" ? "en" : "zh";

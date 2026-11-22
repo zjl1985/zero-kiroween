@@ -1,0 +1,203 @@
+{
+  "generator": "cursor.studio.GenerateImage",
+  "generation_calls": 4,
+  "model": "Tool does not expose model selection; no model name asserted.",
+  "reference": "generated/reference-target.jpg",
+  "reference_sha256": "8adcfc8a568b1b6d5a0aebaaa661df7103ddced2b0344127a9e1b324d160e44e",
+  "generation_requests": "generated/GENERATION_REQUESTS.json",
+  "raw_sha256": {
+    "cottages.jpg": "372fcc3a9ae16a0f3ed40377c471f8fe3caeac65f79c37fcff986cd8eb7da5f3",
+    "nature-props.jpg": "d79cbe67e183de2689dfa0552e6793fc62261a203e17a78509426d2c27779613",
+    "surfaces.jpg": "809cff78ac2d0bec1cbf4ab9bafa1d8f4f3f780bce13f9929d09dc093937982c",
+    "yard-details.jpg": "0f274103023f482f3a7af22986e038d8d8010db410795fa14847550e385286bd"
+  },
+  "extraction": {
+    "barn": [
+      "cottages.jpg",
+      [
+        80,
+        80,
+        510,
+        460
+      ],
+      88,
+      0.42
+    ],
+    "cottage": [
+      "cottages.jpg",
+      [
+        520,
+        80,
+        980,
+        460
+      ],
+      88,
+      0.36
+    ],
+    "tree0": [
+      "nature-props.jpg",
+      [
+        0,
+        0,
+        270,
+        290
+      ],
+      60,
+      null
+    ],
+    "tree1": [
+      "nature-props.jpg",
+      [
+        270,
+        0,
+        520,
+        290
+      ],
+      60,
+      null
+    ],
+    "pine": [
+      "nature-props.jpg",
+      [
+        520,
+        0,
+        765,
+        290
+      ],
+      49,
+      null
+    ],
+    "bush": [
+      "nature-props.jpg",
+      [
+        765,
+        0,
+        1024,
+        290
+      ],
+      24,
+      null
+    ],
+    "stone": [
+      "nature-props.jpg",
+      [
+        0,
+        290,
+        270,
+        576
+      ],
+      30,
+      null
+    ],
+    "fence": [
+      "nature-props.jpg",
+      [
+        270,
+        290,
+        520,
+        576
+      ],
+      64,
+      null
+    ],
+    "lamp": [
+      "nature-props.jpg",
+      [
+        520,
+        290,
+        765,
+        576
+      ],
+      14,
+      null
+    ],
+    "stump": [
+      "nature-props.jpg",
+      [
+        765,
+        290,
+        1024,
+        576
+      ],
+      27,
+      null
+    ],
+    "pumpkin": [
+      "yard-details.jpg",
+      [
+        40,
+        20,
+        340,
+        275
+      ],
+      18,
+      null
+    ],
+    "candles": [
+      "yard-details.jpg",
+      [
+        345,
+        20,
+        675,
+        275
+      ],
+      20,
+      null
+    ],
+    "planter": [
+      "yard-details.jpg",
+      [
+        680,
+        20,
+        1000,
+        275
+      ],
+      28,
+      null
+    ],
+    "cabinet": [
+      "yard-details.jpg",
+      [
+        40,
+        285,
+        340,
+        550
+      ],
+      34,
+      null
+    ],
+    "herb0": [
+      "yard-details.jpg",
+      [
+        345,
+        285,
+        675,
+        550
+      ],
+      18,
+      null
+    ],
+    "pot": [
+      "yard-details.jpg",
+      [
+        680,
+        285,
+        1000,
+        550
+      ],
+      19,
+      null
+    ]
+  },
+  "processing": [
+    "pink JPEG chroma key",
+    "largest connected silhouette; no characters copied",
+    "nearest neighbour logical sprite resize",
+    "four filled surface crops; opposite edge periodic crossfade",
+    "224 shared palette colours, no dithering",
+    "binary alpha; bottom-centre or door-step anchors",
+    "synchronous indexed row-run compilation, no runtime image load"
+  ],
+  "atlas_sha256": "3425ce79a9f6bbd533d8b2100bf447b187f5e355b46f4aec6aa25c2c7fcadac8",
+  "legacy_pack": "Retained on disk only, not sampled by active compiler."
+}

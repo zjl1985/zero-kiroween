@@ -5,6 +5,8 @@
  * section kind and never name a single id. Static: drawn once per resize or
  * locale change at time 0, with fixed render-only seeds.
  */
+import { drawVillageSprite, type VillageAsset, VILLAGE_PIXEL } from "./village-art.js";
+import { VILLAGE_PIXELS } from "./village-pixels.js";
 import { t } from "../content/i18n.js";
 import type { Locale } from "../content/keys.js";
 import { BIOME_DEFS, ENEMY_DEFS, PROP_DEFS } from "../defs/index.js";
@@ -46,6 +48,15 @@ function fit(b: Bounds, stage: { x: number; y: number; w: number; h: number }, m
 const landmarkArt = (id: string) => landmarkPreview(id);
 
 const PAINTERS: Record<GalleryKind, Painter> = {
+  scenery(ctx, cell, st) {
+    const key = cell.id as VillageAsset, p = VILLAGE_PIXELS[key];
+    if (!p) return;
+    const b = { l: -p.ax * VILLAGE_PIXEL, r: (p.width-p.ax) * VILLAGE_PIXEL,
+      t: -p.ay * VILLAGE_PIXEL, b: (p.height-p.ay) * VILLAGE_PIXEL };
+    const f = fit(b, st, 2);
+    // Same cached indexed art and footpoint as the game, not a second preview PNG.
+    drawVillageSprite(ctx, key, f.x, f.y, f.k);
+  },
   cat(ctx, cell, st) {
     const art = CAT_ART.find(cell.id);
     if (!art) return;
@@ -262,7 +273,8 @@ function card(ctx: Ctx, cell: GalleryCell, locale: Locale, seed: number, check: 
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = INK;
   ctx.font = `600 12px Allo, "Songti SC", sans-serif`;
-  ctx.fillText(t(locale, cell.label), x + w / 2, ty + 13, w - 22);
+  // Technical asset IDs intentionally match filenames in the model handoff.
+  ctx.fillText(cell.kind === "scenery" ? cell.id : t(locale, cell.label), x + w / 2, ty + 13, w - 22);
   ctx.fillStyle = INK_SOFT;
   ctx.font = `10px Allo, "Songti SC", sans-serif`;
   ctx.fillText(t(locale, stateLabel(cell.state)), x + w / 2, ty + 24, w - 22);
@@ -303,8 +315,8 @@ function toLuminance(canvas: HTMLCanvasElement): void {
  * section header and card. Returns the CSS height. `check` selects a
  * developer check view (luminance or gloss outlines); the layout is the same.
  */
-export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: number, dpr: number, check: GalleryCheck = "none"): number {
-  const layout = galleryLayout(gallerySections(), width),
+export function paintGallery(canvas: HTMLCanvasElement, locale: Locale, width: number, dpr: number, check: GalleryCheck = "none", generatedOnly = false): number {
+  const layout = galleryLayout(gallerySections(generatedOnly), width),
     // Keep the backing store under common browser canvas limits.
     scale = Math.max(1, Math.min(dpr, Math.floor(16000 / layout.height)));
   canvas.width = Math.round(width * scale);

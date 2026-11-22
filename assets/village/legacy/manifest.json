@@ -1,0 +1,281 @@
+{
+  "barn": [
+    "TilesetHouse.png",
+    0,
+    0,
+    64,
+    48,
+    24,
+    48
+  ],
+  "cottage": [
+    "TilesetHouse.png",
+    128,
+    0,
+    64,
+    48,
+    24,
+    48
+  ],
+  "tree0": [
+    "TilesetNature.png",
+    48,
+    288,
+    48,
+    48,
+    24,
+    48
+  ],
+  "tree1": [
+    "TilesetNature.png",
+    0,
+    32,
+    64,
+    48,
+    32,
+    48
+  ],
+  "bush": [
+    "TilesetNature.png",
+    16,
+    160,
+    16,
+    16,
+    8,
+    15
+  ],
+  "stone": [
+    "TilesetNature.png",
+    0,
+    192,
+    32,
+    32,
+    16,
+    31
+  ],
+  "pebble": [
+    "TilesetNature.png",
+    224,
+    192,
+    16,
+    16,
+    8,
+    15
+  ],
+  "herb0": [
+    "TilesetNature.png",
+    64,
+    176,
+    16,
+    16,
+    8,
+    15
+  ],
+  "herb1": [
+    "TilesetNature.png",
+    80,
+    176,
+    16,
+    16,
+    8,
+    15
+  ],
+  "pot": [
+    "tileset_village_abandoned.png",
+    80,
+    64,
+    16,
+    16,
+    8,
+    15
+  ],
+  "soil00": [
+    "tileset_floor.png",
+    0,
+    112,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil10": [
+    "tileset_floor.png",
+    16,
+    112,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil20": [
+    "tileset_floor.png",
+    32,
+    112,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil01": [
+    "tileset_floor.png",
+    0,
+    128,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil11": [
+    "tileset_floor.png",
+    16,
+    128,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil21": [
+    "tileset_floor.png",
+    32,
+    128,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil02": [
+    "tileset_floor.png",
+    0,
+    144,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil12": [
+    "tileset_floor.png",
+    16,
+    144,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil22": [
+    "tileset_floor.png",
+    32,
+    144,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass0": [
+    "tileset_floor.png",
+    0,
+    192,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass1": [
+    "tileset_floor.png",
+    16,
+    192,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass2": [
+    "tileset_floor.png",
+    32,
+    192,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass3": [
+    "tileset_floor.png",
+    48,
+    192,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass4": [
+    "tileset_floor.png",
+    64,
+    192,
+    16,
+    16,
+    0,
+    0
+  ],
+  "fence": [
+    "TilesetHouse.png",
+    160,
+    80,
+    64,
+    16,
+    32,
+    16
+  ],
+  "lamp": [
+    "TilesetElement.png",
+    96,
+    48,
+    16,
+    32,
+    8,
+    32
+  ],
+  "stump": [
+    "TilesetNature.png",
+    32,
+    128,
+    32,
+    16,
+    16,
+    16
+  ],
+  "planter": [
+    "TilesetElement.png",
+    0,
+    112,
+    16,
+    32,
+    8,
+    32
+  ],
+  "cabinet": [
+    "TilesetHouse.png",
+    128,
+    96,
+    32,
+    32,
+    16,
+    32
+  ],
+  "pumpkin": [
+    "scene-retouch.png",
+    0,
+    0,
+    20,
+    20,
+    10,
+    20
+  ],
+  "candles": [
+    "scene-retouch.png",
+    20,
+    0,
+    24,
+    24,
+    12,
+    24
+  ]
+}

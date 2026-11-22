@@ -1,0 +1,326 @@
+{
+  "barn": [
+    "generated/atlas.png",
+    0,
+    0,
+    88,
+    78,
+    37,
+    78
+  ],
+  "cottage": [
+    "generated/atlas.png",
+    92,
+    0,
+    88,
+    74,
+    32,
+    74
+  ],
+  "tree0": [
+    "generated/atlas.png",
+    184,
+    0,
+    60,
+    70,
+    30,
+    70
+  ],
+  "tree1": [
+    "generated/atlas.png",
+    248,
+    0,
+    60,
+    71,
+    30,
+    71
+  ],
+  "pine": [
+    "generated/atlas.png",
+    312,
+    0,
+    49,
+    74,
+    24,
+    74
+  ],
+  "bush": [
+    "generated/atlas.png",
+    365,
+    0,
+    24,
+    21,
+    12,
+    21
+  ],
+  "stone": [
+    "generated/atlas.png",
+    393,
+    0,
+    30,
+    28,
+    15,
+    28
+  ],
+  "fence": [
+    "generated/atlas.png",
+    427,
+    0,
+    64,
+    33,
+    32,
+    33
+  ],
+  "lamp": [
+    "generated/atlas.png",
+    495,
+    0,
+    14,
+    34,
+    7,
+    34
+  ],
+  "stump": [
+    "generated/atlas.png",
+    513,
+    0,
+    27,
+    21,
+    14,
+    21
+  ],
+  "pumpkin": [
+    "generated/atlas.png",
+    544,
+    0,
+    18,
+    17,
+    9,
+    17
+  ],
+  "candles": [
+    "generated/atlas.png",
+    566,
+    0,
+    20,
+    25,
+    10,
+    25
+  ],
+  "planter": [
+    "generated/atlas.png",
+    590,
+    0,
+    28,
+    22,
+    14,
+    22
+  ],
+  "cabinet": [
+    "generated/atlas.png",
+    622,
+    0,
+    34,
+    33,
+    17,
+    33
+  ],
+  "herb0": [
+    "generated/atlas.png",
+    660,
+    0,
+    18,
+    15,
+    9,
+    15
+  ],
+  "pot": [
+    "generated/atlas.png",
+    682,
+    0,
+    19,
+    26,
+    10,
+    26
+  ],
+  "herb1": [
+    "generated/atlas.png",
+    705,
+    0,
+    19,
+    26,
+    10,
+    26
+  ],
+  "pebble": [
+    "generated/atlas.png",
+    728,
+    0,
+    14,
+    13,
+    7,
+    13
+  ],
+  "meadow": [
+    "generated/atlas.png",
+    746,
+    0,
+    128,
+    128,
+    0,
+    0
+  ],
+  "earth": [
+    "generated/atlas.png",
+    878,
+    0,
+    128,
+    128,
+    0,
+    0
+  ],
+  "paving": [
+    "generated/atlas.png",
+    0,
+    132,
+    128,
+    128,
+    0,
+    0
+  ],
+  "forest": [
+    "generated/atlas.png",
+    132,
+    132,
+    128,
+    128,
+    0,
+    0
+  ],
+  "soil00": [
+    "generated/atlas.png",
+    264,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil10": [
+    "generated/atlas.png",
+    284,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil20": [
+    "generated/atlas.png",
+    304,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil01": [
+    "generated/atlas.png",
+    324,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil11": [
+    "generated/atlas.png",
+    344,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil21": [
+    "generated/atlas.png",
+    364,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil02": [
+    "generated/atlas.png",
+    384,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil12": [
+    "generated/atlas.png",
+    404,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "soil22": [
+    "generated/atlas.png",
+    424,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass0": [
+    "generated/atlas.png",
+    444,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass1": [
+    "generated/atlas.png",
+    464,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass2": [
+    "generated/atlas.png",
+    484,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass3": [
+    "generated/atlas.png",
+    504,
+    132,
+    16,
+    16,
+    0,
+    0
+  ],
+  "grass4": [
+    "generated/atlas.png",
+    524,
+    132,
+    16,
+    16,
+    0,
+    0
+  ]
+}

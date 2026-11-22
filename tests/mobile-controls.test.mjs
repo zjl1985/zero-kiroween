@@ -176,3 +176,15 @@ test("menu choice and pause shortcuts remain single-consumption actions", () => 
   assert.deepEqual(input.sample({ ax: 0, ay: 0 }), { ax: 0, ay: 0 });
   input.detach();
 });
+
+
+test("phone context hints remain in HUD flow as one line, while danger copy may wrap",()=>{
+  const css=readFileSync(new URL("../site/styles.css",import.meta.url),"utf8");
+  const rules=[...css.matchAll(/\.has-touch \.game-hint\.context-hint\s*\{([^}]+)\}/g)].map(m=>m[1]);
+  const phone=rules.at(-1);
+  assert.match(phone,/position:\s*static/);
+  assert.match(phone,/white-space:\s*nowrap/);
+  assert.match(phone,/text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(phone,/position:\s*absolute|bottom:/);
+  assert.match(css,/\.has-touch \.game-hint\.context-hint\.danger-hint\s*\{[^}]*white-space:\s*normal;[^}]*overflow:\s*visible/);
+});

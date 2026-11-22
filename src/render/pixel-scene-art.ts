@@ -1,3 +1,4 @@
+import { drawVillageDecor } from "./village-art.js";
 import { groundShape } from "./homestead-ground.js";
 import { candlesModel } from "./pixel-candles.js";
 import { barnModel } from "./pixel-barn.js";
@@ -95,6 +96,7 @@ function model(kind: string, variant: number): PixelStackModel {
     };
 }
 export function drawPixelDecor(ctx: Ctx, kind: string, x: number, y: number, s = 1, seed = 0, turn?: number): void {
+    if (drawVillageDecor(ctx, kind, x, y, s, seed)) return;
     const v = ((Math.trunc(seed) % 6) + 6) % 6;
     const building = kind === "cottage" || kind === "barn";
     if(building){

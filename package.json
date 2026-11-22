@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc && node scripts/build-site.mjs",
+    "art:prepare": "python3 scripts/prepare-generated-village.py",
     "start": "python3 -m http.server 4173 --directory site",
     "test": "npm run build && node --test tests/*.test.mjs"
   },
