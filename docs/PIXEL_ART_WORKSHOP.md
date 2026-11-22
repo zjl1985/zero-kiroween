@@ -156,4 +156,4 @@ git status --short
 
 `dist/`、`site/`、`node_modules/`、`.venv-art/`、临时截图/日志不入仓。应提交原始生成表、参考/请求/来源、制作脚本、处理素材与当前编译像素，以及必要测试和交接文档。
 
-用户本轮明确授权正常 commit/push 到 `origin refactor/pixel-stacking`，不是 `main`；禁止 force、覆盖远端新提交或擅自部署。普通 GitHub push 可能触发仓库既有自动化；本轮不手工执行部署，也不把 push 当成线上部署成功的证据。
+用户本次最新明确指令是将已验收的像素环境和工坊正常合入并推送 **`origin/main`**；此前 `refactor/pixel-stacking` 是历史承载分支，不再是本次交付目标。合入前须检查远端历史关系并保留 main 现有提交；禁止 force、覆盖远端新提交或擅自部署。这是本次发布范围记录，不是后续推送的永久授权。普通 GitHub push 可能触发仓库既有自动化；本轮不手工执行部署，也不把 push 当成线上部署成功的证据。
