@@ -51,29 +51,17 @@ export function drawStun(ctx: Ctx, e: EnemyState, time: number): void { if ((e.s
 } }
 export function drawShardTrail(ctx: Ctx, s: PickupState, sim: SimState, reach: number, time: number): void { if (Math.hypot(s.x - sim.player.x, s.y - sim.player.y) > reach)
     return; rect(ctx, s.x - 2, s.y - 3, 2, 2, FX.gold); }
-export function drawInteractGround(ctx: Ctx, sim: SimState, _time: number): void { for (const o of sim.interactables) {
-    if (o.kind === 'pumpkin' && o.lit > 0) {
-        ctx.save();
-        ctx.globalAlpha *= .55 * Math.min(1, o.lit / .6);
-        ring(ctx, o.x, o.y, PUMPKIN.auraRadius, FX.gold, .55);
-        ctx.restore();
-    }
-    else if (o.kind === 'lantern' && o.charge >= 1)
-        ring(ctx, o.x, o.y, 22, FX.blue, .45);
-} }
 export function drawLandmarkActivity(ctx: Ctx, sim: SimState, landmark: LandmarkPlace): void {
     const activity = LANDMARK_DEFS.find(landmark.kind)?.activity, point = landmarkActivityPoint(landmark);
     if (!activity || Math.hypot(sim.player.x - point.x, sim.player.y - point.y) > activity.radius + 80)
         return;
     const state = sim.landmarkEvents?.[landmark.id], cooling = (state?.cooldown ?? 0) > 0, progress = cooling ? 1 - (state?.cooldown ?? 0) / Math.max(0.01, activity.cooldown)
-        : (state?.progress ?? 0) / Math.max(0.01, activity.seconds), color = cooling ? "#8b91a1" : activity.element ? "#a7c9cb" : "#e0c68f", x = point.x, y = point.y + activity.radius * 0.4;
+        : (state?.progress ?? 0) / Math.max(0.01, activity.seconds), color = cooling ? "#8b91a1" : activity.element ? "#a7c9cb" : "#e0c68f", x = point.x, y = point.y;
     ctx.save();
     ctx.globalAlpha *= cooling ? 0.35 : 0.65;
-    ring(ctx, point.x, point.y, activity.radius, color, 1, 1);
-    ctx.globalAlpha *= 0.9;
-    ring(ctx, x, y, 9, "#3c3546");
-    ring(ctx, x, y, 9, color, 1, clamp01(progress));
-    glyph(ctx, 'star', x, y, cooling ? 3 : 4, color);
+    glyph(ctx, 'star', x, y - 4, cooling ? 3 : 4, color);
+    rect(ctx, x - 8, y + 4, 16, 2, FX.dark);
+    if (progress > 0) rect(ctx, x - 8, y + 4, 16 * clamp01(progress), 2, color);
     ctx.restore();
 }
 export function drawInteractable(ctx: Ctx, o: InteractState, _time: number): void { if (o.kind === 'pumpkin') {
@@ -119,11 +107,9 @@ export function drawJuiceEffect(ctx: Ctx, e: Impact): boolean {
         return true;
     }
     const color = e.kind === 'treat' ? FX.red : e.kind === 'moon-stun' ? FX.blue : e.kind === 'dissolve' ? FX.purple : FX.gold;
-    const r = e.kind === 'moon-stun' ? 500 : e.kind === 'pumpkin-pulse' ? PUMPKIN.auraRadius : e.kind === 'chest-open' ? 70 : 30;
+    const r = e.kind === 'chest-open' ? 40 : 24;
     ctx.save();
     ctx.globalAlpha *= 1 - t;
-    if (e.kind !== 'dissolve')
-        ring(ctx, e.x, e.y, 8 + k * r, color, .55);
     burst(ctx, e.x, e.y - 12, t, r, color, e.kind === 'dissolve' ? 12 : 8);
     ctx.restore();
     return true;

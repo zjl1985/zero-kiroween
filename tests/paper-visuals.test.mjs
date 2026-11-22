@@ -261,7 +261,11 @@ test("activity progress uses the simulation court anchor, seconds and cooldown, 
     const sim = Object.freeze({ player: Object.freeze(point), landmarkEvents: Object.freeze({ [place.id]: Object.freeze({ progress: def.activity.seconds / 2, cooldown: 0, activations: 0, wind: 0 }) }) });
     const ctx = canvas().getContext("2d");
     drawLandmarkActivity(ctx, sim, place);
-    assert.ok(pixels(ctx).some(c => Math.abs(c.args[0] - point.x - def.activity.radius) <= 2 && Math.abs(c.args[1] - point.y) <= 2), "activity radius uses the simulation anchor");
+    assert.ok(pixels(ctx).some(c => c.args[0] === Math.round(point.x - 8) &&
+      c.args[1] === Math.round(point.y + 4) && c.args[2] === 8 && c.args[3] === 2),
+      "half progress fills half the small bar at the court anchor");
+    assert.ok(pixels(ctx).every(c => Math.abs(c.args[0] - point.x) <= 10 &&
+      Math.abs(c.args[1] - point.y) <= 12), "progress does not outline the court radius");
     assert.ok(!ctx.calls.some((c) => c.op === "fillText"));
     restored(ctx);
   }
@@ -989,6 +993,29 @@ test("washed-paper painters never read pixels or set a live filter", () => {
 import { COSTUME_DEFS } from "../dist/defs/index.js";
 import { COSTUME_ART, costumeArt, effectPainter } from "../dist/render/art-index.js";
 import { drawCombatGround } from "../dist/render/combat-fx.js";
+
+test("the fold corner stays local in both motion modes regardless of attack size", (t) => {
+  environment(t);
+  const paint = WEAPON_ART.get("page-fold").ground;
+  const sim = createSim({ cat: "nicole", seed: 7 });
+  const { x, y } = sim.player;
+  const draw = (age, half, band, reduced) => {
+    sim.elapsed = age;
+    sim.fold.flaps = [{ id: 1, x, y, nx: 0, ny: 1, half, band, at: 0 }];
+    const ctx = canvas().getContext("2d");
+    withPaperMotion(reduced, () => paint(ctx, sim));
+    restored(ctx);
+    return pixels(ctx);
+  };
+  for (const reduced of [false, true]) {
+    const local = draw(.12, 60, 40, reduced);
+    assert.ok(local.length > 0, "a visible fold remains");
+    assert.deepEqual(draw(.12, 180, 160, reduced), local, "attack bounds do not affect the paint");
+    assert.ok(local.every(({args: [px,py,w,h]}) =>
+      px >= x - 50 && px + w <= x + 50 && py >= y - 50 && py + h <= y + 50));
+    assert.equal(draw(.4, 180, 160, reduced).length, 0, "the fold disappears promptly");
+  }
+});
 
 test("costume zones draw friendly ground marks and standing pieces for the worn costume only, read-only", (t) => {
   environment(t);

@@ -1,8 +1,7 @@
 /** Native pixel wash overlays: dirty-only tile rasterization, bounded LRU,
  * shared simulation colour cells and read-only recolour cues. */
 import { surface, type CanvasSurface } from '../engine/surface.js';
-import { FX, glyph as pxGlyph, rect as pxRect, line as pxLine, pixelRing, burst } from './pixel-vfx.js';
-import { reducedPaperMotion } from './paper-motion.js';
+import { FX, glyph as pxGlyph, rect as pxRect, line as pxLine, burst } from './pixel-vfx.js';
 import { WASH } from '../defs/wash.js';
 import { EFFECT_LIFE, type Impact, type SimState, type WashCell } from '../game/types.js';
 import { washEmpty } from '../game/wash.js';
@@ -296,19 +295,16 @@ function maskFor(seed: number, key: string, bucket: Bucket): Mask {
     return m;
 }
 /**
- * Fold protection: a quiet folded paper sheet over every live fold circle
- * (SimState.wash.folds), shown for its whole protection time and fading out
- * at its end (FOLD_GUARD_LOOK). Stores nothing; no folds, no work.
+ * A small shield marks the centre of a protected fold until it expires.
  */
 export function drawFoldGuards(ctx: Ctx, sim: SimState, cam: Camera): void {
-    const view = viewRect(cam, 4);
+    const view = viewRect(cam, 7);
     for (const f of sim.wash?.folds ?? []) {
         const left = f.until - sim.elapsed;
-        if (left <= 0 || f.x + f.radius < view.x0 || f.x - f.radius > view.x1 || f.y + f.radius < view.y0 || f.y - f.radius > view.y1)
+        if (left <= 0 || f.x < view.x0 || f.x > view.x1 || f.y < view.y0 || f.y > view.y1)
             continue;
         ctx.save();
         ctx.globalAlpha *= Math.min(.55, left);
-        pixelRing(ctx, f.x, f.y, f.radius, FX.purple, .62);
         pxGlyph(ctx, 'shield', f.x, f.y, 5, FX.cream);
         ctx.restore();
     }
@@ -359,10 +355,9 @@ function drawBlooms(ctx: Ctx, view: ViewRect, frame: WashFrame): void {
 export function drawWashEffect(ctx: Ctx, e: Impact, sim: SimState): boolean {
     if (e.kind !== "splash" && e.kind !== "pigment")
         return false;
-    const t = Math.max(0, Math.min(1, 1 - e.life / EFFECT_LIFE[e.kind])), k = reducedPaperMotion() ? .25 : t, r = e.radius ?? 30, color = e.kind === 'splash' ? FX.blue : FX.purple;
+    const t = Math.max(0, Math.min(1, 1 - e.life / EFFECT_LIFE[e.kind])), r = Math.min(24, e.radius ?? 24), color = e.kind === 'splash' ? FX.blue : FX.purple;
     ctx.save();
     ctx.globalAlpha *= 1 - t;
-    pixelRing(ctx, e.x, e.y, r * (.35 + k * .6), color, .55);
     burst(ctx, e.x, e.y, t, r, color, 9);
     ctx.restore();
     return true;

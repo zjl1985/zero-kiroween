@@ -21,7 +21,6 @@ export function drawCombatFront(ctx: Ctx, state: SimState): void { for (const w 
     w.front?.(ctx, state); const p = state.player; if (p.shield > 0 && p.shieldTime > 0) {
     ctx.save();
     ctx.globalAlpha *= Math.min(.85, p.shieldTime * 2);
-    pixelRing(ctx, p.x, p.y - 29, 35, FX.blue, 1.22);
     for (let i = 0; i < p.shield; i++)
         glyph(ctx, 'shield', p.x + (i - (p.shield - 1) / 2) * 10, p.y - 77, 3, FX.cream);
     ctx.restore();
@@ -48,7 +47,6 @@ export function drawSkillEffect(ctx: Ctx, e: Impact, state?: SimState): void {
     }
     else {
         const r = e.kind === 'evolve' ? 90 : e.kind === 'levelup' ? 46 : e.kind === 'fold' ? 60 : 24;
-        pixelRing(ctx, e.x, e.y, 8 + k * r, color, .6);
         burst(ctx, e.x, e.y - 12, t, r, color, e.kind === 'evolve' ? 16 : 8);
     }
     ctx.restore();

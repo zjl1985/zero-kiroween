@@ -1,11 +1,11 @@
 /** Complete pixel weapon/passive adapters. Legacy paper art is never invoked. */
 import type { WeaponArt, PassiveArt, CostumeArt, EffectPainter } from './art-registry.js';
 import type { Ctx } from './pixel-art.js';
+import type { FoldFlap } from '../game/types.js';
 import { orbitPositions } from '../game/sim.js';
 import { playerStats, UPGRADE_VALUES } from '../game/upgrades.js';
-import { PAGE_FOLD } from '../defs/weapons/page-fold.js';
 import { PAPER_CUT } from '../defs/weapons/paper-cut.js';
-import { FX, GLYPHS, glyph, equipmentGlyph, rect, line, polygon, pixelRing, burst, area, edge } from './pixel-vfx.js';
+import { FX, GLYPHS, glyph, equipmentGlyph, rect, line, polygon, burst, area, edge } from './pixel-vfx.js';
 import { reducedPaperMotion } from './paper-motion.js';
 const ICONS: Record<string, keyof typeof GLYPHS> = { 'meow-bolt': 'bolt', 'echo-legion': 'bolt', 'moon-stars': 'star', 'full-moon': 'moon', 'night-claw': 'sword', 'star-fall': 'star', 'paper-crane': 'crane', 'pumpkin-seed': 'seed', 'paper-cut': 'sword', 'page-fold': 'book', 'watercolour-brush': 'brush', focus: 'eye', 'long-shadow': 'skull', 'paper-armor': 'shield', vitality: 'heart', 'night-eyes': 'eye', swift: 'boot', snack: 'seed', 'deep-fold': 'book', 'moon-shield': 'shield', magnet: 'magnet', scholar: 'book' };
 /** Equipment miniatures fit a 32 px slot. Large value regions establish the
@@ -198,6 +198,32 @@ export function pixelUpgradeGlyph(ctx: Ctx, id: string, ink: string): void {
         default: glyph(ctx, ICONS[id] ?? 'star', 16, 16, 9, ink);
     }
 }
+/** A small paper corner flips beside the cat. Its shape comes from the
+ * paper itself and has no dependence on the attack's hit dimensions. */
+function drawFoldCorner(ctx: Ctx, flap: FoldFlap, age: number): void {
+    const life = .34;
+    if (age < 0 || age >= life) return;
+    const u = age / life, calm = reducedPaperMotion();
+    const offset = calm ? 18 : 11 + u * 16;
+    const rise = calm ? 3 : Math.sin(u * Math.PI) * 8;
+    const tx = -flap.ny, ty = flap.nx;
+    const x = flap.x + tx * 24 - flap.nx * offset;
+    const y = flap.y + ty * 24 - flap.ny * offset;
+    const point = (across: number, along: number, lift = 0) => ({
+        x: x + tx * across - flap.nx * along,
+        y: y + ty * across - flap.ny * along - lift,
+    });
+    const a = point(-12, 0), b = point(11, 0), c = point(7, 10, rise), d = point(-10, 12, rise);
+    const fold = point(1, 5, rise * .6);
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, (1 - u) * 2.2);
+    area(ctx, [a, b, c, d], '#bfad91');
+    area(ctx, [a, d, fold], '#f0ddba');
+    area(ctx, [fold, d, c], '#d6c0a9');
+    line(ctx, a.x, a.y, fold.x, fold.y, '#97816f', 1);
+    ctx.restore();
+}
+
 function effectFor(id: string, kind: string): EffectPainter {
     return (ctx, e, { t, fade, ease }, state) => {
         const calm = reducedPaperMotion(), k = calm ? .35 : ease, r = e.radius ?? (kind === 'claw' ? 58 : 40), color = id === 'pumpkin-seed' ? FX.gold : id === 'echo-legion' ? FX.blue : FX.purple;
@@ -213,22 +239,20 @@ function effectFor(id: string, kind: string): EffectPainter {
         else if (kind === 'star-fall') {
             const drop = calm ? 0 : 1 - Math.min(1, t * 2.4);
             glyph(ctx, 'star', e.x + 10 * drop, e.y - 8 - 70 * drop, 9, FX.cream);
-            pixelRing(ctx, e.x, e.y, r * (.25 + k * .75), color, .6);
+            if (drop < .5) burst(ctx, e.x, e.y - 2, t, 17, color, 5);
         }
         else if (kind === 'page-fold') {
-            const a = (e.angle ?? 0) + Math.PI / 2;
-            line(ctx, e.x - Math.cos(a) * r * .8, e.y - Math.sin(a) * r * .8, e.x + Math.cos(a) * r * .8, e.y + Math.sin(a) * r * .8, FX.cream, 1);
+            burst(ctx, e.x, e.y - 5, t, 13, '#c6b99e', 4);
         }
         else if (kind === 'costume-pull') {
-            pixelRing(ctx, e.x, e.y, r * (1 - .8 * k), FX.blue, .62);
-            for (let i = 0; i < 6; i++) {
-                const a = i * Math.PI / 3, d = r * (1 - .85 * k);
+            for (let i = 0; i < 4; i++) {
+                const a = i * Math.PI / 2 + .22;
+                const d = Math.min(r, 34) * (1 - .85 * k) * (.7 + i * .1);
                 rect(ctx, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d * .62, 3, 3, FX.cream);
             }
         }
         else {
-            pixelRing(ctx, e.x, e.y, 6 + k * r, color, .6);
-            burst(ctx, e.x, e.y - 8, t, r, color, kind === 'echo-burst' ? 12 : 8);
+            burst(ctx, e.x, e.y - 8, t, Math.min(r, 35), color, kind === 'echo-burst' ? 12 : 8);
         }
         ctx.restore();
     };
@@ -252,8 +276,13 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
         art.sprites = (c, s, time, add) => orbitPositions(s).forEach((p, i) => add(p.y, () => equipmentGlyph(c, 'star', p.x, p.y - 12, i % 2 ? FX.gold : FX.purple, playerStats(s).fullMoon ? 18 : 16)));
     }
     if (id === 'full-moon') {
-        art.ground = (c, s) => { const ps = playerStats(s), m = UPGRADE_VALUES['full-moon']; pixelRing(c, s.player.x, s.player.y, ps.orbitRadius + m.pulseReach, FX.gold, .55, 1 - Math.max(0, s.pulseTimer) / m.pulseInterval); };
-        art.front = (c, s) => glyph(c, 'moon', s.player.x - s.player.facing * 22, s.player.y - 64, 8, FX.cream);
+        art.front = (c, s) => {
+            const x = s.player.x - s.player.facing * 22, y = s.player.y - 64;
+            const charge = Math.max(0, Math.min(1, 1 - s.pulseTimer / UPGRADE_VALUES['full-moon'].pulseInterval));
+            glyph(c, 'moon', x, y, 8, FX.cream);
+            rect(c, x - 6, y + 9, 12, 2, FX.dark);
+            if (charge > 0) rect(c, x - 6, y + 9, 12 * charge, 2, FX.gold);
+        };
     }
     if (id === 'echo-legion')
         art.sprites = (c, s, time, add) => {
@@ -263,7 +292,6 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
             add(d.y + .5, () => {
                 c.save();
                 c.globalAlpha *= .6;
-                pixelRing(c, d.x, d.y, UPGRADE_VALUES['echo-legion'].burstRadius, FX.blue, .5, Math.min(1, d.time / 1.2));
                 for (let i = 0; i < 4; i++) {
                     const a = (reducedPaperMotion() ? 0 : time * 2.6) + i * Math.PI / 2;
                     rect(c, d.x + Math.cos(a) * 20, d.y - 20 + Math.sin(a) * 9, 4, 4, i % 2 ? FX.gold : FX.blue);
@@ -323,53 +351,7 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                 area(c, b.polygon, '#9a8b80');
                 edge(c, b.polygon, FX.cream);
             }
-            for (const f of s.fold.flaps) {
-                const age = s.elapsed - f.at;
-                if (age < 0 || age >= PAGE_FOLD.flapLife)
-                    continue;
-                const tx = -f.ny, ty = f.nx, fade = 1 - age / PAGE_FOLD.flapLife;
-                const calm = reducedPaperMotion(), turn = Math.min(1, age / .38);
-                // A narrow turning edge crosses the actual affected band;
-                // never tint its whole rectangle over the scene and actors.
-                // Calm mode keeps a fixed folded lip beside the same hinge.
-                const depth = calm ? 5 : f.band * (1 - turn);
-                const width = calm ? 5 : 2 + Math.sin(turn * Math.PI) * 7;
-                const outer = Math.min(f.band, depth + width);
-                const ax = f.x - tx * f.half, ay = f.y - ty * f.half;
-                const bx = f.x + tx * f.half, by = f.y + ty * f.half;
-                c.save();
-                c.globalAlpha *= fade;
-                // Warm paper front and cool back form two shallow facets.
-                c.save();
-                c.globalAlpha *= .42;
-                area(c, [
-                    { x: ax - f.nx * depth, y: ay - f.ny * depth },
-                    { x: bx - f.nx * depth, y: by - f.ny * depth },
-                    { x: bx - f.nx * outer, y: by - f.ny * outer },
-                    { x: f.x - f.nx * outer, y: f.y - f.ny * outer },
-                ], '#ddd0b4');
-                area(c, [
-                    { x: ax - f.nx * depth, y: ay - f.ny * depth },
-                    { x: f.x - f.nx * outer, y: f.y - f.ny * outer },
-                    { x: ax - f.nx * outer, y: ay - f.ny * outer },
-                ], '#8c8b98');
-                c.restore();
-                c.globalAlpha *= .58;
-                line(c, ax, ay, bx, by, '#c6b99e', 1);
-                line(c, ax - f.nx * depth, ay - f.ny * depth,
-                    bx - f.nx * depth, by - f.ny * depth, FX.cream, 1);
-                // Short corner returns preserve the true range without a
-                // closed perimeter or an opaque area-of-effect slab.
-                const corner = Math.min(8, f.half, f.band);
-                for (const side of [-1, 1]) for (const d of [0, f.band]) {
-                    const px = f.x + tx * f.half * side - f.nx * d;
-                    const py = f.y + ty * f.half * side - f.ny * d;
-                    line(c, px, py, px - tx * side * corner, py - ty * side * corner, '#bcb2a3', 1);
-                    const inward = d === 0 ? -1 : 1;
-                    line(c, px, py, px + f.nx * inward * corner, py + f.ny * inward * corner, '#bcb2a3', 1);
-                }
-                c.restore();
-            }
+            for (const flap of s.fold.flaps) drawFoldCorner(c, flap, s.elapsed - flap.at);
         };
         art.sprites = (c, s, _time, add) => {
             for (const w of s.walls)
@@ -386,31 +368,23 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
     return art;
 }
 export function pixelPassiveArt(old: PassiveArt): PassiveArt { return { id: old.id, icon: (c, ink) => pixelUpgradeGlyph(c, old.id, ink) }; }
-/** Native pixel zone rendering keeps the original zone centre, radius and arming clock. */
+/** Small paper objects and trails show where the costume is working. */
 export function pixelCostumeEffects(old: CostumeArt): CostumeArt {
     return { ...old, effects: Object.fromEntries(Object.keys(old.effects ?? {}).map(kind => [kind, effectFor('costume', kind)])),
         ground(c, s) {
             for (const z of s.costume?.zones ?? []) {
-                if (z.until <= s.elapsed)
-                    continue;
+                if (z.until <= s.elapsed) continue;
+                if (z.kind === 'turret' || z.kind === 'pad' || (z.kind === 'circle' && z.radius <= 14)) continue;
+                const color = (z.armed ?? 0) > s.elapsed ? FX.gold : FX.blue;
                 c.save();
                 c.globalAlpha *= Math.min(1, (z.until - s.elapsed) * 3);
-                const color = (z.armed ?? 0) > s.elapsed ? FX.gold : FX.blue;
                 if (z.kind === 'lane') {
-                    const dx = (z.x2 ?? z.x) - z.x, dy = (z.y2 ?? z.y) - z.y, n = Math.hypot(dx, dy) || 1, nx = -dy / n * z.radius, ny = dx / n * z.radius;
-                    const pts = [{ x: z.x + nx, y: z.y + ny }, { x: (z.x2 ?? z.x) + nx, y: (z.y2 ?? z.y) + ny }, { x: (z.x2 ?? z.x) - nx, y: (z.y2 ?? z.y) - ny }, { x: z.x - nx, y: z.y - ny }];
-                    c.save();
-                    c.globalAlpha *= .15;
-                    area(c, pts, color);
-                    c.restore();
-                    edge(c, pts, color);
+                    line(c, z.x, z.y, z.x2 ?? z.x, z.y2 ?? z.y, color, 3);
+                } else {
+                    glyph(c, 'star', z.x, z.y - 4, 4, color);
                 }
-                else
-                    pixelRing(c, z.x, z.y, z.radius, color, .62);
                 c.restore();
             }
-            if ((s.costume?.buff ?? 0) > 0)
-                pixelRing(c, s.player.x, s.player.y, 24, FX.purple, .5);
         },
         sprites(c, s, _time, add) {
             for (const z of s.costume?.zones ?? []) {

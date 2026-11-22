@@ -53,7 +53,6 @@ import {
   cameraShake,
   drawHitFlash,
   drawInteractable,
-  drawInteractGround,
   drawJuiceEffect,
   drawShardTrail,
   drawStun,
@@ -148,7 +147,6 @@ function drawWorldFrame(
   if (sim) {
     drawCombatGround(ctx, sim);
     drawEnemyGround(ctx, sim);
-    drawInteractGround(ctx, sim, view.time);
     drawFireGround(ctx, sim, cam);
     for (const landmark of landmarks(seed)) if (inView(near, landmark.x, landmark.y, landmark.radius))
       drawLandmarkActivity(ctx, sim, landmark);
