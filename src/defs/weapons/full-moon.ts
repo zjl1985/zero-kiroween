@@ -48,7 +48,7 @@ export const FULL_MOON: WeaponDef = {
     for (const e of state.enemies) {
       if (!e.alive || e.spawnTime > 0) continue;
       if (Math.hypot(e.x - p.x, e.y - p.y) > reach) continue;
-      ctx.hurtEnemy(state, e, VALUES.pulseDamage);
+      ctx.hurtEnemy(state, e, VALUES.pulseDamage, { family: "orbit", x: p.x, y: p.y });
       const dir = normalize(e.x - p.x, e.y - p.y),
         knock = VALUES.pulsePush * ctx.knockOf(e),
         pos = ctx.safePosition(state, e.x + dir.x * knock, e.y + dir.y * knock, ctx.enemyRadius(e));

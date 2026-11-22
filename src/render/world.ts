@@ -2,7 +2,10 @@ import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
 import { YARD_FURNITURE, YARD_RAILS } from "../game/scenery.js";
 import { drawYardFurniture } from "./pixel-yard-props.js";
 import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
-import { drawCraftShot, drawInkShard, drawPaperImpact } from "./craft-combat.js";
+import { drawInkShard, drawPaperImpact } from "./craft-combat.js";
+import { enemyContact } from "../game/combat-observation.js";
+import { drawBoltFlight } from "./pixel-primary-weapons.js";
+import { drawCombatFeedback } from "./pixel-combat-feedback.js";
 import {
   drawCraftEnemy,
   drawEnemyEffect,
@@ -283,7 +286,7 @@ function drawWorldFrame(
           draw: () => {
             // Pencil enemies stamp cached pencil variants of their parts (one drawImage per part).
             drawSketchedParts(ctx, pick && !pick.has(e.id) ? 0 : sketchOf(e), (ctx) => drawCraftEnemy(ctx, e, view.time, look));
-            drawHitFlash(ctx, e);
+            if (!enemyContact(e)) drawHitFlash(ctx, e);
             if (e.spawnTime <= 0) drawActorPaperStatus(ctx, e, view.time, enemyRadius(e));
             drawStun(ctx, e, view.time);
           },
@@ -308,6 +311,12 @@ function drawWorldFrame(
       wear: catWear(sim.player.hp / Math.max(1, sim.player.maxHp), sim.player.healAt, sim.elapsed),
       ...(sim.costume ? { costume: sim.costume.id } : {}),
     });
+    for (const shot of sim.shots) {
+      if (!shot.alive || !inView(near, shot.x, shot.y)) continue;
+      addSprite(shot.y, () => shot.weapon
+        ? drawWeaponShot(ctx, shot, view.time)
+        : drawBoltFlight(ctx, shot, sim.elapsed));
+    }
   }
   drawWarningGround(ctx, warnings);
   sprites.sort((a, b) => a.y - b.y);
@@ -323,11 +332,6 @@ function drawWorldFrame(
   }
   if (sim) drawPaperRain(ctx, sim, cam, view.time, reduced);
   if (sim) {
-    for (const s of sim.shots)
-      if (s.alive && inView(near, s.x, s.y)) {
-        if (s.weapon) drawWeaponShot(ctx, s, view.time);
-        else drawCraftShot(ctx, s.x, s.y - 12, s.vx, s.vy, s.empowered, s.echo);
-      }
     drawCombatFront(ctx, sim);
     for (const effect of sim.impacts) {
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
@@ -335,6 +339,7 @@ function drawWorldFrame(
       if (drawPaperStatusEffect(ctx, effect)) continue;
       if (drawWashEffect(ctx, effect, sim)) continue;
       if (drawPropEffect(ctx, effect)) continue;
+      if (drawCombatFeedback(ctx, effect)) continue;
       if (drawJuiceEffect(ctx, effect)) continue;
       if (effect.kind === "hit" || effect.kind === "defeat")
         drawPaperImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });

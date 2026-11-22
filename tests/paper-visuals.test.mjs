@@ -141,14 +141,15 @@ test("actor fire and wet status are distinct, read-only overlays with finite pie
   drawActorPaperStatus(b, wet, 0, 16, 58);
   drawActorPaperStatus(idle, Object.freeze({ x: 0, y: 0 }), 0, 16);
   assert.equal(idle.calls.length, 0);
-  assert.ok(allPaint(a).some((c) => c.fillStyle === FX.red));
-  assert.ok(allPaint(a).some((c) => c.fillStyle === FX.gold), "burnt side/hem, not just orange light");
-  assert.ok(allPaint(b).some((c) => c.fillStyle === FX.blue));
-  assert.ok(!allPaint(b).some((c) => c.fillStyle === FX.red));
-  assert.ok(b.calls.some((c) => c.op === "fillRect" && c.fillStyle === FX.blue));
+  const fireTones = new Set(pixels(a).map(c => c.fillStyle));
+  assert.ok(fireTones.has("#302c30") && fireTones.has("#d0b992") && fireTones.has("#d89648"),
+    "the burn shows a charred core, turned paper edge and orange flame");
+  const wetTones = new Set(pixels(b).map(c => c.fillStyle));
+  assert.ok(wetTones.has("#64828a") && wetTones.has("#3f6472") && wetTones.has("#b8c8b9"),
+    "wet paper shows pigment and both sides of the wrinkle");
   const both = canvas().getContext("2d");
-  drawActorPaperStatus(both, { ...fire, ...wet }, 0, 16);
-  assert.ok(!allPaint(both).some((c) => c.fillStyle === FX.red), "wet extinguishing does not show contradictory flames");
+  drawActorPaperStatus(both, { ...fire, ...wet }, 0, 16, 58);
+  assert.deepEqual(pixels(both), pixels(b), "wet extinguishing shows the same paper as the wet-only state");
   const count = spriteCacheSize();
   for (const time of [0.17, 9, 10000]) {
     drawActorPaperStatus(a, fire, time, 24, 48);
@@ -247,7 +248,7 @@ test("weapon flight, stars and rings retain negative space without live texture 
     for (const echo of [false, true]) for (const empowered of [false, true]) drawCraftShot(ctx, 5, 10, 50, 20, empowered, echo);
     star(ctx, 2, 3, 5 + time % 3, "#ddccaa", time);
   };
-  draw(0, 1);
+  for (const id of [0, 1, 2]) draw(0, id); // Warm the three fixed paper-crane poses.
   const count = spriteCacheSize();
   draw(10000, 999);
   assert.equal(spriteCacheSize(), count);
@@ -424,6 +425,23 @@ test("enemy recoil and directional dash marks are read-only and reuse finite cut
   drawSkillEffect(ctx, {...effect, life: 0.1});
   assert.equal(spriteCacheSize(), count);
   restored(ctx);
+});
+
+test("the first star-fall paint puts the star at the lethal contact", (t) => {
+  environment(t);
+  const x = 112, y = 156;
+  const strike = { kind: "star-fall", x, y, life: EFFECT_LIFE["star-fall"], radius: 39 };
+  for (const still of [false, true]) {
+    const at = canvas().getContext("2d");
+    withPaperMotion(still, () => drawSkillEffect(at, strike));
+    assert.ok(images(at).some(({ args }) => Math.abs(args[1] - x) <= 18 &&
+      args[2] <= y && args[2] + args[4] >= y), "the star sprite reaches the ground on the damage step");
+    const after = canvas().getContext("2d");
+    withPaperMotion(still, () => drawSkillEffect(after, { ...strike, life: strike.life * .35 }));
+    assert.equal(images(after).length, 0, "afterglow no longer draws an airborne star");
+    assert.ok(pixels(after).length > 0, "small grounded remnants remain");
+    restored(at); restored(after);
+  }
 });
 
 // ---------------------------------------------------------------- paper washout (FEAT-003)
@@ -883,12 +901,21 @@ test("the watercolour brush trails native pigment marks, read-only", (t) => {
     sim.player.x += 9;
     sim.elapsed += 0.05;
     const before = structuredClone(sim);
+    ctx.calls.length = 0;
     art.ground(ctx, sim);
     assert.deepEqual(sim, before, "the ribbon never mutates SimState");
   }
-  assert.ok(pixels(ctx).some(c => c.fillStyle === FX.purple || c.fillStyle === FX.blue), "pigment trail follows the moving player");
+  const pigment = pixels(ctx), x = sim.player.x;
+  assert.ok(pigment.some(c => c.args[0] < x - 24) && pigment.some(c => c.args[0] > x + 2),
+    "pigment runs from the older position through the brush's leading edge");
+  assert.ok(pigment.every(c => c.args.every(Number.isInteger)), "the trail stays on the native lattice");
+  assert.ok(new Set(pigment.map(c => c.fillStyle)).size >= 4, "wet pigment and dry bristles use distinct tones");
   assert.deepEqual(gloss(ctx.calls), []);
   restored(ctx);
+  ctx.calls.length = 0;
+  sim.elapsed += 1;
+  art.ground(ctx, sim);
+  assert.equal(pixels(ctx).length, 0, "old brush marks retire once the player stops");
 });
 
 test("the gallery presents distinct colored, washed, blank and tide review states", (t) => {
@@ -1015,6 +1042,45 @@ test("the fold corner stays local in both motion modes regardless of attack size
       px >= x - 50 && px + w <= x + 50 && py >= y - 50 && py + h <= y + 50));
     assert.equal(draw(.4, 180, 160, reduced).length, 0, "the fold disappears promptly");
   }
+});
+
+test("a spent Paper Cut only lifts a short edge at the closure", (t) => {
+  environment(t);
+  const paint = WEAPON_ART.get("paper-cut").ground, sim = createSim({ cat: "zero", seed: 7 });
+  sim.cut.outs = [{ id: 1, at: 0, points: [{x:60,y:55},{x:300,y:65},{x:275,y:265},{x:104,y:240}] }];
+  for (const reduced of [false, true]) {
+    sim.elapsed = .16;
+    const ctx = canvas().getContext("2d"), before = JSON.stringify(sim);
+    withPaperMotion(reduced, () => paint(ctx, sim));
+    const marks = pixels(ctx);
+    assert.ok(marks.length > 0, "the closure exposes a paper back");
+    assert.ok(marks.every(({args: [x,y,w,h]}) => x >= 57 && x+w <= 84 && y >= 45 && y+h <= 83),
+      "the visible peel stays near the closure even with a large cut-out");
+    assert.equal(JSON.stringify(sim), before);
+    restored(ctx);
+    sim.elapsed = .5;
+    const late = canvas().getContext("2d");
+    withPaperMotion(reduced, () => paint(late, sim));
+    assert.equal(pixels(late).length, 0);
+  }
+});
+
+test("angled cranes and seeds stamp one crisp bounded native sprite", (t) => {
+  environment(t);
+  for (const [id, weapon, poses] of [["paper-crane", "crane", 3], ["pumpkin-seed", "seed", 1]]) {
+    const paint = WEAPON_ART.get(id).shot;
+    for (let heading = 0; heading < 16; heading++) for (let pose = 0; pose < poses; pose++) {
+      const angle = heading * Math.PI / 8, ctx = canvas().getContext("2d");
+      paint(ctx, { id: pose, weapon, x: 80.7, y: 40.4, vx: Math.cos(angle), vy: Math.sin(angle) }, 0);
+      assert.equal(images(ctx).length, 1);
+      assert.ok(!allPaint(ctx).some(c => c.op === "rotate"), "diagonal pixels are baked before they reach the screen");
+      const spritePixels = allPaint(ctx).filter(c => c.op === "fillRect");
+      assert.ok(spritePixels.length > 10);
+      assert.ok(spritePixels.every(({args: [x,y,w,h]}) => [x,y,w,h].every(Number.isInteger) &&
+        x >= 0 && y >= 0 && x+w <= 36 && y+h <= 36), "no wing or seed is cropped at an angled heading");
+    }
+  }
+  assert.equal(spriteCacheSize(), 64, "cache keys only include weapon, heading and wing pose");
 });
 
 test("costume zones draw friendly ground marks and standing pieces for the worn costume only, read-only", (t) => {

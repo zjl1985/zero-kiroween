@@ -13,6 +13,10 @@ import type { Ctx } from "./paper-material.js";
 import { reducedPaperMotion } from "./paper-motion.js";
 import { liveSketchStep } from "./sprite-sketch.js";
 import { enemyMaxHp } from "../game/sim.js";
+import { ENEMIES } from "../game/enemies.js";
+import type { EnemyState } from "../game/types.js";
+import { enemyContact } from "../game/combat-observation.js";
+import { tintedSprite } from "./sprite-tint.js";
 
 const INK = "#192333", LIGHT = "#f5e7c4";
 function block(c: Ctx, x: number, y: number, w: number, h: number, color: string): void {
@@ -392,19 +396,59 @@ function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
     if (attack) { block(c, -7, -rows.length * 2 - 4, 14, 2, "#f18e66"); }
   }, { x: 0.5, y: 104 / 112 });
 }
+/** Contact marks stay on the lower body, below identifying eyes. The exact
+ * incoming vector chooses the struck side; unknown contacts stay neutral. */
+function enemyCrease(ctx: Ctx, e: EnemyState, radius: number, hit: number): void {
+  const contact = enemyContact(e), family = contact?.family,
+    dx = contact?.dx ?? 0, dy = contact?.dy ?? 0,
+    x = Math.round(-dx * radius * .5), y = Math.round(-radius * .65 - dy * radius * .2);
+  ctx.save(); ctx.globalAlpha *= Math.min(1, hit * 3);
+  if (family === "wash" || family === "brush") {
+    block(ctx, x - 3, y - 2, 6, 3, "#69878b");
+    block(ctx, x - 2, y + 1, 4, 1, "#9bad9b");
+    block(ctx, x - 1, y - 2, 1, 3, "#465e69");
+  } else if (family === "fire") {
+    block(ctx, x - 3, y - 3, 6, 4, "#4e3d36");
+    block(ctx, x - 2, y - 2, 4, 3, "#282c31");
+    block(ctx, x + 2, y - 2, 2, 1, "#c39462");
+    block(ctx, x + 3, y - 3, 1, 2, "#d0b38a");
+  } else {
+    const torn = family === "cut" || family === "claw" || family === "star-fall";
+    block(ctx, x - 3, y, 3, 1, "#242c39");
+    block(ctx, x, y - 1, 3, 1, "#242c39");
+    block(ctx, x - 2, y + 1, 3, 1, "#9f957e");
+    block(ctx, x + 1, y, 2, 1, torn ? "#e3d5b6" : "#c6baa1");
+    if (family === "fold") {
+      block(ctx, x - 2, y - 2, 1, 3, "#e3d5b6"); block(ctx, x - 1, y - 1, 1, 3, "#9f957e");
+    } else if (torn && !reducedPaperMotion()) {
+      // Two thin delaminated chips, never a radial spray. Their paper backs
+      // share the source crease and drift only a few pixels along the contact.
+      const travel = (1 - hit) * 5;
+      for (let i = 0; i < 2; i++) {
+        const px = x + dx * (travel + i * 2), py = y + dy * travel - 3 - i * 3;
+        block(ctx, px, py + 1, 4 - i, 1, "#8b7760");
+        block(ctx, px, py, 3 - i, 1, "#e3d5b6");
+      }
+    }
+  }
+  ctx.restore();
+}
 export function pixelEnemyArt(art: EnemyArt): EnemyArt {
   const effects: Record<string, EffectPainter> = {};
   for (const kind of Object.keys(art.effects ?? {})) effects[kind] = (ctx, e, { fade, ease }) => {
-    const k = reducedPaperMotion() ? 0.35 : ease, count = kind === "boss-down" ? 16 : 8,
-      reach = kind === "boss-down" ? 80 : kind === "summon" ? 40 : 24;
+    const k = reducedPaperMotion() ? 0.2 : ease, count = kind === "boss-down" ? 6 : 4,
+      reach = kind === "boss-down" ? 28 : kind === "summon" ? 14 : 10;
     ctx.save(); ctx.globalAlpha *= fade;
     if (kind === "erase") {
-      ctx.globalAlpha *= 0.5; block(ctx, e.x - 26 - k * 40, e.y - 10, 52 + k * 80, 20, LIGHT); ctx.globalAlpha *= 2;
+      block(ctx, e.x - 8, e.y - 10, 16, 1, "#d5c7a8");
+      block(ctx, e.x - 5, e.y - 8, 10, 1, "#8f8271");
     }
     for (let i = 0; i < count; i++) {
       const a = i * Math.PI * 2 / count, r = 6 + k * reach;
-      rimBox(ctx, e.x + Math.cos(a) * r, e.y - (kind === "boss-down" ? 20 : 4) + Math.sin(a) * r * 0.6, 4, 3,
-        art.dissolve.flakes[i % art.dissolve.flakes.length]);
+      const px = e.x + Math.cos(a) * r, py = e.y - (kind === "boss-down" ? 20 : 4) + Math.sin(a) * r * .6;
+      block(ctx, px, py + 1, 5, 1, "#776956");
+      block(ctx, px, py, 4, 1, art.dissolve.flakes[i % art.dissolve.flakes.length]);
+      block(ctx, px + 2, py - 1, 2, 1, "#dfd2b3");
     }
     ctx.restore();
   };
@@ -421,7 +465,18 @@ export function pixelEnemyArt(art: EnemyArt): EnemyArt {
       block(ctx, -17, -1, 3, 3, LIGHT); block(ctx, 14, -1, 3, 3, LIGHT);
     } else {
       shadow(ctx, art.id === "eraser-boss" ? 30 : 13);
-      enemySprite(art, frame, attack).draw(ctx, { x: 0, y: 0 });
+      const sprite = enemySprite(art, frame, attack), hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / .14)),
+        contact = hit > 0 ? enemyContact(e) : undefined, t = 1 - hit,
+        press = reducedPaperMotion() || hit <= 0 ? 0 : t < .6 ? .1 * (1 - t / .6) : -.035 * Math.sin((t - .6) / .4 * Math.PI),
+        horizontal = contact && Math.abs(contact.dx) > Math.abs(contact.dy);
+      ctx.save();
+      ctx.scale(horizontal ? 1 - press : 1 + press * .5, horizontal ? 1 + press * .5 : 1 - press);
+      // Fixed cool edge lifts the upper silhouette from dark grass. Its finite
+      // sprite tint is cached, while no hit strength enters a cache key.
+      tintedSprite(sprite, "#a5a9a4", .38).draw(ctx, { x: -1, y: -1 });
+      sprite.draw(ctx, { x: 0, y: 0 });
+      if (hit > 0) enemyCrease(ctx, e, ENEMIES[e.kind].radius, hit);
+      ctx.restore();
       const max = enemyMaxHp(e);
       if (e.hp < max) { block(ctx, -13, 4, 26, 3, INK); block(ctx, -12, 5, Math.max(1, 24 * Math.max(0, e.hp) / max), 1, "#d3a4bf"); }
     }

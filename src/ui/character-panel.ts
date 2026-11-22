@@ -107,7 +107,6 @@ export function paintCharacterPanel(
   const stats = CATS.get(id).stats;
   document.body.dataset.cat = id;
   set("cat-choice-label", t(locale, "selector.title"));
-  set("selector-kicker", t(locale, "selector.kicker"));
   set("profile-name", catName(locale, id));
   set("profile-role", characterCopy(locale, id, "role"));
   set("profile-story", characterCopy(locale, id, "story"));

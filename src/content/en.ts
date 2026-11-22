@@ -2,7 +2,6 @@ import type { Messages } from "./keys.js";
 
 export const EN: Messages = {
   "title.name": "Midnight Meow",
-  "title.subtitle": "A PIXEL TOWN AFTER DARK",
   "title.tagline": "A little town, a long night. The cats are keeping watch.",
   "title.start": "Begin as {name}",
   "title.choose_cat": "Choose your night watch cat",
@@ -28,7 +27,6 @@ export const EN: Messages = {
   "cat.nicole.choice": "Nicole · Female",
   "touch.dash": "Dash",
   "selector.title": "Choose your night watch",
-  "selector.kicker": "One cat. A different way to fight.",
   "selector.hp": "HEALTH",
   "selector.speed": "SPEED",
   "selector.attack": "AUTO ATTACK",
@@ -138,7 +136,7 @@ export const EN: Messages = {
   "upgrade.snack.name": "Warm Milk",
   "upgrade.snack.desc": "Restore {heal} heart.",
   "hud.level": "Lv {level}",
-  "hud.xp": "Ink shards {xp}/{next}",
+  "hud.xp": "XP {xp}/{next}",
   "result.level": "LEVEL REACHED",
   "result.evolution": "EVOLUTION",
   "result.none": "—",

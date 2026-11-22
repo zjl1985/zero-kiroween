@@ -9,6 +9,7 @@
  * and take randomness only from the Rng argument the sim passes in.
  */
 import type { Rng } from "../game/rng.js";
+import type { ContactSource } from "../game/combat-observation.js";
 import type { EffectKind, EnemyState, Impact, Notice, RunStats, ShotState, SimState } from "../game/types.js";
 import type { Capsule } from "../game/scenery.js";
 
@@ -78,7 +79,7 @@ export interface SimContext {
     extra?: Pick<Impact, "amount" | "src" | "angle" | "radius">,
   ): void;
   notify(state: SimState, kind: Notice): void;
-  hurtEnemy(state: SimState, e: EnemyState, damage: number): void;
+  hurtEnemy(state: SimState, e: EnemyState, damage: number, visualSource?: ContactSource): void;
   /** Damages the cat (shields and invulnerability apply); true when it landed or was blocked. */
   hurtPlayer(state: SimState, damage: number): boolean;
   spawnEnemy(

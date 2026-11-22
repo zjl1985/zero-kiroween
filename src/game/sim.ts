@@ -37,6 +37,7 @@ import {
   viewCentre,
 } from "./world-gen.js";
 import { circlesOverlap, clamp, length, normalize, pointSegDist } from "./collision.js";
+import { observeContact, observeImpact, observeLaunch, projectileContact, type ContactSource } from "./combat-observation.js";
 import { chestCandidates, readyEvolution, rollChoices, upgradeDef, xpForLevel, XP } from "./upgrades.js";
 import { playerStats } from "./stats.js";
 import {
@@ -98,7 +99,9 @@ const ctx: SimContext = {
   hurtPlayer,
   spawnEnemy,
   spawnShot(state, shot) {
-    state.shots.push({ id: state.nextShotId++, ...shot });
+    const fired = { id: state.nextShotId++, ...shot };
+    state.shots.push(fired);
+    observeLaunch(fired, state.elapsed);
   },
   safePosition,
   nearestEnemy,
@@ -513,14 +516,16 @@ function effect(
   kind: EffectKind,
   life: number,
   extra?: Pick<Impact, "amount" | "src" | "angle" | "radius">,
-): void {
+): Impact | undefined {
   if (kind === "damage" || kind === "dissolve") {
     // Crowds would bury the page in tags; extra ones are simply not made.
     let live = 0;
     for (const i of state.impacts) if (i.kind === kind) live++;
     if (live >= FX_CAP[kind]) return;
   }
-  state.impacts.push({ x, y, kind, life, seed: ++state.fxSeq, ...extra });
+  const impact = { x, y, kind, life, seed: ++state.fxSeq, ...extra };
+  state.impacts.push(impact);
+  return impact;
 }
 /** Boss and evolution banners outrank routine notices (skills, treats, shields). */
 const MAJOR_NOTICES: ReadonlySet<Notice> = new Set<Notice>([
@@ -833,14 +838,15 @@ function nearestEnemy(
 export function orbitPositions(state: SimState): { x: number; y: number }[] {
   return moonStarPositions(state, playerStats(state));
 }
-function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
+function hurtEnemy(state: SimState, e: EnemyState, damage: number, visualSource?: ContactSource): void {
   if (!e.alive) return;
   const dealt = Math.min(damage, e.hp);
   state.stats.damageDealt += dealt;
   e.hp = Math.max(0, e.hp - damage);
   e.alive = e.hp > 0;
   e.hitFlash = STATS.hitFlash;
-  effect(state, e.x, e.y, e.alive ? "hit" : "defeat", e.alive ? 0.16 : 0.32);
+  const contact = observeContact(e, visualSource ? enemyRadius(e) : 0, visualSource);
+  observeImpact(effect(state, e.x, e.y, e.alive ? "hit" : "defeat", e.alive ? 0.16 : 0.32), contact);
   effect(state, e.x, e.y - enemyRadius(e) * 2, "damage", EFFECT_LIFE.damage, {
     amount: Math.round(dealt * 10) / 10,
     src: e.kind,
@@ -849,7 +855,7 @@ function hurtEnemy(state: SimState, e: EnemyState, damage: number): void {
   if (!e.alive) {
     const def = enemyDef(e.kind);
     state.stats.kills++;
-    effect(state, e.x, e.y, "dissolve", EFFECT_LIFE.dissolve, { src: e.kind });
+    observeImpact(effect(state, e.x, e.y, "dissolve", EFFECT_LIFE.dissolve, { src: e.kind }), contact);
     countStreak(state, e);
     if (def.dropsShard !== false)
       dropShard(state, e.x, e.y, def.stats.xp * (e.elite ? ELITE.xpMul : 1));
@@ -937,7 +943,7 @@ function pumpkinPulse(state: SimState, x: number, y: number): void {
     if (!e.alive || e.spawnTime > 0) continue;
     const d = Math.hypot(e.x - x, e.y - y);
     if (d > PUMPKIN.auraRadius + enemyRadius(e)) continue;
-    hurtEnemy(state, e, PUMPKIN.damage);
+    hurtEnemy(state, e, PUMPKIN.damage, { family: "fire", x, y });
     if (!e.alive) continue;
     const dir = d > 0 ? { x: (e.x - x) / d, y: (e.y - y) / d } : { x: 1, y: 0 },
       knock = PUMPKIN.push * knockOf(e),
@@ -1178,7 +1184,7 @@ function stepShots(state: SimState, dt: number): void {
     // Shots without their own numbers are bolts and use the bolt stats.
     const pierce = s.pierce ?? (s.empowered ? ps.empoweredPierce : ps.pierce);
     for (const e of targets) {
-      hurtEnemy(state, e, s.damage ?? ps.shotDamage);
+      hurtEnemy(state, e, s.damage ?? ps.shotDamage, projectileContact(ox, oy, s, e, STATS.shotRadius + enemyRadius(e)));
       hits.push(e.id);
       if (hits.length >= pierce) {
         s.alive = false;
@@ -1220,7 +1226,7 @@ function seedBurst(state: SimState, s: ShotState): void {
   if (element) applyElement(state, s.x, s.y, r, element, s.damage ?? 1);
   for (const e of state.enemies)
     if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + enemyRadius(e))
-      hurtEnemy(state, e, s.damage ?? 1);
+      hurtEnemy(state, e, s.damage ?? 1, { family: "seed", x: s.x, y: s.y });
 }
 /**
  * Applies `damage` to the cat unless it is invulnerable. Shields and defeat

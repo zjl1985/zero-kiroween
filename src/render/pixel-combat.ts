@@ -1,11 +1,11 @@
 /** Complete pixel weapon/passive adapters. Legacy paper art is never invoked. */
 import type { WeaponArt, PassiveArt, CostumeArt, EffectPainter } from './art-registry.js';
 import type { Ctx } from './pixel-art.js';
-import type { FoldFlap } from '../game/types.js';
 import { orbitPositions } from '../game/sim.js';
 import { playerStats, UPGRADE_VALUES } from '../game/upgrades.js';
-import { PAPER_CUT } from '../defs/weapons/paper-cut.js';
-import { FX, GLYPHS, glyph, equipmentGlyph, rect, line, polygon, burst, area, edge } from './pixel-vfx.js';
+import { FX, GLYPHS, glyph, equipmentGlyph, rect, line, polygon, burst } from './pixel-vfx.js';
+import { drawOrbitPaperStar, drawStarFallStrike } from './pixel-primary-weapons.js';
+import { createBrushGround, drawPageFoldGround, drawPaperCutGround, drawSecondaryEffect, drawSecondaryShot } from './pixel-secondary-weapons.js';
 import { reducedPaperMotion } from './paper-motion.js';
 const ICONS: Record<string, keyof typeof GLYPHS> = { 'meow-bolt': 'bolt', 'echo-legion': 'bolt', 'moon-stars': 'star', 'full-moon': 'moon', 'night-claw': 'sword', 'star-fall': 'star', 'paper-crane': 'crane', 'pumpkin-seed': 'seed', 'paper-cut': 'sword', 'page-fold': 'book', 'watercolour-brush': 'brush', focus: 'eye', 'long-shadow': 'skull', 'paper-armor': 'shield', vitality: 'heart', 'night-eyes': 'eye', swift: 'boot', snack: 'seed', 'deep-fold': 'book', 'moon-shield': 'shield', magnet: 'magnet', scholar: 'book' };
 /** Equipment miniatures fit a 32 px slot. Large value regions establish the
@@ -198,60 +198,22 @@ export function pixelUpgradeGlyph(ctx: Ctx, id: string, ink: string): void {
         default: glyph(ctx, ICONS[id] ?? 'star', 16, 16, 9, ink);
     }
 }
-/** A small paper corner flips beside the cat. Its shape comes from the
- * paper itself and has no dependence on the attack's hit dimensions. */
-function drawFoldCorner(ctx: Ctx, flap: FoldFlap, age: number): void {
-    const life = .34;
-    if (age < 0 || age >= life) return;
-    const u = age / life, calm = reducedPaperMotion();
-    const offset = calm ? 18 : 11 + u * 16;
-    const rise = calm ? 3 : Math.sin(u * Math.PI) * 8;
-    const tx = -flap.ny, ty = flap.nx;
-    const x = flap.x + tx * 24 - flap.nx * offset;
-    const y = flap.y + ty * 24 - flap.ny * offset;
-    const point = (across: number, along: number, lift = 0) => ({
-        x: x + tx * across - flap.nx * along,
-        y: y + ty * across - flap.ny * along - lift,
-    });
-    const a = point(-12, 0), b = point(11, 0), c = point(7, 10, rise), d = point(-10, 12, rise);
-    const fold = point(1, 5, rise * .6);
-    ctx.save();
-    ctx.globalAlpha *= Math.min(1, (1 - u) * 2.2);
-    area(ctx, [a, b, c, d], '#bfad91');
-    area(ctx, [a, d, fold], '#f0ddba');
-    area(ctx, [fold, d, c], '#d6c0a9');
-    line(ctx, a.x, a.y, fold.x, fold.y, '#97816f', 1);
-    ctx.restore();
-}
-
 function effectFor(id: string, kind: string): EffectPainter {
-    return (ctx, e, { t, fade, ease }, state) => {
-        const calm = reducedPaperMotion(), k = calm ? .35 : ease, r = e.radius ?? (kind === 'claw' ? 58 : 40), color = id === 'pumpkin-seed' ? FX.gold : id === 'echo-legion' ? FX.blue : FX.purple;
+    return (ctx, e, look) => {
+        if (kind === 'star-fall') { drawStarFallStrike(ctx, e, look); return; }
+        if (drawSecondaryEffect(ctx, e, look)) return;
+        const { t, fade, ease } = look;
+        const k = reducedPaperMotion() ? .35 : ease, r = e.radius ?? 40;
+        const color = id === 'echo-legion' ? FX.blue : FX.purple;
         ctx.save();
         ctx.globalAlpha *= fade;
-        if (kind === 'claw') {
-            for (let i = -1; i <= 1; i++) {
-                const a = (e.angle ?? 0) + i * .3;
-                line(ctx, e.x + Math.cos(a) * r * .25, e.y - 10 + Math.sin(a) * r * .25, e.x + Math.cos(a) * r, e.y - 10 + Math.sin(a) * r, FX.cream, 3);
-                line(ctx, e.x + Math.cos(a) * r * .4, e.y - 7 + Math.sin(a) * r * .4, e.x + Math.cos(a) * r * .9, e.y - 7 + Math.sin(a) * r * .9, color, 2);
-            }
-        }
-        else if (kind === 'star-fall') {
-            const drop = calm ? 0 : 1 - Math.min(1, t * 2.4);
-            glyph(ctx, 'star', e.x + 10 * drop, e.y - 8 - 70 * drop, 9, FX.cream);
-            if (drop < .5) burst(ctx, e.x, e.y - 2, t, 17, color, 5);
-        }
-        else if (kind === 'page-fold') {
-            burst(ctx, e.x, e.y - 5, t, 13, '#c6b99e', 4);
-        }
-        else if (kind === 'costume-pull') {
+        if (kind === 'costume-pull') {
             for (let i = 0; i < 4; i++) {
                 const a = i * Math.PI / 2 + .22;
                 const d = Math.min(r, 34) * (1 - .85 * k) * (.7 + i * .1);
                 rect(ctx, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d * .62, 3, 3, FX.cream);
             }
-        }
-        else {
+        } else {
             burst(ctx, e.x, e.y - 8, t, Math.min(r, 35), color, kind === 'echo-burst' ? 12 : 8);
         }
         ctx.restore();
@@ -262,18 +224,12 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
     const art: WeaponArt = { id, icon: (c, ink) => pixelUpgradeGlyph(c, id, ink), ...(old.shotTag ? { shotTag: old.shotTag } : {}),
         ...(old.effects ? { effects: Object.fromEntries(Object.keys(old.effects).map(kind => [kind, effectFor(id, kind)])) } : {}),
     };
-    if (old.shot)
-        art.shot = (ctx, s, time) => {
-            const a = Math.atan2(s.vy, s.vx), wing = reducedPaperMotion() ? 0 : Math.floor(time * 8) % 2;
-            line(ctx, s.x - Math.cos(a) * 14, s.y - 14 - Math.sin(a) * 14, s.x, s.y - 14, id === 'paper-crane' ? FX.blue : FX.gold, 2);
-            equipmentGlyph(ctx, id === 'paper-crane' ? 'crane' : 'seed', s.x, s.y - 14, id === 'paper-crane' ? FX.blue : FX.gold, id === 'paper-crane' ? 19 : 10);
-            if (id === 'paper-crane' && wing)
-                line(ctx, s.x - 7, s.y - 19, s.x - 3, s.y - 16, FX.cream, 1);
-        };
+    if (old.shot) art.shot = drawSecondaryShot;
     if (id === 'moon-stars') {
-        // The moving stars already describe their exact orbit. A second
-        // permanent ground ring obscures nearby attacks without adding a cue.
-        art.sprites = (c, s, time, add) => orbitPositions(s).forEach((p, i) => add(p.y, () => equipmentGlyph(c, 'star', p.x, p.y - 12, i % 2 ? FX.gold : FX.purple, playerStats(s).fullMoon ? 18 : 16)));
+        art.sprites = (c, s, time, add) => {
+            const full = playerStats(s).fullMoon;
+            orbitPositions(s).forEach((p, i) => add(p.y, () => drawOrbitPaperStar(c, p.x, p.y, i, time, full)));
+        };
     }
     if (id === 'full-moon') {
         art.front = (c, s) => {
@@ -299,60 +255,10 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                 c.restore();
             });
         };
-    if (id === 'watercolour-brush') {
-        const trail: {
-            x: number;
-            y: number;
-            t: number;
-        }[] = [];
-        let clock = -1, seed = NaN;
-        art.ground = (c, s) => {
-            if (s.elapsed < clock || s.seed !== seed) {
-                trail.length = 0;
-                seed = s.seed;
-            }
-            clock = s.elapsed;
-            const last = trail[trail.length - 1];
-            if (!last || Math.hypot(last.x - s.player.x, last.y - s.player.y) >= 7)
-                trail.push({ x: s.player.x, y: s.player.y, t: s.elapsed });
-            else
-                last.t = s.elapsed;
-            while (trail.length && (s.elapsed - trail[0]!.t > .9 || trail.length > 48))
-                trail.shift();
-            c.save();
-            for (let i = 1; i < trail.length; i++) {
-                const p = trail[i]!, q = trail[i - 1]!;
-                c.globalAlpha = .6 * (1 - (s.elapsed - p.t) / .9);
-                line(c, q.x, q.y, p.x, p.y, FX.purple, 8);
-                rect(c, p.x - 3, p.y + 2, 4, 2, FX.blue);
-            }
-            c.restore();
-        };
-    }
-    if (id === 'paper-cut')
-        art.ground = (c, s) => {
-            c.save();
-            for (const out of s.cut.outs) {
-                const u = (s.elapsed - out.at) / PAPER_CUT.outLife;
-                if (u < 0 || u >= 1)
-                    continue;
-                c.globalAlpha = 1 - u;
-                area(c, out.points, FX.dark);
-                edge(c, out.points, FX.cream);
-            }
-            edge(c, s.cut.points, FX.blue, false);
-            if (s.cut.points.length)
-                glyph(c, 'sword', s.player.x, s.player.y - 5, 6, FX.cream);
-            c.restore();
-        };
+    if (id === 'watercolour-brush') art.ground = createBrushGround();
+    if (id === 'paper-cut') art.ground = drawPaperCutGround;
     if (id === 'page-fold') {
-        art.ground = (c, s) => {
-            for (const b of s.fold.bridges ?? []) {
-                area(c, b.polygon, '#9a8b80');
-                edge(c, b.polygon, FX.cream);
-            }
-            for (const flap of s.fold.flaps) drawFoldCorner(c, flap, s.elapsed - flap.at);
-        };
+        art.ground = drawPageFoldGround;
         art.sprites = (c, s, _time, add) => {
             for (const w of s.walls)
                 add((w.y1 + w.y2) / 2, () => {

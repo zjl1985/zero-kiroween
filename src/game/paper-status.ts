@@ -122,7 +122,7 @@ export function stepPaperStatus(state: SimState, dt: number, ctx: SimContext): v
     if (state.ended !== "playing") return;
     if (!e.alive || e.spawnTime > 0) continue;
     stepActor(state, e, ctx.enemyRadius(e), dt, FIRE.enemyInterval,
-      () => ctx.hurtEnemy(state, e, FIRE.enemyDamage), () => e.alive, ctx);
+      () => ctx.hurtEnemy(state, e, FIRE.enemyDamage, { family: "fire", x: e.x, y: e.y }), () => e.alive, ctx);
   }
 }
 

@@ -206,20 +206,6 @@ function boot(): void {
   const renderProfile = { mask: 0 };
   reducedMotion.addEventListener("change", () => frameReview?.stop("Motion preference changed — start a new capture"));
   window.addEventListener("resize", () => frameReview?.stop("Viewport changed — start a new capture"));
-  const compactPlaybill = matchMedia("(max-aspect-ratio: 1/1), (max-height: 600px)");
-  const layoutPlaybill = () => {
-    document.querySelectorAll<HTMLDetailsElement>(".skill-row").forEach((skill) => {
-      if (compactPlaybill.matches) {
-        skill.open = false;
-        skill.setAttribute("name", "playbill-kit");
-      } else {
-        skill.removeAttribute("name");
-        skill.open = true;
-      }
-    });
-  };
-  layoutPlaybill();
-  compactPlaybill.addEventListener("change", layoutPlaybill);
   let layout = boardLayout(app.clientWidth, app.clientHeight, devicePixelRatio || 1, false);
   let worldNeedsPaint = true;
   reducedMotion.addEventListener("change", () => { worldNeedsPaint = true; });
@@ -341,7 +327,6 @@ function boot(): void {
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
     const labels: Record<string, Parameters<typeof t>[1]> = {
       "title-name": "title.name",
-      "title-sub": "title.subtitle",
       "title-credit": "title.credit",
       "btn-start": "title.start",
       "btn-lang": "title.language",
@@ -702,20 +687,6 @@ function boot(): void {
         ctx,
         screen === "title" ? null : sim,
         { time, reducedMotion: still, camera, locale, cues: motionCues, ...(profiling ? { profile: renderProfile } : {}) },
-        screen === "title" && app.clientWidth > app.clientHeight
-          ? {
-              id: selectedCat,
-              ...(selectedCostume ? { costume: selectedCostume } : {}),
-              x: 705,
-              y: 418,
-              facing: 1,
-              moving: false,
-              dashing: false,
-              hurt: false,
-              time,
-              scale: app.clientHeight < 500 ? 0.25 : 0.29,
-            }
-          : undefined,
       );
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;

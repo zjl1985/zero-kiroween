@@ -58,7 +58,7 @@ export function drawWaterCrossings(ctx: Ctx, region: WaterRegion): void {
       d = crossing.polygon[3]!, dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
     ctx.save();
     ctx.save(); ctx.translate(2, 4); ctx.fillStyle = "#293740"; ctx.fill(p); ctx.restore();
-    ctx.fillStyle = "#9a8b7e"; ctx.fill(p);
+    ctx.fillStyle = "#625c51"; ctx.fill(p);
     ctx.clip(p);
     // Authored landmark decks keep stone; generated road crossings retain timber.
     if (crossing.id.endsWith(":deck")) {
@@ -72,13 +72,13 @@ export function drawWaterCrossings(ctx: Ctx, region: WaterRegion): void {
         lx = a.x + dx * from, ly = a.y + dy * from,
         rx = a.x + dx * to, ry = a.y + dy * to;
       const points: Point[] = [[lx, ly], [rx, ry], [rx + wx, ry + wy], [lx + wx, ly + wy]];
-      ctx.fillStyle = i % 3 === 0 ? "#b6a17b" : "#977c60";
+      ctx.fillStyle = i % 3 === 0 ? "#8b816b" : "#7d735f";
       ctx.fill(path(points));
       // Tiny dark nail pairs read as wooden construction at native resolution.
       pixelRect(ctx, lx + wx * 0.15, ly + wy * 0.15, 2, 2, "#51473d");
       pixelRect(ctx, lx + wx * 0.82, ly + wy * 0.82, 2, 2, "#51473d");
     }
-    ctx.strokeStyle = "#d1ba87"; ctx.lineWidth = 2; ctx.stroke(p);
+    ctx.strokeStyle = "#96866e"; ctx.lineWidth = 2; ctx.stroke(p);
     ctx.restore();
   }
 }

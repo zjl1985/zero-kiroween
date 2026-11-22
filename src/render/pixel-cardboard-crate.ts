@@ -27,8 +27,17 @@ export function drawPixelCardboardCrate(ctx: Ctx, x: number, y: number, s: numbe
         polygon(ctx, [[-21, 0], [-12, -7], [2, -5], [9, 3], [-7, 6]], p[0]);
         polygon(ctx, [[-20, -1], [-12, -7], [1, -5], [6, 2], [-7, 4]], p[1]);
         line(ctx, -11, -6, -7, 3, p[2]);
+        // Separated liner skins reveal a lighter paper back and a thin dark
+        // corrugated core, rather than thick timber splinters.
+        line(ctx, -19, -1, -12, -6, burnt ? '#9c8b70' : '#e1d4b5');
+        line(ctx, -17, 0, -12, -4, p[0]);
+        rect(ctx, -17, -2, 2, 1, burnt ? '#a19076' : '#eee0bf');
+        rect(ctx, -13, -5, 2, 1, burnt ? '#8c7e69' : '#eee0bf');
         polygon(ctx, [[0, -2], [12, -9], [21, -2], [15, 5], [6, 5]], p[2]);
         line(ctx, 12, -8, 15, 4, p[0]);
+        polygon(ctx, [[12, -8], [18, -4], [16, -1], [13, -3]], burnt ? '#8a7b66' : '#dfd0ae');
+        line(ctx, 13, -3, 16, -1, p[0]);
+        line(ctx, 16, 3, 20, -1, burnt ? '#ad9a7c' : '#e8d9b8');
         line(ctx, 3, -2, 10, 3, p[3], 2);
         fish(ctx, -10, 0, p[0]);
     } else {
@@ -42,6 +51,8 @@ export function drawPixelCardboardCrate(ctx: Ctx, x: number, y: number, s: numbe
             polygon(ctx, [[-16, -23], [-12, -35], [3, -33], [7, -26], [-4, -19]], p[0]);
             polygon(ctx, [[-15, -23], [-11, -34], [2, -32], [5, -26], [-4, -20]], p[2]);
             line(ctx, -13, -25, 4, -27, p[1]);
+            polygon(ctx, [[-11, -34], [2, -32], [4, -28], [-10, -30]], burnt ? '#8b7a63' : '#dfd0ae');
+            line(ctx, -11, -34, 2, -32, burnt ? '#b1a086' : '#efe0bf');
             polygon(ctx, [[-18, -23], [-9, -29], [18, -28], [10, -19]], p[0]);
             line(ctx, -9, -29, 18, -28, p[2]);
             line(ctx, -18, -23, -9, -29, p[3]);
@@ -69,6 +80,24 @@ export function drawPixelCardboardCrate(ctx: Ctx, x: number, y: number, s: numbe
         fish(ctx, -10, -7, p[0]);
         rect(ctx, -12, -8, 1, 1, p[2]);
         line(ctx, 2, -5, 6, -5, p[2]);
+        if (burnt) {
+            // The scorched face has a stepped dark cavity, a carbon edge and
+            // an attached curled liner. No destination-out reaches the scene.
+            polygon(ctx, [[-15, -17], [-12, -20], [-7, -18], [-5, -13], [-8, -9], [-13, -11]], '#272a2d');
+            line(ctx, -15, -17, -13, -11, '#846548');
+            line(ctx, -7, -18, -5, -13, '#9c7954');
+            polygon(ctx, [[-5, -13], [-2, -16], [-1, -13], [-4, -10]], '#a58f70');
+            line(ctx, -2, -16, -1, -13, '#c2b08c');
+            rect(ctx, 12, -17, 2, 5, '#343033');
+            rect(ctx, 14, -15, 1, 3, '#a18a69');
+        } else {
+            // Small compression folds stay subordinate to the broad card
+            // planes, distinguishing soft packaging from nailed wood slats.
+            line(ctx, -16, -17, -13, -15, p[2]);
+            line(ctx, -13, -15, -12, -12, p[0]);
+            line(ctx, 14, -10, 16, -16, p[2]);
+            rect(ctx, -6, -10, 1, 2, '#dbcba7');
+        }
     }
     ctx.restore();
 }

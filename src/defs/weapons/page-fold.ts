@@ -138,7 +138,7 @@ export function foldPage(
       r = ctx.enemyRadius(e);
     if (d <= 0 || d > f.band + r || Math.abs(s) > f.half + r) continue;
     if (ENEMY_DEFS.get(e.kind).boss) {
-      ctx.hurtEnemy(state, e, f.damage * PAGE_FOLD.bossFactor);
+      ctx.hurtEnemy(state, e, f.damage * PAGE_FOLD.bossFactor, { family: "fold", x: p.x, y: p.y, dx: -nx, dy: -ny });
       continue;
     }
     const m = reflectAcross(e.x, e.y, p.x, p.y, nx, ny),
@@ -146,7 +146,7 @@ export function foldPage(
     e.x = pos.x;
     e.y = pos.y;
     e.stun = Math.max(e.stun ?? 0, f.pin);
-    ctx.hurtEnemy(state, e, f.damage);
+    ctx.hurtEnemy(state, e, f.damage, { family: "fold", x: m.x, y: m.y, dx: -nx, dy: -ny });
     flipped++;
   }
   // The flap lands on the near side: paper under it folds and painted cells there are protected.

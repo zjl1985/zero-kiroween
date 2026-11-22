@@ -247,7 +247,7 @@ test("water ground/core/deck Canvas paths use simulation vertices without hidden
     const fill = (color) => ctx.calls.filter((c) => c.op === "fill" && c.fillStyle === color).map((c) => c.args[0].ops);
     assert.deepEqual(fill("#628b87"), [waterPath(r.shore).ops]);
     assert.deepEqual(fill("#2c4560"), r.core.length ? [waterPath(r.core).ops] : []);
-    assert.deepEqual(fill("#9a8b7e"), r.crossings.map((c) => waterPath(c.polygon).ops));
+    assert.deepEqual(fill("#625c51"), r.crossings.map((c) => waterPath(c.polygon).ops));
     assert.ok(waterPath(r.shore).ops.every(([op]) => ["moveTo", "lineTo", "closePath"].includes(op)));
     assert.equal(ctx.depth, 0);
     assert.equal(JSON.stringify(r), before);

@@ -819,6 +819,10 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
   const { width: W, height: H, zoom } = projection;
   const targets = navTargets(sim);
   const urgent = targets.some(target => target.kind !== "landmark");
+  const { x: playerX, y: playerY } = sim.player;
+  const fightingNearby = !urgent && targets.length > 0 && sim.enemies.some(enemy =>
+    enemy.alive && enemy.spawnTime <= 0 && (enemy.x - playerX) ** 2 + (enemy.y - playerY) ** 2 < 176 ** 2,
+  );
   for (const target of targets) {
     if (urgent && target.kind === "landmark") continue;
     const sx = target.x * zoom + projection.x,
@@ -839,6 +843,7 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
       chest = target.kind === "chest",
       bob = Math.sin(time * 3 + (boss ? 1 : 0)) * 1.5;
     ctx.save();
+    if (fightingNearby) ctx.globalAlpha *= 0.62;
     const arrowX = ax + Math.cos(ang) * bob;
     ctx.translate(Math.round(arrowX / 2) * 2, Math.round((ay + Math.sin(ang) * bob) / 2) * 2);
     // Eight-direction stepped pointer shares the target direction, not a paper fold.
@@ -851,6 +856,10 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
       if(i)pointer.lineTo(xx,yy);else pointer.moveTo(xx,yy);
     });
     pointer.closePath();ctx.fill(pointer);
+    if (fightingNearby) {
+      ctx.restore();
+      continue;
+    }
     // The label tab sits on the inner side of the pointer.
     const name = t(locale, target.label);
     const label = target.kind === "landmark" ? t(locale, "nav.toward", { place: name }) : name;

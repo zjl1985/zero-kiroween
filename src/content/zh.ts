@@ -2,7 +2,6 @@ import type { Messages } from "./keys.js";
 
 export const ZH: Messages = {
   "title.name": "猫猫守夜",
-  "title.subtitle": "Midnight Meow",
   "title.tagline": "月光落在小镇，今晚由猫守夜。",
   "title.start": "以 {name} 守夜",
   "title.choose_cat": "选择一位守夜者",
@@ -28,7 +27,6 @@ export const ZH: Messages = {
   "cat.nicole.choice": "Nicole · 女猫",
   "touch.dash": "留影",
   "selector.title": "选择你的守夜者",
-  "selector.kicker": "一位守夜者 · 一种战斗节奏",
   "selector.hp": "生命",
   "selector.speed": "移速",
   "selector.attack": "自动攻击",
@@ -133,8 +131,8 @@ export const ZH: Messages = {
     "月星 +{stars}。每 {pulseInterval}s 释放月潮，对附近墨影造成 {pulseDamage} 伤害并击退。",
   "upgrade.snack.name": "温牛奶",
   "upgrade.snack.desc": "回复 {heal} 点生命。",
-  "hud.level": "Lv {level}",
-  "hud.xp": "墨晶 {xp}/{next}",
+  "hud.level": "{level}级",
+  "hud.xp": "经验 {xp}/{next}",
   "result.level": "到达等级",
   "result.evolution": "进化",
   "result.none": "—",

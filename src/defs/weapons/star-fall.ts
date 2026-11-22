@@ -52,7 +52,7 @@ export const STAR_FALL: WeaponDef = {
       ctx.effect(state, x, y, "star-fall", EFFECT_LIFE["star-fall"], { radius: f.radius });
       for (const e of state.enemies)
         if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - x, e.y - y) <= f.radius + ctx.enemyRadius(e))
-          ctx.hurtEnemy(state, e, f.damage);
+          ctx.hurtEnemy(state, e, f.damage, { family: "star-fall", x, y });
       ctx.elementHit(state, x, y, f.radius, "cut", f.damage);
     }
   },

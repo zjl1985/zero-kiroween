@@ -4,13 +4,13 @@ import type { Ctx } from "./paper-material.js";
 
 const PERIOD = 1920;
 const C = {
-  far: "#465468", farLight: "#526073", ridge: "#364d5a",
-  field: "#415a5a", fieldLight: "#59665a", fieldShade: "#344d50",
-  earth: "#5e6251", earthLight: "#74745a", hedge: "#283f46",
-  lake: "#465e70", lakeShade: "#3b5365", reflection: "#71818a",
-  tree: "#31474d", treeLight: "#4e5d52", gold: "#777453",
-  roof: "#37434e", wall: "#7b8075", wallShade: "#59665f",
-  window: "#bdad76", near: "#2d4947", nearLight: "#3a5550",
+  far: "#465468", farLight: "#4c5b6c", ridge: "#364d5a",
+  field: "#415a5a", fieldLight: "#4e605b", fieldShade: "#344d50",
+  earth: "#5e6251", earthLight: "#606957", hedge: "#283f46",
+  lake: "#465e70", lakeShade: "#3b5365", reflection: "#627582",
+  tree: "#31474d", treeLight: "#4e5d52", gold: "#646d56",
+  roof: "#37434e", wall: "#68766f", wallShade: "#52635e",
+  window: "#9b9771", near: "#2d4947", nearLight: "#3a5550",
 } as const;
 
 // Long, unequal swells establish a continuous horizon across chunk edges.

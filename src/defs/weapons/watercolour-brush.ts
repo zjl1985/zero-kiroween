@@ -68,7 +68,7 @@ export const WATERCOLOUR_BRUSH: WeaponDef = {
       if (!e.alive || e.spawnTime > 0) continue;
       if (Math.hypot(e.x - p.x, e.y - p.y) > r + ctx.enemyRadius(e)) continue;
       const sketch = ENEMY_DEFS.get(e.kind).wakesOn === "colourless";
-      ctx.hurtEnemy(state, e, b.damage * (sketch ? b.sketchBonus : 1));
+      ctx.hurtEnemy(state, e, b.damage * (sketch ? b.sketchBonus : 1), { family: "brush", x: p.x, y: p.y });
       touched = true;
     }
     if (touched) ctx.effect(state, p.x, p.y, "pigment", EFFECT_LIFE.pigment, { radius: r });

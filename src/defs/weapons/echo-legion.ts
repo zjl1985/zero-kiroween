@@ -30,7 +30,7 @@ export function echoBurst(state: SimState, ctx: SimContext): void {
   ctx.effect(state, d.x, d.y, "echo-burst", EFFECT_LIFE["echo-burst"], { radius: reach });
   for (const e of state.enemies)
     if (e.alive && e.spawnTime <= 0 && Math.hypot(e.x - d.x, e.y - d.y) <= reach)
-      ctx.hurtEnemy(state, e, VALUES.burstDamage);
+      ctx.hurtEnemy(state, e, VALUES.burstDamage, { family: "bolt", x: d.x, y: d.y });
 }
 
 /** Automatic evolution: periodically anchors a firing afterimage, without moving the cat. */

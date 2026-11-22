@@ -1,6 +1,5 @@
 export const MESSAGE_KEYS = [
   "title.name",
-  "title.subtitle",
   "title.tagline",
   "title.start",
   "title.choose_cat",
@@ -26,7 +25,6 @@ export const MESSAGE_KEYS = [
   "cat.nicole.choice",
   "touch.dash",
   "selector.title",
-  "selector.kicker",
   "selector.hp",
   "selector.speed",
   "selector.attack",

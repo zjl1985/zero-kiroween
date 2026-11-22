@@ -58,7 +58,7 @@ export function groundOutline(x0:number,y0:number,w:number,h:number,top:boolean)
 export function groundUnderlay(ctx:Ctx,x:number,y:number,w:number,h:number,top:boolean,_stock?:string,_opacity=1):void{
   const p=groundOutline(x,y,w,h,top);ctx.save();ctx.clip(p);ctx.fillStyle="#3d624e";ctx.fill(p);
   for(let gy=Math.floor(y/28);gy*28<y+h;gy++)for(let gx=Math.floor(x/28);gx*28<x+w;gx++){
-    const sd=gx*92821+gy*68917;if(hash(sd)>.7)pixelRect(ctx,gx*28+hash(sd+1)*18,gy*28+hash(sd+2)*18,4,1,"#527351");
+    const sd=gx*92821+gy*68917;if(hash(sd)>.7)pixelRect(ctx,gx*28+hash(sd+1)*18,gy*28+hash(sd+2)*18,4,1,"#496b52");
   }ctx.restore();
 }
 export function groundTile(ctx:Ctx,x:number,y:number,w:number,h:number,lamps:readonly GroundLamp[],top:boolean,yard=false):void{
@@ -108,23 +108,23 @@ function buildStartYard():CanvasSurface{
     pixelRect(ctx,center-width,y,1,1,ROAD_STOCK.rim);pixelRect(ctx,center+width-1,y,1,1,ROAD_STOCK.rim);
     for (const side of [-1,1]) {
       const section = Math.floor((y + side * 11) / 27);
-      if (y > H - 5 || hash(section * 41 + side * 29) < .42) continue;
+      if (y > H - 5 || hash(section * 41 + side * 29) < .6) continue;
       const offset = side * (width * .42 + Math.sin(y / 34) * 1.5);
       pixelRect(ctx,center + offset - 2,y,4,1,ROAD_STOCK.worn);
-      if (y % 19 === 0) pixelRect(ctx,center + offset + 3,y,3,1,ROAD_STOCK.packed);
+      if (y % 37 === 0) pixelRect(ctx,center + offset + 3,y,3,1,ROAD_STOCK.packed);
     }
   }
   drawYardGarden(ctx);
   // Broad shadows start within each footing and continue onto the lawn.
   // Bake them with the ground so they stay attached during camera movement.
   ctx.save();
-  ctx.globalAlpha = .25;
+  ctx.globalAlpha = .28;
   for (const { x, y, s } of OPENING_BUILDINGS) {
     pixelPolygon(ctx, [[x - 28*s,y + 9*s], [x + 23*s,y + 6*s],
-      [x + 56*s,y + 31*s], [x + 18*s,y + 43*s], [x - 18*s,y + 31*s]], "#253b39");
+      [x + 56*s,y + 31*s], [x + 18*s,y + 43*s], [x - 18*s,y + 31*s]], "#293c4b");
   }
-  pixelPolygon(ctx, [[304,245],[311,248],[350,270],[343,278],[306,254]], "#253b39");
-  pixelPolygon(ctx, [[744,245],[751,247],[797,274],[788,281],[746,255]], "#253b39");
+  pixelPolygon(ctx, [[304,245],[311,248],[350,270],[343,278],[306,254]], "#293c4b");
+  pixelPolygon(ctx, [[744,245],[751,247],[797,274],[788,281],[746,255]], "#293c4b");
   ctx.restore();
   tree(ctx,304,250,1.05,10);tree(ctx,746,250,1.13,7);tree(ctx,505,258,.5,11);
   tree(ctx,99,247,.8,8);tree(ctx,872,243,.78,6);
@@ -142,8 +142,8 @@ export function drawSky(ctx:Ctx):void{
 export function drawProp(ctx:Ctx,p:SceneProp):void{drawPixelDecor(ctx,p.kind,p.x,p.y,p.s,p.seed);}
 export function drawLamp(ctx:Ctx,l:{x:number;y:number;s:number},_time:number):void{lantern(ctx,l.x,l.y,l.s);}
 export function lampPool(ctx:Ctx,x:number,y:number,s=1):void{
-  ctx.save();ctx.globalAlpha*=.13;
-  for(let row=-4;row<=4;row++){const w=(22-Math.abs(row)*3)*s;pixelRect(ctx,x-w,y+row*2*s,w*2,2*s,"#ddbb69");}
+  ctx.save();ctx.globalAlpha*=.16;
+  for(let row=-4;row<=4;row++){const w=(16-Math.abs(row)*2)*s;pixelRect(ctx,x-w,y+row*2*s,w*2,2*s,"#c4a36a");}
   ctx.restore();
 }
 export function drawGroundLight(ctx:Ctx,x:number,y:number,_time:number,s=1):void{lampPool(ctx,x,y,s);}

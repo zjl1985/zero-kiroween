@@ -66,13 +66,13 @@ declare module "../types.js" {
 
 /** Cuts the closed loop out of the page: ink inside is cut, props inside tear, the paper turns to a white hole. */
 export function cutOutLoop(state: SimState, loop: readonly Pt[], damage: number, ctx: SimContext): number {
+  const c = centroid(loop);
   let hit = 0;
   for (const e of state.enemies) {
     if (!e.alive || e.spawnTime > 0 || !insidePolygon(loop, e.x, e.y)) continue;
-    ctx.hurtEnemy(state, e, damage * (ENEMY_DEFS.get(e.kind).boss ? PAPER_CUT.bossFactor : 1));
+    ctx.hurtEnemy(state, e, damage * (ENEMY_DEFS.get(e.kind).boss ? PAPER_CUT.bossFactor : 1), { family: "cut", x: c.x, y: c.y });
     hit++;
   }
-  const c = centroid(loop);
   let reach = 0;
   for (const q of loop) reach = Math.max(reach, Math.hypot(q.x - c.x, q.y - c.y));
   // Only props and wash cells inside the loop: props tear, cells become a white cut hole.
@@ -150,7 +150,10 @@ export const PAPER_CUT_WEAPON: WeaponDef = {
       const reach = PAPER_CUT.edgeRadius + ctx.enemyRadius(e);
       for (let i = 1; i < pts.length; i++)
         if (segmentDistance(pts[i - 1]!, pts[i]!, e.x, e.y) <= reach) {
-          ctx.hurtEnemy(state, e, c.edgeDamage);
+          const a = pts[i - 1]!, b = pts[i]!;
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const along = Math.max(0, Math.min(1, ((e.x - a.x) * dx + (e.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+          ctx.hurtEnemy(state, e, c.edgeDamage, { family: "cut", x: a.x + dx * along, y: a.y + dy * along, dx, dy });
           nicked = true;
           break;
         }

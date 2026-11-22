@@ -17,16 +17,24 @@
       <canvas id="game" width="960" height="540" aria-label="Midnight Meow"></canvas>
       <section id="title-screen" class="title-layer">
         <header class="title-hero">
-          <p id="title-sub" class="eyebrow">MIDNIGHT MEOW</p>
           <h1 id="title-name">Midnight Meow</h1>
           <p id="title-tag" class="tagline"></p>
         </header>
+        <div class="profile character-showcase">
+          <div class="mini-stage" aria-hidden="true">
+            <canvas id="profile-portrait" width="232" height="186"></canvas>
+          </div>
+          <div class="character-caption">
+            <div class="profile-title">
+              <h3 id="profile-name"></h3>
+              <span id="profile-role"></span>
+            </div>
+            <p id="profile-story"></p>
+          </div>
+        </div>
         <!-- Pixel roster: choose one cat, inspect its kit, then begin the night. -->
         <div class="selection-panel playbill">
-          <div class="selection-heading">
-            <p id="selector-kicker" class="eyebrow"></p>
-            <h2 id="cat-choice-label"></h2>
-          </div>
+          <h2 id="cat-choice-label" class="selection-heading"></h2>
           <div
             class="cat-choices"
             role="group"
@@ -44,23 +52,11 @@
               <!-- Plain, then one ticket per registered costume, built by src/ui/character-panel.ts. -->
             </div>
           </div>
-          <div class="profile">
-            <div class="mini-stage" aria-hidden="true">
-              <canvas id="profile-portrait" width="232" height="186"></canvas>
-            </div>
-            <div>
-              <div class="profile-title">
-                <h3 id="profile-name"></h3>
-                <span id="profile-role"></span>
-              </div>
-              <p id="profile-story"></p>
-            </div>
-          </div>
           <div class="profile-stats">
             <span id="profile-hp"></span><span id="profile-speed"></span>
           </div>
           <div class="skill-list">
-            <details class="skill-row" open>
+            <details class="skill-row" name="playbill-kit">
               <summary>
                 <canvas id="icon-attack" width="64" height="64" aria-hidden="true"></canvas>
                 <span class="skill-fold-label">
@@ -70,7 +66,7 @@
               </summary>
               <p id="skill-attack-desc"></p>
             </details>
-            <details class="skill-row" open>
+            <details class="skill-row" name="playbill-kit">
               <summary>
                 <canvas id="icon-passive" width="64" height="64" aria-hidden="true"></canvas>
                 <span class="skill-fold-label">
@@ -144,7 +140,7 @@
               >
                 <span aria-hidden="true">♪</span></button
               ><button type="button" id="btn-fullscreen" class="btn-chip">⛶</button
-              ><button type="button" id="btn-hud-pause" class="btn-chip">Ⅱ</button>
+              ><button type="button" id="btn-hud-pause" class="btn-chip"><span class="pause-icon" aria-hidden="true"></span></button>
             </div>
             <canvas
               id="hud-map"
@@ -181,7 +177,7 @@
               <div id="hud-upgrades" class="seam-tags"></div>
               <div class="seam-row">
                 <span id="hud-level" class="level-button"></span>
-                <div id="hud-xp" class="seam" role="img"></div>
+                <div id="hud-xp" class="seam" role="progressbar"></div>
               </div>
               <p id="hud-hint" class="game-hint"></p>
             </div>

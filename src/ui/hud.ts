@@ -226,7 +226,7 @@ function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
 }
 /** XP as a seam sewn stitch by stitch; the level sits in a paper button. */
 function renderSeam(refs: HudRefs, locale: Locale, sim: SimState): void {
-  text(refs.level, String(sim.level));
+  text(refs.level, t(locale, "hud.level", { level: sim.level }));
   refs.level.setAttribute("aria-label", t(locale, "hud.level", { level: sim.level }));
   if (refs.xp.childElementCount !== SEAM_STITCHES)
     refs.xp.replaceChildren(...Array.from({ length: SEAM_STITCHES }, () => document.createElement("b")));
@@ -235,7 +235,12 @@ function renderSeam(refs: HudRefs, locale: Locale, sim: SimState): void {
     refs.xp.dataset.sewn = String(sewn);
     Array.from(refs.xp.children).forEach((b, i) => b.classList.toggle("on", i < sewn));
   }
-  refs.xp.setAttribute("aria-label", t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext }));
+  const label = t(locale, "hud.xp", { xp: Math.floor(sim.xp), next: sim.xpToNext });
+  refs.xp.dataset.label = label;
+  refs.xp.setAttribute("aria-label", label);
+  refs.xp.setAttribute("aria-valuemin", "0");
+  refs.xp.setAttribute("aria-valuemax", String(sim.xpToNext));
+  refs.xp.setAttribute("aria-valuenow", String(Math.min(sim.xp, sim.xpToNext)));
 }
 /** Folded paper minimap: explored chunks, landmarks, chests and the Eraser. */
 function renderMap(refs: HudRefs, locale: Locale, sim: SimState, camera: Camera): void {

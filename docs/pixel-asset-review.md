@@ -475,3 +475,19 @@ Warmer connected plots, broader wheat and vegetable groupings, fewer detached de
 Review fixtures `nicole-before.png`, `nicole-final.png` and `nicole-final-reduced.png` under `output/pixel-asset-review/` use seed 22, 390×844, five staged enemies, 32 pickups, the same camera, and wet, faded and erased samples at the canal. The old cat is placed inside the woodpile to reproduce the report. The new cat is at its northern collision edge. All three were viewed and the renderer preserved the fixture state. This is Chromium screenshot evidence. iPhone frame times still need measurement.
 
 `npm run build` and `npm test` passed with 456 tests. The wash regression confirms that overlapping cells tint each covered pixel once and preserve the cut lip. Gallery inspection found zero gloss violations, zero page errors and 127 in-bounds paints. Desktop and portrait movement, pause and touch joystick checks passed. Viewed the rebuilt opening at 1280×720, 804×1000 and 390×844. For later passes, the southern junction still reads as wide bands and the foreground fence shadow still draws the eye.
+
+## Combat animation and screen hierarchy
+
+The comparison starts from `d746c1f`. Meow Bolt shows its real launch point, a curved head during flight, and a split along the direction of contact. Moon Stars show the paper back on their existing orbit and pass in front of or behind the cat at their actual depth. Star Fall shows its contact and approach trail on the step that applies damage. The next frames show the paper breaking up. Contact records use the struck actor and the real projectile or attack origin. They feed a short body crease and material-specific fragments.
+
+The first material sheet exposed soft crane edges at diagonal headings and a full bright loop left by Paper Cut. The final crane and seed shots use cached native pixels in sixteen directions. Paper Cut shows a brief peeled back at the seam. Page Fold exposes two faces around a local hinge, and the actual bridge still supplies its own walkable surface. The paper crate was inspected at native scale and double scale through intact, damaged, charred and fragment states.
+
+The road and bridge now use quieter earth colors, and the yard uses cool, directional footing shadows and small warm lamp pools. The cat portrait and roster fit in separate areas at 1280×800 and in one column on phones. The HUD displays larger equipment icons and numerical experience. Both cats went through movement, pause, an upgrade choice and the result screen in Chromium. The phone-size comparison is a visual check, and iPhone Safari frame timings still need measurement.
+
+The captures live under `output/pixel-asset-review/`.
+
+- `action-sheet-{baseline,final}.png` uses seed 7 at the same road junction. Both revisions hit on frames 25, 4 and 1 for Meow Bolt, Moon Stars and Star Fall respectively. The baseline Star Fall is still suspended above the road on frame 1.
+- `edition-battle-{baseline,final}-{desktop,phone}.png` uses seed 22, Nicole and the same camera in each size, with 16 staged enemies, shoreline wash and the blue water-drop warning. `edition-battle-final-phone-reduced.png` holds the decorative motion while showing that warning.
+- `edition-weapon-material.png`, `paper-crate-combat-final-{states,burnt}.png`, `edition-title-final-{desktop,phone}.png` and `edition-flow-nicole-upgrade.png` show material details and UI.
+
+`npm run build` and all 463 tests passed. The gallery showed zero gloss violations and page errors, with 127 scenery and prop boundary checks passing. The baseline and updated simulations produced identical hashes for 48 snapshots across two cats and seeds 7 and 22. Each run followed the same 1,800 fixed inputs. This commit is local.

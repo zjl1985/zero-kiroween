@@ -50,7 +50,7 @@ export const NIGHT_CLAW: WeaponDef = {
         d = Math.hypot(dx, dy);
       if (d > c.reach + ctx.enemyRadius(e)) continue;
       if (d > 0 && (dx * Math.cos(angle) + dy * Math.sin(angle)) / d < cos) continue;
-      ctx.hurtEnemy(state, e, c.damage);
+      ctx.hurtEnemy(state, e, c.damage, { family: "claw", x: p.x, y: p.y });
     }
     // The swipe also tears paper props in front of the cat.
     const r = c.reach / 2;

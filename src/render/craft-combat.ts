@@ -1,4 +1,4 @@
-import { FX, glyph, burst, rect as pxRect, line as pxLine } from "./pixel-vfx.js";
+import { FX, glyph, burst, rect as pxRect } from "./pixel-vfx.js";
 import { reducedPaperMotion } from "./paper-motion.js";
 import { piece, path, oval, stroke, line, glow, mix, type Ctx, } from "./paper-material.js";
 import { PAPER_STOCK, PAPER_VALUE } from "./paper-rules.js";
@@ -6,6 +6,7 @@ import { cachedSprite } from "../engine/sprite.js";
 import { crease, flatCut, flatLayer, foldLine, tornEdge } from "./paper-kit.js";
 import { backSide } from "./paper-scraps.js";
 import { enemyPart, enemyShadow } from "./craft-enemies.js";
+import { paintSoundBlade } from "./pixel-primary-weapons.js";
 /** Static weapon cuts: placement, rotation and flight never participate in the key. */
 export function combatPart(key: string, w: number, h: number, paint: (ctx: Ctx) => void) {
     return cachedSprite(`combat-part:${key}`, w, h, 2, (ctx) => {
@@ -101,9 +102,7 @@ export function drawCraftBlob(ctx: Ctx, x: number, y: number, time: number, id =
     }
 }
 export function drawCraftShot(ctx: Ctx, x: number, y: number, vx: number, vy: number, empowered = false, echo = false): void {
-    const a = Math.atan2(vy, vx), color = echo ? FX.blue : FX.gold;
-    pxLine(ctx, x - Math.cos(a) * 18, y - Math.sin(a) * 18, x, y, color, empowered ? 5 : 3);
-    pxRect(ctx, x - 2, y - 2, 4, 4, FX.cream);
+    paintSoundBlade(ctx, x, y, vx, vy, empowered, echo);
 }
 /** A brief clipped-paper impact, keeping the centre open enough to read the target. */
 export function drawPaperImpact(ctx: Ctx, impact: {

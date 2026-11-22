@@ -57,7 +57,10 @@ export const MOON_STARS: WeaponDef = {
       for (const e of state.enemies) {
         if (!e.alive || e.spawnTime > 0 || e.orbitCooldown > 0) continue;
         if (!circlesOverlap(star.x, star.y, STAR_RADIUS, e.x, e.y, ctx.enemyRadius(e))) continue;
-        ctx.hurtEnemy(state, e, ps.orbitDamage);
+        ctx.hurtEnemy(state, e, ps.orbitDamage, {
+          family: "orbit", x: star.x, y: star.y,
+          dx: state.player.y - star.y, dy: star.x - state.player.x,
+        });
         e.orbitCooldown = N.orbitHitInterval * ps.attackIntervalScale;
         e.slowTime = Math.max(e.slowTime, 0.3);
         const dir = normalize(e.x - state.player.x, e.y - state.player.y),

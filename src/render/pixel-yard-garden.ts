@@ -9,9 +9,9 @@ function ripeWheat(r:GardenPixel,x:number,y:number,variant=0):void {
   const ripe = variant % WHEAT_HEADS.length !== 1;
   for (const [dx, dy] of heads) {
     r(x+dx,y+dy+3,1,-dy-2,"#a2975e");
-    r(x+dx-2,y+dy,4,5,ripe?"#b4a169":"#a69460");
-    r(x+dx-1,y+dy-1,2,7,ripe?"#c2ae75":"#b8a46a");
-    r(x+dx-2,y+dy+1,1,2,"#d0b97f");
+    r(x+dx-2,y+dy,4,5,ripe?"#a5986c":"#a69460");
+    r(x+dx-1,y+dy-1,2,7,ripe?"#b4a577":"#b8a46a");
+    r(x+dx-2,y+dy+1,1,2,"#b9ad7d");
   }
   r(x-5,y+1,10,1,"#817e4b");
 }
@@ -23,8 +23,8 @@ const WHEAT_HEADS = [
 function matureCabbage(r:GardenPixel,x:number,y:number,tone=0):void {
   r(x-7,y,15,4,"#3c5741");r(x-7,y-4,6,5,"#617d4e");
   r(x+1,y-5,7,6,tone?"#7b8b55":"#728950");
-  r(x-5,y-7,10,8,"#8d9b60");r(x-3,y-9,6,3,"#a2ac75");
-  r(x-2,y-6,6,5,"#768c53");r(x-1,y-7,4,2,"#b0b87d");
+  r(x-5,y-7,10,8,"#8d9b60");r(x-3,y-9,6,3,"#93a072");
+  r(x-2,y-6,6,5,"#768c53");r(x-1,y-7,4,2,"#96a574");
   r(x+1,y-4,2,3,"#a2ac70");r(x-5,y-1,4,2,"#8d9b60");
   r(x-5,y-5,1,4,"#4f6e48");r(x+5,y-3,1,3,"#536e43");
 }
@@ -34,17 +34,17 @@ function ripeTomato(r:GardenPixel,x:number,y:number):void {
   r(x+4,y-4,5,3,"#879255");r(x-1,y-7,1,9,"#586c3e");
   for(const [dx,dy] of [[-4,-3],[2,-6],[4,0]]){
     r(x+dx!-2,y+dy!-1,5,3,"#a16b4e");r(x+dx!-1,y+dy!-2,3,5,"#b98059");
-    r(x+dx!-1,y+dy!-2,2,1,"#d09c6b");r(x+dx!,y+dy!-3,1,2,"#6f8046");
+    r(x+dx!-1,y+dy!-2,2,1,"#b5926b");r(x+dx!,y+dy!-3,1,2,"#6f8046");
   }
 }
 function flowerMass(r:GardenPixel,x:number,y:number,tone:number):void {
   r(x-7,y-1,15,5,"#455f43");r(x-6,y-5,12,6,"#6a7d4c");
   r(x-4,y-7,8,5,"#7b8a55");
-  const shades=["#b89176","#b8a36b","#a78383"];
+  const shades=["#a58c75","#a59b70","#968083"];
   for(const [dx,dy,k] of [[-4,-4,0],[1,-7,1],[5,-2,0],[-1,0,2]]){
     const col=shades[(tone+k!)%3]!;
     r(x+dx!-2,y+dy!,5,3,col);r(x+dx!-1,y+dy!-1,3,5,col);
-    r(x+dx!,y+dy!,1,1,"#d0b67b");
+    r(x+dx!,y+dy!,1,1,"#b5a777");
   }
 }
 
@@ -91,7 +91,7 @@ export function drawYardGarden(ctx: Ctx): void {
   };
   // One generous cultivated plot per side, rather than separate framed strips.
   // Broad soil shapes stay flush with the lawn and leave the route untouched.
-  terrainBands(ctx,"#606047",[[257,331,145,20],[250,351,163,29],
+  terrainBands(ctx,"#585e4a",[[257,331,145,20],[250,351,163,29],
     [252,380,164,29],[263,409,145,23],[283,432,108,12]]);
   terrainBands(ctx,"#535a42",[[264,340,134,25],[260,365,145,34],
     [270,399,132,29],[289,428,92,7]]);
@@ -108,7 +108,7 @@ export function drawYardGarden(ctx: Ctx): void {
   }
   // A single kitchen garden with staggered mature foliage and a broad earth
   // walk through its middle. Short young rosettes interrupt the full cabbages.
-  terrainBands(ctx,"#605e46",[[619,335,112,18],[607,353,143,27],
+  terrainBands(ctx,"#585d4a",[[619,335,112,18],[607,353,143,27],
     [606,380,149,30],[615,410,132,26],[632,436,98,9]]);
   const vegetables=[[625,352,7],[617,369,8],[620,400,8],[632,419,7]] as const;
   for(const [row,[start,y,count]] of vegetables.entries()){
@@ -146,7 +146,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
     ctx.fillStyle=c;ctx.fillRect(x,y,w,h);
   };
   const bank=(x:number,y:number,w:number,h:number)=>{
-    r(x+3,y+3,w-6,h-5,"#5c6046");
+    r(x+3,y+3,w-6,h-5,"#565e49");
     r(x+7,y+h-2,w-14,1,"#50583f");
   };
   // Wide pasture tongues carry the upper lawn into the lower farm. Each
@@ -162,7 +162,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
     [611,769,139,38],[617,807,133,40],[619,847,131,38],
     [624,885,126,35],[634,920,107,24],[649,944,76,16],
   ]);
-  terrainBands(ctx, "#5a654b",[
+  terrainBands(ctx, "#53634e",[
     [276,561,153,31],[269,592,166,47],[274,639,162,43],
     [278,682,157,49],[285,731,143,30],[301,761,119,21],
     [625,578,105,28],[618,606,122,42],[615,648,128,49],
@@ -182,7 +182,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
     [300,832,126,33],[313,865,109,28],
     [617,779,134,26],[621,805,130,28],[623,833,126,30],[629,863,116,28],
   ]);
-  terrainBands(ctx,"#5d6249",[[268,540,166,57],[256,597,180,61],
+  terrainBands(ctx,"#56604c",[[268,540,166,57],[256,597,180,61],
     [260,658,176,67],[278,725,154,55],[299,780,126,37],
     [618,540,126,64],[610,604,142,72],[612,676,142,75],[627,751,119,57]]);
   // Long beds run east/west here, alternating standing crop with recently
@@ -210,7 +210,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
   }
   // Low grass path links the harvested field to the central lane, with a
   // handful of worn stepping patches only at the junction.
-  r(263,664,174,5,"#616448");
+  r(263,664,174,5,"#59614c");
   for(const [x,y,w] of [[393,665,8],[408,666,10],[423,665,9],[433,675,7]] as const){
     r(x,y,w,2,"#78815b");r(x+2,y,w-4,1,"#90946a");
   }
@@ -232,7 +232,7 @@ export function drawYardGardenExtension(ctx: Ctx): void {
       }
     }
   }
-  r(611,688,143,3,"#616448");
+  r(611,688,143,3,"#59614c");
   for(const [x,y] of [[613,689],[628,691],[648,688]]){r(x!,y!,8,2,"#76805a");}
   // The foreground ends in two broad low planting drifts, not scattered
   // diagonal chains. Leafy backs frame the flowers; the walking lane is open.
@@ -263,7 +263,7 @@ export function drawYardGroundMasses(ctx: Ctx): void {
     [246,375,191,46],[261,421,175,46],[281,467,155,38],[302,505,135,35],
     [628,274,78,28],[611,302,121,32],[601,334,159,45],
     [601,379,167,46],[608,425,152,43],[611,468,144,36],[621,504,129,36]]);
-  fill("#5d6249",[[333,279,81,26],[307,305,113,31],[274,336,147,45],
+  fill("#56604c",[[333,279,81,26],[307,305,113,31],[274,336,147,45],
     [268,381,152,44],[285,425,133,39],[306,464,112,40],[322,504,99,36],
     [637,285,58,25],[624,310,99,31],[618,341,132,42],
     [617,383,134,43],[628,426,116,38],[632,464,110,40],[637,504,102,36]]);

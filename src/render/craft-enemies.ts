@@ -77,14 +77,9 @@ export function drawCraftEnemy(
   time: number,
   look: Look,
 ): void {
-  const hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / 0.14));
-  ctx.save();
-  // One-pixel hit recoil; keep the collision-space foot anchor and crisp sprite grid.
-  ctx.translate(e.x, e.y);
-  if (!reducedPaperMotion() && hit > 0.5) ctx.translate(e.id % 2 ? -1 : 1, 0);
-  ctx.translate(-e.x, -e.y);
+  // Contact deformation belongs to the body painter, leaving shadows, HP,
+  // crowns and the gameplay foot anchor fixed. Never guess a hit direction.
   drawEnemyBody(ctx, e, (e.stun ?? 0) > 0 ? 0 : time, look);
-  ctx.restore();
 }
 
 function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
@@ -103,7 +98,7 @@ function drawEnemyBody(ctx: Ctx, e: EnemyState, time: number, look: Look): void 
   ctx.fillRect(Math.round(e.x - base * 1.8), Math.round(e.y - 2), Math.round(base * 3.6), 5);
   ctx.fillRect(Math.round(e.x - base * 1.3), Math.round(e.y - 5), Math.round(base * 2.6), 10);
   ctx.restore();
-  art.draw(ctx, { ...e, radius: base }, time, look);
+  art.draw(ctx, e, time, look);
   ctx.restore();
   if (e.spawnTime <= 0) drawEliteCrown(ctx, e.x, e.y + (art.crownY ?? -base * 2.05) * k, radius / 14, e.id, time);
 }

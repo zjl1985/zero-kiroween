@@ -10,6 +10,7 @@ import { CHUNK, SCREEN, START_ROAD_EXIT, roads } from "../dist/game/world-gen.js
 
 // Ground seams around the start lawn and unbaked tiles (FEAT-003). Static command
 // contracts on a recording canvas; they do not claim pixel or art approval.
+const GRASS_MARK = "#496b52";
 class Path {
   constructor(source) { this.ops = source instanceof Path ? [...source.ops] : source ? [["path", source]] : []; }
 }
@@ -126,7 +127,7 @@ test("native grass marks are world-anchored across the opening's y = 540 boundar
   // The global 28-unit source row straddling the boundary is evaluated by
   // both painters, then clipped by their individual native canvases.
   const row = Math.floor(CHUNK.height / 28) * 28;
-  const marks = calls => [...new Set(calls.filter(c => c.op === "fillRect" && c.fillStyle === "#527351" &&
+  const marks = calls => [...new Set(calls.filter(c => c.op === "fillRect" && c.fillStyle === GRASS_MARK &&
     c.args[2] === 4 && c.args[3] === 1 && c.args[0] >= 0 && c.args[0] < CHUNK.width && c.args[1] >= row && c.args[1] < row + 28)
     .map(c => c.args.join(",")))].sort();
   const yard = marks(allCalls(buildChunk(7, 0, 0).getContext("2d"))),
@@ -149,7 +150,7 @@ test("an unbaked tile has continuous base coverage plus native pixel detail", (t
   assert.ok(bases.some(base => base.args[0].ops.some(([op, x, y, w, h]) => op === "rect" &&
     x <= cx * CHUNK.width && y <= cy * CHUNK.height && x + w >= (cx + 1) * CHUNK.width && y + h >= (cy + 1) * CHUNK.height)),
     "base covers every pixel through all four chunk edges, preventing gaps");
-  const pixels = ctx.calls.filter(c => c.op === "fillRect" && c.fillStyle === "#527351");
+  const pixels = ctx.calls.filter(c => c.op === "fillRect" && c.fillStyle === GRASS_MARK);
   assert.ok(pixels.length > 20, "placeholder has sparse authored native detail instead of one flat block");
   assert.ok(pixels.every(c => c.args.every(n => Number.isInteger(n))), "placeholder marks use the same world pixel lattice");
   assert.equal(ctx.depth, 0);

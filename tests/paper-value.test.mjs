@@ -47,13 +47,20 @@ test("native terrain ramps preserve value separation from opaque player shots wi
     assert.ok(relativeLuminance(FX.gold) > light && relativeLuminance(FX.cream) > light,
       `${kind}: player shots and their highlight remain above ground details`);
   }
-  const cells = [], ctx = { fillStyle: "", fillRect(...args) { cells.push({ args, color: this.fillStyle }); } };
+  const lightestTerrain = Math.max(...Object.values(TERRAIN_PALETTE).flat().map(relativeLuminance));
+  const cells = [], ctx = {
+    fillStyle: "", globalAlpha: 1, globalCompositeOperation: "source-over",
+    fillRect(...args) { cells.push({ args, color: this.fillStyle, alpha: this.globalAlpha, composite: this.globalCompositeOperation }); },
+    save() {}, restore() {}, scale() {},
+    translate(x, y) { assert.ok(Number.isInteger(x) && Number.isInteger(y), "shot anchors snap to the pixel grid"); },
+  };
   for (const empowered of [false, true]) for (const echo of [false, true]) {
     cells.length = 0;
     drawCraftShot(ctx, 100.25, 75.75, -3, 4, empowered, echo);
     assert.ok(cells.length > 1 && cells.every(c => c.args.every(Number.isInteger)), "shot is authored with integer cells");
-    assert.deepEqual(new Set(cells.map(c => c.color)), new Set([echo ? FX.blue : FX.gold, FX.cream]),
-      "shot uses only its solid body and readable highlight, without translucent glow");
+    assert.ok(new Set(cells.map(c => c.color)).size >= 3, "the pulse has a separate cut edge and face highlights");
+    assert.ok(cells.some(c => relativeLuminance(c.color) > lightestTerrain), "pulse highlights stand out against the brightest terrain");
+    assert.ok(cells.every(c => c.alpha === 1 && c.composite === "source-over"), "the pulse is solid and has no additive glow");
   }
   assert.deepEqual(pixelBacking(960, 540), { width: 960, height: 540 }, "native world resolution is explicit");
   assert.match(source("world.ts"), /imageSmoothingEnabled = false/, "world retains nearest sampling");
