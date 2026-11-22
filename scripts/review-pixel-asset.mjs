@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 const [kind = 'scene', id = 'cottage', revision = 'review'] = process.argv.slice(2);
-if (!['scene', 'cat', 'enemy'].includes(kind) || !/^[a-z0-9-]+$/.test(id) || !/^[a-z0-9-]+$/.test(revision)) throw new Error('Expected scene|cat|enemy, an asset id, and a safe revision label');
+if (!['scene', 'stack', 'cat', 'enemy'].includes(kind) || !/^[a-z0-9-]+$/.test(id) || !/^[a-z0-9-]+$/.test(revision)) throw new Error('Expected scene|stack|cat|enemy, an asset id, and a safe revision label');
 const provider = process.env.PIXEL_REVIEW_PLAYWRIGHT;
 if (!provider) throw new Error('Set PIXEL_REVIEW_PLAYWRIGHT to an installed Playwright module; game dependencies stay unchanged.');
 const { chromium } = await import(pathToFileURL(resolve(provider)).href);
@@ -16,7 +16,7 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.PIXEL_REVIEW_CHROMIUM || '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 const errors = [];
 try {
-  const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({ viewport: { width: 1024, height: kind === 'stack' ? 1024 : 768 }, deviceScaleFactor: 1 });
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { window.requestAnimationFrame = () => 0; });
   await page.goto('http://localhost:4175/?seed=7', { waitUntil: 'networkidle' });
@@ -25,9 +25,22 @@ try {
     const { CAT_ART, ENEMY_ART } = await import('/dist/render/art-index.js');
     const { ENEMY_DEFS } = await import('/dist/defs/index.js');
     const { drawCraftEnemy } = await import('/dist/render/craft-enemies.js');
-    const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 768;
-    canvas.style.cssText = 'position:fixed;inset:0;z-index:999999;width:1024px;height:768px;image-rendering:pixelated';
+    const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = kind === 'stack' ? 1024 : 768;
+    canvas.style.cssText = 'position:fixed;inset:0;z-index:999999;image-rendering:pixelated';
     document.body.append(canvas); const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    if (kind === 'stack') {
+      // Use the live painter and the same shared pivot at every angle.
+      ctx.fillStyle = '#101e2b'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '14px monospace';
+      for (let frame = 0; frame < 16; frame++) {
+        const x = frame % 4 * 256, y = Math.floor(frame / 4) * 256;
+        ctx.fillStyle = '#29433d'; ctx.fillRect(x + 6, y + 6, 244, 244);
+        ctx.fillStyle = '#e7dec4'; ctx.fillText(`${id} / ${frame * 22.5}°`, x + 19, y + 29);
+        ctx.fillStyle = '#556b59'; ctx.fillRect(x + 21, y + 204, 214, 1);
+        drawPixelDecor(ctx, id, x + 128, y + 204, 1.4, 0, frame * Math.PI / 8);
+      }
+      return;
+    }
     ctx.fillStyle = '#101e2b'; ctx.fillRect(0, 0, 1024, 768);
     ctx.font = '18px monospace'; ctx.fillStyle = '#e7dec4'; ctx.fillText(`${kind} / ${id} / ${revision}`, 24, 30);
     const panels = [[16,50,320,475],[348,50,660,475],[16,537,320,215],[348,537,320,215],[680,537,328,215]];
@@ -76,7 +89,8 @@ try {
     }, {id});
     await page.screenshot({path:resolve(output,name+'-poses.png')});
   }
-  const report={kind,id,revision,commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),workingTree:execFileSync('git',['status','--short'],{encoding:'utf8'}).trim(),errors,image:name+'.png',note:'Actual browser render at native 1x and integer nearest magnification. Human visual review still required.'};
+  const note = kind === 'stack' ? 'Actual game painter at 16 fixed headings with a common ground guide.' : 'Actual browser render at native 1x and integer nearest magnification.';
+  const report={kind,id,revision,commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),workingTree:execFileSync('git',['status','--short'],{encoding:'utf8'}).trim(),errors,image:name+'.png',note};
   await writeFile(resolve(output,name+'.json'),JSON.stringify(report,null,2)+'\n');
   if(errors.length)throw new Error(errors.join('\n'));
   console.log(resolve(output,name+'.png'));

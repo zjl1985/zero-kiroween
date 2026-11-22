@@ -1,4 +1,5 @@
 import { OPENING_BUILDINGS } from "../dist/render/craft-scene.js";
+import { barnModel } from "../dist/render/pixel-barn.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { OLD_TOWN_ART } from "../dist/defs/biomes/old-town.art.js";
@@ -306,4 +307,49 @@ test("opening architecture stays behind the playable boundary without changing c
     assert.ok(ink.length);
     for(const c of ink)assert.ok(c.bounds[3]<=WORLD.playTop,`${building.kind} footing intrudes into the walking area: ${c.bounds[3]}`);
   }
+});
+
+test("the carved barn connects every roof and vent voxel to the foundation", () => {
+  const barn = barnModel();
+  // The production atlas bakes the authored model at half-unit precision.
+  const width = barn.width * 2, depth = barn.depth * 2, count = barn.count * 2 - 1;
+  const sliceSize = width * depth;
+  const occupied = new Uint8Array(sliceSize * count);
+  const ctx = {
+    fillRect(x, y, w, h) {
+      const left = x + width / 2, top = y + depth / 2;
+      assert.ok([left, top, w, h].every(Number.isInteger));
+      assert.ok(left >= 0 && left + w <= width && top >= 0 && top + h <= depth);
+      for (let row = top; row < top + h; row++) {
+        const start = z * sliceSize + row * width + left;
+        occupied.fill(1, start, start + w);
+      }
+    },
+  };
+  let z = 0;
+  for (; z < count; z++) barn.paint(ctx, z / 2);
+  const expected = occupied.reduce((sum, pixel) => sum + pixel, 0);
+  const root = depth / 2 * width + width / 2;
+  assert.equal(occupied[root], 1, "layer zero contains the shared ground pivot");
+  assert.ok(occupied.subarray((count - 1) * sliceSize).includes(1), "vent reaches the top slice");
+
+  const connected = new Uint32Array(expected);
+  let size = 1;
+  connected[0] = root;
+  occupied[root] = 0;
+  const visit = (index) => {
+    if (occupied[index] !== 1) return;
+    occupied[index] = 0;
+    connected[size++] = index;
+  };
+  for (let i = 0; i < size; i++) {
+    const p = connected[i], col = p % width, row = Math.floor(p / width) % depth;
+    if (col > 0) visit(p - 1);
+    if (col < width - 1) visit(p + 1);
+    if (row > 0) visit(p - width);
+    if (row < depth - 1) visit(p + width);
+    visit(p - sliceSize);
+    visit(p + sliceSize);
+  }
+  assert.equal(size, expected, "no disconnected masonry, roof pixels or rooftop vent");
 });

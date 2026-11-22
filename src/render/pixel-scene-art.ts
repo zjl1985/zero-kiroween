@@ -93,8 +93,8 @@ function model(kind: string, variant: number): PixelStackModel {
         },
     };
 }
-export function drawPixelDecor(ctx: Ctx, kind: string, x: number, y: number, s = 1, seed = 0): void {
+export function drawPixelDecor(ctx: Ctx, kind: string, x: number, y: number, s = 1, seed = 0, turn?: number): void {
     const v = ((Math.trunc(seed) % 6) + 6) % 6;
     const building = kind === "cottage" || kind === "barn";
-    drawPixelStack(ctx, fineModel(model(kind, v)), { x, y, scale: (building ? .9 : 1) * s, turn: building ? -.58 : .22, squash: .75, shadow: !building });
+    drawPixelStack(ctx, fineModel(model(kind, v)), { x, y, scale: (building ? .9 : 1) * s, turn: turn ?? (building ? -.58 : .22), squash: .75, shadow: !building });
 }

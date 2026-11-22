@@ -444,3 +444,22 @@ Final verification: `npm run build` and `npm test`454/454 passed; gallery gloss0
 The shared road palette ties the opening lane into the town road. Wear breaks at uneven intervals and the farm shoulders have low turf and gravel. Wheat heads vary in height and ripeness, standing rows have shorter ends and occasional gaps, and the vegetable beds have staggered lengths. The original footprints continue through the painted ground and water crossings.
 
 Viewed `south-before-south-{desktop,mobile}.png` and `south-final-south-{desktop,mobile}.png` after the same seed 7 keyboard walk, and `south-release-start-reference.png` at 804×1000. The road remains clear across the junction and the cat remains readable against the new road colors. The two outer field blocks still read as flat terrain shapes, especially on portrait screens.
+
+## Four-view barn review
+
+The opening barn follows the projection workflow in [Daniel White’s sprite-stacking reference](https://github.com/danielwh2/sprite-stacking/tree/6fecdfd0d6e5a0595f979550e05f4b1fcde550fe). In `src/render/pixel-barn.ts`, the top plan limits each row’s width, the side elevation sets the depth at each height, and the two opposing elevations share the gambrel outline. The front and back surfaces have separate board and window markings. A local cutout beneath each eave preserves the overhang in the carved volume. The model uses the existing Canvas atlas and ground pivot.
+
+The first 16-heading capture exposed siding between roof sections at 67.5°, 90° and 112.5°. The upper roof now overlaps a thicker band of roof material onto adjacent slices. The rear gable uses its own color at the wall boundary. The final turntable and in-game desktop, reference-aspect and mobile captures were inspected. A raster test checks that every occupied voxel is connected to the ground layer and fits the atlas. The existing opening boundary test checks the projected footprint.
+
+To reproduce, run `npm run build`, serve `site/` on port 4175, then run these commands with Playwright installed outside the project.
+
+```sh
+PIXEL_REVIEW_PLAYWRIGHT=/path/to/playwright/index.mjs \
+  node scripts/review-pixel-asset.mjs stack barn review
+PIXEL_REVIEW_PLAYWRIGHT=/path/to/playwright/index.mjs \
+  node scripts/review-pixel-asset.mjs scene barn detail
+```
+
+`stack` renders every 22.5° using the actual game painter and labels the common ground pivot. The adjacent JSON records the commit and any browser errors. Inspect front and rear overhangs, diagonal roof continuity, the rooftop vent, and stone threshold. For the world view, open `/?start=1&seed=7` at 804×1000 and at 390×844. The existing terrain loading delay may show the flat ground before the lower chunks arrive. The barn is the first asset rebuilt from explicitly authored orthographic profiles. The other assets still use their existing renderers.
+
+`npm run build` and all 455 tests passed. The browser gallery reported zero gloss violations and 127 in-bounds paints. The turntable images are `stack-barn-hull-first.png` and `stack-barn-hull-final.png` under the local review output. The in-game capture is `barn-hull-game-reference.png`.
