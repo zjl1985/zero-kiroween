@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { VILLAGE_PALETTE, VILLAGE_PIXELS, VILLAGE_SOURCE_HASHES } from '../dist/render/village-pixels.js';
-import { paintVillagePixels, villageSoilTile, villageGrassCells, VILLAGE_TILE } from '../dist/render/village-art.js';
+import { drawVillageSoil, paintVillagePixels, villageGrassCells, VILLAGE_TILE } from '../dist/render/village-art.js';
 import { HOMESTEADS, HOUSE_WALKS } from '../dist/render/homestead-layout.js';
 const source = new URL('../assets/village/',import.meta.url);
 
@@ -58,16 +58,29 @@ test('raster run compiler reproduces every indexed source pixel exactly, includi
   }
 });
 
-test('all 16 terrain neighbour combinations select real authored edge/corner art',()=>{
-  const choices=new Set();
-  for(let mask=0;mask<16;mask++){
-    const key=villageSoilTile(!!(mask&1),!!(mask&2),!!(mask&4),!!(mask&8));
-    choices.add(key);assert.ok(VILLAGE_PIXELS[key]);
+test('garden soil follows its slanted bounds on a native grid across negative and positive chunks', () => {
+  const inside = (x,y) => y > -21 && y < 50 && x > y * .6 - 22 && x < 42;
+  const record = (view) => {
+    const pixels = new Map();
+    drawVillageSoil({ fillStyle: '', fillRect(x,y,w,h) {
+      assert.equal(h,2);
+      assert.ok([x,y,w].every(v => v % 2 === 0));
+      for (let px=x; px<x+w; px+=2) {
+        assert.ok(inside(px+1,y+1), `outside plot at ${px},${y}`);
+        pixels.set(`${px},${y}`, this.fillStyle);
+      }
+    } },view,inside);
+    return pixels;
+  };
+  const view = { x0:-40, y0:-30, x1:58, y1:56 }, full = record(view);
+  assert.deepEqual(full, new Map([...record({...view,x1:0}), ...record({...view,x0:0})]));
+  assert.ok(full.size>650, 'the new edge still preserves the interior');
+  const starts = new Set();
+  for (let y=-16; y<46; y+=2) {
+    starts.add(Array.from({length:40},(_,i)=>-40+2*i).find(x=>full.has(`${x},${y}`)));
+    assert.ok(full.has(`30,${y}`), 'interior texture must not have holes');
   }
-  assert.equal(choices.size,9);
-  assert.equal(villageSoilTile(true,true,true,true),'soil11');
-  assert.equal(villageSoilTile(false,true,false,true),'soil00');
-  assert.equal(villageSoilTile(true,false,true,false),'soil22');
+  assert.ok(starts.size>10, 'the slanted edge does not snap to whole tile columns');
 });
 
 test('raster grass phase and variants agree across positive and negative chunk boundaries',()=>{

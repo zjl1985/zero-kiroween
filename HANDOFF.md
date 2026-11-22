@@ -1,5 +1,11 @@
 # Midnight Meow handoff
 
+## Homestead framing and ground follow-up
+
+The local pass starts at `15d176d`, which includes the generated environment and workshop from `ec1ff8d`. The landscape camera keeps the roofs in frame while the cat waits at spawn and smoothly gives that space back near the southern junction. Garden soil is sampled inside the authored outlines on a two-unit grid. Muted earth, small grass incursions and tamped porch walks tie the plots into the yard. Road edges sample both world axes and retain the existing road-union coverage.
+
+Checked the same seed and inputs at desktop and portrait sizes. Build and all 483 tests passed, along with 48 matched simulation checkpoints. See the [visual comparisons and verification](docs/PIXEL_ART_WORKSHOP.md#9-开场取景与土草边缘复核). iPhone frame timing still requires a device.
+
 ## Combat and screen composition follow-up
 
 The playtest of `d746c1f` prompted changes to attack motion, portrait legibility and paper surfaces. Meow Bolt now has a muzzle trace and a curved pulse with a directional impact. Moon Stars turn over along their actual orbit and sort by position. Star Fall reaches the ground on the damage step and then breaks apart. Temporary observations keyed by shot, enemy and impact let the renderer place the crease on the struck side and distinguish scorched, wet and torn fragments. The observations never enter a simulation snapshot or consume RNG.

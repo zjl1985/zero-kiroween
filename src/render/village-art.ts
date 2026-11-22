@@ -3,8 +3,9 @@
  * Synchronous row runs preserve workers / offline / Node, without an image-load race.
  */
 import { cachedSprite } from "../engine/sprite.js";
-import type { Ctx } from "./paper-material.js";
+import { mix, type Ctx } from "./paper-material.js";
 import type { ViewRect } from "./camera.js";
+import { visHash } from "./hash.js";
 import { VILLAGE_PALETTE, VILLAGE_PIXELS, type VillagePixels } from "./village-pixels.js";
 export type VillageAsset = keyof typeof VILLAGE_PIXELS;
 export const VILLAGE_PIXEL = 2;
@@ -31,21 +32,54 @@ export function drawVillageSprite(ctx: Ctx, key: VillageAsset, x: number, y: num
   ctx.restore();
 }
 
-/** Four directional neighbours select actual artist-drawn grass/soil corners.
- * Callers own the semantic footprint; this only dresses a static flat surface.
- */
-export function villageSoilTile(w: boolean, e: boolean, n: boolean, s: boolean): VillageAsset {
-  return `soil${!w ? 0 : !e ? 2 : 1}${!n ? 0 : !s ? 2 : 1}` as VillageAsset;
+const wrap = (value: number, size: number) => ((value % size) + size) % size;
+function surfaceIndex(key: "earth" | "meadow", x: number, y: number): number {
+  const { rows, width, height } = VILLAGE_PIXELS[key];
+  const row = wrap(Math.floor(y / VILLAGE_PIXEL), height);
+  const column = wrap(Math.floor(x / VILLAGE_PIXEL), width);
+  return rows[row]!.charCodeAt(column) - 33;
 }
-export function drawVillageSoil(ctx: Ctx, view: ViewRect, inside: (x: number, y: number) => boolean): void {
-  const step = VILLAGE_TILE, half = step / 2;
-  for (let y = Math.floor(view.y0 / step) * step; y < view.y1; y += step)
-    for (let x = Math.floor(view.x0 / step) * step; x < view.x1; x += step) {
-      if (!inside(x + half, y + half)) continue;
-      const w = inside(x - half, y + half), e = inside(x + step + half, y + half),
-        n = inside(x + half, y - half), s = inside(x + half, y + step + half);
-      drawVillageSprite(ctx, villageSoilTile(w, e, n, s), x, y);
+export function villageSurfaceColor(key: "earth" | "meadow", x: number, y: number): string {
+  return VILLAGE_PALETTE[surfaceIndex(key, x, y)]!;
+}
+export function villageEdgeGrain(x: number, y: number): number {
+  return visHash(Math.imul(x, 73856093) ^ Math.imul(y, 19349663));
+}
+
+/** Coalesce like-coloured pixels on the same world grid used by both surfaces. */
+export function* drawVillageRaster(ctx: Ctx, view: ViewRect, color: (x: number, y: number) => string): Generator<void> {
+  const step = VILLAGE_PIXEL;
+  const left = Math.floor(view.x0 / step) * step, right = Math.ceil(view.x1 / step) * step;
+  for (let y = Math.floor(view.y0 / step) * step; y < view.y1; y += step) {
+    let start = left, last = "";
+    for (let x = left; x <= right; x += step) {
+      const next = x === right ? "" : color(x, y);
+      if (next === last) continue;
+      if (last) {
+        ctx.fillStyle = last;
+        ctx.fillRect(start, y, x - start, step);
+      }
+      start = x;
+      last = next;
     }
+    if (y % 32 === 0) yield;
+  }
+}
+
+const GARDEN_SOIL = VILLAGE_PALETTE.map(color => color ? mix(color, "#423f2d", .36) : "");
+const GARDEN_EDGE = GARDEN_SOIL.map(color => color ? mix(color, "#64643a", .48) : "");
+/** The authored plot is sampled at each two-unit cell, including narrow tips.
+ * Small groups of meadow pixels show through along the inside edge. */
+export function drawVillageSoil(ctx: Ctx, view: ViewRect, inside: (x: number, y: number) => boolean): void {
+  for (const _ of drawVillageRaster(ctx, view, (x, y) => {
+    const px = x + VILLAGE_PIXEL / 2, py = y + VILLAGE_PIXEL / 2;
+    if (!inside(px, py)) return "";
+    const reach = 4;
+    const edge = !inside(px - reach, py) || !inside(px + reach, py) ||
+      !inside(px, py - reach) || !inside(px, py + reach);
+    if (edge && villageEdgeGrain(Math.floor(x / 4), Math.floor(y / 4)) < .37) return "";
+    return (edge ? GARDEN_EDGE : GARDEN_SOIL)[surfaceIndex("earth", x, y)]!;
+  })) { /* static ground bake */ }
 }
 /** Quiet lawn with clumps, not a repeating full-screen noise carpet. Each source
  * tile uses the same base green as the native underlay; foliage is a darker ramp.

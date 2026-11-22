@@ -39,12 +39,12 @@ export function groundWalk(ctx:Ctx, points:readonly GroundPoint[], half:number,c
 }
 export function drawHomesteadGround(ctx:Ctx):void{
   // Wear lies in front of the thresholds, never under or around the whole house.
-  groundShape(ctx,[[410,247],[427,249],[437,261],[425,270],[411,261]],"#5c6a52");
-  groundShape(ctx,[[676,246],[692,247],[691,258],[674,266],[666,259]],"#5c6a52");
-  for(const walk of HOUSE_WALKS){groundWalk(ctx,walk,8,"#4e6650");groundWalk(ctx,walk,4.5,"#65705a");}
+  groundShape(ctx,[[410,247],[427,249],[437,261],[425,270],[411,261]],"#716346");
+  groundShape(ctx,[[676,246],[692,247],[691,258],[674,266],[666,259]],"#716346");
+  for(const walk of HOUSE_WALKS){groundWalk(ctx,walk,8,"#626042");groundWalk(ctx,walk,4.5,"#7b6848");}
   // A few authored grass incursions break the shoulder in broad, unequal bites.
   // Not random stipple and not a complete contrasting outline around the soil.
-  groundShape(ctx,[[423,262],[429,263],[433,269],[426,267]],"#49664b");
-  groundShape(ctx,[[648,276],[656,273],[652,279],[643,281]],"#49664b");
-  groundShape(ctx,[[568,296],[580,295],[575,299],[566,300]],"#49664b");
+  groundShape(ctx,[[423,262],[429,263],[433,269],[426,267]],"#555a3c");
+  groundShape(ctx,[[648,276],[656,273],[652,279],[643,281]],"#555a3c");
+  groundShape(ctx,[[568,296],[580,295],[575,299],[566,300]],"#555a3c");
 }

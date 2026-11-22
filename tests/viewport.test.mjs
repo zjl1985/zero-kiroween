@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { boardLayout, viewport, VIEW_WIDTH, VIEW_HEIGHT } from "../dist/render/viewport.js";
-import { clampCamera, followCamera, viewRect } from "../dist/render/camera.js";
+import { clampCamera, createCamera, followCamera, viewRect } from "../dist/render/camera.js";
+import { createSim } from "../dist/game/sim.js";
 import { viewChunks } from "../dist/ui/journal-geometry.js";
 import { chunkIndex, chunkOf, WORLD } from "../dist/game/world-gen.js";
 test("pixel viewport fits 28 size / DPR combinations without stretching or wasting half the screen", () => {
@@ -64,4 +65,14 @@ test("following the cat near the town edges preserves portrait framing and the m
       assert.ok(seen.includes(chunkIndex(corner.cx, corner.cy)));
     }
   }
+});
+
+test("the landscape camera keeps the homestead roofs in view while the cat waits at spawn", () => {
+  const {player} = createSim({seed:7});
+  let cam = createCamera();
+  for (let i=0; i<120; i++) cam = followCamera(cam,player,1/60);
+  assert.ok(viewRect(cam).y0 <= 12, 'space remains above the roof ridges after settling');
+  const south = {x:player.x,y:680};
+  for (let i=0; i<120; i++) cam = followCamera(cam,south,1/60);
+  assert.ok(Math.abs(cam.y-(south.y-40)) < 1, 'the southern junction uses normal follow framing');
 });

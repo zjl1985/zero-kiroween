@@ -5,7 +5,7 @@ import { pathCenter } from "./scene.js";
 import { roadArrival } from "./homestead-layout.js";
 import type { Ctx } from "./paper-material.js";
 import type { ViewRect } from "./camera.js";
-import { VILLAGE_PALETTE, VILLAGE_PIXELS } from "./village-pixels.js";
+import { drawVillageRaster, villageEdgeGrain, villageSurfaceColor, VILLAGE_PIXEL } from "./village-art.js";
 export const ROAD_STOCK = { face:"#74603e", rim:"#52603a", bank:"#424d29", worn:"#6a5639", packed:"#806943" } as const;
 interface Segment { ax:number; ay:number; dx:number; dy:number; length2:number; width:number; }
 function segments(seed:number, view?:ViewRect):Segment[] {
@@ -62,29 +62,18 @@ export function openingRoadProfile(y:number):{center:number;width:number}{
 export function openingRoadDistance(x:number,y:number):number{
   const p=openingRoadProfile(y);return Math.abs(x-p.center)-p.width;
 }
-const mod=(v:number,n:number)=>((v%n)+n)%n;
 /** Artist-authored turf teeth are sampled inward from the UNION boundary.
  * Inside overlap, the deeper segment wins; no internal segment bank is drawn.
  * Both edge and earth pixels retain absolute world phase at every junction. */
 export function roadRasterColor(distance:number,x:number,y:number):string{
   if(distance>0)return "";
-  const px=Math.floor(x/2),py=Math.floor(y/2),earth=VILLAGE_PIXELS.earth;
-  // World-phased full generated texture, not a repeated sixteen-pixel stripe.
-  const turf=distance>-3 && mod(px*7+py*11,7)<(3+distance)*1.2;
-  const source=turf?VILLAGE_PIXELS.meadow:earth;
-  return VILLAGE_PALETTE[source.rows[mod(py,source.height)]!.charCodeAt(mod(px,source.width))-33]!;
+  const px = Math.floor(x / VILLAGE_PIXEL), py = Math.floor(y / VILLAGE_PIXEL);
+  const turf = distance > -3 && villageEdgeGrain(px, py) < (3 + distance) * .17;
+  return villageSurfaceColor(turf ? "meadow" : "earth", x, y);
 }
 export function* drawRasterRoad(ctx:Ctx,view:ViewRect,distance:(x:number,y:number)=>number):Generator<void>{
-  for(let y=Math.floor(view.y0/2)*2;y<view.y1;y+=2){
-    let start=Math.floor(view.x0/2)*2,last="";
-    const flush=(end:number)=>{if(last && end>start){ctx.fillStyle=last;ctx.fillRect(start,y,end-start,2);}};
-    for(let x=start;x<view.x1;x+=2){
-      const next=roadRasterColor(distance(x+1,y+1),x,y);
-      if(next!==last){flush(x);start=x;last=next;}
-    }
-    flush(Math.ceil(view.x1/2)*2);
-    if(y%32===0)yield;
-  }
+  const half = VILLAGE_PIXEL / 2;
+  yield* drawVillageRaster(ctx, view, (x,y) => roadRasterColor(distance(x + half, y + half), x, y));
 }
 export function* drawRoadNetwork(ctx:Ctx,seed:number,view:ViewRect):Generator<void>{
   const parts=segments(seed,view);if(!parts.length)return;

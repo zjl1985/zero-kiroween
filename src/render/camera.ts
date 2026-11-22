@@ -42,14 +42,26 @@ export function clampCamera(x: number, y: number, width?: number, height?: numbe
 export function createCamera(width?: number, height?: number): Camera {
   return clampCamera(SCREEN.width / 2, SCREEN.height / 2, width, height);
 }
+/** Keep some sky above the homesteads when the landscape camera settles at
+ * the opening. Give that space back gradually as the cat leaves the yard. */
+function openingLookNorth(x: number, y: number): number {
+  const smooth = (value: number) => {
+    const t = clampN(value, 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const yardWidth = smooth(Math.min(x, SCREEN.width - x) / 144);
+  const beforeJunction = smooth((610 - y) / 230);
+  return 72 * yardWidth * beforeJunction;
+}
 /** Moves `cam` toward `target` with a deadzone and frame-rate independent smoothing. */
 export function followCamera(cam: Camera, target: { x: number; y: number }, dt: number): Camera {
   const want = (c: number, t: number, dz: number) =>
     t > c + dz ? t - dz : t < c - dz ? t + dz : c;
   const { width, height } = cameraSize(cam);
+  const y = height <= SCREEN.height ? target.y - openingLookNorth(target.x, target.y) : target.y;
   const k = 1 - Math.exp(-CAMERA.smoothing * Math.max(0, dt)),
     wx = want(cam.x, target.x, CAMERA.deadzoneX * Math.min(1, width / SCREEN.width)),
-    wy = want(cam.y, target.y, CAMERA.deadzoneY * Math.min(1, height / SCREEN.height));
+    wy = want(cam.y, y, CAMERA.deadzoneY * Math.min(1, height / SCREEN.height));
   return clampCamera(cam.x + (wx - cam.x) * k, cam.y + (wy - cam.y) * k, cam.width, cam.height);
 }
 export interface ViewRect {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {roads} from '../dist/game/world-gen.js';
 import {drawRoadNetwork,roadRasterColor,worldRoadDistance} from '../dist/render/road-art.js';
+import {villageSurfaceColor} from '../dist/render/village-art.js';
 import {VILLAGE_PIXELS} from '../dist/render/village-pixels.js';
 function record(seed,view){
   const pixels=new Map(),ctx={fillStyle:'',fillRect(x,y,w,h){
@@ -27,6 +28,17 @@ test('junction texture and turf edges have identical world phase across independ
   const parts=[...record(7,{x0:400,y0:530,x1:480,y1:780}),...record(7,{x0:480,y0:530,x1:760,y1:780})];
   assert.deepEqual(new Map([...whole].sort()),new Map(parts.sort()));
   for(const [key,color] of whole){const [x,y]=key.split(',').map(Number);assert.equal(color,roadRasterColor(worldRoadDistance(7,x+1,y+1),x,y));}
+});
+test('an exposed road fringe varies within a single world row', () => {
+  const surfaces = new Set(), y = 18;
+  for (let x=-64; x<=64; x+=2) {
+    const earth = villageSurfaceColor('earth',x,y), meadow = villageSurfaceColor('meadow',x,y);
+    if (earth === meadow) continue;
+    const color = roadRasterColor(-1,x,y);
+    assert.ok(color===earth || color===meadow);
+    surfaces.add(color===earth?'earth':'meadow');
+  }
+  assert.deepEqual(surfaces,new Set(['earth','meadow']));
 });
 test('the round tree crop is one connected silhouette, without the unrelated floating ore row',()=>{
   const p=VILLAGE_PIXELS.tree0,opaque=new Set();

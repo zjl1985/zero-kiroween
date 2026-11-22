@@ -329,7 +329,7 @@ function* paintChunk(canvas: CanvasSurface, seed: number, cx: number, cy: number
   // sheets and their raised lawn bank are not part of this raster art direction:
   // those overlapping coloured panels caused rectangular mats at road junctions.
   yield* biomeGround(ctx, seed, x0, y0, x1, y1);
-  if (cy === 1 && (cx === 0 || cx === 1)) drawYardGardenExtension(ctx);
+  if (cy === 1 && (cx === 0 || cx === 1)) drawYardGardenExtension(ctx, seed);
   const waters = waterRegionsNear(seed, (x0 + x1) / 2, (y0 + y1) / 2, Math.max(c.w, c.h) / 2 + 24);
   for (const water of waters) {
     drawWaterGround(ctx, water);
