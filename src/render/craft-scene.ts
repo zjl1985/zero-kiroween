@@ -1,3 +1,5 @@
+import { HOMESTEADS, roadArrival } from "./homestead-layout.js";
+import { drawHomesteadGround } from "./homestead-ground.js";
 import { drawDistantLandscape } from "./pixel-distant-landscape.js";
 import { drawYardGarden, drawYardGroundMasses } from "./pixel-yard-garden.js";
 /** Pixel diorama scene. Static terrain and volume stacks are authored at one
@@ -15,12 +17,7 @@ import { pixelRect, pixelTerrainCluster } from "./pixel-terrain.js";
 export { LAMPS, YARD_PROPS };
 const W=960,H=540,SKY_H=250;
 /** Footings remain north of the playable boundary; no invisible new colliders. */
-export const OPENING_BUILDINGS = [
-  // Enlarge toward the skyline, compensating the depth projection so the
-  // front steps still meet the same north edge of the playable lawn.
-  {kind:"barn",x:390,y:207,s:1.4,seed:0},
-  {kind:"cottage",x:660,y:205,s:1.5,seed:71},
-] as const;
+export const OPENING_BUILDINGS = HOMESTEADS;
 let background:CanvasSurface|undefined, skyCanvas:CanvasSurface|undefined;
 export interface GroundLamp { x:number;y:number;s?:number; }
 const q=(n:number)=>Math.round(n/2)*2;
@@ -98,9 +95,10 @@ function buildStartYard():CanvasSurface{
   const c=surface(W,H),ctx=c.getContext("2d")!;ctx.imageSmoothingEnabled=false;
   horizonHills(ctx,0,W);groundTile(ctx,0,0,W,H,LAMPS,true,true);
   drawYardGroundMasses(ctx);
+  drawHomesteadGround(ctx);
   // Original opening route centre remains identical; only its raster materials change.
   for(let y=245;y<H;y++){
-    const join=Math.max(0,Math.min(1,(y-480)/60)),
+    const join=roadArrival((y-480)/60),
       center=pathCenter(y)*(1-join)+START_ROAD_EXIT.x*join,
       width=(14+(y-225)*.038)*(1-join)+START_ROAD_EXIT.width*join;
     pixelRect(ctx,center-width-3,y,width*2+6,1,ROAD_STOCK.bank);
@@ -123,12 +121,16 @@ function buildStartYard():CanvasSurface{
     pixelPolygon(ctx, [[x - 28*s,y + 9*s], [x + 23*s,y + 6*s],
       [x + 56*s,y + 31*s], [x + 18*s,y + 43*s], [x - 18*s,y + 31*s]], "#293c4b");
   }
-  pixelPolygon(ctx, [[304,245],[311,248],[350,270],[343,278],[306,254]], "#293c4b");
-  pixelPolygon(ctx, [[744,245],[751,247],[797,274],[788,281],[746,255]], "#293c4b");
+  for(const [x,y,s] of [[291,254,.67],[763,251,.65]]){
+    pixelPolygon(ctx, [[x!-4*s!,y!],[x!+4*s!,y!],[x!+48*s!,y!+25*s!],
+      [x!+37*s!,y!+31*s!],[x!-2*s!,y!+5*s!]], "#293c4b");
+  }
   ctx.restore();
-  tree(ctx,304,250,1.05,10);tree(ctx,746,250,1.13,7);tree(ctx,505,258,.5,11);
+  tree(ctx,284,233,.87,8);tree(ctx,316,219,.67,9);
+  tree(ctx,775,225,.9,7);tree(ctx,809,240,.72,6);
   tree(ctx,99,247,.8,8);tree(ctx,872,243,.78,6);
   for(const b of OPENING_BUILDINGS)drawPixelDecor(ctx,b.kind,b.x,b.y,b.s,b.seed);
+  tree(ctx,291,254,.67,10);tree(ctx,763,251,.65,11);
   for(const [x,y,s,seed] of [[540,280,.7,31],[846,274,.68,41]])pumpkin(ctx,x!,y!,s!,seed!);
   candles(ctx,112,261,.8);
   for(const [x,y] of [[915,370],[892,380],[46,398]])stone(ctx,x!,y!,x!>900?1.6:.8,x!);

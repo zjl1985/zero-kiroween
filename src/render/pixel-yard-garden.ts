@@ -1,3 +1,5 @@
+import { groundShape } from "./homestead-ground.js";
+import { CROP_PATCHES } from "./homestead-layout.js";
 import type { Ctx } from "./paper-material.js";
 
 type GardenPixel=(x:number,y:number,w:number,h:number,c:string)=>void;
@@ -58,218 +60,69 @@ function borderLeaves(r:GardenPixel,x:number,y:number,lean=0):void {
   r(x-2,y-2,9,3,"#5d7547");r(x-8,y-3,5,1,"#8b9763");
 }
 
-/** Join broad terrain bands with one-pixel stepped contours. The authored
- * masses keep their shape without exposing the rectangle grid used to lay them out. */
-function terrainBands(ctx: Ctx, color: string, rows: readonly (readonly number[])[]): void {
-  ctx.fillStyle=color;
-  for(let i=0;i<rows.length;i++){
-    const [x,y,w,h]=rows[i]! as readonly [number,number,number,number];
-    const before=rows[i-1],after=rows[i+1];
-    const prev=before && before[1]!+before[3]===y ? before : undefined;
-    const next=after && y+h===after[1] ? after : undefined;
-    const l0=prev?(prev[0]!+x)/2:x,l1=next?(next[0]!+x)/2:x;
-    const r0=prev?(prev[0]!+prev[2]!+x+w)/2:x+w,r1=next?(next[0]!+next[2]!+x+w)/2:x+w;
-    for(let dy=0;dy<h;dy++){
-      const t=(dy+.5)/h;
-      const cap=Math.min(5,w/5,h/3);
-      const inset=Math.max(!prev?cap-dy:0,!next?cap-(h-1-dy):0,0);
-      const left=Math.round(l0+(l1-l0)*t+(x===0?0:inset));
-      const right=Math.round(r0+(r1-r0)*t-(x+w===960?0:inset));
-      if(right>left)ctx.fillRect(left,y+dy,right-left,1);
-    }
-  }
-}
-
 /** Static, walkable garden dressing for the 960 × 540 opening yard.
  * Call inside the yard's existing background bake, behind actors and props.
  * All placement is authored on an integer grid; no simulation RNG or images.
  */
 export function drawYardGarden(ctx: Ctx): void {
   ctx.save();
-  const r=(x:number,y:number,w:number,h:number,c:string)=>{
-    ctx.fillStyle=c;ctx.fillRect(x,y,w,h);
-  };
-  // One generous cultivated plot per side, rather than separate framed strips.
-  // Broad soil shapes stay flush with the lawn and leave the route untouched.
-  terrainBands(ctx,"#585e4a",[[257,331,145,20],[250,351,163,29],
-    [252,380,164,29],[263,409,145,23],[283,432,108,12]]);
-  terrainBands(ctx,"#535a42",[[264,340,134,25],[260,365,145,34],
-    [270,399,132,29],[289,428,92,7]]);
-  const wheatRows=[[274,346,10],[265,361,12],[270,377,11],[273,393,11],[286,410,9],[302,426,6]] as const;
-  for(const [row,[start,y,count]] of wheatRows.entries()){
-    r(start-5,y+4,count*11,2,"#48533d");
-    for(let col=0;col<count;col++){
-      // A short harvested pocket and uneven row ends make one recognisable
-      // field silhouette; variation is authored in groups, not random dots.
-      if(row===4&&col>5&&col<8)continue;
-      const lift=[0,-3,-2,1,2,0][Math.floor(col/2)%6]!;
-      ripeWheat(r,start+col*11,y+lift,(row+Math.floor(col/3))%3);
+  const r:GardenPixel=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);};
+  for(const patch of CROP_PATCHES){
+    groundShape(ctx,patch.outline,"#58604a");
+    for(const [row,[x,y,count]] of patch.rows.entries()){
+      // Missing harvested groups make larger breathing pockets, not random holes.
+      for(let col=0;col<count;col++){
+        if(patch.kind==="wheat" && row===1 && col>=4 && col<=6)continue;
+        const xx=x+col*(patch.kind==="wheat"?12:17),yy=y+[0,-2,0,1][col%4]!;
+        if(patch.kind==="wheat")ripeWheat(r,xx,yy,(row+Math.floor(col/3))%3);
+        else if(row===0)ripeTomato(r,xx,yy);
+        else matureCabbage(r,xx,yy,row%2);
+      }
     }
   }
-  // A single kitchen garden with staggered mature foliage and a broad earth
-  // walk through its middle. Short young rosettes interrupt the full cabbages.
-  terrainBands(ctx,"#585d4a",[[619,335,112,18],[607,353,143,27],
-    [606,380,149,30],[615,410,132,26],[632,436,98,9]]);
-  const vegetables=[[625,352,7],[617,369,8],[620,400,8],[632,419,7]] as const;
-  for(const [row,[start,y,count]] of vegetables.entries()){
-    r(start-6,y+4,count*16,2,"#4c543e");
-    for(let col=0;col<count;col++){
-      const xx=start+col*16,yy=y+[0,2,-2,0][col%4]!;
-      if(row===1||row===2&&col>4)ripeTomato(r,xx,yy);
-      else if((row===3&&col<2)||(row===0&&col===4))borderLeaves(r,xx,yy,1);
-      else matureCabbage(r,xx,yy,(row+col)%3===0?1:0);
-    }
-  }
-  // Continuous low leaf shoulders, with a few flower groups only at the
-  // foreground ends. This avoids a necklace of detached bright decorations.
-  for(const [start,y,count,step] of [[252,422,5,13],[286,444,5,13],
-    [746,421,4,-13],[719,443,5,-13]] as const){
-    for(let i=0;i<count;i++)borderLeaves(r,start+i*step,y+(i%3)*3,i%3-1);
-  }
-  for(const [x,y] of [[303,485],[611,485]] as const){
-    terrainBands(ctx,"#4d5b42",[[x-7,y-7,104,12],[x-13,y+5,119,15],[x,y+20,93,8]]);
-    for(let row=0;row<3;row++)for(let col=0;col<7-row;col++){
-      const xx=x+col*15+row*6,yy=y+row*10+(col%3===1?2:0);
-      if(row===0||col===0)borderLeaves(r,xx,yy,1);
-      else flowerMass(r,xx,yy,col<3?1:0);
-    }
-  }
+  // Unequal planted shoulders bind courts to fields. Keep the centre lane quiet.
+  for(const [x,y,lean] of [[322,280,-1],[345,286,0],[715,288,1],[738,298,1],
+    [252,364,-1],[257,389,0],[279,421,1],[320,441,0],[739,413,1],[715,438,0]] as const)
+    borderLeaves(r,x,y,lean);
+  groundShape(ctx,[[290,469],[326,456],[373,470],[394,494],[370,517],[320,515],[286,494]],"#4d6048");
+  for(const [x,y] of [[305,482],[323,477],[345,485],[363,490],[325,501],[345,505]] as const)flowerMass(r,x,y,0);
+  // East foreground stays mostly open grass: no mirrored flower bed.
+  for(const [x,y] of [[728,480],[746,484],[737,498]] as const)borderLeaves(r,x,y,1);
   ctx.restore();
 }
 
-/** Second row of walkable farm plots. Draw after biome ground and before real
- * water/roads; chunk clipping is supplied by the caller. Central x450..600 stays
- * free of planted beds, including the downward continuation of the main lane. */
+/** The same curved soil/leaf language continues below the screen boundary.
+ * All marks are flat, walkable dressing; real roads/water are painted after us. */
 export function drawYardGardenExtension(ctx: Ctx): void {
   ctx.save();
-  const r=(x:number,y:number,w:number,h:number,c:string)=>{
-    ctx.fillStyle=c;ctx.fillRect(x,y,w,h);
-  };
-  const bank=(x:number,y:number,w:number,h:number)=>{
-    r(x+3,y+3,w-6,h-5,"#565e49");
-    r(x+7,y+h-2,w-14,1,"#50583f");
-  };
-  // Wide pasture tongues carry the upper lawn into the lower farm. Each
-  // silhouette follows a fine stepped contour; later roads/water own all route
-  // geometry, while the surrounding brown biome remains visible beyond it.
-  terrainBands(ctx, "#49664b",[
-    [250,540,194,29],[254,569,190,32],[250,601,190,35],
-    [258,636,184,39],[250,675,192,38],[257,713,184,37],
-    [269,750,172,35],[282,785,157,38],[290,823,147,36],
-    [300,859,137,36],[310,895,123,29],[325,924,102,24],[342,948,70,12],
-    [601,540,149,33],[606,573,144,35],[600,608,150,39],
-    [603,647,147,40],[601,687,149,42],[607,729,143,40],
-    [611,769,139,38],[617,807,133,40],[619,847,131,38],
-    [624,885,126,35],[634,920,107,24],[649,944,76,16],
-  ]);
-  terrainBands(ctx, "#53634e",[
-    [276,561,153,31],[269,592,166,47],[274,639,162,43],
-    [278,682,157,49],[285,731,143,30],[301,761,119,21],
-    [625,578,105,28],[618,606,122,42],[615,648,128,49],
-    [622,697,120,50],[628,747,110,35],[643,782,88,20],
-  ]);
-  // Green shoulders and clear grass crossings tie the planting areas together.
-  terrainBands(ctx, "#4d6b4d",[
-    [254,556,27,34],[255,633,21,43],[263,743,24,43],
-    [286,801,35,50],[306,899,38,27],[724,553,26,39],
-    [733,643,17,53],[731,771,19,50],[720,873,30,38],
-  ]);
-  // Cultivated margins widen between the lower allotments and flower drifts.
-  // Their long contours bridge the green/brown transition without inventing
-  // a separate raised island or a hard perimeter around the farm.
-  terrainBands(ctx,"#4b6146",[
-    [273,751,148,26],[284,777,141,26],[294,803,132,29],
-    [300,832,126,33],[313,865,109,28],
-    [617,779,134,26],[621,805,130,28],[623,833,126,30],[629,863,116,28],
-  ]);
-  terrainBands(ctx,"#56604c",[[268,540,166,57],[256,597,180,61],
-    [260,658,176,67],[278,725,154,55],[299,780,126,37],
-    [618,540,126,64],[610,604,142,72],[612,676,142,75],[627,751,119,57]]);
-  // Long beds run east/west here, alternating standing crop with recently
-  // cut rows. A grass cross-path bisects the field rather than duplicating
-  // the tightly packed five-row patch in the opening.
-  const rows=[
-    [259,598,166,0],[264,620,164,1],[259,642,172,0],
-    [272,683,157,1],[266,705,163,0],[277,727,152,1],
-  ] as const;
-  for(const [x,y,w,cut] of rows){
-    bank(x,y,w,17);r(x+7,y+12,w-14,1,"#46563e");
-    for(let col=0;col<12;col++){
-      const xx=x+8+col*12;if(xx>x+w-7)break;
-      if(cut){
-        // Stubble shows three clipped stalks, with a few short fallen stems
-        // all lying along the harvesting direction; no hay bales or obstacles.
-        r(xx,y+8,1,4,"#9a925e");r(xx+3,y+9,1,3,"#838452");
-        r(xx-2,y+10,1,2,"#b0a06a");
-        if(col%3===1){r(xx-2,y+4,6,1,"#9b935e");r(xx+1,y+5,4,1,"#7e8051");}
-      }else{
-        ripeWheat(r,xx,y+10+(col%4===0?1:0),(Math.floor(col/2)+cut+y)%3);
-
-      }
+  const r:GardenPixel=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);};
+  groundShape(ctx,[[250,540],[437,540],[433,639],[419,729],[398,813],[355,879],
+    [316,851],[283,774],[258,667]],"#49664b");
+  groundShape(ctx,[[601,540],[750,540],[758,631],[744,744],[703,849],[663,888],
+    [626,803],[611,698]],"#49664b");
+  groundShape(ctx,[[278,568],[365,558],[420,591],[425,643],[402,688],[329,712],[270,668]],"#59624d");
+  groundShape(ctx,[[634,610],[698,597],[738,629],[731,694],[706,737],[650,731],[624,680]],"#59624d");
+  // One harvested section and one standing crescent; no repeated full-width stripes.
+  for(let row=0;row<5;row++){
+    const start=281+[10,0,7,17,30][row]!,count=[7,10,9,7,4][row]!,y=589+row*20;
+    for(let col=0;col<count;col++){
+      const x=start+col*12;
+      if(row===2 || row===3 && col<3){r(x,y,1,4,"#929062");r(x+3,y+1,1,3,"#7d8556");}
+      else ripeWheat(r,x,y+(col%3===1?-2:0),Math.floor(col/3)%3);
     }
   }
-  // Low grass path links the harvested field to the central lane, with a
-  // handful of worn stepping patches only at the junction.
-  r(263,664,174,5,"#59614c");
-  for(const [x,y,w] of [[393,665,8],[408,666,10],[423,665,9],[433,675,7]] as const){
-    r(x,y,w,2,"#78815b");r(x+2,y,w-4,1,"#90946a");
-  }
-  // Right beds use a long north/south layout, with a small cross-walk and
-  // different crop heights. The left strip carries broad cabbage leaves,
-  // the central strip ripe tomatoes, the right strip bronze-leaf cabbage.
-  for(let col=0;col<3;col++){
-    const x=615+col*46;
-    for(const [y,h] of [[616,66],[700,78]] as const){
-      bank(x,y,35,h);
-      for(let row=0;row<(h===66?4:5);row++){
-        const yy=y+11+row*14;
-        for(const side of [-1,1]){
-          const xx=x+17+side*7;
-          if(col===1)ripeTomato(r,xx,yy);
-          else matureCabbage(r,xx,yy,col===2?1:0);
-
-        }
-      }
-    }
-  }
-  r(611,688,143,3,"#59614c");
-  for(const [x,y] of [[613,689],[628,691],[648,688]]){r(x!,y!,8,2,"#76805a");}
-  // The foreground ends in two broad low planting drifts, not scattered
-  // diagonal chains. Leafy backs frame the flowers; the walking lane is open.
-  for(const [origin,y] of [[310,851],[633,851]] as const){
-    terrainBands(ctx,"#4d6045",[[origin-10,y-8,91,16],[origin-15,y+8,108,20],[origin,y+28,78,12]]);
-    for(let row=0;row<4;row++)for(let col=0;col<6-(row===3?2:0);col++){
-      const xx=origin+col*15+(row%2)*4,yy=y+row*10;
-      if(row<2)borderLeaves(r,xx,yy,col%3-1);
-      else flowerMass(r,xx,yy,col<3?1:0);
-    }
-  }
+  for(const [x,y,count] of [[649,630,4],[642,651,5],[648,674,5],[657,697,4],[672,719,3]] as const)
+    for(let col=0;col<count;col++)(y<660?ripeTomato:matureCabbage)(r,x+col*16,y+(col%2)*2);
+  for(const [x,y] of [[280,708],[297,733],[321,747],[695,775],[714,753],[680,797],[345,801],[364,816]] as const)
+    borderLeaves(r,x,y,x<450?-1:1);
+  for(const [x,y] of [[355,846],[371,850],[681,847]] as const)flowerMass(r,x,y,0);
   ctx.restore();
 }
 
-/** Broad ground values unify the yard before roads and farm detail are drawn.
- * Pixel scanlines form soft-shaped, hard-edged grass and trampled-earth areas;
- * there are no outlines, shadows, water colors, or raised obstacle silhouettes. */
+/** Large connected pasture first; soil never becomes an outlined raised tile. */
 export function drawYardGroundMasses(ctx: Ctx): void {
-  ctx.save();
-  const fill=(color:string,rows:readonly (readonly [number,number,number,number])[])=>{
-    terrainBands(ctx,color,rows);
-  };
-  // Two connected homestead aprons establish the large-scale hierarchy:
-  // quiet green pasture outside, warm cultivated soil within, clear centre.
-  fill("#42634b",[[0,270,270,62],[0,332,255,70],[0,402,244,68],[0,470,268,70],
-    [749,270,211,66],[758,336,202,70],[769,406,191,74],[747,480,213,60]]);
-  fill("#536149",[[315,270,119,27],[289,297,150,34],[254,331,183,44],
-    [246,375,191,46],[261,421,175,46],[281,467,155,38],[302,505,135,35],
-    [628,274,78,28],[611,302,121,32],[601,334,159,45],
-    [601,379,167,46],[608,425,152,43],[611,468,144,36],[621,504,129,36]]);
-  fill("#56604c",[[333,279,81,26],[307,305,113,31],[274,336,147,45],
-    [268,381,152,44],[285,425,133,39],[306,464,112,40],[322,504,99,36],
-    [637,285,58,25],[624,310,99,31],[618,341,132,42],
-    [617,383,134,43],[628,426,116,38],[632,464,110,40],[637,504,102,36]]);
-  // Inner margins gradually narrow into the southern cultivated district;
-  // no isolated terraces, outlined islands, or planted centre-lane obstacles.
-  fill("#48654a",[[253,430,42,35],[267,465,45,36],[283,501,43,39],
-    [742,434,32,34],[732,468,34,36],[727,504,31,36]]);
-  ctx.restore();
+  groundShape(ctx,[[304,257],[358,261],[418,296],[436,352],[424,424],
+    [439,492],[437,540],[250,540],[252,463],[237,393],[250,328]],"#49664b");
+  groundShape(ctx,[[690,264],[735,290],[754,349],[768,426],[750,494],
+    [750,540],[601,540],[606,459],[594,392],[608,324],[634,288]],"#49664b");
 }

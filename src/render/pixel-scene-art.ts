@@ -1,3 +1,4 @@
+import { groundShape } from "./homestead-ground.js";
 import { candlesModel } from "./pixel-candles.js";
 import { barnModel } from "./pixel-barn.js";
 import { pumpkinModel } from "./pixel-pumpkin.js";
@@ -36,9 +37,9 @@ const foliage = [
 function model(kind: string, variant: number): PixelStackModel {
     const bush = kind === "bush", palettes = foliage[Math.abs(variant) % foliage.length]!;
     if (kind === "cottage")
-        return cottageModel(variant % 3);
+        return { ...cottageModel(variant % 3), groundShadow: { rx: 15, ry: 4, dx: 8, dy: 12 } };
     if (kind === "barn")
-        return barnModel();
+        return { ...barnModel(), groundShadow: { rx: 18, ry: 4, dx: 8, dy: 12 } };
     if (kind === "tree")
         return { ...treeModel(variant), groundShadow: { rx: 8, ry: 2.8, dx: 1, dy: 1 } };
     if (kind === "candles")
@@ -96,5 +97,13 @@ function model(kind: string, variant: number): PixelStackModel {
 export function drawPixelDecor(ctx: Ctx, kind: string, x: number, y: number, s = 1, seed = 0, turn?: number): void {
     const v = ((Math.trunc(seed) % 6) + 6) % 6;
     const building = kind === "cottage" || kind === "barn";
-    drawPixelStack(ctx, fineModel(model(kind, v)), { x, y, scale: (building ? .9 : 1) * s, turn: turn ?? (building ? -.58 : .22), squash: .75, shadow: !building });
+    if(building){
+      // Only a small threshold scuff accompanies the model. No enclosing
+      // coloured ground polygon: the scene's own earth remains visible.
+      ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(s,s);
+      ctx.globalAlpha *= .35;
+      groundShape(ctx,[[20,27],[33,25],[42,31],[34,37],[23,34]],"#69705a");
+      ctx.restore();
+    }
+    drawPixelStack(ctx, fineModel(model(kind, v)), { x, y, scale: (building ? .9 : 1) * s, turn: turn ?? (building ? -.58 : .22), squash: .75, shadow: true });
 }

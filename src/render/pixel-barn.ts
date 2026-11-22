@@ -2,8 +2,8 @@ import type { Ctx } from "./paper-material.js";
 import type { PixelStackModel } from "./pixel-stack.js";
 
 const EAVE = 26;
-const KNEE = 35;
-const RIDGE = 44;
+const KNEE = 32;
+const RIDGE = 39;
 const WALL_HALF = 20;
 const WALL_DEPTH = 18;
 
@@ -80,8 +80,8 @@ function sideBoards(x: number, y: number, z: number): string {
 function barnColor(x: number, y: number, z: number, half: number): string | undefined {
   if (z < 3) return foundation(x, y, z);
   if (z > RIDGE) {
-    if (z >= 46.5) return y < -3.5 ? "#445658" : "#798582";
-    if (Math.abs(x) < 1.5 && y >= 3.5 && z >= 45) return "#4d463f";
+    if (z >= 41.5) return y < -3.5 ? "#445658" : "#798582";
+    if (Math.abs(x) < 1.5 && y >= 3.5 && z >= 40) return "#4d463f";
     return x < -1 ? "#795751" : "#af7d5d";
   }
   const ax = Math.abs(x), ay = Math.abs(y);
@@ -91,9 +91,9 @@ function barnColor(x: number, y: number, z: number, half: number): string | unde
   const roofSkin = z >= KNEE ? 4 : 2.5;
   // The eaves shelter the recessed gable. A silhouette intersection alone
   // fills this open space, so remove the notches between the roof edges.
-  if (z >= 27 && z < 42.5 && pastGable && ax < half - roofSkin) return;
-  if (z >= EAVE && (ax >= half - roofSkin || pastGable || z >= 42.5)) {
-    if (z >= 42.5) return x < 0 ? "#87928d" : "#647577";
+  if (z >= 27 && z < RIDGE - 1.5 && pastGable && ax < half - roofSkin) return;
+  if (z >= EAVE && (ax >= half - roofSkin || pastGable || z >= RIDGE - 1.5)) {
+    if (z >= RIDGE - 1.5) return x < 0 ? "#87928d" : "#647577";
     if (ay >= 21) return y > 0 ? "#a89b81" : "#697574";
     if ((y + 22) % 7 < 1) return x < 0 ? "#697e80" : "#50686e";
     if (z === KNEE || z < 27) return x < 0 ? "#708182" : "#52696f";
@@ -110,7 +110,7 @@ function barnColor(x: number, y: number, z: number, half: number): string | unde
  * atlas bake paints these rows. Live frames stamp the cached projection. */
 export function barnModel(): PixelStackModel {
   return {
-    id: "scene:barn:gambrel-hull", width: 60, depth: 48, count: 48,
+    id: "scene:barn:low-gambrel-hull", width: 60, depth: 48, count: 43,
     paint(ctx: Ctx, z: number) {
       const [back, front] = sideSpan(z);
       const gable = Math.round(gableHalf(z) * 2);

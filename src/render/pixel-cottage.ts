@@ -9,8 +9,10 @@ export function cottageModel(variant: number): PixelStackModel {
         { lit: "#957486", mid: "#866579", dark: "#523f5a", joint: "#74576b", edge: "#af9098" },
         { lit: "#648e8f", mid: "#587f83", dark: "#365863", joint: "#486c76", edge: "#87a6a1" },
     ][v]!;
-    const timber = "#68504b", beamLight = "#92755b", plaster = "#d9c8aa", sideWall = "#b7ab9b";
-    return { id: `scene:cottage:porch:${v}`, width: 50, depth: 48, count: 53, paint(c: Ctx, z: number) {
+    const timber = "#62564d", beamLight = "#8b8166", plaster = "#b4b39b", sideWall = "#929d91";
+    return { id: `scene:cottage:low-eaves:${v}`, width: 50, depth: 48, count: 46, paint(c: Ctx, slice: number) {
+            // Keep the inhabited storey full-height; shorten only roof/chimney.
+            const z = slice < 28 ? slice : 28 + (slice - 28) * 1.42;
             const r = (x: number, y: number, w: number, d: number, color: string) => {
                 c.fillStyle = color;
                 c.fillRect(Math.round(x * 2), Math.round(y * 2), Math.max(1, Math.round(w * 2)), Math.max(1, Math.round(d * 2)));
