@@ -71,5 +71,6 @@ function drawSketch(ctx: Ctx, e: EnemyState, time: number, _look: Look): void {
 export const SKETCH_ART: EnemyArt = {
   id: "sketch",
   draw: drawSketch,
+  previewBounds: { l: -22, r: 23, t: -33, b: 8 },
   dissolve: { flakes: [PAPER, LIGHT, GRAPHITE, "#fffaf0"], count: 8 },
 };

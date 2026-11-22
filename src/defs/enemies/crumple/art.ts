@@ -86,6 +86,7 @@ function drawCrumple(ctx: Ctx, e: EnemyState, time: number, look: Look): void {
 }
 export const CRUMPLE_ART: EnemyArt = {
   id: "crumple", draw: drawCrumple,
+  previewBounds: { l: -23, r: 23, t: -32, b: 8 }, crownY: -40,
   dissolve: { flakes: ["#e8dcc4", "#d9c9ab", "#f2e8d4", "#b9a582"], count: 14, start: 0.35, uncrumple: true },
   effects: {
     crumple(ctx, e, { ease }) {

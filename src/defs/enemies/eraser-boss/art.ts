@@ -209,6 +209,7 @@ export const ERASER_BOSS_ART: EnemyArt = {
   id: "eraser-boss",
   draw: drawEraser,
   cullMargin: 80,
+  previewBounds: { l: -50, r: 50, t: -91, b: 8 },
   ground(ctx, e, look) {
     // Behind the block the page is rubbed back to blank paper: a pale smear with rubbed streaks.
     if (e.spawnTime <= 0) {

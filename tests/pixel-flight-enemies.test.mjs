@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {drawPixelWashEnemy} from '../dist/render/pixel-wash-enemy.js';
 import {drawPixelPaperBat} from '../dist/render/pixel-paper-bat.js';
+import {drawPixelCrumple} from '../dist/render/pixel-crumple.js';
+import {drawPixelSketchEnemy} from '../dist/render/pixel-sketch-enemy.js';
+import {drawPixelKiroGhost} from '../dist/render/pixel-kiro-ghost.js';
+import {drawPixelEraserBoss} from '../dist/render/pixel-eraser-boss.js';
 // Raster occupancy independently guards detached foliage and cache clipping.
 function raster() {
   const pixels=new Set(), stack=[];let state={x:0,y:0,sx:1,sy:1,fillStyle:'#123456'};
@@ -31,4 +35,40 @@ test(`${name} keeps animated and washed body connected and inside its sprite`,()
     if(name==='paper bat')for(const p of pixels){const[x,y]=p.split(',').map(Number);if(Math.abs(x)<=7)assert.ok(y>=-28,`wing overlaps crown at ${p}`);}
     assert.equal(ctx.fillStyle,'#123456');assert.deepEqual(stack,[]);
   }
+});
+
+for (const [name, draw, bounds, grounded, poses] of [
+  ['crumple',drawPixelCrumple,[-22,-31,22,2],true,[false]],
+  ['pencil sketch',drawPixelSketchEnemy,[-21,-32,21,2],true,[false]],
+  ['ghost',drawPixelKiroGhost,[-23,-43,24,-3],false,[false]],
+  ['eraser',drawPixelEraserBoss,[-48,-90,49,2],true,['idle','sweep','charge','summon']],
+]) test(`${name} has connected pixel poses that fit the atlas through wash states`, () => {
+  const [left,top,right,bottom] = bounds, silhouettes = [];
+  for (const pose of poses) for (const wash of [0,.5,1]) {
+    const pair = [];
+    for (const frame of [0,1]) {
+      const {ctx,pixels,stack} = raster();
+      draw(ctx,frame,pose,wash);
+      assert.ok(pixels.size>160);
+      const seen = new Set([pixels.values().next().value]), queue = [...seen];
+      let touchesGround = false;
+      for (let i=0; i<queue.length; i++) {
+        const [x,y] = queue[i].split(',').map(Number);
+        assert.ok(x>=left && x<right && y>=top && y<bottom, `pixel ${x},${y} exceeded bounds`);
+        touchesGround ||= y >= -1;
+        for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const neighbor = `${x+dx},${y+dy}`;
+          if (pixels.has(neighbor) && !seen.has(neighbor)) { seen.add(neighbor); queue.push(neighbor); }
+        }
+      }
+      assert.equal(seen.size,pixels.size,'no disconnected limbs or texture fragments');
+      assert.equal(touchesGround,grounded,'the authored character uses the same foot or hover height');
+      assert.deepEqual(stack,[]);
+      assert.equal(ctx.fillStyle,'#123456');
+      pair.push([...pixels].sort().join('|'));
+    }
+    assert.notEqual(pair[0],pair[1],'both native poses change silhouette');
+    if (wash===0) silhouettes.push(pair[0]);
+  }
+  assert.equal(new Set(silhouettes).size,poses.length,'different attack poses have distinct silhouettes');
 });

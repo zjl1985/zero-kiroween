@@ -491,3 +491,13 @@ The captures live under `output/pixel-asset-review/`.
 - `edition-weapon-material.png`, `paper-crate-combat-final-{states,burnt}.png`, `edition-title-final-{desktop,phone}.png` and `edition-flow-nicole-upgrade.png` show material details and UI.
 
 `npm run build` and all 463 tests passed. The gallery showed zero gloss violations and page errors, with 127 scenery and prop boundary checks passing. The baseline and updated simulations produced identical hashes for 48 snapshots across two cats and seeds 7 and 22. Each run followed the same 1,800 fixed inputs. This commit is local.
+
+## Remaining enemy bodies and Eraser poses
+
+Against `6ecd965`, Crumple gains uneven crushed facets and a grounded compression pose. Pencil Sketch has paired graphite lines, hatching and two articulated strides. Kiro Ghost has a folded underside and asymmetric hems. The Eraser's worn rubber and rolled card sleeve have separate top, front and side planes. Its sweep extends an arm, its charge drops onto the forward boot, and its summon raises both hands. These poses come from the real action, and direction mirrors the body from the same cached pixels. Reduced motion holds the body frame and still shows the active pose and its warning.
+
+The raster checks caught an isolated pixel at the Sketch's ear and a boot that detached in one Eraser frame. Both were joined in the art. The first ghost hit capture also showed a contact mark under the floating sheet. The crease now lands on the ghost's body, the bat's lower section and the Eraser's sleeve. The tests cover 42 frame, pose and palette combinations for connectivity, nominal grounding and sprite bounds.
+
+The local review output is `output/pixel-asset-review/enemy-detail-{baseline,final}-{crumple,sketch,kiro-ghost,eraser-boss}.png`. Each nine-panel sheet uses the actual game painter at native and enlarged scale. The `world-desktop`, `world-phone` and `world-phone-reduced` captures use seed 7 with twelve staged enemies, wet and scorched examples, a crowned Crumple, and the existing Eraser and Wash Drip warnings. Chromium captured these fixtures without page errors and the draw preserved the fixture state. The fixture is a controlled comparison, with a complete live Boss fight and iPhone Safari performance still unmeasured.
+
+`npm run build`, all 488 tests and `git diff --check` passed. Forty-eight fixed-input simulation checkpoints match `6ecd965`. The gallery gloss check reports zero violations and all 127 scenery boundary probes pass. This pass is a local commit.

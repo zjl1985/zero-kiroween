@@ -103,5 +103,6 @@ export const KIRO_GHOST_ART: EnemyArt = {
   id: "kiro-ghost",
   draw: drawGhost,
   cullMargin: 60,
+  previewBounds: { l: -25, r: 25, t: -44, b: 8 },
   dissolve: { flakes: [STOCK, "#e7dff0", VIOLET, "#c9a7ff"], count: 10 },
 };

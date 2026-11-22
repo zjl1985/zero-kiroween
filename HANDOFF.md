@@ -1,5 +1,11 @@
 # Midnight Meow handoff
 
+## Remaining enemy bodies
+
+The latest local pass gives Crumple, Pencil Sketch, Kiro Ghost and the Eraser dedicated native pixel bodies. Crumple compresses against the ground, Sketch alternates full strides, and the ghost changes the shape of its hem. The Eraser uses its actual sweep, charge and summon actions to select its pose. The existing attack geometry and timing still come from the simulation. Ink Blob, Paper Bat, Smudge and Wash Drip retain their earlier dedicated painters.
+
+Compared native and enlarged views for each body and an identical twelve-enemy scene at desktop and phone sizes. `npm run build` and all 488 tests passed. See [the enemy review](docs/pixel-asset-review.md#remaining-enemy-bodies-and-eraser-poses) for captures, state checks and device limits.
+
 ## Homestead framing and ground follow-up
 
 The local pass starts at `15d176d`, which includes the generated environment and workshop from `ec1ff8d`. The landscape camera keeps the roofs in frame while the cat waits at spawn and smoothly gives that space back near the southern junction. Garden soil is sampled inside the authored outlines on a two-unit grid. Muted earth, small grass incursions and tamped porch walks tie the plots into the yard. Road edges sample both world axes and retain the existing road-union coverage.

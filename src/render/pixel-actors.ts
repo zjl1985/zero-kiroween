@@ -2,6 +2,10 @@ import { drawPixelWashEnemy } from "./pixel-wash-enemy.js";
 import { drawPixelPaperBat } from "./pixel-paper-bat.js";
 import { drawPixelInkBlob } from "./pixel-ink-blob.js";
 import { drawPixelSmudge } from "./pixel-smudge.js";
+import { drawPixelCrumple } from "./pixel-crumple.js";
+import { drawPixelSketchEnemy } from "./pixel-sketch-enemy.js";
+import { drawPixelKiroGhost } from "./pixel-kiro-ghost.js";
+import { drawPixelEraserBoss, type PixelEraserPose } from "./pixel-eraser-boss.js";
 /** Native pixel actor painters. Shapes are authored on integer grids, never
  * rasterised from the archived paper paths. Simulation state is read only.
  */
@@ -309,99 +313,30 @@ export function pixelCatArt(art: CatArt): CatArt {
   return adapted;
 }
 
-const ENEMY_GRIDS: Readonly<Record<string, readonly string[]>> = {
-  "ink-blob": ["....######....", "..##llllll##..", ".#llllllllll#.", "#llmmmmmmmlll#", "#lmmWWmmWWmll#", "#mmmWWmmWWmmm#", "#mmmmmmmmmmmm#", ".#mmmmm##mmmm#", ".#mmmmmmmmmm#.", "..###mmm###...", ".##..###..##.."],
-  "paper-bat": ["#......................#", "##........##..........##", "#l##.....#ll#.......##l#", "#lll##..#llll#....##lll#", ".#llll###lWWl###lllll#.", "..#lmmmm#lWWl#mmmml#..", "...##mmm#mmmm#mmm##...", ".....#mm#mmmm#mm#.....", "......##.####.##......", ".........#..#........."],
-  crumple: [".....####.....", "..###llll##...", ".#lllllmmmll#.", "#llllmmllllll#", "#llmmllllmmll#", "#lmlWllWllmll#", "#mmllmllllmll#", "#lmmmllllmmll#", ".#lllmmmllll#.", ".#mmllllmmm#..", "..##llllll#...", "....######...."],
-  smudge: ["......########......", "...###llllllll###...", ".##llmmmmmmmmllll##.", "#lllmmWWmmmmWWmmlll#", "#mmmmmWWmmmmWWmmmmm#", ".#mmmmmmmmmmmmmmmm#.", "..##mmmmm##mmmmm##..", "###.############.###"],
-  "kiro-ghost": [".....######.....", "...##llllll##...", "..#llllllllll#..", ".#llllllllllll#.", "#lllmmmmmmlllll#", "#lllWWllWWlllll#", "#lllWWllWWlllll#", "#llllllllllllll#", ".#lllllmmllllll#", ".#lllllllllllll#", "#lllllllllllll#.", "#lll##lll##lll#.", ".###..###..###.."],
-  wash: [".......##.......", "......#ll#......", ".....#llll#.....", "....#llllll#....", "...#llllllll#...", "..#lllWWWWlll#..", ".#llllWllWllll#.", "#lllllWWWWlllll#", "#llmmllllllmmll#", "#lmmmmWWWWmmmml#", ".#mmmmmmmmmmmm#.", "..#mmmmmmmmmm#..", "...##########..."],
-  sketch: ["..##......##..", ".#ll#....#ll#.", "#llll####llll#", "#llllmllmllll#", "#llWWllllWWll#", "#llWmllllmWll#", "#llllmmmmllll#", ".#llllmmllll#.", "..#llllllll#..", "..##llllll##..", ".#..######..#."],
+type EnemyPose = PixelEraserPose | "windup";
+type EnemyBody = (ctx: Ctx, frame: number, attack: boolean, wash: number) => void;
+const ENEMY_BODIES: Readonly<Partial<Record<string, EnemyBody>>> = {
+  "ink-blob": drawPixelInkBlob, "paper-bat": drawPixelPaperBat,
+  crumple: drawPixelCrumple, smudge: drawPixelSmudge,
+  "kiro-ghost": drawPixelKiroGhost, wash: drawPixelWashEnemy, sketch: drawPixelSketchEnemy,
 };
-const ENEMY_COLORS: Readonly<Record<string, readonly [string, string, string]>> = {
-  "ink-blob": ["#675487", "#3a345b", "#edc973"], "paper-bat": ["#a981aa", "#614b7f", "#ffd681"],
-  crumple: ["#d6d3ba", "#849795", "#243344"], smudge: ["#976280", "#51334f", "#f5bd72"],
-  "kiro-ghost": ["#faf2e5", "#a591d4", "#7135bb"], wash: ["#86c9cd", "#39798b", "#26374d"],
-  sketch: ["#d8d0ae", "#81908f", "#364555"],
-};
-function enemySprite(art: EnemyArt, frame: number, attack: boolean) {
+function enemySprite(art: EnemyArt, frame: number, pose: EnemyPose) {
   const wash = liveSketchStep();
-  return cachedSprite(`pixel-enemy:${art.id}:${frame}:${attack}:${wash}`, 104, 112, 1, c => {
+  return cachedSprite(`pixel-enemy:${art.id}:${frame}:${pose}:${wash}`, 104, 112, 1, c => {
     c.translate(52, 104);
-    if (art.id === "wash") { drawPixelWashEnemy(c,frame,attack,wash); return; }
-    if (art.id === "paper-bat") { drawPixelPaperBat(c,frame,attack,wash); return; }
-    if (art.id === "ink-blob") { drawPixelInkBlob(c,frame,attack,wash); return; }
-    if (art.id === "smudge") { drawPixelSmudge(c,frame,attack,wash); return; }
-    if (art.id === "eraser-boss") {
-      block(c, -30, -85, 60, 73, INK); block(c, -26, -88, 52, 8, INK);
-      block(c, -26, -84, 52, 68, wash ? "#bbb9aa" : "#c88592"); block(c, -22, -83, 42, 12, wash ? "#ddd7bc" : "#e8b0b5");
-      block(c, 18, -72, 8, 51, wash ? "#787e79" : "#99657e");
-      rimBox(c, -29, -58, 58, 35, wash ? "#717f83" : "#4a6c8d", "#9cb8c7");
-      block(c, -22, -52, 44, 3, "#7f9fb4"); block(c, -22, -32, 44, 2, "#243f60");
-      for (const x of [-15, 5]) { block(c, x, -69, 10, 7, INK); block(c, x + 2, -68, 4, 2, "#ffd782"); }
-      block(c, -9, -39, 18, 3, LIGHT); block(c, -5, -43, 10, 11, LIGHT);
-      // Worn eraser bevel and a stitched sleeve: broad material planes first,
-      // then restrained one-pixel edges and label lettering.
-      block(c, -24, -81, 2, 19, "#f2c5c1"); block(c, -21, -84, 37, 1, "#f5d4c8");
-      block(c, 24, -78, 2, 17, "#83596f"); block(c, -24, -61, 48, 2, "#a66e83");
-      block(c, -25, -56, 1, 29, "#b6c8cb"); block(c, 25, -55, 2, 29, "#2f4c6a");
-      block(c, -21, -49, 42, 1, "#345474"); block(c, -21, -28, 42, 1, "#8fa6b5");
-      for (let i = 0; i < 7; i++) {
-        block(c, -19 + i * 6, -54, 2, 1, "#c2cdd1");
-        block(c, -19 + i * 6, -26, 2, 1, "#263e58");
-      }
-      block(c, -18, -44, 4, 1, "#b7cad1"); block(c, -18, -42, 3, 1, "#b7cad1");
-      block(c, 14, -38, 4, 1, "#b7cad1"); block(c, 15, -36, 3, 1, "#b7cad1");
-      block(c, -2, -42, 2, 8, "#fff6dc"); block(c, -7, -38, 14, 1, "#d7c49c");
-      block(c, -7, -62, 14, 1, "#724b61"); block(c, -4, -61, 8, 1, "#f0bec0");
-      for (const side of [-1, 1]) {
-        rimBox(c, side < 0 ? -40 : 27, -44 - (attack ? 8 : frame * 2), 13, 25, "#b2758a");
-        rimBox(c, side < 0 ? -24 : 6, -15 + side * (frame ? 2 : -2), 18, 13, "#35475d");
-        const handX = side < 0 ? -40 : 27, handY = -44 - (attack ? 8 : frame * 2),
-          bootX = side < 0 ? -24 : 6, bootY = -15 + side * (frame ? 2 : -2);
-        block(c, handX + 2, handY + 3, 2, 14, "#d49aa1");
-        block(c, handX + 3, handY + 19, 7, 1, "#795369");
-        block(c, handX + 6, handY + 20, 1, 3, "#795369");
-        block(c, bootX + 3, bootY + 3, 10, 2, "#627c91");
-        block(c, bootX + 2, bootY + 10, 14, 1, "#192b40");
-      }
-      if (attack) { block(c, -16, -74, 12, 3, "#f3765c"); block(c, 5, -74, 12, 3, "#f3765c"); }
-      return;
-    }
-    const rows = ENEMY_GRIDS[art.id] ?? ENEMY_GRIDS["ink-blob"], colors = wash >= 1 ? ["#d8d0ae", "#81908f", "#364555"] : wash > 0 ? ["#afa99e", "#6d7580", "#d8c99d"] : ENEMY_COLORS[art.id] ?? ENEMY_COLORS["ink-blob"],
-      width = Math.max(...rows.map(row => row.length)) * 2;
-    const ox = -width / 2, oy = -rows.length * 2 - (frame ? 1 : 0);
-    grid(c, rows, { "#": INK, l: colors[0], m: colors[1], W: colors[2] }, ox, oy);
-    // Resolve the two-pixel silhouette into single-pixel bevels at material
-    // boundaries. These follow form, never scatter random texture over a face.
-    const glint = wash ? "#e8dfc9" : art.id === "wash" ? "#d6f0df" : art.id === "kiro-ghost" ? "#fffdf0" : "#c8b7c3";
-    rows.forEach((row, j) => {
-      for (let i = 0; i < row.length; i++) {
-        const cell = row[i], x = ox + i * 2, y = oy + j * 2;
-        if (cell === "l") {
-          if (j > 0 && rows[j - 1][i] === "#") block(c, x, y, 2, 1, glint);
-          if (row[i + 1] === "#") block(c, x + 1, y, 1, 2, colors[1]);
-          if (rows[j + 1]?.[i] === "m") block(c, x, y + 1, 2, 1, colors[1]);
-        } else if (cell === "W" && row[i - 1] !== "W") {
-          // Upper catchlight and lower pupil distinguish eyes from flat squares.
-          if (rows[j - 1]?.[i] !== "W") block(c, x, y, 1, 1, LIGHT);
-          if (rows[j + 1]?.[i] !== "W") block(c, x + 1, y + 1, 1, 1, INK);
-        }
-      }
-    });
-    if (art.id === "kiro-ghost") {
-      block(c, -10, oy + 8, 1, 6, glint); block(c, -2, oy + 18, 4, 1, colors[1]);
-      block(c, -1, oy + 19, 2, 2, colors[1]);
-    }
-    if (attack) { block(c, -7, -rows.length * 2 - 4, 14, 2, "#f18e66"); }
+    if (art.id === "eraser-boss") drawPixelEraserBoss(c, frame, pose === "windup" ? "idle" : pose, wash);
+    else (ENEMY_BODIES[art.id] ?? drawPixelInkBlob)(c, frame, pose !== "idle", wash);
   }, { x: 0.5, y: 104 / 112 });
 }
+const CREASE_Y: Readonly<Partial<Record<EnemyState["kind"], number>>> = {
+  "paper-bat": -14, "kiro-ghost": -21, "eraser-boss": -29,
+};
 /** Contact marks stay on the lower body, below identifying eyes. The exact
  * incoming vector chooses the struck side; unknown contacts stay neutral. */
 function enemyCrease(ctx: Ctx, e: EnemyState, radius: number, hit: number): void {
   const contact = enemyContact(e), family = contact?.family,
     dx = contact?.dx ?? 0, dy = contact?.dy ?? 0,
-    x = Math.round(-dx * radius * .5), y = Math.round(-radius * .65 - dy * radius * .2);
+    x = Math.round(-dx * radius * .5), y = Math.round((CREASE_Y[e.kind] ?? -radius * .65) - dy * radius * .2);
   ctx.save(); ctx.globalAlpha *= Math.min(1, hit * 3);
   if (family === "wash" || family === "brush") {
     block(ctx, x - 3, y - 2, 6, 3, "#69878b");
@@ -456,8 +391,12 @@ export function pixelEnemyArt(art: EnemyArt): EnemyArt {
     ctx.save(); ctx.globalAlpha *= 0.35;
     block(ctx, e.x - 10, e.y - 1, 20, 3, art.dissolve.flakes[0]); ctx.restore();
   } : undefined, draw(ctx, e, time) {
-    const frame = reducedPaperMotion() || (e.stun ?? 0) > 0 ? 0 : Math.floor(time * 7 + e.id % 2) % 2,
-      attack = (e.windup ?? 0) > 0 || !!e.act && e.act.t > 0;
+    const frame = reducedPaperMotion() || (e.stun ?? 0) > 0 ? 0 : Math.floor(time * 7 + e.id % 2) % 2;
+    const act = e.act;
+    const pose: EnemyPose = act && (act.t > 0 || act.run > 0) ? act.kind : (e.windup ?? 0) > 0 ? "windup" : "idle";
+    // The sweep extends its left arm; the charge leans right. Mirror these
+    // authored poses along the actual locked attack direction.
+    const mirror = act && ((pose === "charge" && act.dx < 0) || (pose === "sweep" && act.dx > 0));
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(e.x), Math.round(e.y));
     if (e.spawnTime > 0) {
       ctx.globalAlpha *= 0.6;
@@ -465,7 +404,7 @@ export function pixelEnemyArt(art: EnemyArt): EnemyArt {
       block(ctx, -17, -1, 3, 3, LIGHT); block(ctx, 14, -1, 3, 3, LIGHT);
     } else {
       shadow(ctx, art.id === "eraser-boss" ? 30 : 13);
-      const sprite = enemySprite(art, frame, attack), hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / .14)),
+      const sprite = enemySprite(art, frame, pose), hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / .14)),
         contact = hit > 0 ? enemyContact(e) : undefined, t = 1 - hit,
         press = reducedPaperMotion() || hit <= 0 ? 0 : t < .6 ? .1 * (1 - t / .6) : -.035 * Math.sin((t - .6) / .4 * Math.PI),
         horizontal = contact && Math.abs(contact.dx) > Math.abs(contact.dy);
@@ -473,8 +412,10 @@ export function pixelEnemyArt(art: EnemyArt): EnemyArt {
       ctx.scale(horizontal ? 1 - press : 1 + press * .5, horizontal ? 1 + press * .5 : 1 - press);
       // Fixed cool edge lifts the upper silhouette from dark grass. Its finite
       // sprite tint is cached, while no hit strength enters a cache key.
+      if (mirror) ctx.scale(-1, 1);
       tintedSprite(sprite, "#a5a9a4", .38).draw(ctx, { x: -1, y: -1 });
       sprite.draw(ctx, { x: 0, y: 0 });
+      if (mirror) ctx.scale(-1, 1);
       if (hit > 0) enemyCrease(ctx, e, ENEMIES[e.kind].radius, hit);
       ctx.restore();
       const max = enemyMaxHp(e);

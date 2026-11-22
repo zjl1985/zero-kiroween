@@ -237,6 +237,26 @@ test("registered enemies reuse finite pixel sprites across static times, positio
   assert.equal(spriteCacheSize(), count);
 });
 
+test("the Eraser paints distinct attack poses from its real action and keeps the charge pose while moving", (t) => {
+  environment(t);
+  const draw = (act) => {
+    const ctx = canvas().getContext("2d");
+    const enemy = Object.freeze({ id:2, kind:"eraser-boss", x:60, y:140, hp:420, spawnTime:0,
+      ...(act && {act:Object.freeze({ x:60, y:140, dy:0, ...act })}) });
+    drawCraftEnemy(ctx, enemy, 0, {x:80,y:140});
+    restored(ctx);
+    return {body:images(ctx).at(-1).args[0], mirrored:ctx.calls.some(c=>c.op==="scale" && c.args[0]===-1)};
+  };
+  const idle = draw(), sweep = draw({kind:"sweep",dx:-1,t:.35,run:0});
+  const charge = draw({kind:"charge",dx:1,t:.35,run:0}), summon = draw({kind:"summon",dx:1,t:.35,run:0});
+  assert.equal(new Set([idle.body,sweep.body,charge.body,summon.body]).size,4);
+  assert.deepEqual(draw({kind:"charge",dx:1,t:0,run:.22}),charge);
+  const leftCharge = draw({kind:"charge",dx:-1,t:0,run:.22});
+  assert.equal(leftCharge.body,charge.body,"direction reuses the same finite sprite");
+  assert.equal(leftCharge.mirrored,true);
+  assert.equal(draw({kind:"sweep",dx:1,t:.35,run:0}).mirrored,true);
+});
+
 test("weapon flight, stars and rings retain negative space without live texture loops", (t) => {
   environment(t);
   const ctx = canvas().getContext("2d");
