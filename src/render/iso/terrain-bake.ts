@@ -14,9 +14,10 @@
  */
 import { CHUNK, WORLD } from "../../game/world-gen.js";
 import { surface, type CanvasSurface } from "../../engine/surface.js";
-import { prepareTerrainField, type FieldBox } from "./terrain-field.js";
-import { MATERIAL_SURFACE, surfaceRgb } from "./surface-texture.js";
-import { rampColour } from "./palette.js";
+import { prepareTerrainField, type FieldBox, type TerrainSample } from "./terrain-field.js";
+import { MATERIAL_SURFACE, SURFACE_RAMP, surfaceRgb } from "./surface-texture.js";
+import { rampColour, type Rgb } from "./palette.js";
+import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
 import { toScreen, toWorld } from "./projection.js";
 
 type Ctx = CanvasRenderingContext2D;
@@ -63,20 +64,21 @@ export function blockTouchesWorld(col: number, row: number): boolean {
 
 const inWorld = (x: number, y: number) => x >= WORLD.minX && x < WORLD.maxX && y >= WORLD.minY && y < WORLD.maxY;
 
+/** Ground colour of screen pixel (px, py) at world point (x, y) with field sample `s`. */
+function groundRgb(seed: number, px: number, py: number, x: number, y: number, s: TerrainSample, sample: Sampler): Rgb {
+  const surface = MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
+  return (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface])) || surfaceRgb(seed, surface, px, py);
+}
+
 /**
  * Pure ground pixel at absolute screen pixel (px, py) for `seed`, sampled at
  * the pixel centre: [r, g, b, a], transparent outside WORLD. `sample` is a
  * terrain field (materialAt or a prepared field covering the point).
  */
-export function isoGroundPixel(
-  seed: number,
-  px: number,
-  py: number,
-  sample: (x: number, y: number) => { material: keyof typeof MATERIAL_SURFACE },
-): readonly [number, number, number, number] {
+export function isoGroundPixel(seed: number, px: number, py: number, sample: Sampler): readonly [number, number, number, number] {
   const w = toWorld(px + 0.5, py + 0.5);
   if (!inWorld(w.x, w.y)) return [0, 0, 0, 0];
-  const [r, g, b] = surfaceRgb(seed, MATERIAL_SURFACE[sample(w.x, w.y).material], px, py);
+  const [r, g, b] = groundRgb(seed, px, py, w.x, w.y, sample(w.x, w.y), sample);
   return [r, g, b, 255];
 }
 
@@ -88,7 +90,7 @@ export function* bakeBlockRows(seed: number, col: number, row: number, out: Uint
     for (let x = 0; x < BLOCK_W; x++) {
       const px = ox + x, py = oy + y, w = toWorld(px + 0.5, py + 0.5), i = (y * BLOCK_W + x) * 4;
       if (!inWorld(w.x, w.y)) { out[i + 3] = 0; continue; }
-      const rgb = surfaceRgb(seed, MATERIAL_SURFACE[field(w.x, w.y).material], px, py);
+      const rgb = groundRgb(seed, px, py, w.x, w.y, field(w.x, w.y), field);
       out[i] = rgb[0]; out[i + 1] = rgb[1]; out[i + 2] = rgb[2]; out[i + 3] = 255;
     }
     if ((y + 1) % ISO_BLOCK.sliceRows === 0) yield;

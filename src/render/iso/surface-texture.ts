@@ -56,7 +56,7 @@ export function diamondPixel(px: number, py: number): DiamondPixel {
 }
 
 /** Render-only integer hash of a local texel to [0, 1). */
-function texHash(a: number, b: number, salt: number): number {
+export function texHash(a: number, b: number, salt: number): number {
   let s = Math.imul(a | 0, 0x27d4eb2f) ^ Math.imul(b | 0, 0x165667b1) ^ Math.imul(salt | 0, 0x9e3779b9);
   s = Math.imul(s ^ (s >>> 15), 0x85ebca6b);
   s = Math.imul(s ^ (s >>> 13), 0xc2b2ae35);
