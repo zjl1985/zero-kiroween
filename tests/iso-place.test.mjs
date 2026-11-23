@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { atFoot, depthSort, onGround } from "../dist/render/iso/place.js";
+import { UPRIGHT_SCALE, atFoot, depthSort, onGround } from "../dist/render/iso/place.js";
 import { ISO_PIPELINE, depthKey, snap, toScreen } from "../dist/render/iso/projection.js";
 import { createIsoCamera, isoWorldCamera, viewWorldPolygon } from "../dist/render/iso/iso-camera.js";
 import { paintMinimap } from "../dist/render/journal-ui.js";
@@ -12,19 +12,21 @@ function recorder() {
   return { calls, ctx: new Proxy({}, { get: (_, key) => (...args) => calls.push([key, ...args]) }) };
 }
 
-test("atFoot moves an upright painter to its projected foot by whole pixels only", () => {
+test("atFoot puts an upright painter's foot on its projected whole pixel at the half upright scale", () => {
+  assert.equal(UPRIGHT_SCALE, 0.5);
   for (const [x, y] of [[0, 0], [480, 270], [-311.4, 902.7], [5279.5, 0.5]]) {
     const { ctx, calls } = recorder();
     let painted = false;
     atFoot(ctx, x, y, () => { painted = true; });
     assert.ok(painted);
     const ops = calls.map((c) => c[0]);
-    assert.deepEqual(ops, ["save", "translate", "restore"], "no skew, rotation or scale");
-    const [, dx, dy] = calls[1];
-    assert.ok(Number.isInteger(dx) && Number.isInteger(dy), "the pixel lattice is kept");
+    assert.deepEqual(ops, ["save", "translate", "scale", "translate", "restore"], "no skew or rotation");
+    const [, fx, fy] = calls[1], [, sx, sy] = calls[2], [, bx, by] = calls[3];
+    assert.ok(Number.isInteger(fx) && Number.isInteger(fy), "the foot lands on a whole pixel");
     const s = toScreen(x, y);
-    assert.equal(snap(x) + dx, snap(s.x));
-    assert.equal(snap(y) + dy, snap(s.y));
+    assert.deepEqual([fx, fy], [snap(s.x), snap(s.y)]);
+    assert.deepEqual([sx, sy], [UPRIGHT_SCALE, UPRIGHT_SCALE]);
+    assert.deepEqual([bx, by], [-snap(x), -snap(y)], "the painter's world foot maps onto it");
   }
 });
 

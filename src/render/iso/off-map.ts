@@ -9,7 +9,7 @@ import { cachedSprite } from "../../engine/sprite.js";
 import { WORLD } from "../../game/world-gen.js";
 import { visHash } from "../hash.js";
 import { mix } from "../pixel-art.js";
-import { depthKey, toScreen, toWorld } from "./projection.js";
+import { ISO, depthKey, toScreen, toWorld } from "./projection.js";
 import { isoPath } from "./ground.js";
 import { paintBlurred } from "./blur.js";
 import { surface } from "../../engine/surface.js";
@@ -20,7 +20,7 @@ export const OFF_MAP = {
   /** Screen block size of the cache (projected pixels). */
   block: 256,
   /** Fog cell size inside a block (projected pixels). */
-  cell: 4,
+  cell: 2,
   /** World units past the edge where the tree wall stands and the fog closes in. */
   wall: { from: 10, to: 300 },
   /** World grid step for tree candidates, and the share of candidates that grow a tree. */
@@ -37,7 +37,7 @@ export const OFF_MAP = {
   /** Fog veil over the background strip north of WORLD.playTop: bands and peak alpha at y = 0. */
   veil: { bands: 4, alpha: 0.28, color: "#1c2d40" },
   /** Cache-time blur of each block: the pre-blurred far layer of the fake depth of field (plan 8.3). */
-  blur: { radius: 1, passes: 2 },
+  blur: { radius: 1, passes: 1 },
 } as const;
 
 /** World units outside the WORLD rectangle (0 inside). */
@@ -77,7 +77,7 @@ export function blockTrees(bx: number, by: number): Tree[] {
       if (d < from || d > to) continue;
       const s = toScreen(x, y);
       if (s.x < x0 || s.x > x1 || s.y < y0 || s.y > y1) continue;
-      const fog = (d - from) / (to - from), h = Math.round(38 + visHash(seed + 3) * 34 - fog * 10), r = Math.round(h * 0.34);
+      const fog = (d - from) / (to - from), h = Math.round((38 + visHash(seed + 3) * 34 - fog * 10) * ISO.k), r = Math.round(h * 0.34);
       // The whole crown stays off the map, so the ground never cuts a tree.
       if (!offMapAt(s.x - r, s.y - h) || !offMapAt(s.x + r, s.y - h) || !offMapAt(s.x - r, s.y) || !offMapAt(s.x + r, s.y)) continue;
       out.push({ sx: s.x, sy: s.y, h, r, fog, seed });
@@ -97,7 +97,7 @@ function paintTree(c: Ctx, t: Tree, ox: number, oy: number): void {
   const x = Math.round(t.sx - ox), y = Math.round(t.sy - oy), fogAt = OFF_MAP.fog[3];
   const tone = (col: string) => mix(col, fogAt, t.fog * 0.75);
   c.fillStyle = tone(OFF_MAP.trunk);
-  c.fillRect(x - 2, y - Math.round(t.h * 0.3), 4, Math.round(t.h * 0.3));
+  c.fillRect(x - 1, y - Math.round(t.h * 0.3), 2, Math.round(t.h * 0.3));
   for (let tier = 0; tier < 3; tier++) {
     const top = y - t.h + Math.round(tier * t.h * 0.22), w = Math.round(t.r * (0.55 + tier * 0.25)), rows = Math.round(t.h * 0.3);
     for (let row = 0; row < rows; row += 2) {

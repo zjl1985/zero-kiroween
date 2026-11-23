@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  ambientRgb, drawLighting, gatherLights, IMPACT_LIGHT, LIGHTING, lightFrame, spotPixels,
+  bloomPixels, dawnTint, drawLighting, frameLightBuffer, gatherLights, IMPACT_LIGHT, LIGHTING, lightFrame, spotPixels,
 } from "../dist/render/iso/lighting.js";
-import { boxBlurRGBA } from "../dist/render/iso/blur.js";
+import { UPRIGHT_SCALE } from "../dist/render/iso/place.js";
 import { isoYardPieces } from "../dist/render/iso/yard-models.js";
 import { toScreen } from "../dist/render/iso/projection.js";
 import { createSim } from "../dist/game/sim.js";
@@ -13,8 +13,8 @@ import { FIRE } from "../dist/defs/fire.js";
 
 // Command and pixel contracts only; the light buffer was not viewed in a browser.
 const view = (over = {}) => ({
-  project: (x, y) => { const s = toScreen(x, y); return { x: s.x + 480, y: s.y + 270 }; },
-  zoom: 1, width: 960, height: 540, focus: { x: 0, y: 0 }, dawn: 0, time: 1.3, reduced: false, ...over,
+  project: (x, y) => { const s = toScreen(x, y); return { x: s.x + 240, y: s.y + 135 }; },
+  zoom: 1, width: 480, height: 270, focus: { x: 0, y: 0 }, dawn: 0, time: 1.3, reduced: false, ...over,
 });
 function recorder() {
   const calls = [], state = { globalAlpha: 1, globalCompositeOperation: "source-over", fillStyle: "#000", imageSmoothingEnabled: true }, stack = [];
@@ -38,40 +38,48 @@ test("the light count is capped and higher priorities survive the cap", () => {
 test("sources beyond the cull distance, off the view or without power are dropped", () => {
   const near = { kind: "lamp", x: 10, y: 10 };
   const far = { kind: "lamp", x: LIGHTING.cull + 40, y: 0 };
-  const offView = { kind: "window", x: -600, y: 600, z: 0 };
+  const offView = { kind: "window", x: -1200, y: 1200, z: 0 };
   const dark = { kind: "lantern", x: 5, y: 5, power: 0 };
   const frame = lightFrame([near, far, offView, dark], view());
   assert.equal(frame.lights.length, 1);
-  assert.deepEqual([frame.lights[0].sx, frame.lights[0].sy], [480, 280]);
-  // Height lifts the glow centre; zoom scales spots.
+  assert.deepEqual([frame.lights[0].sx, frame.lights[0].sy], [240, 140]);
+  // Height lifts the glow centre (in upright art units, so at UPRIGHT_SCALE); zoom scales spots.
   const lifted = lightFrame([{ kind: "lamp", x: 0, y: 0, z: 30 }], view({ zoom: 2 })).lights[0];
-  assert.equal(lifted.sy, 270 - 60);
+  assert.equal(lifted.sy, 135 - 60 * UPRIGHT_SCALE);
   assert.equal(lifted.scale, 2);
 });
 
-test("nothing is composited when there is nothing to light; no spots means one ambient fill", () => {
+test("no ambient multiply: nothing runs at night without lights, dawn is one low tint, spots go through an additive buffer", () => {
   const none = recorder();
-  assert.equal(drawLighting(none, { ambient: [255, 255, 255], lights: [] }, 960, 540), "none");
+  assert.equal(drawLighting(none, { dawn: 0, lights: [] }, 480, 270), "none");
   assert.equal(none.calls.length, 0);
-  const ambient = recorder();
-  assert.equal(drawLighting(ambient, { ambient: ambientRgb(0), lights: [] }, 960, 540), "ambient");
-  const fills = ambient.calls.filter((c) => c.op === "fillRect");
+  assert.equal(frameLightBuffer(), undefined, "no light buffer for the colour split");
+  const tint = recorder();
+  assert.equal(drawLighting(tint, { dawn: 1, lights: [] }, 480, 270), "tint");
+  const fills = tint.calls.filter((c) => c.op === "fillRect");
   assert.equal(fills.length, 1);
-  assert.equal(fills[0].globalCompositeOperation, "multiply");
-  assert.ok(!ambient.calls.some((c) => c.op === "drawImage"), "no buffer without spots");
-  // With spots: the buffer gets ambient + additive spots, then one multiply drawImage onto the scene.
-  const target = recorder(), bctx = recorder(), canvas = { width: 960, height: 540 };
-  const spot = { image: { spot: true }, width: 10, height: 6 };
-  const frame = lightFrame([{ kind: "lamp", x: 0, y: 0 }, { kind: "fire", x: 20, y: 0 }], view());
-  assert.equal(drawLighting(target, frame, 960, 540, { buffer: { canvas, ctx: bctx }, spot: () => spot }), "buffer");
+  assert.equal(fills[0].globalCompositeOperation, "source-over");
+  assert.ok(fills[0].globalAlpha > 0 && fills[0].globalAlpha <= LIGHTING.dawn.alpha);
+  assert.ok(!tint.calls.some((c) => c.op === "drawImage"), "no buffer without spots");
+  // With spots: the buffer is cleared, gets additive spots and blooms, then one additive drawImage onto the scene.
+  const target = recorder(), bctx = recorder(), canvas = { width: 480, height: 270 };
+  const spot = { image: { spot: true }, width: 10, height: 6 }, bloom = { image: { bloom: true }, width: 4, height: 4 };
+  const frame = lightFrame([{ kind: "lamp", x: 0, y: 0 }, { kind: "fire", x: 20, y: 0 }, { kind: "window", x: 0, y: 20 }], view());
+  assert.equal(drawLighting(target, frame, 480, 270, { buffer: { canvas, ctx: bctx }, spot: () => spot, bloom: () => bloom }), "buffer");
+  const all = [...target.calls, ...bctx.calls];
+  assert.ok(!all.some((c) => c.globalCompositeOperation === "multiply"), "no multiply anywhere");
   const draws = target.calls.filter((c) => c.op === "drawImage");
   assert.equal(draws.length, 1);
   assert.equal(draws[0].args[0], canvas);
-  assert.equal(draws[0].globalCompositeOperation, "multiply");
-  const spots = bctx.calls.filter((c) => c.op === "drawImage");
-  assert.equal(spots.length, 2);
-  assert.ok(spots.every((c) => c.globalCompositeOperation === "lighter" && c.globalAlpha > 0 && c.globalAlpha <= 1));
+  assert.equal(draws[0].globalCompositeOperation, "lighter");
+  assert.ok(bctx.calls.some((c) => c.op === "clearRect"), "the buffer starts black");
+  const spots = bctx.calls.filter((c) => c.op === "drawImage" && c.args[0] === spot.image);
+  assert.equal(spots.length, 3);
+  const blooms = bctx.calls.filter((c) => c.op === "drawImage" && c.args[0] === bloom.image);
+  assert.equal(blooms.length, 2, "lamp and fire bloom, windows do not");
+  assert.ok([...spots, ...blooms].every((c) => c.globalCompositeOperation === "lighter" && c.globalAlpha > 0 && c.globalAlpha <= 1));
   assert.ok(spots.every((c) => c.args.slice(1).every(Number.isInteger)), "spots sit on whole pixels");
+  assert.equal(frameLightBuffer(), canvas, "this frame's buffer is offered to the retro colour split");
 });
 
 test("lighting is deterministic, flicker comes from the time bucket and reduced motion holds it still", () => {
@@ -84,26 +92,36 @@ test("lighting is deterministic, flicker comes from the time bucket and reduced 
   const still = [0.1, 0.6, 2.7].map((time) => lightFrame(sources, view({ time, reduced: true })));
   assert.deepEqual(still[0], still[1]);
   assert.deepEqual(still[0], still[2]);
-  // Ambient: cool blue-purple at night, warmer at dawn.
-  const [r, g, bl] = ambientRgb(0), [r1, , b1] = ambientRgb(1);
-  assert.ok(bl > r && bl > g, "night ambient leans blue");
-  assert.ok(r1 > r && r1 >= b1, "dawn ambient warms");
-  assert.deepEqual(ambientRgb(NaN), ambientRgb(0));
+  // Dawn: no tint at night, a warm low-alpha tint at full dawn.
+  assert.equal(dawnTint(0).alpha, 0);
+  assert.equal(dawnTint(NaN).alpha, 0);
+  const [dr, , db] = LIGHTING.dawn.rgb;
+  assert.ok(dawnTint(1).alpha > 0 && dawnTint(1).alpha <= 0.25 && dr > db, "dawn warms");
 });
 
-test("light spots are pre-blurred stepped ellipses, pure of the kind", () => {
+test("light spots are Bayer-dithered stepped ellipses, pure of the kind", () => {
   const p = spotPixels("lamp"), q = spotPixels("lamp");
   assert.deepEqual(p.data, q.data);
-  const k = LIGHTING.kinds.lamp, at = (x, y) => p.data[(y * p.width + x) * 4 + 3];
-  assert.ok(at(p.width / 2, p.height / 2) > 200, "bright centre");
-  assert.equal(at(0, 0), 0, "clear corner");
-  assert.ok(p.width > 2 * k.rx && p.height > 2 * k.ry);
-  // Blur softens a hard edge and keeps alpha-free pixels colourless.
-  const d = new Uint8ClampedArray(8 * 1 * 4);
-  for (let i = 4; i < 8; i++) d.set([255, 128, 0, 255], i * 4);
-  boxBlurRGBA(d, 8, 1, 1, 1);
-  assert.ok(d[3 * 4 + 3] > 0 && d[3 * 4 + 3] < 255, "edge is soft");
-  assert.equal(d[3 * 4], 255, "premultiplied blur keeps the colour");
+  const k = LIGHTING.kinds.lamp, red = (x, y) => p.data[(y * p.width + x) * 4];
+  assert.equal(p.width, 2 * k.rx);
+  assert.equal(p.height, 2 * k.ry);
+  assert.ok(red(p.width / 2, p.height / 2) >= k.rgb[0] * 0.6, "bright centre");
+  assert.equal(red(0, 0), 0, "black (no light) corner");
+  // Stepped: only a few distinct levels; dithered: a band edge mixes two levels in a 4 x 4 cell.
+  const levels = new Set();
+  for (let i = 0; i < p.data.length; i += 4) levels.add(p.data[i]);
+  assert.ok(levels.size <= LIGHTING.bands + 1, `${levels.size} levels`);
+  let mixed = 0;
+  for (let y = 0; y + 4 <= p.height; y += 4) for (let x = 0; x + 4 <= p.width; x += 4) {
+    const cell = new Set();
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) cell.add(red(x + i, y + j));
+    if (cell.size > 1) mixed++;
+  }
+  assert.ok(mixed > 4, "band edges are dithered");
+  // Every opaque pixel is a straight colour (additive black is a no-op), so no blur halo.
+  for (let i = 3; i < p.data.length; i += 4) assert.ok(p.data[i] === 0 || p.data[i] === 255);
+  const b = bloomPixels();
+  assert.ok(b.width <= 16 && b.data[((b.height / 2) * b.width + b.width / 2) * 4] > 0, "a small bright bloom core");
 });
 
 test("frame sources: lamps, yard windows, decor, lit pumpkins, lanterns, fire cells and skill hits", () => {
@@ -127,11 +145,15 @@ test("frame sources: lamps, yard windows, decor, lit pumpkins, lanterns, fire ce
 
 test("lighting runs after the scene and before the screen overlays, with no per-frame filter or randomness", () => {
   const src = (p) => readFileSync(new URL(`../src/render/${p}`, import.meta.url), "utf8");
-  for (const name of ["iso/lighting.ts", "iso/blur.ts"]) {
+  for (const name of ["iso/lighting.ts", "iso/blur.ts", "iso/retro.ts"]) {
     const text = src(name);
     assert.doesNotMatch(text, /Math\.random|\.filter\s*=|shadowBlur|createRadialGradient/, name);
   }
   const world = src("world.ts"), light = world.indexOf("drawLighting("), restore = world.lastIndexOf("ctx.restore();", light);
   assert.ok(light > 0 && restore > world.indexOf("drawPlaybillStage"), "after the camera-space scene");
-  assert.ok(light < world.indexOf("drawNavArrows(ctx") && light < world.indexOf("drawCueScreen(ctx") && light < world.indexOf("drawFrame(ctx"));
+  // The screen UI moved to the presentation pass, after the retro layer.
+  const present = world.indexOf("export function presentWorld"), retro = world.indexOf("drawRetro(ctx", present);
+  assert.ok(present > 0 && retro > present);
+  assert.ok(retro < world.indexOf("drawNavArrows(ctx", present) && retro < world.indexOf("drawCueScreen(ctx", present) && retro < world.indexOf("drawFrame(ctx", present));
+  assert.ok(!world.slice(world.indexOf("function drawWorldFrame")).includes("drawNavArrows(ctx, sim, camera"), "no UI in the native scene");
 });

@@ -29,7 +29,7 @@ const play = {
 };
 
 test("view sizes include desktop and portrait", () => {
-  assert.deepEqual(sizes[0], { width: 960, height: 540 });
+  assert.deepEqual(sizes[0], { width: 480, height: 270 });
   assert.ok(sizes[1].height > sizes[1].width);
 });
 

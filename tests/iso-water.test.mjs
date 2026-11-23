@@ -6,7 +6,7 @@ import {
   drawIsoGround, drawIsoWater, isoGroundPixel, isoRipplePixel,
 } from "../dist/render/iso/terrain-bake.js";
 import { ISO_WATER, rippleFrame, rippleRgb, waterRgb } from "../dist/render/iso/water-layers.js";
-import { neighbourMaterial } from "../dist/render/iso/transitions.js";
+import { TRANSITION, neighbourMaterial } from "../dist/render/iso/transitions.js";
 import { rampRgb } from "../dist/render/iso/palette.js";
 import { surfaceRgb, surfaceStep } from "../dist/render/iso/surface-texture.js";
 import { toScreen, toWorld } from "../dist/render/iso/projection.js";
@@ -44,16 +44,20 @@ test("shallow water shows its bed, thicker towards the shore", () => {
 });
 
 test("deep water darkens to a core and keeps a lighter shelf rim", () => {
-  let core = 0, rim = 0;
+  let core = 0, rim = 0, streaks = 0;
   for (let y = 0; y < 64; y++)
     for (let x = 0; x < 64; x++) {
       const step = surfaceStep(SEED, "deep", x, y);
-      assert.deepEqual(waterRgb(SEED, x, y, 0, 0, { material: "deep", edge: 30 }, undefined), rampRgb("deep", Math.max(0, step - 1)));
+      // The core is the darker step, except for sparse cold reflection streaks (deep 3 with a deep 2 tail).
+      const got = waterRgb(SEED, x, y, 0, 0, { material: "deep", edge: 30 }, undefined);
+      if (got.join() === rampRgb("deep", 3).join() || got.join() === rampRgb("deep", 2).join()) streaks++;
+      else assert.deepEqual(got, rampRgb("deep", Math.max(0, step - 1)));
       assert.deepEqual(waterRgb(SEED, x, y, 0, 0, { material: "deep", edge: 1 }, "shallow"), rampRgb("deep", step + 1));
       if (step > 0) core++;
       if (step < 4) rim++;
     }
   assert.ok(core > 0 && rim > 0, "the core is darker and the rim lighter than the base texture somewhere");
+  assert.ok(streaks > 0 && streaks < 64 * 64 * 0.05, `sparse reflections (${streaks})`);
   assert.equal(waterRgb(SEED, 0, 0, 0, 0, { material: "deep", edge: 8 }, undefined), undefined, "between rim and core the base texture shows");
 });
 
@@ -70,10 +74,10 @@ test("baked water pixels layer foam, bed and deep core from the field", () => {
         if (s.material !== "shallow" && s.material !== "deep") continue;
         const n = neighbourMaterial(field, w.x, w.y, s), got = px(out, x, y).slice(0, 3).join();
         checked++;
-        if (s.material === "shallow" && isLand(n) && s.edge < 1) { assert.equal(got, foamRgb, `foam at ${sx}, ${sy}`); foam++; }
-        if (s.material === "deep" && n === undefined && s.edge >= ISO_WATER.coreFrom) {
-          const step = surfaceStep(SEED, "deep", sx, sy);
-          assert.equal(got, rampRgb("deep", Math.max(0, step - 1)).join(), `core at ${sx}, ${sy}`);
+        if (s.material === "shallow" && isLand(n) && s.edge < TRANSITION.lip) { assert.equal(got, foamRgb, `foam at ${sx}, ${sy}`); foam++; }
+        if (s.material === "deep" && n === undefined && s.edge >= ISO_WATER.coreFrom + 4) {
+          const step = surfaceStep(SEED, "deep", sx, sy), streak = [rampRgb("deep", 3).join(), rampRgb("deep", 2).join()];
+          if (!streak.includes(got)) assert.equal(got, rampRgb("deep", Math.max(0, step - 1)).join(), `core at ${sx}, ${sy}`);
           cores++;
         }
       }

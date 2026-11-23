@@ -1,8 +1,13 @@
-export const VIEW_WIDTH = 960;
-export const VIEW_HEIGHT = 540;
+/**
+ * The native pixel frame of the scene (docs/iso-art-spec.md section 3): at
+ * ISO.k = 0.5 it covers the same world area as the old 960 x 540 view, and
+ * CSS enlarges it with nearest neighbour.
+ */
+export const VIEW_WIDTH = 480;
+export const VIEW_HEIGHT = 270;
 
-/** The portrait camera trades horizontal reach for vertical reach at the same scale on both axes. */
-const PORTRAIT_HEIGHT = 960;
+/** The portrait camera trades horizontal reach for vertical reach at the same pixel density. */
+const PORTRAIT_HEIGHT = 480;
 
 export function boardLayout(width: number, height: number, dpr: number, inRun: boolean) {
   if (inRun && width <= height) {

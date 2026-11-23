@@ -14,14 +14,18 @@ import type { TerrainSample } from "./terrain-field.js";
 export const ROAD_TEXTURE = {
   /** Cart ruts sit this far inside each road edge (world units) ... */
   rutFrom: 9,
-  /** ... are this wide, then catch a 1-unit lit lip. */
-  rutWidth: 2.5,
+  /** ... are this wide (about 2 px), then catch a 1 px lit lip. */
+  rutWidth: 4,
+  rutLip: 2,
   /** Dirt dash rows repeat every `dashPeriod` across-pixels, dashes are `dashLength` along. */
   dashPeriod: 10,
-  dashLength: 8,
-  /** Stone courses are `course` across-pixels deep; stones `stone` along-pixels long. */
-  course: 16,
-  stone: 32,
+  dashLength: 6,
+  /** Stone courses are `course` across-pixels deep (4 px); stones `stone` along-pixels long. */
+  course: 8,
+  stone: 16,
+  /** Road pebbles: screen scatter cell and chance. */
+  pebbleCell: 7,
+  pebbles: 0.16,
 } as const;
 
 export type RoadAxis = "x" | "y";
@@ -55,11 +59,18 @@ export function roadStep(seed: number, surface: Surface, axis: RoadAxis, px: num
     const tone = texHash(course, stone, 73) < 0.45 ? 2 : 3;
     return texHash(px >> 1, py, 79) < 0.06 ? tone - 1 : tone;
   }
-  // Dirt: two ruts that follow the road edges, then dashes along the diagonal.
+  // Dirt: two ruts that follow the road edges, then sparse pebbles and dashes along the diagonal.
   if (edge >= R.rutFrom && edge < R.rutFrom + R.rutWidth) return 1;
-  if (edge >= R.rutFrom + R.rutWidth && edge < R.rutFrom + R.rutWidth + 1) return 3;
+  if (edge >= R.rutFrom + R.rutWidth && edge < R.rutFrom + R.rutWidth + R.rutLip) return 3;
+  const cx = Math.floor(px / R.pebbleCell), cy = Math.floor(py / R.pebbleCell);
+  if (texHash(cx, cy, 211 + seed) < R.pebbles) {
+    const ax = cx * R.pebbleCell + 1 + Math.floor(texHash(cx, cy, 223) * (R.pebbleCell - 3)),
+      ay = cy * R.pebbleCell + Math.floor(texHash(cx, cy, 227) * (R.pebbleCell - 2));
+    if (py === ay && (px === ax || px === ax + 1)) return 4;
+    if (py === ay + 1 && (px === ax || px === ax + 1)) return 0;
+  }
   const row = mod(across, R.dashPeriod);
-  if (row <= 1 && texHash(Math.floor(along / R.dashLength), Math.floor(across / R.dashPeriod), 71 + seed) < 0.4)
+  if (row <= 1 && texHash(Math.floor(along / R.dashLength), Math.floor(across / R.dashPeriod), 71 + seed) < 0.25)
     return row === 0 ? 1 : 3;
   return surfaceStep(seed, "dirt", px, py);
 }

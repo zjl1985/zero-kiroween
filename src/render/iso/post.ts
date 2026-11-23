@@ -33,15 +33,17 @@ interface FogLayer {
 
 export const POST = {
   fog: {
-    tile: { width: 320, height: 160 },
+    tile: { width: 160, height: 80 },
     /** Alpha bands before the blur (stepped, pixel-art fog). */
     steps: 4,
-    blur: { radius: 4, passes: 3 },
+    /** Blob radius range in native pixels. */
+    blob: { min: 17, span: 35 },
+    blur: { radius: 1, passes: 2 },
     /** Fog thins toward dawn by this share. */
     dawnThin: 0.5,
     layers: [
-      { parallax: 0.6, drift: [5, 1], alpha: 0.13, rgb: [150, 166, 206], blobs: 9, seed: 11 },
-      { parallax: 1.3, drift: [-9, 2], alpha: 0.09, rgb: [182, 192, 226], blobs: 7, seed: 23 },
+      { parallax: 0.6, drift: [3, 0.5], alpha: 0.07, rgb: [120, 138, 186], blobs: 9, seed: 11 },
+      { parallax: 1.3, drift: [-5, 1], alpha: 0.05, rgb: [150, 164, 210], blobs: 7, seed: 23 },
     ] as readonly FogLayer[],
   },
   particles: {
@@ -55,25 +57,25 @@ export const POST = {
     period: { firefly: 6, leaf: 7, ash: 2.2 },
     /** Wrap margin around the view (pixels). */
     pad: 24,
-    firefly: { core: "#f2e38a", glow: "#b9a85a" },
+    firefly: { core: "#f2e38a", glow: "#3a3410" },
     leaf: ["#c8743a", "#a4512e", "#d9a347", "#7f3f2a"],
     ash: ["#9a9a9e", "#6f6f76", "#c4c0b8"],
   },
   near: {
     // Kept small (about 22% of a 443 px portrait bottom band per corner) so the
     // corners never hide much of the play edge; they fade over any watched actor.
-    width: 96,
-    height: 64,
-    blur: { radius: 2, passes: 2 },
+    width: 48,
+    height: 32,
+    blur: { radius: 1, passes: 1 },
     alpha: 0.7,
     /** Alpha when the cat, a hostile or a pickup stands inside the corner box. */
     faded: 0.25,
     /** Extra pixels above the box in which an actor's foot still fades the corner (its sprite rises above the foot). */
-    rise: 48,
+    rise: 24,
     leaves: ["#0b191c", "#11262a", "#1a3533"],
     clusters: 18,
     /** Sway amplitude (pixels) and speed (radians per second). */
-    sway: { amount: 1.5, speed: 0.7 },
+    sway: { amount: 1, speed: 0.7 },
   },
 } as const;
 
@@ -91,7 +93,7 @@ export function fogTilePixels(layer: number): { width: number; height: number; d
   const m = radius * passes, W = width + 2 * m, H = height + 2 * m, pad = new Uint8ClampedArray(W * H * 4);
   const blobs = Array.from({ length: L.blobs }, (_, j) => ({
     x: hashOf(L.seed, j, 1) * width, y: hashOf(L.seed, j, 2) * height,
-    rx: 34 + hashOf(L.seed, j, 3) * 70, ry: 0, a: 0.45 + hashOf(L.seed, j, 4) * 0.55,
+    rx: POST.fog.blob.min + hashOf(L.seed, j, 3) * POST.fog.blob.span, ry: 0, a: 0.45 + hashOf(L.seed, j, 4) * 0.55,
   })).map((b) => ({ ...b, ry: b.rx * 0.42 }));
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -203,16 +205,16 @@ export function particles(view: ParticleView): Particle[] {
   for (let i = 0; i < flies; i++) {
     const { bucket, u } = life(i, 101, P.period.firefly, t);
     const hx = hashOf(101, i, bucket, 1) * spanX, hy = hashOf(101, i, bucket, 2) * spanY;
-    const at = wrap(hx + Math.sin(u * Math.PI * 2 + i) * 8, hy - u * 10 + Math.cos(u * Math.PI * 3 + i) * 4, 1);
+    const at = wrap(hx + Math.sin(u * Math.PI * 2 + i) * 4, hy - u * 5 + Math.cos(u * Math.PI * 3 + i) * 2, 1);
     const blink = 0.55 + 0.45 * Math.sin(u * Math.PI * 6 + i * 1.7);
     const alpha = Math.sin(Math.PI * u) * blink * (1 - dawn);
     if (alpha <= 0.05) continue;
-    out.push({ kind: "firefly", ...at, w: 2, h: 2, color: P.firefly.core, alpha: Math.min(1, alpha) });
+    out.push({ kind: "firefly", ...at, w: 1, h: 1, color: P.firefly.core, alpha: Math.min(1, alpha) });
   }
   for (let i = 0; i < P.leaves; i++) {
     const { bucket, u } = life(i, 211, P.period.leaf, t);
     const hx = hashOf(211, i, bucket, 1) * spanX, hy = hashOf(211, i, bucket, 2) * spanY;
-    const at = wrap(hx + u * 26 + Math.sin(u * Math.PI * 4 + i) * 6, hy + u * 90, 1.1);
+    const at = wrap(hx + u * 13 + Math.sin(u * Math.PI * 4 + i) * 3, hy + u * 45, 1.1);
     const flat = Math.floor(u * 8 + i) % 2 === 0;
     out.push({
       kind: "leaf", ...at, w: flat ? 2 : 1, h: flat ? 1 : 2,
@@ -223,9 +225,9 @@ export function particles(view: ParticleView): Particle[] {
   const ash = Math.min(P.ashMax, view.fires.length * P.ashPerFire);
   for (let i = 0; i < ash; i++) {
     const f = view.fires[i % view.fires.length]!, { bucket, u } = life(i, 307, P.period.ash, t);
-    const dx = (hashOf(307, i, bucket, 1) - 0.5) * 20 + Math.sin(u * Math.PI * 2 + i) * 3;
+    const dx = (hashOf(307, i, bucket, 1) - 0.5) * 10 + Math.sin(u * Math.PI * 2 + i) * 2;
     out.push({
-      kind: "ash", x: Math.round(f.x + dx), y: Math.round(f.y - 6 - u * 38), w: 1, h: 1,
+      kind: "ash", x: Math.round(f.x + dx), y: Math.round(f.y - 3 - u * 19), w: 1, h: 1,
       color: P.ash[Math.floor(hashOf(307, i, bucket, 2) * P.ash.length)]!,
       alpha: 1 - u,
     });
@@ -235,16 +237,22 @@ export function particles(view: ParticleView): Particle[] {
   return out.slice(0, P.cap);
 }
 
-/** Draws particles as whole-pixel rectangles; fireflies get a one-pixel glow ring. */
+/**
+ * Draws particles as whole-pixel rectangles; fireflies add a small additive
+ * plus-shaped glow (the light buffer's 'lighter' mode) around their pixel.
+ */
 export function drawParticles(ctx: Ctx, list: readonly Particle[]): void {
   if (!list.length) return;
   ctx.save();
   const base = ctx.globalAlpha;
   for (const p of list) {
     if (p.kind === "firefly") {
-      ctx.globalAlpha = base * p.alpha * 0.35;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = base * p.alpha;
       ctx.fillStyle = POST.particles.firefly.glow;
-      ctx.fillRect(p.x - 1, p.y - 1, p.w + 2, p.h + 2);
+      ctx.fillRect(p.x - 1, p.y, p.w + 2, p.h);
+      ctx.fillRect(p.x, p.y - 1, p.w, p.h + 2);
+      ctx.globalCompositeOperation = "source-over";
     }
     ctx.globalAlpha = base * p.alpha;
     ctx.fillStyle = p.color;

@@ -62,10 +62,12 @@ test("grass overhangs road edges with a dark lip; roads keep their texture insid
     if (s.material !== "road") continue;
     const ramps = [...rampOf(rgb)];
     if (n === "grass" && s.edge < TRANSITION.minWidth) { assert.ok(ramps.some((r) => r.startsWith("grass:")), "overhang is grass"); overhang++; }
-    if (n === "grass" && s.edge >= TRANSITION.maxWidth && s.edge < TRANSITION.maxWidth + 1 && ramps.some((r) => r.endsWith(":0"))) lip++;
-    if (s.edge > TRANSITION.maxWidth + 1) { assert.ok(!ramps.some((r) => r.startsWith("grass:")), "no grass inside the road"); inside++; }
+    // Past the overhang a dithered grass fringe thins out, then a broken one-pixel dark lip follows.
+    const fringeEnd = TRANSITION.maxWidth + TRANSITION.fringe;
+    if (n === "grass" && s.edge >= fringeEnd && s.edge < fringeEnd + TRANSITION.lip && ramps.some((r) => r.endsWith(":0"))) lip++;
+    if (s.edge > fringeEnd + TRANSITION.lip) { assert.ok(!ramps.some((r) => r.startsWith("grass:")), "no grass inside the road"); inside++; }
   }
-  assert.ok(overhang > 50 && inside > 1000, `${overhang} overhang, ${inside} inside`);
+  assert.ok(overhang > 12 && inside > 250, `${overhang} overhang, ${inside} inside`);
   assert.ok(lip > 0, "a dark lip follows the overhang");
 });
 
@@ -73,13 +75,13 @@ test("land at the shore turns to damp soil with a dark lip; bridge heads show pl
   const { col, row } = blockOf(1040, 420);
   let damp = 0;
   for (const { s, n, rgb } of blockPixels(SEED, col, row)) {
-    if (s.material !== "grass" || (n !== "shallow" && n !== "deep") || s.edge >= TRANSITION.minWidth + 1) continue;
+    if (s.material !== "grass" || (n !== "shallow" && n !== "deep") || s.edge >= TRANSITION.minWidth + TRANSITION.lip) continue;
     const ramps = [...rampOf(rgb)];
     assert.ok(ramps.some((r) => r.startsWith("soil:")), `shore pixel is soil (${ramps})`);
-    if (s.edge < 1) assert.ok(rampOf(rgb).has("soil:0"));
+    if (s.edge < TRANSITION.lip) assert.ok(rampOf(rgb).has("soil:0"));
     damp++;
   }
-  assert.ok(damp > 50, `${damp} damp shore pixels`);
+  assert.ok(damp > 12, `${damp} damp shore pixels`);
   // A crossing deck: its land ends get lit plank ends, its water sides a dark lip.
   let crossing;
   for (const r of waterRegionsNear(SEED, 0, 2700, 5000)) if (r.crossings.length) { crossing = r.crossings[0]; break; }
@@ -92,8 +94,8 @@ test("land at the shore turns to damp soil with a dark lip; bridge heads show pl
     for (const { s, n, rgb } of blockPixels(SEED, c, r)) {
       if (s.material !== "bridge" || !n || s.edge >= TRANSITION.plankEnd) continue;
       const ramps = rampOf(rgb);
-      if (n === "shallow" || n === "deep") { if (s.edge < 1) { assert.ok(ramps.has("wood:1")); sides++; } }
-      else if (s.edge >= 1) { assert.ok(ramps.has("wood:3") || ramps.has("wood:4"), `plank end ${[...ramps]}`); ends++; }
+      if (n === "shallow" || n === "deep") { if (s.edge < TRANSITION.lip) { assert.ok(ramps.has("wood:1")); sides++; } }
+      else if (s.edge >= TRANSITION.lip) { assert.ok(ramps.has("wood:3") || ramps.has("wood:4"), `plank end ${[...ramps]}`); ends++; }
     }
   assert.ok(ends > 0 && sides > 0, `${ends} plank-end and ${sides} side pixels`);
 });

@@ -26,18 +26,22 @@ test("world axes map to the documented screen directions", () => {
   near(up.x, 0); assert.ok(up.y < 0, "(-1, -1) is straight up");
 });
 
-test("the Jacobian determinant is 1, so one screen shows the same world area", () => {
+test("k = 0.5: the Jacobian determinant is 1/4, so a 480 x 270 native frame shows the old 960 x 540 world area", () => {
   const ex = toScreen(1, 0), ey = toScreen(0, 1);
+  assert.equal(ISO.k, 0.5);
   near(Math.abs(ex.x * ey.y - ex.y * ey.x), ISO.k * ISO.k);
-  near(ISO.k * ISO.k, 1);
+  near(ISO.k * ISO.k, 0.25);
+  // sx = (x - y) * 0.5, sy = (x + y) * 0.25
+  assert.deepEqual(toScreen(10, 2), { x: 4, y: 3 });
 });
 
-test("a 32-unit tile is a 64 x 32 diamond", () => {
+test("a 32-unit tile is a 32 x 16 diamond", () => {
   const t = ISO.tile, c = [toScreen(0, 0), toScreen(t, 0), toScreen(t, t), toScreen(0, t)];
   const xs = c.map((p) => p.x), ys = c.map((p) => p.y);
   assert.equal(Math.max(...xs) - Math.min(...xs), ISO.tileW);
   assert.equal(Math.max(...ys) - Math.min(...ys), ISO.tileH);
-  assert.deepEqual(c, [{ x: 0, y: 0 }, { x: 32, y: 16 }, { x: 0, y: 32 }, { x: -32, y: 16 }]);
+  assert.deepEqual([ISO.tileW, ISO.tileH], [32, 16]);
+  assert.deepEqual(c, [{ x: 0, y: 0 }, { x: 16, y: 8 }, { x: 0, y: 16 }, { x: -16, y: 8 }]);
 });
 
 test("depthKey orders foot points front to back", () => {

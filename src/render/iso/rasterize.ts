@@ -20,7 +20,14 @@
 import { surface, type CanvasContext, type CanvasSurface } from "../../engine/surface.js";
 import type { Face, FacePaint, Footprint, IsoModel, Vec3 } from "./model.js";
 import { ISO_FACE, ISO_RAMP_LIST, ISO_RAMPS, rampRgb, type RampName } from "./palette.js";
-import { toScreen, type Vec } from "./projection.js";
+import type { Vec } from "./projection.js";
+
+/**
+ * Volumes still bake at the old k = 1 pixel scale (64 x 32 per tile); the
+ * view draws them through the half-scale upright transform (place.ts atFoot)
+ * until the voxel scenery replaces them.
+ */
+const toScreen = (x: number, y: number): Vec => ({ x: x - y, y: (x + y) / 2 });
 
 export const ISO_VOLUME = {
   /** Screen px per world unit of height. */

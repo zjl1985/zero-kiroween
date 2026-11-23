@@ -28,8 +28,8 @@ test("entities just outside are kept by the margin and far ones are culled", () 
 test("a tall sprite whose foot is just below the bottom edge is kept with its pad", () => {
   const foot = fromView(480, 540 + 24);
   assert.equal(isoInView(poly, foot.x, foot.y), false);
-  // A 52 px sprite reaches back into the view; 52 screen px down is at most 52 world units.
-  assert.ok(isoInView(poly, foot.x, foot.y, 52));
+  // A 52 px sprite reaches back into the view; at k = 0.5, 52 screen px down is at most 104 world units.
+  assert.ok(isoInView(poly, foot.x, foot.y, 104));
   const s = toScreen(foot.x, foot.y);
   assert.ok(s.y - 52 < cam.y + cam.height / 2);
 });

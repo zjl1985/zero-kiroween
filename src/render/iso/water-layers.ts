@@ -11,7 +11,8 @@
 import { rampRgb, type Rgb } from "./palette.js";
 import { surfaceStep, texHash } from "./surface-texture.js";
 import type { TerrainMaterial, TerrainSample } from "./terrain-field.js";
-import { borderWidth } from "./transitions.js";
+import { borderWidth, TRANSITION } from "./transitions.js";
+import { bayer } from "../pixelfx/math.js";
 
 export const ISO_WATER = {
   /** Cached ripple overlay frames per water block. */
@@ -28,13 +29,17 @@ export const ISO_WATER = {
   /** Foam line width as a fraction of the irregular border width. */
   foam: 0.75,
   /** Ripple glints: cell size in screen px, chance per cell and frame, glint length. */
-  cellW: 12,
-  cellH: 6,
-  shallowGlint: 0.22,
-  deepGlint: 0.12,
+  cellW: 10,
+  cellH: 5,
+  shallowGlint: 0.26,
+  deepGlint: 0.1,
   glintLength: 3,
   /** No glints this close to an edge (keeps foam and lips clean). */
-  glintInset: 2,
+  glintInset: 4,
+  /** Deep water: sparse cold reflection streaks (screen cell, chance). */
+  streakW: 14,
+  streakH: 6,
+  streaks: 0.12,
 } as const;
 
 const isLand = (m: TerrainMaterial | undefined) => m === "grass" || m === "road" || m === "soil";
@@ -60,8 +65,10 @@ export function waterRgb(
   const e = s.edge;
   if (s.material === "shallow") {
     if (isLand(n)) {
-      if (e < 1) return rampRgb("cloth", 4); // foam crest on the shore
-      if (e < borderWidth(seed, x, y) * ISO_WATER.foam && texHash(px >> 1, py, 89) < 0.6) return rampRgb("shallow", 4);
+      const L = TRANSITION.lip, w = borderWidth(seed, x, y);
+      if (e < L) return rampRgb("cloth", 4); // foam crest on the shore
+      if (e < L + w * ISO_WATER.foam && bayer(px, py) < 0.6) return rampRgb("shallow", 4); // dithered foam lip
+      if (e < 2 * L + w && bayer(px + 1, py + 2) < 0.3) return rampRgb("shallow", 3);
     }
     if (n !== undefined) return undefined;
     const W = ISO_WATER, chance = W.bedFar + (W.bedNear - W.bedFar) * (1 - Math.min(e, W.bedFade) / W.bedFade);
@@ -71,9 +78,18 @@ export function waterRgb(
   }
   if (s.material === "deep") {
     if (n !== undefined && n !== "shallow") return undefined;
-    const step = surfaceStep(seed, "deep", px, py);
-    if (e >= ISO_WATER.coreFrom) return rampRgb("deep", Math.max(0, step - 1)); // dark core
+    const step = surfaceStep(seed, "deep", px, py), W = ISO_WATER;
+    // Sparse cold reflections: a 3 px streak with a darker tail.
+    const cx = Math.floor(px / W.streakW), cy = Math.floor(py / W.streakH);
+    if (e >= W.coreFrom && texHash(cx, cy, 131 + seed) < W.streaks) {
+      const ax = cx * W.streakW + Math.floor(texHash(cx, cy, 137) * (W.streakW - 4)), ay = cy * W.streakH + Math.floor(texHash(cx, cy, 139) * W.streakH);
+      if (py === ay && px >= ax && px < ax + 3) return rampRgb("deep", 3);
+      if (py === ay && px === ax + 3) return rampRgb("deep", 2);
+    }
+    if (e >= ISO_WATER.coreFrom + 4) return rampRgb("deep", Math.max(0, step - 1)); // dark core
+    if (e >= ISO_WATER.coreFrom) return rampRgb("deep", bayer(px, py) < 0.5 ? Math.max(0, step - 1) : step); // dithered step to the core
     if (e < ISO_WATER.rim) return rampRgb("deep", step + 1); // lighter shelf rim
+    if (e < ISO_WATER.rim + 2 && bayer(px, py) < 0.5) return rampRgb("deep", step + 1);
     return undefined;
   }
   return undefined;

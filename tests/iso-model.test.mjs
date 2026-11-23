@@ -6,7 +6,8 @@ import {
   ISO_VOLUME, clearIsoVolumeCache, faceStep, faceVisible, isoVolume, isoVolumeCacheSize, project3, rasterizeModel,
 } from "../dist/render/iso/rasterize.js";
 import { ISO_FACE, luminance, rampColour, rampRgb } from "../dist/render/iso/palette.js";
-import { toScreen } from "../dist/render/iso/projection.js";
+// Volumes still bake at the k = 1 pixel scale and draw through the half upright scale (rasterize.ts).
+const toScreen = (x, y) => ({ x: x - y, y: (x + y) / 2 });
 
 const window = (p) => p.rect(4, 6, 6, 8, "wax", 4);
 const shingles = (p) => { for (let v = 0; v < p.height; v += 4) for (let u = 0; u < p.width; u++) p.set(u, v, "redTile", 2); };

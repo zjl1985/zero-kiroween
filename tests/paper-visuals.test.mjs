@@ -929,7 +929,7 @@ import { drawWorld } from "../dist/render/world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 import { toScreen, toWorld } from "../dist/render/iso/projection.js";
 // The live view is isometric: drawWorld takes an iso camera that frames a world point.
-const isoCam = (at, width = 960, height = 540) => createIsoCamera(width, height, at);
+const isoCam = (at, width = 480, height = 270) => createIsoCamera(width, height, at);
 
 test("the pixel world draws all the way to the bottom and right of a portrait camera", (t) => {
   environment(t);
@@ -937,9 +937,9 @@ test("the pixel world draws all the way to the bottom and right of a portrait ca
   const ctx = canvas().getContext("2d");
   const width = 360, height = 720;
   drawWorld(ctx, sim, { time: 0, camera: isoCam({ x: sim.player.x, y: 360 }, width, height) });
+  // The night floor fills the whole native view first; the retro vignette (presentWorld) replaced the old edge bands.
   const edge = (...rect) => ctx.calls.some(c => c.op === "fillRect" && rect.every((n, i) => c.args[i] === n));
-  assert.ok(edge(0, height - 1, width, 1), "bottom cut edge");
-  assert.ok(edge(width - 1, 0, 1, height), "right cut edge");
+  assert.ok(edge(0, 0, width, height), "the floor reaches the bottom and right edges");
 });
 
 test("warning tint stays below actors while its edge passes above raised skills and around the cat's face", (t) => {
@@ -968,7 +968,7 @@ test("warning tint stays below actors while its edge passes above raised skills 
   const face = toScreen(x, y);
   const faceClip = ctx.calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd" &&
     c.args[0].ops.some(([op, l, top, width, height]) =>
-      op === "roundRect" && l < face.x && l + width > face.x && top < face.y - 40 && top + height > face.y - 40));
+      op === "roundRect" && l < face.x && l + width > face.x && top < face.y - 20 && top + height > face.y - 20));
   const edge = ctx.calls.findIndex(c => c.op === "stroke" && c.args[0] === ctx.calls[warning]?.args[0]);
   assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });

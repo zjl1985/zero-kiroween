@@ -8,14 +8,24 @@ import { ISO, depthKey, snap, toScreen } from "./projection.js";
 type Ctx = CanvasRenderingContext2D;
 
 /**
+ * Scale of the upright painters that were authored for the old k = 1 frame
+ * (cats, enemies, props, lamps, yard volumes). They draw at half size,
+ * nearest neighbour, until FEAT-003..006 replace them with native sprites.
+ */
+export const UPRIGHT_SCALE: number = ISO.k;
+
+/**
  * Runs a painter that draws an upright sprite around world (x, y) so that
- * (x, y) lands on its projected foot point. Only an integer translation is
- * applied (the pixel images keep their lattice; no skew, no rotation).
+ * (x, y) lands on its projected foot point. The foot is an integer pixel; the
+ * painter's own units are scaled by UPRIGHT_SCALE around it (no skew, no
+ * rotation).
  */
 export function atFoot(ctx: Ctx, x: number, y: number, paint: () => void): void {
   const s = toScreen(x, y);
   ctx.save();
-  ctx.translate(snap(s.x) - snap(x), snap(s.y) - snap(y));
+  ctx.translate(snap(s.x), snap(s.y));
+  if (UPRIGHT_SCALE !== 1) ctx.scale(UPRIGHT_SCALE, UPRIGHT_SCALE);
+  ctx.translate(-snap(x), -snap(y));
   paint();
   ctx.restore();
 }

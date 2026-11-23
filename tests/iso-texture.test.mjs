@@ -9,15 +9,15 @@ import { toScreen } from "../dist/render/iso/projection.js";
 
 const SURFACES = Object.keys(SURFACE_RAMP);
 
-test("diamondPixel maps a pixel to its 64 x 32 diamond", () => {
+test("diamondPixel maps a pixel to its 32 x 16 diamond", () => {
   for (const [i, j] of [[0, 0], [3, -2], [-5, 7]]) {
-    const top = toScreen(i * 32, j * 32), d = diamondPixel(top.x, top.y + 16);
-    assert.deepEqual([d.i, d.j, d.lx, d.ly], [i, j, 0, 16]);
-    assert.ok(d.edge > 15);
+    const top = toScreen(i * 32, j * 32), d = diamondPixel(top.x, top.y + 8);
+    assert.deepEqual([d.i, d.j, d.lx, d.ly], [i, j, 0, 8]);
+    assert.ok(d.edge > 13);
   }
   for (let py = -40; py < 40; py++) for (let px = -80; px < 80; px++) {
     const d = diamondPixel(px, py);
-    assert.ok(d.lx >= -32 && d.lx < 32 && d.ly >= 0 && d.ly < 32, `${px},${py}`);
+    assert.ok(d.lx >= -16 && d.lx < 16 && d.ly >= 0 && d.ly < 16, `${px},${py}`);
   }
 });
 
@@ -26,18 +26,18 @@ test("every surface variant tiles seamlessly up, down, left, right and along the
     for (let v = 0; v < SURFACE_TEXTURE.variants; v++)
       for (let py = -32; py < 64; py++) for (let px = -64; px < 128; px++) {
         const c = texelStep(s, v, px, py);
-        assert.equal(texelStep(s, v, px + 64, py), c, `${s}/${v} right at ${px},${py}`);
-        assert.equal(texelStep(s, v, px - 64, py), c, `${s}/${v} left`);
-        assert.equal(texelStep(s, v, px, py + 32), c, `${s}/${v} down`);
-        assert.equal(texelStep(s, v, px, py - 32), c, `${s}/${v} up`);
-        assert.equal(texelStep(s, v, px + 32, py + 16), c, `${s}/${v} lattice`);
+        assert.equal(texelStep(s, v, px + 32, py), c, `${s}/${v} right at ${px},${py}`);
+        assert.equal(texelStep(s, v, px - 32, py), c, `${s}/${v} left`);
+        assert.equal(texelStep(s, v, px, py + 16), c, `${s}/${v} down`);
+        assert.equal(texelStep(s, v, px, py - 16), c, `${s}/${v} up`);
+        assert.equal(texelStep(s, v, px + 16, py + 8), c, `${s}/${v} lattice`);
       }
 });
 
 test("variants only differ inside the diamond, so mixed variants meet without a seam", () => {
   for (const s of SURFACES) {
     let differs = 0;
-    for (let py = 0; py < 32; py++) for (let px = -32; px < 32; px++) {
+    for (let py = 0; py < 16; py++) for (let px = -16; px < 16; px++) {
       const d = diamondPixel(px, py), steps = new Set();
       for (let v = 0; v < SURFACE_TEXTURE.variants; v++) steps.add(texelStep(s, v, px, py));
       if (d.edge < SURFACE_TEXTURE.inset) assert.equal(steps.size, 1, `${s} border pixel ${px},${py}`);

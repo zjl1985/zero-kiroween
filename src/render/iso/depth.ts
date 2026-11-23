@@ -7,7 +7,7 @@
  * of the cat; the renderer then draws it after the cat at ISO_DEPTH.fade.
  * Presentation only: reads positions, never SimState.
  */
-import { depthKey, toScreen, type Vec } from "./projection.js";
+import { ISO, depthKey, toScreen, type Vec } from "./projection.js";
 
 /** Painter-space art bounds around the foot (left, right, top, bottom), at scale 1. */
 export interface Bounds {
@@ -46,14 +46,16 @@ export const ISO_DEPTH = {
 
 /** Screen box of an upright painter drawn atFoot at (x, y) with bounds `b` scaled by `s`. */
 export function artBox(x: number, y: number, s: number, b: Bounds): ScreenBox {
+  // Upright painters draw at UPRIGHT_SCALE (place.ts), so their bounds shrink with it.
   const p = toScreen(x, y);
+  s *= ISO.k;
   return { x0: p.x + b.l * s, x1: p.x + b.r * s, y0: p.y + b.t * s, y1: p.y + b.b * s };
 }
 
 /** The cat's projected sprite box. */
 export function actorBox(actor: Vec): ScreenBox {
-  const p = toScreen(actor.x, actor.y), c = ISO_DEPTH.cat;
-  return { x0: p.x - c.halfWidth, x1: p.x + c.halfWidth, y0: p.y - c.top, y1: p.y + c.bottom };
+  const p = toScreen(actor.x, actor.y), c = ISO_DEPTH.cat, k = ISO.k;
+  return { x0: p.x - c.halfWidth * k, x1: p.x + c.halfWidth * k, y0: p.y - c.top * k, y1: p.y + c.bottom * k };
 }
 
 export function boxesOverlap(a: ScreenBox, b: ScreenBox): boolean {

@@ -4,8 +4,12 @@
  * and the live input mapping go through these functions.
  */
 
-/** k = 1 keeps the Jacobian determinant at 1 (same world area per screen). One 32-unit tile is a 64 x 32 diamond. */
-export const ISO = { k: 1, tile: 32, tileW: 64, tileH: 32 } as const;
+/**
+ * k = 0.5: the low native frame (docs/iso-art-spec.md section 1). One 32-unit
+ * tile is a 32 x 16 px diamond and a 480 x 270 view covers the same world area
+ * as the old 960 x 540 view at k = 1 (Jacobian determinant k^2 = 1/4).
+ */
+export const ISO = { k: 0.5, tile: 32, tileW: 32, tileH: 16 } as const;
 
 /**
  * The one switch that moves both the live view and the controls to isometric.

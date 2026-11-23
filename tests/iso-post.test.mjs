@@ -133,13 +133,19 @@ test("cache-time blur: padded painting keeps neighbouring blocks seamless; fallb
   assert.equal(painted, 1);
 });
 
-test("post layers run after the light multiply and before the UI overlays, with no filter or randomness", () => {
+test("post layers run after the light buffer and before the UI overlays, with no filter or randomness", () => {
   const src = (p) => readFileSync(new URL(`../src/render/${p}`, import.meta.url), "utf8");
   for (const name of ["iso/post.ts", "iso/off-map.ts"])
     assert.doesNotMatch(src(name), /Math\.random|\.filter\s*=|shadowBlur|createRadialGradient|createLinearGradient/, name);
-  const world = src("world.ts"), at = (s) => world.indexOf(s);
-  const order = ["drawLighting(ctx", "drawFog(ctx", "drawParticles(ctx", "drawNearLayer(ctx", "drawCueScreen(ctx", "drawNavArrows(ctx", "drawFrame(ctx"].map(at);
+  const world = src("world.ts"), scene = world.indexOf("function drawWorldFrame"), present = world.indexOf("export function presentWorld");
+  const at = (s, from) => world.indexOf(s, from);
+  // The native scene: light buffer -> fog -> particles -> near layer.
+  const order = ["drawLighting(ctx", "drawFog(ctx", "drawParticles(ctx", "drawNearLayer(ctx"].map((s) => at(s, scene));
   assert.ok(order.every((i) => i > 0), "every layer is wired");
-  assert.deepEqual([...order].sort((a, b) => a - b), order, "scene -> light -> fog -> particles -> near -> overlays");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "scene -> light -> fog -> particles -> near");
+  // The presentation: enlarge -> retro -> screen UI.
+  const ui = ["drawImage(native", "drawRetro(ctx", "drawCueScreen(ctx", "drawNavArrows(ctx", "drawFrame(ctx"].map((s) => at(s, present));
+  assert.ok(ui.every((i) => i > present), "the presentation is wired");
+  assert.deepEqual([...ui].sort((a, b) => a - b), ui, "native -> retro -> overlays");
   assert.match(src("iso/off-map.ts"), /paintBlurred\(/, "the far layer is blurred at cache time");
 });

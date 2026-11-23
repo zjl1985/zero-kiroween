@@ -19,8 +19,8 @@ export const ISO_RAMP_STEPS = { min: 4, max: 6 } as const;
 export const ISO_FACE = { top: 4, lit: 3, dark: 2, seam: 0 } as const;
 
 export const ISO_RAMPS: Readonly<Record<RampName, readonly string[]>> = {
-  grass: ["#1d2a3a", "#25443f", "#2f6045", "#4f7f45", "#86a35a"],
-  dirt: ["#2a2233", "#46353b", "#6a4e42", "#8f6c4e", "#b8925f"],
+  grass: ["#121a2b", "#192c37", "#20403f", "#2e5846", "#5a7d4f"],
+  dirt: ["#241d2e", "#3b2f3a", "#574340", "#7a5c4a", "#a8845c"],
   stone: ["#22233a", "#3a3d55", "#585c70", "#7c7f88", "#a8a69c"],
   soil: ["#1f1828", "#352433", "#4f3236", "#6c4638", "#8b5f40"],
   shallow: ["#1c2f52", "#24496a", "#2f6580", "#4a8a96", "#7fb5ae"],

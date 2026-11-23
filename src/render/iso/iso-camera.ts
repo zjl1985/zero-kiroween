@@ -5,7 +5,7 @@
  */
 import { CAMERA, type Camera } from "../camera.js";
 import { SCREEN, WORLD } from "../../game/world-gen.js";
-import { snap, toScreen, toWorld, type Vec } from "./projection.js";
+import { ISO, snap, toScreen, toWorld, type Vec } from "./projection.js";
 
 export interface IsoCamera {
   /** Projected screen-space point at the centre of the view. */
@@ -17,9 +17,12 @@ export interface IsoCamera {
 
 export const ISO_CAMERA = {
   /** Screen pixels past the projected world diamond where the tree wall / night fog is drawn. */
-  margin: 320,
+  margin: 320 * ISO.k,
   /** The cat's foot point always stays this many pixels inside the view (room for its sprite height). */
-  keepPad: 64,
+  keepPad: 64 * ISO.k,
+  /** Native view size that frames one SCREEN of world (480 x 270 at k = 0.5). */
+  width: SCREEN.width * ISO.k,
+  height: SCREEN.height * ISO.k,
 } as const;
 
 /** The four projected WORLD corners in screen space: top, right, bottom, left. */
@@ -76,8 +79,8 @@ export function clampIsoCamera(x: number, y: number, width: number, height: numb
 
 /** Frames a world point (the start yard by default). */
 export function createIsoCamera(
-  width: number = SCREEN.width,
-  height: number = SCREEN.height,
+  width: number = SCREEN.width * ISO.k,
+  height: number = SCREEN.height * ISO.k,
   at: Vec = { x: SCREEN.width / 2, y: SCREEN.height / 2 },
 ): IsoCamera {
   const s = toScreen(at.x, at.y);
@@ -89,8 +92,9 @@ export function followIsoCamera(cam: IsoCamera, target: Vec, dt: number): IsoCam
   const t = toScreen(target.x, target.y);
   const want = (c: number, v: number, dz: number) => (v > c + dz ? v - dz : v < c - dz ? v + dz : c);
   const k = 1 - Math.exp(-CAMERA.smoothing * Math.max(0, dt)),
-    wx = want(cam.x, t.x, CAMERA.deadzoneX * Math.min(1, cam.width / SCREEN.width)),
-    wy = want(cam.y, t.y, CAMERA.deadzoneY * Math.min(1, cam.height / SCREEN.height));
+    // CAMERA's deadzone is in world-sized pixels of the k = 1 view; scale it with the projection.
+    wx = want(cam.x, t.x, CAMERA.deadzoneX * ISO.k * Math.min(1, cam.width / ISO_CAMERA.width)),
+    wy = want(cam.y, t.y, CAMERA.deadzoneY * ISO.k * Math.min(1, cam.height / ISO_CAMERA.height));
   return clampIsoCamera(cam.x + (wx - cam.x) * k, cam.y + (wy - cam.y) * k, cam.width, cam.height, t);
 }
 

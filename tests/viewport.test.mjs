@@ -29,9 +29,10 @@ test("pixel viewport fits 28 size / DPR combinations without stretching or wasti
   }
 });
 test("integer physical pixels are preferred when the size penalty is small", () => {
-  assert.equal(viewport(1440, 900, 2).scale, 3);
-  assert.equal(viewport(1280, 720, 1).scale, 1280 / 960);
-  assert.equal(viewport(390, 844, 3).scale, (390 * 3) / 960);
+  // The native frame is 480 x 270 (k = 0.5), so whole enlargements are twice the old ones.
+  assert.equal(viewport(1440, 900, 2).scale, 6);
+  assert.equal(viewport(1280, 720, 1).scale, 1280 / 480);
+  assert.equal(viewport(390, 844, 3).scale, (390 * 3) / 480);
 });
 
 test("a portrait run uses the whole app as Safari's bars expand, collapse, or the device rotates", () => {
@@ -41,7 +42,7 @@ test("a portrait run uses the whole app as Safari's bars expand, collapse, or th
       assert.deepEqual([play.cssX, play.cssY, play.cssW, play.cssH], [0, 0, w, h]);
       assert.ok(Math.abs(w / play.viewWidth - h / play.viewHeight) < 1e-9, "square world units stay square");
       const title = boardLayout(w, h, dpr, false);
-      assert.deepEqual([title.viewWidth, title.viewHeight], [960, 540]);
+      assert.deepEqual([title.viewWidth, title.viewHeight], [480, 270]);
       assert.ok(play.cssW / play.viewWidth >= title.cssW / title.viewWidth, "portrait detail remains at least as legible as the title");
     }
   }

@@ -15,30 +15,32 @@
 import { CHUNK, WORLD } from "../../game/world-gen.js";
 import { surface, type CanvasSurface } from "../../engine/surface.js";
 import { prepareTerrainField, type FieldBox, type TerrainSample } from "./terrain-field.js";
-import { MATERIAL_SURFACE, SURFACE_RAMP, surfaceRgb } from "./surface-texture.js";
+import { MATERIAL_SURFACE, SURFACE_RAMP, accentRgb, surfaceRgb } from "./surface-texture.js";
 import { rampColour, type Rgb } from "./palette.js";
 import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
 import { roadRgb, roadSurface } from "./road-texture.js";
 import { ISO_WATER, rippleFrame, rippleRgb, waterRgb } from "./water-layers.js";
-import { toScreen, toWorld } from "./projection.js";
+import { ISO, toScreen, toWorld } from "./projection.js";
 
 type Ctx = CanvasRenderingContext2D;
 type BlockImage = CanvasSurface | ImageBitmap;
 
-const BLOCK_W = 512, BLOCK_H = 256;
+const BLOCK_W = 256, BLOCK_H = 128;
+/** Native pixels per world-unit area under the projection (k^2 = 1/4 at k = 0.5). */
+const AREA = ISO.k * ISO.k;
 export const ISO_BLOCK = {
   width: BLOCK_W,
   height: BLOCK_H,
-  /** Same pixel area as the legacy ground cache: 14 chunks of CHUNK.width x CHUNK.height. */
-  budgetArea: 14 * CHUNK.width * CHUNK.height,
+  /** Same world area as the legacy ground cache: 14 chunks of CHUNK.width x CHUNK.height, in native pixels. */
+  budgetArea: 14 * CHUNK.width * CHUNK.height * AREA,
   /** Ready blocks kept (budgetArea / block area). */
-  limit: Math.floor((14 * CHUNK.width * CHUNK.height) / (BLOCK_W * BLOCK_H)),
+  limit: Math.floor((14 * CHUNK.width * CHUNK.height * AREA) / (BLOCK_W * BLOCK_H)),
   /** Rows baked between yields of the sliced main-thread fallback. */
   sliceRows: 4,
   /** Main-thread fallback budget per frame, like the legacy chunk painter. */
   localBudgetMs: 2,
   /** Screen pixels around the view that are warmed ahead. */
-  prefetch: 128,
+  prefetch: 64,
   /** A worker request with no reply after this long counts as a failure (ms). */
   workerTimeoutMs: 4000,
   /** Fresh workers started after a failure before baking falls back to the main thread. */
@@ -76,6 +78,7 @@ function groundRgb(seed: number, px: number, py: number, x: number, y: number, s
     surface = road ? roadSurface(s) : MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
   return (water && waterRgb(seed, px, py, x, y, s, n))
     || (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
+    || (road && surface === "dirt" ? accentRgb(seed, "dirt", px, py) : undefined)
     || (road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
 }
 

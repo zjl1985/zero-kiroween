@@ -79,9 +79,10 @@ test("pixels outside WORLD stay transparent", () => {
 
 test("the block cache keeps its limit, protects wanted blocks and releases what it evicts", () => {
   assert.ok(ISO_BLOCK.limit * W * H <= ISO_BLOCK.budgetArea);
-  assert.equal(ISO_BLOCK.budgetArea, 14 * CHUNK.width * CHUNK.height);
-  // A 960 x 540 view touches at most 3 x 4 blocks; they all fit with room to prefetch.
-  assert.ok(ISO_BLOCK.limit >= (Math.ceil(960 / W) + 1) * (Math.ceil(540 / H) + 1));
+  // The legacy 14-chunk world area, in native pixels at k = 0.5 (a quarter of the k = 1 pixel area).
+  assert.equal(ISO_BLOCK.budgetArea, 14 * CHUNK.width * CHUNK.height / 4);
+  // A 480 x 270 view touches at most 3 x 4 blocks; they all fit with room to prefetch.
+  assert.ok(ISO_BLOCK.limit >= (Math.ceil(480 / W) + 1) * (Math.ceil(270 / H) + 1));
   const released = [], cache = createBlockCache(3, (v) => released.push(v));
   cache.set("a", "A"); cache.set("b", "B"); cache.set("c", "C");
   cache.get("a");
@@ -117,14 +118,14 @@ test("drawIsoGround bakes visible blocks on the fallback path and evicts canvase
   t.mock.method(Math, "random", () => assert.fail("the ground bake consumes no random numbers"));
   t.after(() => { clearIsoGroundCache(); if (old) Object.defineProperty(globalThis, "document", old); else delete globalThis.document; });
   clearIsoGroundCache();
-  const rectAt = (x, y) => { const s = toScreen(x, y); return { x0: s.x - 480, y0: s.y - 270, x1: s.x + 480, y1: s.y + 270 }; };
+  const rectAt = (x, y) => { const s = toScreen(x, y); return { x0: s.x - 240, y0: s.y - 135, x1: s.x + 240, y1: s.y + 135 }; };
   // Title screen style (no prefetch): keep drawing until the visible blocks are ready.
   for (let frame = 0; frame < 4000 && draws.length === 0; frame++) drawIsoGround(view, SEED, rectAt(-3000, 4000), false);
   assert.ok(cachedIsoBlockCount() > 0 && draws.length > 0, "a baked block is drawn");
   // Walk across the map: the cache stays inside its limit and evicted canvases are released.
   for (let step = 0; step < 6; step++)
     for (let frame = 0; frame < 3000; frame++) {
-      drawIsoGround(view, SEED, rectAt(-3000 + step * 900, 4000 - step * 300), false);
+      drawIsoGround(view, SEED, rectAt(-3000 + step * 1800, 4000 - step * 600), false);
       assert.ok(cachedIsoBlockCount() <= ISO_BLOCK.limit + 1);
     }
   assert.ok(canvases.length > ISO_BLOCK.limit, `baked more blocks (${canvases.length}) than the cache keeps`);

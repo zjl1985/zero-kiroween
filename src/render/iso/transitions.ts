@@ -14,7 +14,9 @@
  * No RNG, no DOM.
  */
 import { rampRgb, type RampName, type Rgb } from "./palette.js";
-import { surfaceRgb, texHash } from "./surface-texture.js";
+import { surfaceStep, texHash } from "./surface-texture.js";
+import { bayer } from "../pixelfx/math.js";
+import { ISO } from "./projection.js";
 import type { TerrainMaterial, TerrainSample } from "./terrain-field.js";
 
 export const TRANSITION = {
@@ -28,9 +30,13 @@ export const TRANSITION = {
   /** Value-noise lattice for the border width, in world units. */
   noiseCell: 6,
   /** Plank-end depth at bridge heads, in world units. */
-  plankEnd: 3,
+  plankEnd: 4,
   /** Deck shadow cast on the water beside a bridge. */
-  deckShadow: 2,
+  deckShadow: 3,
+  /** One screen pixel of lip, in world units at the current projection (2 at k = 0.5). */
+  lip: 1 / ISO.k,
+  /** Dithered grass fringe past the overhang, in world units (about 1 to 2 px). */
+  fringe: 3,
   salt: 4211,
 } as const;
 
@@ -81,29 +87,33 @@ export function transitionRgb(
   s: TerrainSample, n: TerrainMaterial, ownRamp: RampName,
 ): Rgb | undefined {
   const e = s.edge, m = s.material;
+  const L = TRANSITION.lip;
   if ((m === "road" || m === "soil") && n === "grass") {
-    const w = borderWidth(seed, x, y);
-    if (e < w) return surfaceRgb(seed, "grass", px, py); // grass overhang
-    if (e < w + 1) return rampRgb(ownRamp, 0); // its shadow: the dark lip
+    const w = borderWidth(seed, x, y), f = TRANSITION.fringe;
+    if (e < w) return rampRgb("grass", surfaceStep(seed, "grass", px, py)); // grass overhang (no flowers on the edge)
+    // A dithered fringe of grass pixels thinning into the road (4 x 4 Bayer).
+    if (e < w + f && bayer(px, py) < 0.55 * (1 - (e - w) / f)) return rampRgb("grass", 1);
+    if (e < w + f + L && bayer(px + 2, py) < 0.5) return rampRgb(ownRamp, 0); // its shadow: a broken dark lip
     return undefined;
   }
   if (isLand(m) && isWater(n)) {
-    if (e < 1) return rampRgb("soil", 0); // shore lip
-    if (e < borderWidth(seed, x, y) + 1) return rampRgb("soil", texHash(px >> 1, py, 61) < 0.25 ? 2 : 1); // damp soil
+    if (e < L) return rampRgb("soil", 0); // shore lip
+    if (e < borderWidth(seed, x, y) + L) return rampRgb("soil", texHash(px >> 1, py, 61) < 0.25 ? 2 : 1); // damp soil
+    if (e < borderWidth(seed, x, y) + 2 * L && bayer(px, py) < 0.5) return rampRgb("soil", 2); // dithered damp edge
     return undefined;
   }
   if (m === "bridge") {
-    if (isWater(n)) return e < 1 ? rampRgb("wood", 1) : undefined; // deck side lip
-    if (e < 1) return rampRgb("wood", 0); // end-grain shadow line
+    if (isWater(n)) return e < L ? rampRgb("wood", 1) : undefined; // deck side lip
+    if (e < L) return rampRgb("wood", 0); // end-grain shadow line
     if (e < TRANSITION.plankEnd) return rampRgb("wood", texHash(px >> 1, py, 67) < 0.2 ? 3 : 4); // lit plank ends
     return undefined;
   }
   if (isWater(m) && n === "bridge") return e < TRANSITION.deckShadow ? rampRgb(ownRamp, 0) : undefined;
   if (m === "shallow" && n === "deep") {
-    if (e < 1) return rampRgb("deep", 2); // drop-off lip
-    if (e < borderWidth(seed, x, y)) return rampRgb("shallow", 1);
+    if (e < L) return rampRgb("deep", 2); // drop-off lip
+    if (e < borderWidth(seed, x, y) + L) return rampRgb("shallow", 1);
     return undefined;
   }
-  if (m === "grass" && n === "bridge") return e < 1 ? rampRgb("grass", 0) : undefined;
+  if (m === "grass" && n === "bridge") return e < L ? rampRgb("grass", 0) : undefined;
   return undefined;
 }

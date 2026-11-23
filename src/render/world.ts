@@ -17,7 +17,7 @@ import {
 } from "./craft-enemies.js";
 import { playerStats } from "../game/upgrades.js";
 import { enemyRadius } from "../game/sim.js";
-import { landmarks, SCREEN } from "../game/world-gen.js";
+import { landmarks } from "../game/world-gen.js";
 import { drawActorPaperStatus, drawPaperStatusEffect } from "./paper-status-art.js";
 import {
   drawCombatGround,
@@ -82,8 +82,9 @@ import { drawIsoCat, ISO_CAT } from "./iso/cat-sheet.js";
 import { isoDirection } from "./iso/sprite-sheet.js";
 import { groundPass } from "./iso/ground.js";
 import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
-import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
-import { drawLighting, gatherLights, lightFrame } from "./iso/lighting.js";
+import { ISO, depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
+import { drawLighting, frameLightBuffer, gatherLights, lightFrame } from "./iso/lighting.js";
+import { drawRetro } from "./iso/retro.js";
 import { drawFog, drawNearLayer, drawParticles, particles } from "./iso/post.js";
 import { FIRE } from "../defs/fire.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
@@ -114,6 +115,61 @@ export function drawWorld(
   withPaperMotion(!!view.reducedMotion, () => drawWorldFrame(ctx, sim, view, titleCat));
 }
 
+/**
+ * Presents a native frame drawn by drawWorld on the display canvas: nearest
+ * neighbour enlargement to `width` x `height` display pixels, the retro CRT
+ * layer (iso/retro.ts), then the screen UI (cue screen, navigation tabs, the
+ * frame) at display resolution so its text stays crisp. The UI painters were
+ * authored for the k = 1 view, so they get the frame's projection and camera
+ * expressed in k = 1 pixels and a transform that maps those onto the display.
+ */
+export function presentWorld(
+  ctx: CanvasRenderingContext2D,
+  native: CanvasImageSource & { width: number; height: number },
+  sim: SimState | null,
+  view: ViewState,
+  width: number,
+  height: number,
+): void {
+  const { reduced, cues, camera, projection } = frameView(sim, view), k = ISO.k;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.drawImage(native, 0, 0, width, height);
+  drawRetro(ctx, width, height, { time: view.time, reduced, light: frameLightBuffer() });
+  // UI in k = 1 view pixels: (native / k) units across the display.
+  const uw = projection.width / k, uh = projection.height / k;
+  ctx.setTransform(width / uw, 0, 0, height / uh, 0, 0);
+  const ui = { ...projection, width: uw, height: uh, zoom: projection.zoom / k, x: projection.x / k, y: projection.y / k },
+    uiCamera = { x: camera.x / k, y: camera.y / k, width: uw, height: uh };
+  if (sim && cues.length) drawCueScreen(ctx, cues, sim, uiCamera, view.time, reduced, ui);
+  if (sim) drawNavArrows(ctx, sim, uiCamera, view.locale ?? "zh", view.time, ui);
+  drawFrame(ctx, uw, uh);
+  ctx.restore();
+}
+
+/** The camera, projection and cues of one frame (shared by the native scene and the presentation pass). */
+function frameView(sim: SimState | null, view: ViewState) {
+  const reduced = !!view.reducedMotion,
+    cues = sim ? (view.cues ?? []) : [],
+    base = sim ? cameraShake(sim, view.time, reduced) : { x: 0, y: 0 },
+    tremble = cueTremble(cues, view.time, reduced),
+    // Shake and tremble were authored in k = 1 view pixels.
+    shake = { x: (base.x + tremble.x) * ISO.k, y: (base.y + tremble.y) * ISO.k },
+    zoom = presentationZoom(cues, reduced);
+  const camera = view.camera ?? createIsoCamera(undefined, undefined, sim?.player),
+    // Zoom gathers on the cat's body, a little above its projected foot.
+    lift = CAT_BODY * ISO.k,
+    foot = sim ? toScreen(sim.player.x, sim.player.y) : { x: camera.x, y: camera.y + lift },
+    focus = toWorld(foot.x, foot.y - lift),
+    projection = isoProjection(camera, focus, zoom, shake);
+  return { reduced, cues, zoom, camera, projection };
+}
+/** Height of the cat's body centre over its foot in k = 1 art pixels. */
+const CAT_BODY = 20;
+
 function drawWorldFrame(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -121,17 +177,7 @@ function drawWorldFrame(
   titleCat?: CatPose,
 ): void {
   ctx.imageSmoothingEnabled = false;
-  const reduced = !!view.reducedMotion,
-    cues = sim ? (view.cues ?? []) : [],
-    base = sim ? cameraShake(sim, view.time, reduced) : { x: 0, y: 0 },
-    tremble = cueTremble(cues, view.time, reduced),
-    shake = { x: base.x + tremble.x, y: base.y + tremble.y },
-    zoom = presentationZoom(cues, reduced);
-  const camera = view.camera ?? createIsoCamera(SCREEN.width, SCREEN.height, sim?.player),
-    // Zoom gathers on the cat's body, 20 view pixels above its projected foot.
-    foot = sim ? toScreen(sim.player.x, sim.player.y) : { x: camera.x, y: camera.y + 20 },
-    focus = toWorld(foot.x, foot.y - 20),
-    projection = isoProjection(camera, focus, zoom, shake),
+  const { reduced, cues, zoom, camera, projection } = frameView(sim, view),
     { width, height } = projection,
     // World box around the view polygon for painters that still cull by a world rectangle.
     cam = isoWorldCamera(camera),
@@ -446,7 +492,8 @@ function drawWorldFrame(
     const exposed = new Path2D(), p = toScreen(sim.player.x, sim.player.y);
     exposed.rect(camera.x - camera.width / 2 - NEAR_PAD, camera.y - camera.height / 2 - NEAR_PAD,
       camera.width + NEAR_PAD * 2, camera.height + NEAR_PAD * 2);
-    exposed.roundRect(snap(p.x) - 26, snap(p.y) - 72, 52, 49, 10);
+    const k = ISO.k;
+    exposed.roundRect(snap(p.x) - 26 * k, snap(p.y) - 72 * k, 52 * k, 49 * k, 10 * k);
     ctx.save();
     ctx.clip(exposed, "evenodd");
     ground((g) => drawWarningEdges(g, warnings));
@@ -454,7 +501,8 @@ function drawWorldFrame(
   }
   if (!sim && titleCat) upright(titleCat.x, titleCat.y, () => drawPlaybillStage(ctx, titleCat));
   ctx.restore();
-  // HD-2D post, in view pixels: light multiply -> fog -> particles -> blurred near layer -> UI overlays.
+  // Post, in native view pixels: additive light buffer (+ dawn tint) -> fog -> particles -> near layer.
+  // The retro layer and the screen UI follow on the presentation canvas (presentWorld).
   const dawn = sim ? dawnAmount(progress, session) : 0;
   drawLighting(ctx, lightFrame(gatherLights({ lamps, windows: yardWindows, decor: yardDecor, sim }), {
     project: (x, y) => projectToView(projection, x, y), zoom, width, height,
@@ -482,21 +530,6 @@ function drawWorldFrame(
     for (const t of sim.treats) if (t.alive) watch(t);
   }
   drawNearLayer(ctx, width, height, watched, view.time, reduced);
-  // Screen UI overlays: cue screen, navigation tabs, the frame.
-  if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
-  if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);
-  drawFrame(ctx, width, height);
-  // Subtle four-sided depth, leaving all gameplay visible.
-  ctx.save();
-  ctx.globalAlpha = 0.04;
-  for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = "#070e20";
-    ctx.fillRect(i, 0, 1, height);
-    ctx.fillRect(width - 1 - i, 0, 1, height);
-    ctx.fillRect(0, i, width, 1);
-    ctx.fillRect(0, height - 1 - i, width, 1);
-  }
-  ctx.restore();
   // Developer-only ?iso=grid check view over the frame.
   if (sim && view.isoGrid) drawIsoDebugGrid(ctx, sim, view.isoGrid);
 }

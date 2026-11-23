@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { WEAPON_ART } from "../dist/render/art-index.js";
 import { drawBoltFlight, paintSoundBlade } from "../dist/render/pixel-primary-weapons.js";
 import { atFoot } from "../dist/render/iso/place.js";
-import { depthKey, snap, toScreen } from "../dist/render/iso/projection.js";
+import { ISO, depthKey, snap, toScreen } from "../dist/render/iso/projection.js";
 import { observeLaunch } from "../dist/game/combat-observation.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import { createSim, orbitPositions, step } from "../dist/game/sim.js";
@@ -11,19 +11,20 @@ import { playerStats } from "../dist/game/upgrades.js";
 import { FIXED_DT } from "../dist/game/clock.js";
 
 // Screen-geometry contracts only; the iso projectiles were not viewed in a browser.
-// A context that tracks the translation (atFoot only translates) and records drawImage / fillRect in screen pixels.
+// A context that tracks translate / uniform scale (atFoot's upright transform) and records drawImage / fillRect in screen pixels.
 function tracker() {
   const stack = [], images = [], rects = [];
-  let state = { tx: 0, ty: 0, globalAlpha: 1, fillStyle: "#000" };
+  let state = { tx: 0, ty: 0, s: 1, globalAlpha: 1, fillStyle: "#000" };
   const ctx = new Proxy({}, {
     get: (_, key) => {
       if (key === "images") return images;
       if (key === "rects") return rects;
       if (key === "save") return () => stack.push({ ...state });
       if (key === "restore") return () => { state = stack.pop(); assert.ok(state, "balanced saves"); };
-      if (key === "translate") return (x, y) => { state.tx += x; state.ty += y; };
-      if (key === "drawImage") return (img, x, y, w, h) => images.push({ img, x: x + state.tx, y: y + state.ty, w: w ?? img.width, h: h ?? img.height });
-      if (key === "fillRect") return (x, y, w, h) => rects.push({ x: x + state.tx, y: y + state.ty, w, h, color: state.fillStyle });
+      if (key === "translate") return (x, y) => { state.tx += x * state.s; state.ty += y * state.s; };
+      if (key === "scale") return (x) => { state.s *= x; };
+      if (key === "drawImage") return (img, x, y, w, h) => images.push({ img, x: x * state.s + state.tx, y: y * state.s + state.ty, w: (w ?? img.width) * state.s, h: (h ?? img.height) * state.s });
+      if (key === "fillRect") return (x, y, w, h) => rects.push({ x: x * state.s + state.tx, y: y * state.s + state.ty, w: w * state.s, h: h * state.s, color: state.fillStyle });
       if (key in state) return state[key];
       return () => {};
     },
@@ -62,10 +63,11 @@ test("moon stars stand at the projection of their sim positions, on a 2:1 ellips
     atFoot(ctx, a.foot.x, a.foot.y, a.draw);
     assert.equal(ctx.images.length, n + 1);
     const im = ctx.images.at(-1), s = toScreen(stars[i].x, stars[i].y), c = centre(im);
+    // Upright art draws at UPRIGHT_SCALE (0.5): the star floats 7 native px above its ground point.
     assert.ok(Math.abs(c.x - snap(s.x)) <= 0.5, `star ${i} x`);
-    assert.ok(Math.abs(c.y - (snap(s.y) - 14)) <= 0.5, `star ${i} y (14 px above its ground point)`);
-    // The screen offset from the cat lies on the projected orbit: semi-axes r*sqrt2 and r*sqrt2/2.
-    const ex = (s.x - o.x) / (r * Math.SQRT2), ey = (s.y - o.y) / (r * Math.SQRT2 / 2);
+    assert.ok(Math.abs(c.y - (snap(s.y) - 7)) <= 0.5, `star ${i} y (7 px above its ground point)`);
+    // The screen offset from the cat lies on the projected orbit: semi-axes r*sqrt2*k and r*sqrt2*k/2.
+    const k = ISO.k, ex = (s.x - o.x) / (r * Math.SQRT2 * k), ey = (s.y - o.y) / (r * Math.SQRT2 * k / 2);
     assert.ok(Math.abs(ex * ex + ey * ey - 1) < 0.02, `star ${i} on the 2:1 ellipse`);
   });
   // Over a full turn the screen orbit is twice as wide as it is tall.
@@ -88,7 +90,7 @@ test("the meow bolt is drawn at the projection of the shot and turns with the pr
     atFoot(ctx, shot.x, shot.y, () => drawBoltFlight(ctx, shot, 0));
     assert.equal(ctx.images.length, 1, "no launch mark without an observed launch");
     const im = ctx.images[0], s = toScreen(shot.x, shot.y), c = centre(im);
-    assert.ok(Math.abs(c.x - snap(s.x)) <= 0.5 && Math.abs(c.y - (snap(s.y) - 14)) <= 0.5, `bolt at its projected point (${vx}, ${vy})`);
+    assert.ok(Math.abs(c.x - snap(s.x)) <= 0.5 && Math.abs(c.y - (snap(s.y) - 7)) <= 0.5, `bolt at its projected point (${vx}, ${vy})`);
     // The cached blade is the one for the projected velocity.
     const h = toScreen(vx, vy), probe = tracker();
     paintSoundBlade(probe, 0, 0, h.x, h.y);
@@ -110,5 +112,5 @@ test("the bolt's launch mark sits at the projected muzzle, not at the world offs
   assert.ok(ctx.rects.length > 0, "the launch mark draws");
   const muzzle = toScreen(100, 200);
   const mx = ctx.rects.reduce((a, r) => a + r.x, 0) / ctx.rects.length, my = ctx.rects.reduce((a, r) => a + r.y, 0) / ctx.rects.length;
-  assert.ok(Math.hypot(mx - muzzle.x, my - (muzzle.y - 14)) < 6, `mark near the projected muzzle (${mx}, ${my})`);
+  assert.ok(Math.hypot(mx - muzzle.x, my - (muzzle.y - 7)) < 3, `mark near the projected muzzle (${mx}, ${my})`);
 });

@@ -124,7 +124,7 @@ test("projectPath re-expresses a world Path2D through the projection matrix", (t
   assert.equal(projectPath(src), out, "untransformed paths are memoised for fill and edge");
   close(vertices(out)[0], toScreen(10, 0), "first");
   close(vertices(out)[1], toScreen(10, 40), "second");
-  assert.deepEqual([...ISO_MATRIX], [1, 0.5, -1, 0.5, 0, 0]);
+  assert.deepEqual([...ISO_MATRIX], [0.5, 0.25, -0.5, 0.25, 0, 0]);
 });
 
 test("the Eraser sweep warning's corners are the projected corners of the sim rectangle", (t) => {

@@ -5,7 +5,7 @@ import type { EffectProgress } from "./art-registry.js";
 import { reducedPaperMotion } from "./paper-motion.js";
 import { rect, line, polygon, type Point, type Ctx } from "./pixel-art.js";
 import { PIXEL_PAPER as paper } from "./pixel-paper-colors.js";
-import { toScreen } from "./iso/projection.js";
+import { ISO, toScreen } from "./iso/projection.js";
 
 const BOLT = [
   { face: "#97cbbf", shade: "#567e85", tip: "#dff0d6" },
@@ -51,7 +51,8 @@ export function drawBoltFlight(ctx: Ctx, shot: ShotState, elapsed: number): void
   if (age < 0 || age >= .105) return;
   const p = BOLT[shot.empowered ? 2 : shot.echo ? 1 : 0];
   const muzzle = toScreen(start.x, start.y), aim = toScreen(start.dx, start.dy), len = Math.hypot(aim.x, aim.y) || 1;
-  const x = shot.x + muzzle.x - here.x, y = shot.y + muzzle.y - here.y - 14, dx = aim.x / len, dy = aim.y / len;
+  // The painter runs under the upright scale (ISO.k), so screen offsets are divided by it.
+  const x = shot.x + (muzzle.x - here.x) / ISO.k, y = shot.y + (muzzle.y - here.y) / ISO.k - 14, dx = aim.x / len, dy = aim.y / len;
   const fade = 1 - age / .105, spread = 3 + fade * 2;
   ctx.save();
   ctx.globalAlpha *= Math.min(1, fade * 1.65);

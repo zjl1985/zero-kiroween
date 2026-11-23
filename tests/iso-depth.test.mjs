@@ -67,9 +67,10 @@ function environment(t) {
 
 test("art and cat boxes sit around their projected foot points", () => {
   const b = { l: -10, r: 20, t: -50, b: 5 }, at = toScreen(300, 200);
-  assert.deepEqual(artBox(300, 200, 2, b), { x0: at.x - 20, x1: at.x + 40, y0: at.y - 100, y1: at.y + 10 });
+  // Upright art draws at UPRIGHT_SCALE = ISO.k = 0.5, so its boxes shrink with it.
+  assert.deepEqual(artBox(300, 200, 2, b), { x0: at.x - 10, x1: at.x + 20, y0: at.y - 50, y1: at.y + 5 });
   const c = actorBox({ x: 300, y: 200 }), k = ISO_DEPTH.cat;
-  assert.deepEqual(c, { x0: at.x - k.halfWidth, x1: at.x + k.halfWidth, y0: at.y - k.top, y1: at.y + k.bottom });
+  assert.deepEqual(c, { x0: at.x - k.halfWidth / 2, x1: at.x + k.halfWidth / 2, y0: at.y - k.top / 2, y1: at.y + k.bottom / 2 });
 });
 
 test("a tall piece fades only when the cat stands behind it and their projected boxes overlap", () => {

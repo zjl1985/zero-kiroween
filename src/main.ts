@@ -25,10 +25,11 @@ import { paintUpgradeCards } from "./ui/upgrade-cards.js";
 import { paintJournal } from "./ui/journal.js";
 import type { SimState } from "./game/types.js";
 import { STATS } from "./game/types.js";
-import { drawWorld } from "./render/world.js";
+import { drawWorld, presentWorld } from "./render/world.js";
 import { createFrameReview } from "./render/frame-review.js";
 import { boardLayout } from "./render/viewport.js";
-import { pixelBacking } from "./render/pixel-resolution.js";
+import { pixelBacking, presentBacking } from "./render/pixel-resolution.js";
+import { surface } from "./engine/surface.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
@@ -186,6 +187,8 @@ function boot(): void {
     stage = must<HTMLCanvasElement>("game"),
     overlay = must<HTMLElement>("overlay");
   const ctx = stage.getContext("2d")!;
+  // The scene renders into this native 480 x 270 (or portrait) canvas; presentWorld enlarges it onto the stage.
+  let native = surface(480, 270), nativeCtx = native.getContext("2d") as CanvasRenderingContext2D;
   const input = createInput();
   input.attach(window);
   const touch = createTouch(must("touch"), must("stick")),
@@ -310,9 +313,14 @@ function boot(): void {
     const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
     if (turned) touch.reset();
     else touch.invalidateGeometry();
-    // One authored pixel spans one world unit. Camera/input keep their original
-    // coordinates; CSS nearest-neighbour enlargement presents the native grid.
-    const { width: w, height: h } = pixelBacking(v.viewWidth, v.viewHeight);
+    // The scene draws at native pixels (iso k = 0.5); the stage holds a whole-number
+    // enlargement of it with the retro layer and crisp UI, which CSS fits to the board.
+    const n = pixelBacking(v.viewWidth, v.viewHeight);
+    if (native.width !== n.width || native.height !== n.height) {
+      native = surface(n.width, n.height);
+      nativeCtx = native.getContext("2d") as CanvasRenderingContext2D;
+    }
+    const { width: w, height: h } = presentBacking(n, v.cssW, devicePixelRatio || 1);
     if (stage.width !== w) stage.width = w;
     if (stage.height !== h) stage.height = h;
     const center = turned && sim ? sim.player : cameraWorld();
@@ -690,14 +698,13 @@ function boot(): void {
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
       if (sim && screen === "play") camera = followIsoCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
-      ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
-      ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
+      nativeCtx.setTransform(native.width / layout.viewWidth, 0, 0, native.height / layout.viewHeight, 0, 0);
+      nativeCtx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
       const drawStart = profiling ? performance.now() : 0;
-      drawWorld(
-        ctx,
-        screen === "title" ? null : sim,
-        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) },
-      );
+      const shown = screen === "title" ? null : sim,
+        worldView = { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) };
+      drawWorld(nativeCtx, shown, worldView);
+      presentWorld(ctx, native, shown, worldView, stage.width, stage.height);
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;
     }
