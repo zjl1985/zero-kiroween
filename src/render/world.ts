@@ -40,7 +40,7 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
-import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, modelFootprint, volumeBounds } from "./iso/depth.js";
+import { footprintKey, ISO_DEPTH, isoOccludesActor, liftInFront, modelFootprint, pointFootprint, volumeBounds, type DepthOccluder } from "./iso/depth.js";
 import { drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawIsoGround, drawIsoWater } from "./iso/terrain-bake.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
@@ -245,11 +245,12 @@ function drawWorldFrame(
     : s.foot
       ? depthKey(s.foot.x, s.foot.y) + (s.y - s.foot.y)
       : depthKey(sim?.player.x ?? 0, s.y));
-  // The cat sorts at its own foot, after every multi-tile footprint it stands in front of.
-  // Occluders it stands behind sort after it and fade (iso/depth.ts).
-  const playerDepth = sprites.reduce((k, sprite) =>
-    sim && sprite.footprint && !actorBehind(sprite.footprint, sim.player) ? Math.max(k, keyOf(sprite) + .01) : k,
-  sim ? depthKey(sim.player.x, sim.player.y) : 0);
+  // The cat sorts at its own foot, after every multi-tile footprint it stands in front of
+  // (the same lift as every other point actor below). Occluders it stands behind sort
+  // after it and fade (iso/depth.ts).
+  const footprints: DepthOccluder[] = [];
+  for (const sprite of sprites) if (sprite.footprint) footprints.push({ footprint: sprite.footprint, key: keyOf(sprite) });
+  const playerDepth = sim ? liftInFront(depthKey(sim.player.x, sim.player.y), sim.player, footprints) : 0;
   for (const sprite of sprites)
     if (sprite.occludesPlayer) sprite.key = Math.max(keyOf(sprite), playerDepth + .01);
   const cat = (pose: CatPose) => {
@@ -394,6 +395,17 @@ function drawWorldFrame(
     }
   }
   ground((g) => drawWarningGround(g, warnings));
+  // Every other point actor (enemies, pickups, shots, townsfolk, the decoy) gets the cat's
+  // separating-axis lift over nearby footprints and over occluders raised above the cat,
+  // so a long rail or a faded building never paints over an actor standing in front of it.
+  const occluders: DepthOccluder[] = [];
+  for (const sprite of sprites)
+    if (sprite.footprint || sprite.occludesPlayer)
+      occluders.push({ footprint: sprite.footprint ?? pointFootprint(sprite.foot?.x ?? 0, sprite.foot?.y ?? sprite.y), key: keyOf(sprite) });
+  for (const sprite of sprites) {
+    if (sprite.key !== undefined || sprite.footprint || sprite.occludesPlayer || !sprite.foot) continue;
+    sprite.key = liftInFront(keyOf(sprite), sprite.foot, occluders);
+  }
   for (const sprite of sprites) sprite.key = keyOf(sprite);
   for (const sprite of depthSort(sprites as (WorldSprite & { key: number })[])) {
     const paint = () => sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : affine(sprite.draw);

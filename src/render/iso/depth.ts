@@ -36,6 +36,12 @@ export const ISO_DEPTH = {
   cat: { halfWidth: 20, top: 50, bottom: 5 },
   /** Alpha of an occluder drawn over the cat. */
   fade: 0.48,
+  /**
+   * World units around a footprint inside which a point actor in front of it
+   * is lifted above its sort key (liftInFront). Covers the tallest point
+   * sprite (the Eraser, about 96 px over its foot, i.e. 192 world units of depth).
+   */
+  near: 200,
 } as const;
 
 /** Screen box of an upright painter drawn atFoot at (x, y) with bounds `b` scaled by `s`. */
@@ -73,6 +79,32 @@ export function footprintKey(fp: Footprint): number {
 export function actorBehind(fp: Footprint, actor: Vec): boolean {
   if (fp.x0 === fp.x1 && fp.y0 === fp.y1) return depthKey(actor.x, actor.y) <= depthKey(fp.x1, fp.y1);
   return !(actor.x > fp.x1 || actor.y > fp.y1);
+}
+
+/** A sprite that point actors standing in front of it must sort after. */
+export interface DepthOccluder {
+  readonly footprint: Footprint;
+  readonly key: number;
+}
+
+/**
+ * Sort key of a point sprite (an enemy, pickup, shot, townsfolk, the decoy)
+ * at `foot` with its own `key`. A multi-tile footprint sorts by its front
+ * corner, so an actor standing just south or east of a long rail would sort
+ * behind it; with the same separating-axis test as the cat (actorBehind), an
+ * actor in front of a nearby occluder is lifted just past that occluder's key.
+ * The lift stays monotonic in the actor's own key (within 0.005..0.02 of the
+ * occluder key), so several actors in front of the same piece keep their order.
+ */
+export function liftInFront(key: number, foot: Vec, occluders: readonly DepthOccluder[], near: number = ISO_DEPTH.near): number {
+  let lifted = key;
+  for (const o of occluders) {
+    const fp = o.footprint;
+    if (o.key < key || actorBehind(fp, foot)) continue;
+    if (foot.x < fp.x0 - near || foot.x > fp.x1 + near || foot.y < fp.y0 - near || foot.y > fp.y1 + near) continue;
+    lifted = Math.max(lifted, o.key + 0.02 + 1e-6 * Math.max(-15000, key - o.key));
+  }
+  return lifted;
 }
 
 /**

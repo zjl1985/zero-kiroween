@@ -8,8 +8,11 @@ import {
   footprintKey,
   ISO_DEPTH,
   isoOccludesActor,
+  liftInFront,
+  modelFootprint,
   pointFootprint,
 } from "../dist/render/iso/depth.js";
+import { isoYardPieces } from "../dist/render/iso/yard-models.js";
 import { depthKey, toScreen } from "../dist/render/iso/projection.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import { CAT_ART, LANDMARK_ART } from "../dist/render/art-index.js";
@@ -143,4 +146,30 @@ test("cat south of a building: normal order, building opaque before the cat", (t
   assert.equal(occludes, false);
   assert.ok(building >= 0 && cat > building, JSON.stringify({ cat, building }));
   assert.equal(draws[building].globalAlpha, 1);
+});
+
+test("an actor just south of a rail's west end sorts after the rail; actors behind it stay behind", () => {
+  const rail = isoYardPieces().find((p) => p.kind === "rail");
+  assert.ok(rail, "the opening yard has rails");
+  const fp = modelFootprint(rail.model().base, rail.x, rail.y), key = footprintKey(fp);
+  assert.ok(fp.x1 - fp.x0 > 40, "a long rail");
+  const occluders = [{ footprint: fp, key }];
+  // The review's case: an ink blob at (x0 + 10, y1 + 5) has a plain key far below the rail's.
+  const blob = { x: fp.x0 + 10, y: fp.y1 + 5 }, plain = depthKey(blob.x, blob.y);
+  assert.ok(plain < key);
+  const lifted = liftInFront(plain, blob, occluders);
+  assert.ok(lifted > key, JSON.stringify({ plain, lifted, key }));
+  // Two actors in front of the same rail keep their own order.
+  const nearer = { x: blob.x + 20, y: blob.y + 4 };
+  assert.ok(liftInFront(depthKey(nearer.x, nearer.y), nearer, occluders) > lifted);
+  // North of the rail: behind, never lifted.
+  const north = { x: fp.x0 + 10, y: fp.y0 - 5 };
+  assert.equal(liftInFront(depthKey(north.x, north.y), north, occluders), depthKey(north.x, north.y));
+  // Far away: no lift (the piece cannot overlap it on screen).
+  const far = { x: fp.x0 + 10, y: fp.y1 + ISO_DEPTH.near + 50 };
+  assert.equal(liftInFront(depthKey(far.x, far.y), far, occluders), depthKey(far.x, far.y));
+  // A raised point occluder (a faded building over the cat) also stays under actors in front of it.
+  const lamp = { footprint: pointFootprint(3000, 3000), key: 9000 }, before = { x: 3010, y: 3010 };
+  assert.ok(liftInFront(depthKey(before.x, before.y), before, [lamp]) > lamp.key);
+  assert.equal(liftInFront(depthKey(2990, 2990), { x: 2990, y: 2990 }, [lamp]), depthKey(2990, 2990));
 });
