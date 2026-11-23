@@ -4,6 +4,7 @@ import { visHash } from "./hash.js";
 import { reducedPaperMotion } from "./paper-motion.js";
 import { line, polygon, rect, type Point, type Ctx } from "./pixel-art.js";
 import { PIXEL_PAPER as paper } from "./pixel-paper-colors.js";
+import { screenAngle } from "./iso/projection.js";
 
 function drawContact(ctx: Ctx, hit: CombatContact, t: number): void {
   const calm = reducedPaperMotion();
@@ -67,7 +68,8 @@ function drawRemnants(ctx: Ctx, e: Impact, hit: CombatContact | undefined): void
   const face = INK_FACE[e.src ?? ""] ?? "#807293", seed = e.seed ?? 0;
   const pieces = scorched ? 3 : 4;
   const originX = e.x, originY = e.y - 8;
-  const heading = hit ? Math.atan2(hit.dy, hit.dx) : 0;
+  // Hit direction is a world vector; scatter along its projected screen direction.
+  const heading = hit ? screenAngle(hit.dx, hit.dy) : 0;
   ctx.save();
   ctx.globalAlpha *= 1 - t;
   if (wet) {

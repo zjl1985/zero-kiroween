@@ -6,6 +6,7 @@ import { rect, line, polygon, type Ctx, type Point } from './pixel-art.js';
 import { area, edge } from './pixel-vfx.js';
 import { reducedPaperMotion } from './paper-motion.js';
 import { PIXEL_PAPER as paper } from './pixel-paper-colors.js';
+import { screenAngle } from './iso/projection.js';
 
 const FRONT = '#e1d4b7', BACK = paper.reverse, INK = paper.edge, EDGE = paper.fiber;
 
@@ -13,7 +14,8 @@ export function drawSecondaryShot(c: Ctx, s: ShotState, time: number): void {
     const kind = s.weapon;
     if (kind !== 'crane' && kind !== 'seed') return;
     const headings = 16, size = 36, origin = size / 2;
-    const heading = (Math.round(Math.atan2(s.vy, s.vx) * headings / (2 * Math.PI)) + headings) % headings;
+    // The sim velocity is in world units; aim the baked heading along its projected screen direction.
+    const heading = (Math.round(screenAngle(s.vx, s.vy) * headings / (2 * Math.PI)) + headings) % headings;
     const pose = kind === 'seed' ? 0 : reducedPaperMotion() ? 1 : Math.floor(time * 9 + s.id % 3) % 3;
     // Project the vertices onto the pixel grid before baking. Rotating an
     // already drawn head on the live canvas smears its one-pixel edges.
@@ -65,7 +67,7 @@ export function drawSecondaryEffect(c: Ctx, e: Impact, look: EffectProgress): bo
     if (e.kind === 'claw') {
         for (let i = 0; i < 3; i++) {
             const p = calm ? .85 : Math.min(1, Math.max(0, .35 + t * 2.5 - i * .24));
-            if (p > 0) claw(c, (e.radius ?? 58) * (.68 + i * .1), (i - 1) * 4, p, e.angle ?? 0);
+            if (p > 0) claw(c, (e.radius ?? 58) * (.68 + i * .1), (i - 1) * 4, p, screenAngle(Math.cos(e.angle ?? 0), Math.sin(e.angle ?? 0)));
         }
     } else if (e.kind === 'seed-burst') {
         const p = calm ? .55 : t;

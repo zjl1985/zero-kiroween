@@ -29,6 +29,12 @@ export function toWorld(sx: number, sy: number): Vec {
   return { x: sx / (2 * ISO.k) + sy / ISO.k, y: sy / ISO.k - sx / (2 * ISO.k) };
 }
 
+/** Screen heading (radians) of a world direction (dx, dy) under the projection; 0 for a zero vector. */
+export function screenAngle(dx: number, dy: number): number {
+  const h = toScreen(dx, dy);
+  return h.x === 0 && h.y === 0 ? 0 : Math.atan2(h.y, h.x);
+}
+
 /** Foot-point draw order: larger is nearer and drawn later. Callers break ties by a stable id. */
 export function depthKey(x: number, y: number): number {
   return x + y;

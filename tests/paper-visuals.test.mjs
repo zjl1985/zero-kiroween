@@ -927,7 +927,7 @@ test("the gallery presents distinct colored, washed, blank and tide review state
 
 import { drawWorld } from "../dist/render/world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
-import { toScreen } from "../dist/render/iso/projection.js";
+import { toScreen, toWorld } from "../dist/render/iso/projection.js";
 // The live view is isometric: drawWorld takes an iso camera that frames a world point.
 const isoCam = (at, width = 960, height = 540) => createIsoCamera(width, height, at);
 
@@ -1089,8 +1089,9 @@ test("angled cranes and seeds stamp one crisp bounded native sprite", (t) => {
   for (const [id, weapon, poses] of [["paper-crane", "crane", 3], ["pumpkin-seed", "seed", 1]]) {
     const paint = WEAPON_ART.get(id).shot;
     for (let heading = 0; heading < 16; heading++) for (let pose = 0; pose < poses; pose++) {
-      const angle = heading * Math.PI / 8, ctx = canvas().getContext("2d");
-      paint(ctx, { id: pose, weapon, x: 80.7, y: 40.4, vx: Math.cos(angle), vy: Math.sin(angle) }, 0);
+      // The world velocity whose projected screen direction is this heading (headings follow the screen).
+      const angle = heading * Math.PI / 8, ctx = canvas().getContext("2d"), v = toWorld(Math.cos(angle), Math.sin(angle));
+      paint(ctx, { id: pose, weapon, x: 80.7, y: 40.4, vx: v.x, vy: v.y }, 0);
       assert.equal(images(ctx).length, 1);
       assert.ok(!allPaint(ctx).some(c => c.op === "rotate"), "diagonal pixels are baked before they reach the screen");
       const spritePixels = allPaint(ctx).filter(c => c.op === "fillRect");

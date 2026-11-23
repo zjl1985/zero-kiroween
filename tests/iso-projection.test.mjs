@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  ISO, ISO_PIPELINE, depthKey, isoInput, screenToWorldDir, snap, toScreen, toWorld,
+  ISO, ISO_PIPELINE, depthKey, isoInput, screenAngle, screenToWorldDir, snap, toScreen, toWorld,
 } from "../dist/render/iso/projection.js";
 
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
@@ -91,4 +92,19 @@ test("isoInput is a pure conversion of the sampled FrameInput", () => {
   assert.deepEqual(isoInput({ ax: 0, ay: 0 }), { ax: 0, ay: 0 });
   assert.deepEqual(isoInput({ ax: 0.6, ay: 0.8 }), isoInput({ ax: 0.6, ay: 0.8 }));
   assert.equal(typeof ISO_PIPELINE, "boolean");
+});
+
+test("world directions aim along their projected screen heading", () => {
+  near(screenAngle(1, 0), Math.atan2(0.5, 1), 1e-12);
+  near(screenAngle(0, 1), Math.atan2(0.5, -1), 1e-12);
+  near(screenAngle(1, 1), Math.PI / 2, 1e-12);
+  near(screenAngle(-1, -1), -Math.PI / 2, 1e-12);
+  assert.equal(screenAngle(0, 0), 0);
+  // Painters drawn upright at projected feet take headings through the projection, not world atan2.
+  const src = (f) => readFileSync(new URL(`../src/render/${f}`, import.meta.url), "utf8");
+  const secondary = src("pixel-secondary-weapons.ts"), feedback = src("pixel-combat-feedback.ts");
+  assert.doesNotMatch(secondary, /Math\.atan2\(s\.vy/);
+  assert.match(secondary, /screenAngle\(s\.vx, s\.vy\)/, "crane and seed headings");
+  assert.match(secondary, /screenAngle\(Math\.cos\(e\.angle/, "night claw arc");
+  assert.match(feedback, /screenAngle\(hit\.dx, hit\.dy\)/, "ink remnants scatter");
 });
