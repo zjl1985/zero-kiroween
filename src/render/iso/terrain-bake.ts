@@ -19,6 +19,7 @@ import { MATERIAL_SURFACE, SURFACE_RAMP, surfaceRgb } from "./surface-texture.js
 import { rampColour, type Rgb } from "./palette.js";
 import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
 import { roadRgb, roadSurface } from "./road-texture.js";
+import { ISO_WATER, rippleFrame, rippleRgb, waterRgb } from "./water-layers.js";
 import { toScreen, toWorld } from "./projection.js";
 
 type Ctx = CanvasRenderingContext2D;
@@ -67,9 +68,10 @@ const inWorld = (x: number, y: number) => x >= WORLD.minX && x < WORLD.maxX && y
 
 /** Ground colour of screen pixel (px, py) at world point (x, y) with field sample `s`. */
 function groundRgb(seed: number, px: number, py: number, x: number, y: number, s: TerrainSample, sample: Sampler): Rgb {
-  const road = s.material === "road",
+  const road = s.material === "road", water = s.material === "shallow" || s.material === "deep",
     surface = road ? roadSurface(s) : MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
-  return (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
+  return (water && waterRgb(seed, px, py, x, y, s, n))
+    || (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
     || (road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
 }
 
@@ -85,39 +87,105 @@ export function isoGroundPixel(seed: number, px: number, py: number, sample: Sam
   return [r, g, b, 255];
 }
 
-/** Bakes block (col, row) into `out` (RGBA, ISO_BLOCK size), yielding every few rows. */
-export function* bakeBlockRows(seed: number, col: number, row: number, out: Uint8ClampedArray): Generator<void> {
+/**
+ * Pure ripple overlay pixel at screen pixel (px, py) in `frame`: [r, g, b, a],
+ * transparent away from water glints and outside WORLD.
+ */
+export function isoRipplePixel(px: number, py: number, frame: number, sample: Sampler): readonly [number, number, number, number] {
+  const w = toWorld(px + 0.5, py + 0.5);
+  if (!inWorld(w.x, w.y)) return [0, 0, 0, 0];
+  const rgb = rippleRgb(px, py, frame, sample(w.x, w.y));
+  return rgb ? [rgb[0], rgb[1], rgb[2], 255] : [0, 0, 0, 0];
+}
+
+/** Ripple overlay frames of one block, allocated on its first water pixel. */
+export interface WaterFrames { frames?: Uint8ClampedArray[] }
+
+/**
+ * Bakes block (col, row) into `out` (RGBA, ISO_BLOCK size), yielding every
+ * few rows. With `water`, blocks that show water also get their ripple frames.
+ */
+export function* bakeBlockRows(seed: number, col: number, row: number, out: Uint8ClampedArray, water?: WaterFrames): Generator<void> {
   const field = prepareTerrainField(seed, blockWorldBox(col, row)),
     ox = col * BLOCK_W, oy = row * BLOCK_H;
   for (let y = 0; y < BLOCK_H; y++) {
     for (let x = 0; x < BLOCK_W; x++) {
       const px = ox + x, py = oy + y, w = toWorld(px + 0.5, py + 0.5), i = (y * BLOCK_W + x) * 4;
       if (!inWorld(w.x, w.y)) { out[i + 3] = 0; continue; }
-      const rgb = groundRgb(seed, px, py, w.x, w.y, field(w.x, w.y), field);
+      const s = field(w.x, w.y), rgb = groundRgb(seed, px, py, w.x, w.y, s, field);
       out[i] = rgb[0]; out[i + 1] = rgb[1]; out[i + 2] = rgb[2]; out[i + 3] = 255;
+      if (!water || (s.material !== "shallow" && s.material !== "deep")) continue;
+      const frames = water.frames ??= Array.from({ length: ISO_WATER.frames }, () => new Uint8ClampedArray(BLOCK_W * BLOCK_H * 4));
+      for (let f = 0; f < frames.length; f++) {
+        const glint = rippleRgb(px, py, f, s);
+        if (!glint) continue;
+        const o = frames[f]!;
+        o[i] = glint[0]; o[i + 1] = glint[1]; o[i + 2] = glint[2]; o[i + 3] = 255;
+      }
     }
     if ((y + 1) % ISO_BLOCK.sliceRows === 0) yield;
   }
 }
 /** The RGBA pixels of block (col, row), baked in one go (tests, worker). */
 export function bakeBlockPixels(seed: number, col: number, row: number): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(BLOCK_W * BLOCK_H * 4);
-  for (const _ of bakeBlockRows(seed, col, row, out)) { /* finish the block */ }
-  return out;
+  return bakeBlockLayers(seed, col, row).ground;
 }
-/** Copies baked pixels into a new block canvas. */
-function blockCanvas(pixels: Uint8ClampedArray): CanvasSurface {
-  const canvas = surface(BLOCK_W, BLOCK_H),
+/** Block-local rectangle holding every ripple glint of a block (frames are cropped to it). */
+export interface RippleBox { x: number; y: number; w: number; h: number }
+/** Cropped ripple frames of a block: every frame has the same box. */
+export interface RippleLayers { box: RippleBox; frames: Uint8ClampedArray[] }
+
+/** Crops full-block ripple frames to the union of their opaque pixels; undefined when no glint exists. */
+export function cropRipples(frames: readonly Uint8ClampedArray[] | undefined): RippleLayers | undefined {
+  if (!frames?.length) return undefined;
+  let x0 = BLOCK_W, y0 = BLOCK_H, x1 = -1, y1 = -1;
+  for (const f of frames)
+    for (let y = 0; y < BLOCK_H; y++)
+      for (let x = 0; x < BLOCK_W; x++)
+        if (f[(y * BLOCK_W + x) * 4 + 3]) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+  if (x1 < 0) return undefined;
+  const box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  return {
+    box,
+    frames: frames.map((f) => {
+      const out = new Uint8ClampedArray(box.w * box.h * 4);
+      for (let y = 0; y < box.h; y++) {
+        const from = ((box.y + y) * BLOCK_W + box.x) * 4;
+        out.set(f.subarray(from, from + box.w * 4), y * box.w * 4);
+      }
+      return out;
+    }),
+  };
+}
+
+/** Ground pixels plus cropped ripple frames (only when the block shows glints). */
+export function bakeBlockLayers(seed: number, col: number, row: number): { ground: Uint8ClampedArray; ripples?: RippleLayers } {
+  const ground = new Uint8ClampedArray(BLOCK_W * BLOCK_H * 4), water: WaterFrames = {};
+  for (const _ of bakeBlockRows(seed, col, row, ground, water)) { /* finish the block */ }
+  const ripples = cropRipples(water.frames);
+  return ripples ? { ground, ripples } : { ground };
+}
+/** Copies baked pixels into a new canvas (a full block unless a ripple crop size is given). */
+function blockCanvas(pixels: Uint8ClampedArray, w: number = BLOCK_W, h: number = BLOCK_H): CanvasSurface {
+  const canvas = surface(w, h),
     ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
   if (!ctx || typeof ctx.createImageData !== "function") throw new Error("No pixel context for the iso ground");
-  const image = ctx.createImageData(BLOCK_W, BLOCK_H);
+  const image = ctx.createImageData(w, h);
   image.data.set(pixels);
   ctx.putImageData(image, 0, 0);
   return canvas;
 }
-/** Worker / fallback entry: block (col, row) as a canvas. */
-export function buildIsoBlock(seed: number, col: number, row: number): CanvasSurface {
-  return blockCanvas(bakeBlockPixels(seed, col, row));
+const rippleCanvases = (r: RippleLayers | undefined, made: CanvasSurface[] = []): CanvasSurface[] =>
+  (r?.frames ?? []).map((f) => { const c = blockCanvas(f, r!.box.w, r!.box.h); made.push(c); return c; });
+/** Worker entry: block (col, row) as a ground canvas plus cropped ripple frame canvases for water blocks. */
+export function buildIsoBlock(seed: number, col: number, row: number): { ground: CanvasSurface; ripples: CanvasSurface[]; box?: RippleBox } {
+  const { ground, ripples } = bakeBlockLayers(seed, col, row);
+  return { ground: blockCanvas(ground), ripples: rippleCanvases(ripples), ...(ripples ? { box: ripples.box } : {}) };
 }
 
 // ---------------------------------------------------------------- cache
@@ -162,11 +230,20 @@ export function createBlockCache<T>(limit: number, release: (value: T) => void):
   };
 }
 
-function releaseBlock(image: BlockImage): void {
+/** A ready block: its ground and, for water blocks, the ripple overlay frames. */
+interface ReadyBlock { ground: BlockImage; ripples: readonly BlockImage[]; box?: RippleBox }
+/** Worker reply for an iso block. */
+export interface IsoBlockReply { id: number; bitmap: ImageBitmap | null; ripples?: ImageBitmap[]; box?: RippleBox }
+
+function releaseImage(image: BlockImage): void {
   if ("close" in image) image.close();
   else image.width = image.height = 0;
 }
-const blocks = createBlockCache<BlockImage>(ISO_BLOCK.limit, releaseBlock);
+function releaseBlock(block: ReadyBlock): void {
+  releaseImage(block.ground);
+  block.ripples.forEach(releaseImage);
+}
+const blocks = createBlockCache<ReadyBlock>(ISO_BLOCK.limit, releaseBlock);
 const blockKey = (seed: number, col: number, row: number) => seed + ":" + col + "," + row;
 interface Tile { key: string; col: number; row: number }
 
@@ -174,7 +251,7 @@ let wanted = new Set<string>();
 let worker: Worker | null | undefined;
 let inFlight: { id: number; key: string } | undefined;
 let requestId = 0;
-let localBake: { key: string; pixels: Uint8ClampedArray; steps: Generator<void> } | undefined;
+let localBake: { key: string; pixels: Uint8ClampedArray; water: WaterFrames; steps: Generator<void> } | undefined;
 /** Keys whose canvas copy failed (no pixel context): placeholder only, never retried in a loop. */
 const failed = new Set<string>();
 
@@ -189,14 +266,15 @@ function blockWorker(): Worker | null {
   if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") return worker = null;
   try {
     const w = new Worker(new URL("../terrain-worker.js", import.meta.url), { type: "module" });
-    w.onmessage = ({ data }: MessageEvent<{ id: number; bitmap: ImageBitmap | null }>) => {
-      const { id, bitmap } = data;
-      if (worker !== w || inFlight?.id !== id) { bitmap?.close(); return; }
+    w.onmessage = ({ data }: MessageEvent<IsoBlockReply>) => {
+      const { id, bitmap, box } = data, ripples = box ? data.ripples ?? [] : [];
+      const drop = () => { bitmap?.close(); ripples.forEach((r) => r.close()); };
+      if (worker !== w || inFlight?.id !== id) { drop(); return; }
       const { key } = inFlight;
       inFlight = undefined;
-      if (!bitmap) disableWorker(w);
-      else if (wanted.has(key) && !blocks.has(key)) blocks.set(key, bitmap, wanted);
-      else bitmap.close();
+      if (!bitmap) { drop(); disableWorker(w); }
+      else if (wanted.has(key) && !blocks.has(key)) blocks.set(key, { ground: bitmap, ripples, ...(box ? { box } : {}) }, wanted);
+      else drop();
     };
     w.onerror = (event) => { event.preventDefault(); disableWorker(w); };
     w.onmessageerror = () => disableWorker(w);
@@ -215,15 +293,21 @@ function warm(seed: number, tile: Tile | undefined): void {
     try { w.postMessage(request); return; } catch { disableWorker(w); }
   }
   if (!localBake || localBake.key !== tile.key) {
-    const pixels = new Uint8ClampedArray(BLOCK_W * BLOCK_H * 4);
-    localBake = { key: tile.key, pixels, steps: bakeBlockRows(seed, tile.col, tile.row, pixels) };
+    const pixels = new Uint8ClampedArray(BLOCK_W * BLOCK_H * 4), water: WaterFrames = {};
+    localBake = { key: tile.key, pixels, water, steps: bakeBlockRows(seed, tile.col, tile.row, pixels, water) };
   }
   const deadline = performance.now() + ISO_BLOCK.localBudgetMs;
   do {
     if (!localBake.steps.next().done) continue;
-    const { key, pixels } = localBake;
+    const { key, pixels, water } = localBake;
     localBake = undefined;
-    try { blocks.set(key, blockCanvas(pixels), wanted); } catch { failed.add(key); }
+    const made: CanvasSurface[] = [];
+    try {
+      const ground = blockCanvas(pixels);
+      made.push(ground);
+      const cropped = cropRipples(water.frames), ripples = rippleCanvases(cropped, made);
+      blocks.set(key, { ground, ripples, ...(cropped ? { box: cropped.box } : {}) }, wanted);
+    } catch { made.forEach(releaseImage); failed.add(key); }
     break;
   } while (performance.now() < deadline);
 }
@@ -284,16 +368,35 @@ export function drawIsoGround(ctx: Ctx, seed: number, view: ScreenRect, prefetch
   const want = [...visible, ...ahead.slice(0, Math.max(0, ISO_BLOCK.limit - visible.length))];
   wanted = new Set(want.map((t) => t.key));
   for (const { key, col, row } of visible) {
-    const image = blocks.get(key);
-    if (image) ctx.drawImage(image, col * BLOCK_W, row * BLOCK_H, BLOCK_W, BLOCK_H);
+    const block = blocks.get(key);
+    if (block) ctx.drawImage(block.ground, col * BLOCK_W, row * BLOCK_H, BLOCK_W, BLOCK_H);
     else placeholder(ctx, col, row);
   }
   warm(seed, want.find((t) => !blocks.has(t.key) && !failed.has(t.key)));
 }
 
+/**
+ * Draws the cached ripple overlay frame of every visible ready water block
+ * (after drawIsoGround, same transform). The frame comes from presentation
+ * time; reduced motion keeps frame 0. Nothing is re-baked per frame.
+ */
+export function drawIsoWater(ctx: Ctx, seed: number, view: ScreenRect, time: number, reduced: boolean): void {
+  const frame = rippleFrame(time, reduced);
+  for (const { key, col, row } of tilesIn(seed, view)) {
+    const block = blocks.has(key) ? blocks.get(key) : undefined, image = block?.ripples[frame], box = block?.box;
+    if (image && box) ctx.drawImage(image, col * BLOCK_W + box.x, row * BLOCK_H + box.y, box.w, box.h);
+  }
+}
+
 /** Ready block count (tests). */
 export function cachedIsoBlockCount(): number {
   return blocks.size;
+}
+/** Canvases / bitmaps held by ready blocks, ground and ripple frames (tests). */
+export function cachedIsoImageCount(): number {
+  let n = 0;
+  for (const key of blocks.keys()) { const b = blocks.get(key)!; n += 1 + b.ripples.length; }
+  return n;
 }
 /** Release block pixels and pending bake work with the run that owns them. */
 export function clearIsoGroundCache(): void {

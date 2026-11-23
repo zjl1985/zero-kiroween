@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { materialAt, prepareTerrainField } from "../dist/render/iso/terrain-field.js";
 import {
-  ISO_BLOCK, bakeBlockPixels, blockWorldBox, cachedIsoBlockCount, clearIsoGroundCache, createBlockCache, drawIsoGround, isoGroundPixel,
+  ISO_BLOCK, bakeBlockPixels, blockWorldBox, cachedIsoBlockCount, cachedIsoImageCount, clearIsoGroundCache, createBlockCache, drawIsoGround, isoGroundPixel,
 } from "../dist/render/iso/terrain-bake.js";
 import { toScreen, toWorld } from "../dist/render/iso/projection.js";
 import { visHash } from "../dist/render/hash.js";
@@ -130,7 +130,8 @@ test("drawIsoGround bakes visible blocks on the fallback path and evicts canvase
   assert.ok(canvases.length > ISO_BLOCK.limit, `baked more blocks (${canvases.length}) than the cache keeps`);
   assert.equal(cachedIsoBlockCount(), ISO_BLOCK.limit);
   const kept = canvases.filter((c) => c.width > 0);
-  assert.equal(kept.length, ISO_BLOCK.limit, "every evicted canvas is released (width = height = 0)");
+  // Water blocks also hold their cropped ripple frames; everything else that was evicted is released.
+  assert.equal(kept.length, cachedIsoImageCount(), "every evicted canvas is released (width = height = 0)");
   clearIsoGroundCache();
   assert.equal(cachedIsoBlockCount(), 0);
   assert.ok(canvases.every((c) => c.width === 0 && c.height === 0));
