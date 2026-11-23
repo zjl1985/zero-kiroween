@@ -1,5 +1,75 @@
 # Midnight Meow handoff
 
+## Isometric HD-2D M1 vertical slice (local)
+
+M1 from [the isometric plan](docs/ISOMETRIC_PIXEL_PLAN.md) is implemented on branch `refactor/iso-hd2d` (D10). It is local only and not pushed. **M2 waits for the user's review and approval of the screenshots below.** Nothing in M1 is approved art.
+
+Commits (`git log --oneline ce999f9..HEAD`, oldest last):
+
+```
+d6b762b ✨ feat: isometric fog and particles
+3d3f2d8 ✨ feat: HD-2D night lighting
+2a18a89 ✨ feat: isometric meow bolt and moon stars
+e62e685 ✨ feat: isometric ink blob
+1c6a9a4 ✨ feat: four-direction isometric cats
+bfe90f3 ✨ feat: four-direction isometric sprite sheets
+73c5f36 ✨ feat: isometric opening yard
+7ea00e8 ✨ feat: isometric volume models and rasterizer
+578c3e5 ✨ feat: layered isometric water
+cb2262a ✨ feat: directional road texture
+95cfe99 ✨ feat: isometric ground transitions
+178c3e4 ✨ feat: bake isometric ground from the terrain field
+089baaf ⚡ perf: per-block terrain field
+3c7db5b ✨ feat: seamless isometric diamond textures
+a8395ca ✨ feat: isometric terrain field
+1a9c9d7 ✨ feat: isometric palette ramps
+2ac2b90 ✨ feat: off-map tree wall and night fog for the isometric view
+6909889 ✨ feat: isometric ground shapes from projected vertices
+e58567f ✨ feat: isometric occlusion with footprint depth
+0542372 ♻ refactor: render world through the isometric camera
+c91c390 ✨ feat: add ?iso=grid debug view and gated iso input
+2e4698d ✨ feat: add isometric projection, camera and culling kernel
+40706e2 📝 docs: record isometric HD-2D decisions and art spec
+```
+
+What M1 contains, by plan step (all new code lives in `src/render/iso/`):
+
+- Phase 1: `projection.ts` (k = 1, `sx = x - y`, `sy = (x + y) / 2`, `snap`, `depthKey`, screen-relative `isoInput`), `iso-camera.ts`, `cull.ts`, and the `?iso=grid` debug view (`debug-grid.ts`).
+- Phase 2: the world renders through the iso camera (2.1), the off-map tree wall and night fog (2.4, `off-map.ts`), footprint depth occlusion with fading buildings (2.5, `depth.ts`), ground shapes from projected vertices (2.6, `ground.ts`; Eraser sweep, fire cells, warnings, lamp pools, cat shadow), and overlays (nav arrows, cue arrows, damage numbers) at projected points (2.7).
+- 3.1 to 3.5: palette ramps (`palette.ts`), terrain field (`terrain-field.ts`), seamless diamond textures, transitions, directional road texture, layered shallow/deep water with ripple frames, baked into 512 x 256 ground blocks (`terrain-bake.ts`, worker plus sliced fallback, 27-block LRU).
+- 4.2: the opening yard as code-modelled volumes (`model.ts`, `rasterize.ts`, `yard-models.ts`): barn, cottage, a second west cottage, rails, woodpile, planters, tool rack and crops, with hard shadows.
+- 6.1 to 6.3 and 6.5: four-direction sprite sheets (`sprite-sheet.ts`, SE/NE drawn, SW/NW mirrored), Zero and Nicole (`cat-sheet.ts`, `src/defs/cats/<id>/iso.art.ts`) and the ink blob (`ink-blob-sheet.ts`).
+- 7.1 (part): Meow Bolt heads along the projected aim; Moon Stars orbit as a 2:1 screen ellipse.
+- 8.1: HD-2D night lighting (`lighting.ts`: ambient multiply, up to 32 lights from fire, hits, lamps, windows, pumpkins, lanterns, candles). 8.3 basic: two fog layers, fireflies, leaves and ash particles, near-corner leaves (`post.ts`), blurred far band.
+
+Still drawn with the old top-down sprites at projected feet, or with placeholders:
+
+- Every enemy except the ink blob (paper bat, crumple, smudge, wash, sketch, kiro-ghost, Eraser Boss), elite crowns and floor markers, enemy shots.
+- Every weapon and effect except Meow Bolt and Moon Stars, and all impacts (upright at projected points).
+- Props, townsfolk, landmarks and town decor outside the opening yard.
+- Wash-out chunk masks still use the affine `onGround` placeholder in `place.ts`, so they shear rather than follow the iso blocks.
+- Costumes: the old-style costume layer is scaled onto the iso cat head and body (non-integer, approximate placement, the "under" board sits about 4 px high).
+- The gallery, title playbill and portraits still use the old pixel cat draw.
+
+Verification at `d6b762b` (rerun for this docs commit): `npm run build` ok; `npm test` 615 pass, 0 fail (488 at `ce999f9`); `baseline-snapshot`, `baseline-long` and `output/iso-baseline/state-probe.mjs` identical to the `ce999f9` references, so the simulation is unchanged; `git diff --stat ce999f9 -- src/game src/cats` empty (under `src/defs/` only the two new `iso.art.ts` files); `git diff --check` clean.
+
+Not viewed: **nothing in M1 has been viewed in a browser.** No lighting, fog, particles, occlusion fade, animation, audio, touch controls or mobile layout was seen, and no browser frame time was measured. Agents only looked at offline Node rasters of the pure pixel functions (`output/iso-cats/cats.png`, `output/iso-m1/preview-*.png`). Those are not the browser frame.
+
+Known risks to check in the screenshots:
+
+- The ambient multiply darkens the whole frame, including warning edges and the title playbill stage; it may hurt readability.
+- Window glow positions are derived by hand from the painted window rects and may sit off the panes.
+- The costume layer is misaligned on the iso head and body (redraw planned for M5).
+- The fog tiles are built on the first frame, a one-off main-thread hitch of about 45 ms; off-map blocks blur on first view (about 8 ms each).
+- Browser GPU cost of the full-view multiply, the fog layers and the corner leaves is unmeasured.
+
+Review commands for the user (agents must not launch a browser here):
+
+- `npm run build && node output/playwright/iso-m1-shot.cjs` writes `output/playwright/iso-m1-desktop.png` (1280 x 720), `iso-m1-portrait.png` (390 x 844) and `iso-m1-grid.png` (1280 x 720, `?iso=grid`) for `/?start=1&seed=7`. `ISO_SETTLE_MS` (default 4000) sets the bake wait.
+- Manual: `npm start`, then open `http://localhost:4173/?start=1&seed=7` and `http://localhost:4173/?start=1&seed=7&iso=grid`.
+- Frame time: `node output/playwright/frame-time.cjs`.
+- Offline raster without a browser (ground, yard volumes, cat, two ink blobs; no lighting composite, fog or HUD): `node output/iso-m1/preview.mjs [seed] [catIndex]`.
+
 ## Isometric HD-2D decisions (2026-11-23, local)
 
 The user replied "按照推荐" (accept the recommendations) to every open decision in [the isometric plan](docs/ISOMETRIC_PIXEL_PLAN.md). This supersedes the top-down sprite-stacking look below.

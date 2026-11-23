@@ -1,6 +1,6 @@
 # 斜 45 度精细像素（FFT 等距 + 八方旅人 HD-2D）重构计划
 
-状态：**决定已定，M1 垂直切片进行中**。用户 2026-11-23 回复“按照推荐”：D1～D11 全部采用推荐项（D2 已定：不做高度，地形完全平坦）。已打本地 tag `archive/pixel-village-2026-11-22`（`92562eb`），在分支 `refactor/iso-hd2d` 工作。美术规格见 [`docs/iso-art-spec.md`](iso-art-spec.md)。
+状态：**M1 垂直切片已在本地实现（`2e4698d`～`d6b762b`，未推送），等待用户看截图评审；用户同意前不开始 M2**。截图命令与未查看项见 [HANDOFF.md](../HANDOFF.md#isometric-hd-2d-m1-vertical-slice-local)；浏览器中尚未查看任何画面，美术未获认可。用户 2026-11-23 回复“按照推荐”：D1～D11 全部采用推荐项（D2 已定：不做高度，地形完全平坦）。已打本地 tag `archive/pixel-village-2026-11-22`（`92562eb`），在分支 `refactor/iso-hd2d` 工作。美术规格见 [`docs/iso-art-spec.md`](iso-art-spec.md)。
 起点：`main` 分支 `92562eb`（村庄素材细节轮已本地提交：`166af56`、`aa6eba6`、`92562eb`；工作区只剩不入仓的 `.agents/`）。未推送。
 
 ---
