@@ -679,5 +679,16 @@
    "coat": {},
    "tee": {}
   }
+ },
+ "elite": 1.55,
+ "enemyRadii": {
+  "ink-blob": 10,
+  "paper-bat": 8,
+  "crumple": 14,
+  "smudge": 11,
+  "eraser-boss": 26,
+  "kiro-ghost": 12,
+  "wash": 11,
+  "sketch": 10
  }
 }

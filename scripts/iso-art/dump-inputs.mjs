@@ -16,6 +16,8 @@ const imp = (p) => import(join(DIST, p));
 const { ISO_RAMPS, isoPaletteColours } = await imp("render/iso/palette.js");
 const { isoYardPieces } = await imp("render/iso/yard-models.js");
 const { SOLID_SCENERY } = await imp("game/scenery.js");
+const { ELITE } = await imp("game/enemies.js");
+const { ENEMY_DEFS } = await imp("defs/registries.js");
 const { YARD_PROPS, LAMPS } = await imp("render/scene.js");
 
 const bases = {};
@@ -56,6 +58,8 @@ const out = {
   lamps: LAMPS.map((l) => l.s),
   cats,
   costumes,
+  elite: ELITE.radiusMul,
+  enemyRadii: Object.fromEntries(ENEMY_DEFS.all().map((d) => [d.id, d.stats.radius])),
 };
 writeFileSync(join(HERE, "inputs.json"), JSON.stringify(out, null, 1) + "\n");
 console.log(`inputs.json: ${Object.keys(bases).length} yard sprites, ${fences.length} fences`);

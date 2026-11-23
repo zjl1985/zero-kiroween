@@ -23,6 +23,7 @@ sys.path.insert(0, str(HERE))
 import numpy as np  # noqa: E402
 
 import costumes as cs  # noqa: E402
+import enemies as en  # noqa: E402
 import models as md  # noqa: E402
 import puppet as pz  # noqa: E402
 import world_models as wm  # noqa: E402
@@ -50,7 +51,9 @@ def ramps() -> dict[str, list[str]]:
     out.update(wm.EXTRA_RAMPS)
     out.update(pz.cat_ramps(INPUTS, out))
     out.update(cs.costume_ramps(INPUTS, pz.looks()))
+    out.update(en.enemy_ramps(out))
     pz.use_ramps(out)
+    en.use_bake_ramps(out)
     return out
 
 
@@ -128,6 +131,9 @@ def sprites() -> dict:
     # FEAT-009: costume layers on every cat frame (the builder returns the finished layer, or None).
     for sid, fn in cs.costume_sprites(INPUTS, pz.looks()):
         add("costumes", sid, fn)
+    # FEAT-006: every enemy frame (elites are the same model on a finer grid), the elite crown and the thrown drops.
+    for sid, fn in en.enemy_sprites(INPUTS["elite"]):
+        add("enemies", sid, fn)
     return S
 
 
@@ -140,6 +146,7 @@ MODULES = {
     "folk": ("townsfolk-pixels.ts", "TOWNSFOLK_SPRITES"),
     "cats": ("cats-pixels.ts", "CAT_SPRITES"),
     "costumes": ("costumes-pixels.ts", "COSTUME_SPRITES"),
+    "enemies": ("enemies-pixels.ts", "ENEMY_SPRITES"),
 }
 
 
@@ -169,7 +176,7 @@ def rle(indices: list[int]) -> str:
 
 def source_hash() -> str:
     h = hashlib.sha256()
-    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "costumes.py", "inputs.json"):
+    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "costumes.py", "enemies.py", "inputs.json"):
         h.update((HERE / p).read_bytes())
     return h.hexdigest()
 
@@ -241,7 +248,7 @@ def main() -> None:
     for sid, (group, fn, base) in table.items():
         if args.only and args.only not in sid:
             continue
-        if group in ("cats", "costumes"):
+        if group in ("cats", "costumes", "enemies"):
             b = fn()
             if b is None:
                 continue
@@ -259,9 +266,10 @@ def main() -> None:
         baked[sid] = (b, base)
         groups.setdefault(group, []).append(sid)
     if not args.no_sheets:
-        contact_sheets({k: v[0] for k, v in baked.items()}, {g: ids for g, ids in groups.items() if g not in ("cats", "costumes")})
+        contact_sheets({k: v[0] for k, v in baked.items()}, {g: ids for g, ids in groups.items() if g not in ("cats", "costumes", "enemies")})
         pz.cat_sheets({k: v[0] for k, v in baked.items() if k.startswith("cat-")}, SHEETS)
         cs.costume_sheets({k: v[0] for k, v in baked.items()}, SHEETS)
+        en.enemy_sheets({k: v[0] for k, v in baked.items()}, SHEETS)
     if args.only:
         print(f"baked {len(baked)} (no TS written with --only)")
         return
@@ -306,6 +314,10 @@ def main() -> None:
         if fname == "cats-pixels.ts":
             t += "/** Puppet frames per animation; ids are <identity>-<se|sw|nw|ne>-<anim>-<frame> (four real turns, never mirrored). */\n"
             t += "export const CAT_PUPPET_FRAMES = " + json.dumps({a: n for a, n in pz.ANIMS}, separators=(",", ":")) + ";\n"
+        if fname == "enemies-pixels.ts":
+            t += "/** Per enemy variant (`<kind>`, `<kind>@elite`): frames per animation and its native-pixel box, crown row and shadow. */\n"
+            t += "export interface EnemyPuppetMeta { readonly frames: Readonly<Record<string, number>>; readonly halfWidth: number; readonly top: number; readonly bottom: number; readonly crown: number; readonly shadow: readonly [number, number] }\n"
+            t += "export const ENEMY_PUPPETS: Readonly<Record<string, EnemyPuppetMeta>> = " + json.dumps(en.puppet_meta({k: v[0] for k, v in baked.items()}, INPUTS["elite"], INPUTS["enemyRadii"]), separators=(",", ":")) + ";\n"
         if fname == "landmarks-pixels.ts":
             t += "/** Rotor frames over a quarter turn (four-fold symmetric sails); rotor-windmill-<frame>. */\n"
             t += f"export const ROTOR_FRAMES = {wm.ROTOR_FRAMES};\n"

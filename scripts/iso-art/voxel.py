@@ -99,19 +99,26 @@ def vhash(i, j, k, salt: int) -> np.ndarray:
 
 # ---------------------------------------------------------------- model
 class Model:
-    """A voxel grid x in [x0, x1), y in [y0, y1), z in [0, z1) (voxel units, foot at 0, 0)."""
+    """
+    A voxel grid x in [x0, x1), y in [y0, y1), z in [0, z1) (voxel units, foot at 0, 0).
 
-    def __init__(self, x0: int, y0: int, x1: int, y1: int, z1: int, turn: int = 0):
-        self.x0, self.y0 = x0, y0
-        X, Y, Z = x1 - x0, y1 - y0, z1
+    With `scale` s the grid holds s voxels per unit, so the same model function bakes an
+    s times larger sprite made of unit pixels (an elite enemy at 1.55 times its size).
+    Authoring code always works in units: X, Y, Z are divided back.
+    """
+
+    def __init__(self, x0: int, y0: int, x1: int, y1: int, z1: int, turn: int = 0, scale: float = 1):
+        self.x0, self.y0 = round(x0 * scale), round(y0 * scale)
+        X, Y, Z = round((x1 - x0) * scale), round((y1 - y0) * scale), round(z1 * scale)
+        self.scale = scale
         self.m = np.zeros((X, Y, Z), np.uint16)
         self.n = np.zeros((X, Y, Z, 3), np.float32)
-        wx, wy, wz = np.meshgrid(np.arange(X) + x0 + 0.5, np.arange(Y) + y0 + 0.5, np.arange(Z) + 0.5, indexing="ij")
+        wx, wy, wz = np.meshgrid(np.arange(X) + self.x0 + 0.5, np.arange(Y) + self.y0 + 0.5, np.arange(Z) + 0.5, indexing="ij")
         self.turn = turn % 4
         # Authoring coordinates: the world grid turned back by `turn` quarter turns, so the
         # same model function builds a real rotated variant (never a mirror).
         self.X, self.Y = self._unturn(wx, wy)
-        self.Z = wz
+        self.X, self.Y, self.Z = self.X / scale, self.Y / scale, wz / scale
 
     def _unturn(self, x, y):
         for _ in range(self.turn):
@@ -479,8 +486,9 @@ def bake(model: Model, ramps: dict[str, list[str]], shadow=True, outline=True) -
 
     # Ground extent in world units.
     fi, fj, _ = np.nonzero(occ)
-    extent = {"x": int(2 * (x0 + fi.min())), "y": int(2 * (y0 + fj.min())),
-              "w": int(2 * (fi.max() - fi.min() + 1)), "d": int(2 * (fj.max() - fj.min() + 1))}
+    k = 2 / getattr(model, "scale", 1)
+    extent = {"x": int(k * (x0 + fi.min())), "y": int(k * (y0 + fj.min())),
+              "w": int(k * (fi.max() - fi.min() + 1)), "d": int(k * (fj.max() - fj.min() + 1))}
 
     sh = None
     if shadow:
