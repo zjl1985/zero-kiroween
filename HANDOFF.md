@@ -7,6 +7,12 @@ M1 from [the isometric plan](docs/ISOMETRIC_PIXEL_PLAN.md) is implemented on bra
 Commits (`git log --oneline ce999f9..HEAD`, oldest last):
 
 ```
+63fc204 🐛 fix: outline the iso view polygon on the HUD map
+baf90dc 🐛 fix: time out and retry the terrain worker once before baking locally
+a9d8ff5 🐛 fix: aim cranes, seeds, claws and remnants along projected headings
+1247ac3 🐛 fix: shrink near leaves and fade them over hostiles and pickups
+0f402ff 🐛 fix: sort actors in front of yard footprints
+bdc5205 📝 docs: record isometric M1 vertical slice
 d6b762b ✨ feat: isometric fog and particles
 3d3f2d8 ✨ feat: HD-2D night lighting
 2a18a89 ✨ feat: isometric meow bolt and moon stars
@@ -62,6 +68,16 @@ Known risks to check in the screenshots:
 - The costume layer is misaligned on the iso head and body (redraw planned for M5).
 - The fog tiles are built on the first frame, a one-off main-thread hitch of about 45 ms; off-map blocks blur on first view (about 8 ms each).
 - Browser GPU cost of the full-view multiply, the fog layers and the corner leaves is unmeasured.
+
+Semantic review v1 (`.agents/` review, verdict NEEDS_CHANGES) was answered with local fixes on top of `bdc5205`:
+
+- `0f402ff` every point actor (enemies, pickups, shots, townsfolk, decoy) gets the cat's separating-axis lift over nearby footprints (`liftInFront`, `ISO_DEPTH.near` 200 world units), so a rail or furniture piece no longer paints over an actor just south or east of it; occluders raised above the cat stay under actors in front of them.
+- `1247ac3` near-corner leaves shrunk from 180 x 120 at alpha 0.9 to 96 x 64 at alpha 0.7; a corner fades to 0.25 over the cat, any live enemy, pickup, chest or treat (`nearFaded`). Still to be judged in the portrait screenshot.
+- `a9d8ff5` crane and seed shot headings, the night-claw arc and ink-remnant scatter now aim along the projected screen direction (`screenAngle` in `projection.ts`).
+- `baf90dc` the terrain worker times out after 4 s without a reply, is replaced once, then blocks bake on the main thread.
+- `63fc204` the HUD map outlines the iso view polygon instead of its bounding box.
+
+Remaining documented gaps (not fixed in M1): area-effect radii of old effects are still screen circles over 2:1 ground ellipses; the HUD map marks explored chunks from the view's bounding box (generous by design); ripple frames of water blocks are outside the 27-block area budget (bounded by `ISO_WATER.frames` and cropped). Verification after the fixes: `npm test` 620 pass, 0 fail; the three sim baselines identical; `git diff --stat ce999f9 -- src/game src/cats` empty; still nothing viewed in a browser.
 
 Review commands for the user (agents must not launch a browser here):
 
