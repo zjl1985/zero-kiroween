@@ -430,5 +430,254 @@
     "denimEdge": "#a4b9cb"
    }
   }
+ },
+ "costumes": {
+  "tibo": {
+   "colors": {
+    "tag": "#7e8ea6",
+    "ink": "#dfe7f2"
+   },
+   "expression": "idle",
+   "accessories": [
+    "spiky-tufts",
+    "thick-brows",
+    "leather-collar"
+   ],
+   "patches": [],
+   "coat": {
+    "body": "#29262d",
+    "bodyEdge": "#5f5866",
+    "cape": "#322e37",
+    "capeEdge": "#7a7180",
+    "bib": "#38343d",
+    "lining": "#4b4552"
+   },
+   "tee": {
+    "body": "#2b2830",
+    "bodyEdge": "#665f6c"
+   }
+  },
+  "poteto": {
+   "colors": {
+    "tag": "#c9874f",
+    "ink": "#f2d58a"
+   },
+   "expression": "smile",
+   "accessories": [
+    "round-glasses",
+    "turtleneck"
+   ],
+   "patches": [
+    "#e48f62"
+   ],
+   "coat": {
+    "body": "#24212a",
+    "bodyEdge": "#5a5463",
+    "bib": "#2d2933",
+    "cape": "#3a3442",
+    "capeEdge": "#8a7a6a"
+   },
+   "tee": {
+    "body": "#25222b",
+    "bodyEdge": "#5b5664"
+   }
+  },
+  "musk": {
+   "colors": {
+    "tag": "#c7a46e",
+    "ink": "#f0e6d0"
+   },
+   "expression": "idle",
+   "accessories": [
+    "goggles"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "jensen": {
+   "colors": {
+    "tag": "#76b06a",
+    "ink": "#e6f2d8"
+   },
+   "expression": "idle",
+   "accessories": [
+    "jacket-collar"
+   ],
+   "patches": [],
+   "coat": {
+    "body": "#1d1b20",
+    "bodyEdge": "#5c5662",
+    "cape": "#232027",
+    "capeEdge": "#6e6875",
+    "bib": "#2a272e",
+    "lining": "#3a3640",
+    "belt": "#3d3a42"
+   },
+   "tee": {}
+  },
+  "karpathy": {
+   "colors": {
+    "tag": "#7a8fd0",
+    "ink": "#e8ecff"
+   },
+   "expression": "closed",
+   "accessories": [
+    "headphones"
+   ],
+   "patches": [],
+   "coat": {
+    "cape": "#3b475c",
+    "capeEdge": "#8d9ab0",
+    "lining": "#56637a"
+   },
+   "tee": {
+    "body": "#5d6c84",
+    "bodyEdge": "#a4b1c4"
+   }
+  },
+  "linus": {
+   "colors": {
+    "tag": "#8fb07a",
+    "ink": "#eef6e0"
+   },
+   "expression": "idle",
+   "accessories": [
+    "bird-tag"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "guido": {
+   "colors": {
+    "tag": "#c95b4f",
+    "ink": "#ffe1c2"
+   },
+   "expression": "idle",
+   "accessories": [
+    "bowler"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "eich": {
+   "colors": {
+    "tag": "#e3c25a",
+    "ink": "#fff4c6"
+   },
+   "expression": "idle",
+   "accessories": [
+    "pencil-ear"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "jobs": {
+   "colors": {
+    "tag": "#d9cfb8",
+    "ink": "#ffe7a2"
+   },
+   "expression": "wink",
+   "accessories": [
+    "turtleneck"
+   ],
+   "patches": [],
+   "coat": {
+    "body": "#1f1d22",
+    "bodyEdge": "#57525c",
+    "bib": "#26232a",
+    "cape": "#2a272e",
+    "capeEdge": "#6a6470"
+   },
+   "tee": {
+    "body": "#222026",
+    "bodyEdge": "#57525c"
+   }
+  },
+  "gates": {
+   "colors": {
+    "tag": "#9cb4d8",
+    "ink": "#f4f0e2"
+   },
+   "expression": "idle",
+   "accessories": [
+    "page-hat"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {
+    "body": "#7f8fa8",
+    "bodyEdge": "#c0cad8"
+   }
+  },
+  "zuckerberg": {
+   "colors": {
+    "tag": "#6fa7c9",
+    "ink": "#e6f6ff"
+   },
+   "expression": "idle",
+   "accessories": [],
+   "patches": [
+    "#f6f2ea",
+    "#f6f2ea"
+   ],
+   "coat": {
+    "body": "#24304a",
+    "bodyEdge": "#6e7fa0",
+    "cape": "#2c3a56",
+    "capeEdge": "#7d8db0",
+    "bib": "#2a3650",
+    "lining": "#3d5072"
+   },
+   "tee": {
+    "body": "#26324a",
+    "bodyEdge": "#6e7fa0",
+    "denim": "#1f2a40",
+    "denimEdge": "#5a6a8a"
+   }
+  },
+  "hassabis": {
+   "colors": {
+    "tag": "#d6c08e",
+    "ink": "#f6f0e0"
+   },
+   "expression": "idle",
+   "accessories": [
+    "stone-pins"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "levels": {
+   "colors": {
+    "tag": "#ecd062",
+    "ink": "#fff6c8"
+   },
+   "expression": "idle",
+   "accessories": [
+    "sticky-note"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  },
+  "dario": {
+   "colors": {
+    "tag": "#8e86c8",
+    "ink": "#efe9ff"
+   },
+   "expression": "idle",
+   "accessories": [
+    "cap",
+    "lanyard"
+   ],
+   "patches": [],
+   "coat": {},
+   "tee": {}
+  }
  }
 }

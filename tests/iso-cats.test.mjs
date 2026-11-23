@@ -10,7 +10,7 @@ import { SCENERY_PALETTE } from "../dist/render/iso/gen/scenery-pixels.js";
 import {
   decodeRuns, genBounds, genCanvas, genImage, GEN_SPRITES, genSpriteCacheKeys, genSpriteCacheSize,
 } from "../dist/render/iso/gen-sprites.js";
-import { PUPPET, puppetFrame, puppetSprite } from "../dist/render/iso/puppet.js";
+import { PUPPET, puppetFrame, puppetLayer, puppetSprite } from "../dist/render/iso/puppet.js";
 import { drawPuppetStatus } from "../dist/render/iso/puppet-status.js";
 import { ISO, snap, toScreen } from "../dist/render/iso/projection.js";
 import { ISO_ANIMS, ISO_DIRS, clearIsoDirections, isoDirectionMemorySize } from "../dist/render/iso/sprite-sheet.js";
@@ -131,6 +131,43 @@ test("identity colours are baked from the official head data and the cat's cloth
   }
 });
 
+test("every costume is a baked layer on every standing and walking cat frame, inside the cat's box", () => {
+  const costumes = COSTUME_DEFS.ids(), box = ISO_CAT.box;
+  assert.equal(costumes.length, 14);
+  let layers = 0, absent = [];
+  for (const art of cats) for (const costume of costumes) for (const { dir, anim, f } of frames(art.iso)) {
+    const id = puppetLayer(art.iso, costume, dir, anim, f);
+    if (!id) {
+      // Only a hurt pose (arms swung forward) can hide a costume completely from behind.
+      assert.equal(anim, "hurt", `${art.id} ${costume} ${dir} ${anim} ${f} has a layer`);
+      absent.push(`${art.id} ${costume} ${dir} ${anim} ${f}`);
+      continue;
+    }
+    layers++;
+    const s = GEN_SPRITES[id];
+    let total = 0;
+    for (let i = 0; i < s.data.length; i++) {
+      const c = s.data.charCodeAt(i);
+      if (c >= 0x500) { total += c - 0x500 - 1; continue; }
+      assert.ok(c >= 0x100 && c - 0x100 < SCENERY_PALETTE.length, `${id}: index in palette`);
+      total++;
+    }
+    assert.equal(total, s.w * s.h, `${id}: runs cover the layer exactly`);
+    const g = grid(id);
+    assert.ok(g.px.some(Boolean), `${id}: not empty`);
+    const b = genBounds(id);
+    assert.ok(-b.l <= box.halfWidth && b.r <= box.halfWidth && -b.t <= box.top && b.b <= box.bottom, `${id}: inside the cat's box`);
+  }
+  assert.ok(layers >= costumes.length * cats.length * 35, `${layers} layers`);
+  assert.ok(absent.length <= 2, absent.join(", "));
+  assert.equal(puppetLayer(cats[0].iso, "no-such-layer", "se", "idle", 0), undefined);
+  // Every costume shows on a standing front frame with more than a couple of pixels.
+  for (const art of cats) for (const costume of costumes) {
+    const g = grid(puppetLayer(art.iso, costume, "se", "idle", 0));
+    assert.ok(g.px.filter(Boolean).length >= 3, `${art.id} ${costume}: visible`);
+  }
+});
+
 test("the shared puppet runtime names no cat and uses no randomness", () => {
   for (const f of ["cat-sheet", "puppet", "puppet-status"]) {
     const src = readFileSync(new URL(`../src/render/iso/${f}.ts`, import.meta.url), "utf8");
@@ -194,7 +231,7 @@ function environment(t) {
 }
 /** The cat frames drawn in a recorded frame, in draw order: { i, id (|look), alpha, argc }. */
 function catDraws(calls, art) {
-  const prefix = `cat-${art.id}-`, canvases = new Map();
+  const prefix = `cat-${art.id}`, canvases = new Map();
   for (const key of genSpriteCacheKeys()) {
     const [id, look] = key.split("|");
     if (id.startsWith(prefix)) canvases.set((look ? genImage(id, look) : genCanvas(id)), key);
@@ -278,9 +315,14 @@ test("hurt, the hit flash and squash, the decoy and a costume draw through the c
   const decoy = frame(t, art.id, (sim) => Object.assign(sim.decoy, { live: true, x: sim.player.x + 40, y: sim.player.y }));
   assert.equal(decoy.length, 2, "the decoy and the cat");
   assert.deepEqual(decoy.map((d) => d.alpha).sort(), [0.35, 1]);
-  // Until the costume layers are baked (FEAT-009) a costumed run shows the plain cat frame.
-  const worn = frame(t, art.id, undefined, {}, { costume: COSTUME_DEFS.ids()[0] });
-  assert.deepEqual(worn.map((d) => d.key), [`cat-${art.id}-se-idle-0`]);
+  // A costumed run draws the base frame and, right after it at the same foot, its costume layer.
+  const costume = COSTUME_DEFS.ids()[0];
+  const worn = frame(t, art.id, undefined, {}, { costume });
+  assert.deepEqual(worn.map((d) => d.key), [`cat-${art.id}-se-idle-0`, `cat-${art.id}@${costume}-se-idle-0`]);
+  assert.deepEqual(worn.map((d) => d.argc), [3, 3]);
+  assert.ok(worn.every((d) => d.alpha === 1));
+  for (const id of COSTUME_DEFS.ids())
+    for (const art2 of cats) assert.equal(typeof puppetLayer(art2.iso, id, "sw", "walk", 3), "string", `${id} on ${art2.id}`);
 });
 
 test("burn and wet marks sit on the puppet's body box; a wet cat does not burn", () => {

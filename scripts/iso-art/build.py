@@ -1,9 +1,10 @@
-"""Bakes the voxel scenery into src/render/iso/gen/scenery-pixels.ts (FEAT-003).
+"""Bakes the voxel models into src/render/iso/gen/*-pixels.ts (FEAT-003 to FEAT-009).
 
     UV_CACHE_DIR=output/tools/uv-cache uv run --with pillow --with numpy python scripts/iso-art/build.py [--only <id>] [--no-sheets]
 
-Inputs: scripts/iso-art/inputs.json (palette ramps and yard footprints dumped from dist/ by
-scripts/iso-art/dump-inputs.mjs) and the models in scripts/iso-art/models.py. Output: a
+Inputs: scripts/iso-art/inputs.json (palette ramps, yard footprints and the cats' / costumes'
+identity data dumped from dist/ by scripts/iso-art/dump-inputs.mjs) and the models in
+scripts/iso-art/models.py, world_models.py, puppet.py and costumes.py. Output: a
 palette-indexed, run-length encoded TS module (byte-identical on every run) plus contact
 sheets in output/iso-art/sheets/ (1x and 4x, git-ignored) for review.
 """
@@ -21,6 +22,7 @@ sys.path.insert(0, str(HERE))
 
 import numpy as np  # noqa: E402
 
+import costumes as cs  # noqa: E402
 import models as md  # noqa: E402
 import puppet as pz  # noqa: E402
 import world_models as wm  # noqa: E402
@@ -47,6 +49,7 @@ def ramps() -> dict[str, list[str]]:
     out.update(md.EXTRA_RAMPS)
     out.update(wm.EXTRA_RAMPS)
     out.update(pz.cat_ramps(INPUTS, out))
+    out.update(cs.costume_ramps(INPUTS, pz.looks()))
     pz.use_ramps(out)
     return out
 
@@ -122,6 +125,9 @@ def sprites() -> dict:
     # FEAT-005: the playable cats as posed voxel puppets (the builder returns a finished bake).
     for sid, fn in pz.cat_sprites():
         add("cats", sid, fn)
+    # FEAT-009: costume layers on every cat frame (the builder returns the finished layer, or None).
+    for sid, fn in cs.costume_sprites(INPUTS, pz.looks()):
+        add("costumes", sid, fn)
     return S
 
 
@@ -133,6 +139,7 @@ MODULES = {
     "lmbase": ("landmarks-pixels.ts", "LANDMARK_SPRITES"),
     "folk": ("townsfolk-pixels.ts", "TOWNSFOLK_SPRITES"),
     "cats": ("cats-pixels.ts", "CAT_SPRITES"),
+    "costumes": ("costumes-pixels.ts", "COSTUME_SPRITES"),
 }
 
 
@@ -162,7 +169,7 @@ def rle(indices: list[int]) -> str:
 
 def source_hash() -> str:
     h = hashlib.sha256()
-    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "inputs.json"):
+    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "costumes.py", "inputs.json"):
         h.update((HERE / p).read_bytes())
     return h.hexdigest()
 
@@ -234,8 +241,11 @@ def main() -> None:
     for sid, (group, fn, base) in table.items():
         if args.only and args.only not in sid:
             continue
-        if group == "cats":
-            baked[sid] = (fn(), None)
+        if group in ("cats", "costumes"):
+            b = fn()
+            if b is None:
+                continue
+            baked[sid] = (b, None)
             groups.setdefault(group, []).append(sid)
             continue
         model = fn()
@@ -249,8 +259,9 @@ def main() -> None:
         baked[sid] = (b, base)
         groups.setdefault(group, []).append(sid)
     if not args.no_sheets:
-        contact_sheets({k: v[0] for k, v in baked.items()}, {g: ids for g, ids in groups.items() if g != "cats"})
+        contact_sheets({k: v[0] for k, v in baked.items()}, {g: ids for g, ids in groups.items() if g not in ("cats", "costumes")})
         pz.cat_sheets({k: v[0] for k, v in baked.items() if k.startswith("cat-")}, SHEETS)
+        cs.costume_sheets({k: v[0] for k, v in baked.items()}, SHEETS)
     if args.only:
         print(f"baked {len(baked)} (no TS written with --only)")
         return
@@ -278,7 +289,7 @@ def main() -> None:
     entries = modules.pop(("scenery-pixels.ts", "SCENERY_SPRITES"))
     text = HEADER
     text += f"export const SCENERY_SOURCE_HASH = {json.dumps(source_hash())};\n"
-    text += "/** One palette shared by every generated sprite module (scenery, props, landmarks, townsfolk). */\n"
+    text += "/** One palette shared by every generated sprite module (scenery, props, landmarks, townsfolk, cats, costumes). */\n"
     text += "export const SCENERY_PALETTE: readonly string[] = " + json.dumps(palette) + ";\n"
     text += "export type GenLightKind = \"window\" | \"lamp\" | \"lantern\" | \"candle\" | \"pumpkin\";\n"
     text += "export interface GenRect { readonly x: number; readonly y: number; readonly w: number; readonly d: number }\n"

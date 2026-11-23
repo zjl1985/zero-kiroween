@@ -183,7 +183,7 @@ function frameView(sim: SimState | null, view: ViewState) {
 /** Height of the cat's body centre over its foot in k = 1 art pixels. */
 const CAT_BODY = 20;
 /** Native-pixel window around the cat's foot inside which a piece in front of it turns into a sparse dither. */
-const SEE_THROUGH = { halfWidth: 14, top: 36, bottom: 6 } as const;
+const SEE_THROUGH = { halfWidth: 17, top: 37, bottom: 10 } as const;
 /**
  * Clip for a native piece that stands in front of the cat: everything except the window
  * around the cat, plus one pixel of every 2 x 2 block inside it (odd-even rule).

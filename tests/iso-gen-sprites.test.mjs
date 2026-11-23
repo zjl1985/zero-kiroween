@@ -77,7 +77,7 @@ test("one binary-alpha palette that stays inside the colour cap together with th
 
 test("the generated module matches the committed bake sources", () => {
   const h = createHash("sha256");
-  for (const f of ["build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
+  for (const f of ["build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "costumes.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
   assert.equal(SCENERY_SOURCE_HASH, h.digest("hex"), "re-run scripts/iso-art/build.py after editing the models");
 });
 

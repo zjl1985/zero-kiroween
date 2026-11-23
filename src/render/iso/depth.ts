@@ -34,9 +34,9 @@ export interface ScreenBox {
 export const ISO_DEPTH = {
   /**
    * The cat's projected sprite box around its foot point, in k = 1 pixels (halved on screen):
-   * the baked puppet's box (ISO_CAT.box in cat-sheet.ts: 12 px half width, 32 rows up, 4 down).
+   * the baked puppet's box (ISO_CAT.box in cat-sheet.ts: 16 px half width, 35 rows up, 8 down).
    */
-  cat: { halfWidth: 24, top: 64, bottom: 8 },
+  cat: { halfWidth: 32, top: 70, bottom: 16 },
   /** Alpha of an occluder drawn over the cat. */
   fade: 0.48,
   /**

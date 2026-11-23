@@ -14,6 +14,9 @@ nose, mouth, cheeks) are pixel stamps placed at the projected 3D points of the e
 nose after the bake, only on head pixels and only in the two front views, so they read
 at 1x instead of depending on how single voxels happen to project.
 
+A costume (costumes.py) hangs extra voxel parts on the same bones while the puppet is
+built (behind the body, between the hair and the ears, or in front) and adds face
+stamps; its frame is baked in exactly the pose of the base frame.
 Directions: turn 0..3 faces world +x, +y, -x, -y, i.e. se, sw, nw, ne on screen. The
 cat's right side is authoring +y.
 Animations: idle 2 frames (breath), walk 6 frames (contact, down, pass on each side),
@@ -58,14 +61,26 @@ class Look:
         self.moon = ramps["cloth"][4]
         self.ramps: dict[str, list[str]] = {}
         self.mats: dict[str, int] = {}
+        #: role -> recipe of the cat's own materials, so a costume can dye them the same way.
+        self.tones: dict[str, dict] = {}
 
-    def ramp(self, role: str, base: str, light=0.3, shade=0.3, deep=0.55, light_to=None) -> int:
-        """A flat puppet ramp: outline, deep, shade, base, base, lit."""
-        name = f"puppet-{self.id}-{role}"
+    def tone(self, key: str, base: str, light=0.3, shade=0.3, deep=0.55, light_to=None, pre=None) -> int:
+        """A flat puppet ramp under material `key`: outline, deep, shade, base, base, lit."""
+        if pre:
+            base = mix(base, pre[0], pre[1])
         lit = mix(base, light_to or self.moon, light)
-        self.ramps[name] = [self.outline, mix(base, self.night, deep), mix(base, self.night, shade), base, base, lit]
-        self.mats[role] = mat(name, name, rim=False, jitter=0.0)
+        self.ramps[key] = [self.outline, mix(base, self.night, deep), mix(base, self.night, shade), base, base, lit]
+        return mat(key, key, rim=False, jitter=0.0)
+
+    def ramp(self, role: str, base: str, **kw) -> int:
+        """Registers the cat's own material `role` (`puppet-<id>-<role>`)."""
+        self.tones[role] = kw
+        self.mats[role] = self.tone(f"puppet-{self.id}-{role}", base, **kw)
         return self.mats[role]
+
+    def worn(self, cid: str, role: str, base: str) -> int:
+        """The recipe of `role` dyed with a costume garment colour (`puppet-<id>@<costume>-<role>`)."""
+        return self.tone(f"puppet-{self.id}@{cid}-{role}", base, **self.tones[role])
 
 
 # ---------------------------------------------------------------- cat recipes
@@ -76,8 +91,8 @@ def zero_look(look: Look) -> dict:
     look.ramp("ear", P["earInner"], shade=0.15)
     look.ramp("hair", P["mark"], light=0.45, light_to="#fff6cc", shade=0.22)
     look.ramp("root", mix(P["headDark"], P["mark"], 0.25), light=0.25)
-    look.ramp("coat", mix(B["body"], "#3a3348", 0.5), light=0.32, shade=0.35)
-    look.ramp("trouser", mix(B["fold"], "#2e2a3c", 0.4), light=0.3, shade=0.3)
+    look.ramp("coat", B["body"], pre=("#3a3348", 0.5), light=0.32, shade=0.35)
+    look.ramp("trouser", B["fold"], pre=("#2e2a3c", 0.4), light=0.3, shade=0.3)
     look.ramp("bib", B["bib"], light=0.3)
     look.ramp("cape", B["cape"], light=0.28)
     look.ramp("trim", B["trim"], light=0.3)
@@ -132,13 +147,33 @@ def pose_of(anim: str, f: int) -> dict:
     return p
 
 
+class Rig:
+    """The puppet while it is being built, for costume parts (authoring coordinates)."""
+
+    def __init__(self, m: Model, M: dict, pz: dict, rec: dict):
+        self.m, self.M, self.pose, self.rec = m, M, pz, rec
+        self.hurt = bool(pz["hurt"])
+        #: Right paw first, then the left one.
+        self.hands: list[tuple[float, float, float]] = []
+        self.ears: list[dict] = []
+        #: Head centre (x, z) and torso centre (x, z); both sit on y = 0.
+        self.head = (0.0, 0.0)
+        self.torso = (0.0, 0.0)
+
+
 def _bone(m: Model, a, b, r, mid):
     m.segment(a, b, r, mid)
 
 
-def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Model, dict]:
-    """The posed puppet as a voxel model plus the 3D anchors of its face (authoring coordinates)."""
-    M = look.mats
+def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int, wear=None) -> tuple[Model, dict]:
+    """The posed puppet as a voxel model plus the 3D anchors of its face (authoring coordinates).
+
+    `wear` (costumes.py Wear) may dye the garments and add parts behind the body, between the hair
+    and the ears, in front of everything, and face stamps.
+    """
+    M = dict(look.mats)
+    if wear:
+        M.update(wear.garments(rec))
     pz = pose_of(anim, f)
     m = Model(-11, -11, 11, 11, 36, turn=turn)
     bob, lean = pz["bob"], pz["lean"]
@@ -147,6 +182,12 @@ def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Mode
     leg_mat = M["trouser"] if coat else M["jeans"]
     foot_mat = M["paw"] if coat else M["shoe"]
     hip_z = 7.0 + bob
+    rig = Rig(m, M, pz, rec)
+    # Bone centres a part can hang on before the body exists (the torso and head fills below use the same values).
+    rig.torso = (lean * 0.4, 10.8 + bob)
+    rig.head = (0.5 + lean, 20.2 + bob + pz["head_dz"])
+    if wear:
+        wear.behind(rig)
     # -------------------------------------------------- legs (two bones, paws planted unless lifted)
     for side, (ang, lift) in zip((-1, 1), pz["legs"]):
         y = side * (1.45 if slim else 1.65)
@@ -167,12 +208,12 @@ def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Mode
         _bone(m, a, b, 0.95, tail_mat)
     # -------------------------------------------------- torso
     tx, tz = lean * 0.4, 10.8 + bob
+    rig.torso = (tx, tz)
     if coat:
         m.ellipsoid(tx, 0, tz, 3.0, 3.75, 4.3, M["coat"])
-        # Bib down the front, a belt, and the gold-trimmed hem.
+        # Bib down the front, and a short cape over the back with the gold-trimmed hem.
         body = m.m == M["coat"]
         m.paint(body & (m.X > tx + 1.6) & (np.abs(m.Y) < 1.3) & (m.Z > tz - 1.0), M["bib"])
-        # A short cape over the back.
         m.ellipsoid(tx - 1.1, 0, tz + 0.6, 2.4, 4.0, 4.4, M["cape"])
         m.carve((m.X > tx - 0.4) & (m.m == M["cape"]))
         m.carve((m.m == M["cape"]) & (m.Z < tz - 3.6))
@@ -196,9 +237,11 @@ def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Mode
             _bone(m, sh, elbow, 1.2, M["sleeve"])
             _bone(m, elbow, hand, 1.0, M["arm"])
             m.ellipsoid(hand[0] + 0.2, hand[1], hand[2] - 0.3, 1.2, 1.15, 1.15, M["paw"])
+        rig.hands.append((float(hand[0]), float(hand[1]), float(hand[2])))
     # -------------------------------------------------- head
     hx, hz = 0.5 + lean, 20.2 + bob + pz["head_dz"]
     rx, ry, rz = 4.9, 5.6, 5.0
+    rig.head = (hx, hz)
     if rec["hair"] == "long":
         # Hair volume behind the head first, so the head itself wins where they overlap.
         m.ellipsoid(hx - 2.3, 0, hz - 3.2, 3.7, 5.6, 6.6, M["hair"])
@@ -224,6 +267,8 @@ def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Mode
         for side, low in ((-1, 7.0), (1, 5.2)):
             curtain = (np.abs(m.Y - side * 5.3) < 1.1) & (m.X > hx - 3.0) & (m.X < hx + 1.8) & (m.Z > hz - low) & (m.Z < hz + 1.5)
             m.fill(curtain & (m.m == 0), M["hair"])
+    if wear:
+        wear.mid(rig)
     # Ears, built after the hair so they keep the fur colour over any hair cap and stand clear of it:
     # a cone rising from the crown, pink inside on its forward face; spread and flattened when hurt.
     ear = {"spread": 3.0, "top": 6.4, "r": 2.0, "base": 2.8} if not pz["hurt"] else {"spread": 4.0, "top": 4.2, "r": 2.0, "base": 3.0}
@@ -232,6 +277,9 @@ def build_cat(look: Look, rec: dict, anim: str, f: int, turn: int) -> tuple[Mode
         base, tip = hz + ear["base"], hz + ear["base"] + ear["top"]
         m.cone(hx - 0.3, ey, ear["r"], base, tip, M["fur"])
         m.paint((m.m == M["fur"]) & (m.X > hx + 0.3) & (np.abs(m.Y - ey) < 1.1) & (m.Z > base + 1.2) & (m.Z < base + ear["top"] * 0.7), M["ear"])
+        rig.ears.append({"x": hx - 0.3, "y": ey, "base": base, "tip": tip, "r": ear["r"]})
+    if wear:
+        wear.front(rig)
     # -------------------------------------------------- chain (Zero): dips lower on the cat's left with a pendant
     if rec["chain"]:
         cz = tz + 3.2
@@ -265,44 +313,55 @@ def project(p, turn: int) -> tuple[float, float]:
 
 
 # ---------------------------------------------------------------- face stamps
-def stamp_face(b, look: Look, rec: dict, info: dict, turn: int) -> None:
-    if DIRS[turn] not in ("se", "sw"):
-        return
-    W, H = b.w, b.h
-    px = b.pixels
-    head_cols = set()
-    for role in ("fur", "muzzle", "hair", "root", "ear"):
-        name = f"puppet-{look.id}-{role}"
-        if name in look.ramps:
-            head_cols.update(look.ramps[name][1:])
+class Face:
+    """Pixel stamps on the head of a baked front frame (the two back views get no face)."""
 
-    def at(p):
-        sx, sy = project(p, turn)
-        return math.floor(sx) + b.ax, math.floor(sy) + b.ay
+    def __init__(self, b, look: Look, info: dict, turn: int):
+        W, H = b.w, b.h
+        px = b.pixels
+        head_cols = set()
+        for role in ("fur", "muzzle", "hair", "root", "ear"):
+            name = f"puppet-{look.id}-{role}"
+            if name in look.ramps:
+                head_cols.update(look.ramps[name][1:])
 
-    def put(x, y, c, over=None):
-        if 0 <= x < W and 0 <= y < H:
-            cur = px[y * W + x]
-            if cur and (cur in (over or head_cols)):
-                px[y * W + x] = c
+        def at(p):
+            sx, sy = project(p, turn)
+            return math.floor(sx) + b.ax, math.floor(sy) + b.ay
 
+        def put(x, y, c, over=None):
+            if 0 <= x < W and 0 <= y < H:
+                cur = px[y * W + x]
+                if cur and (cur in (over or head_cols)):
+                    px[y * W + x] = c
+
+        A = info["anchors"]
+        eyes = sorted((at(e) for e in A["eyes"]), key=lambda e: e[0])
+        self.lx, self.rx_ = eyes[0][0], eyes[1][0]
+        self.ny = round((eyes[0][1] + eyes[1][1]) / 2)
+        self.nose, self.mouth, self.cheeks = at(A["nose"]), at(A["mouth"]), [at(c) for c in A["cheeks"]]
+        self.put = put
+        self.hurt = info["pose"]["hurt"]
+
+
+def face_of(b, look: Look, info: dict, turn: int):
+    return Face(b, look, info, turn) if DIRS[turn] in ("se", "sw") else None
+
+
+def stamp_face(face: Face, look: Look, rec: dict) -> None:
     P = look.p
     ink = look.outline
-    hurt = info["pose"]["hurt"]
-    A = info["anchors"]
-    eyes = sorted((at(e) for e in A["eyes"]), key=lambda e: e[0])
-    (lx, ly), (rx_, ry_) = eyes
-    ny = round((ly + ry_) / 2)
+    lx, rx_, ny = face.lx, face.rx_, face.ny
+    put = face.put
     # Cheeks and nose / mouth first, so the eyewear lands on top.
     if "blush" in P and rec["eyes"] == "glasses":
-        for c in A["cheeks"]:
-            cx, cy = at(c)
-            put(cx, cy, P["blush"])
-            put(cx + (1 if cx > (lx + rx_) / 2 else -1), cy, P["blush"])
-    nx, nyy = at(A["nose"])
+        for c in face.cheeks:
+            put(c[0], c[1], P["blush"])
+            put(c[0] + (1 if c[0] > (lx + rx_) / 2 else -1), c[1], P["blush"])
+    nx, nyy = face.nose
     put(nx, nyy, P["nose"])
-    mx, my = at(A["mouth"])
-    if hurt:
+    mx, my = face.mouth
+    if face.hurt:
         put(mx, my, ink)
         put(mx, my + 1, ink)
     else:
@@ -312,17 +371,17 @@ def stamp_face(b, look: Look, rec: dict, info: dict, turn: int) -> None:
     if rec["eyes"] == "sunglasses":
         lens = mix(ink, "#1c1a2c", 0.4)
         sheen = mix(lens, "#8c9cc8", 0.6)
-        for ex, ey_ in ((lx, ny), (rx_, ny)):
+        for ex in (lx, rx_):
             for dx in (-1, 0, 1):
                 for dy in (0, 1):
-                    put(ex + dx, ey_ + dy, lens)
-            put(ex + 1, ey_, sheen)
+                    put(ex + dx, ny + dy, lens)
+            put(ex + 1, ny, sheen)
         for x in range(lx + 2, rx_ - 1):
             put(x, ny, lens)
         # Temple arms towards the ears.
         put(lx - 2, ny, lens)
         put(rx_ + 2, ny, lens)
-        if hurt:
+        if face.hurt:
             put(lx, ny + 2, ink)
             put(rx_, ny + 2, ink)
     else:
@@ -335,7 +394,7 @@ def stamp_face(b, look: Look, rec: dict, info: dict, turn: int) -> None:
             for dy in range(0, 2):
                 put(ex, ny + dy, frame)
                 put(ex + 3, ny + dy, frame)
-            if hurt:
+            if face.hurt:
                 put(ex + 1, ny + 1, eye)
                 put(ex + 2, ny, eye)
             else:
@@ -349,6 +408,11 @@ def stamp_face(b, look: Look, rec: dict, info: dict, turn: int) -> None:
 # ---------------------------------------------------------------- sprite table
 _LOOKS: dict = {}
 _RAMPS: dict = {}
+_BASE: dict = {}
+
+
+def looks() -> dict:
+    return _LOOKS
 
 
 def cat_ramps(inputs: dict, base_ramps: dict) -> dict:
@@ -380,11 +444,29 @@ def cat_sprites():
     return out
 
 
-def bake_cat(look: Look, rec: dict, anim: str, f: int, turn: int):
-    m, info = build_cat(look, rec, anim, f, turn)
+def bake_cat(look: Look, rec: dict, anim: str, f: int, turn: int, wear=None):
+    """The baked frame of a posed puppet (with an optional costume), face stamps included."""
+    m, info = build_cat(look, rec, anim, f, turn, wear)
+    # Costume parts register their materials while they are built; the bake looks every material's ramp up.
+    for own, _ in _LOOKS.values():
+        _RAMPS.update(own.ramps)
     b = bake(m, _RAMPS, shadow=False, outline=True)
-    stamp_face(b, look, rec, info, turn)
+    # A puppet stands on its paws, a few world units round its foot (1 voxel = 2 world units).
+    b.extent = {"x": -4, "y": -6, "w": 14, "d": 12}
+    face = face_of(b, look, info, turn)
+    if face:
+        stamp_face(face, look, rec)
+        if wear:
+            wear.stamp(face, look, rec)
     return b
+
+
+def base_cat(look: Look, rec: dict, anim: str, f: int, turn: int):
+    """The memoised plain frame a costume layer is differenced against."""
+    key = (look.id, anim, f, turn)
+    if key not in _BASE:
+        _BASE[key] = bake_cat(look, rec, anim, f, turn)
+    return _BASE[key]
 
 
 # ---------------------------------------------------------------- contact sheets
@@ -393,7 +475,7 @@ def cat_sheets(baked: dict, out_dir) -> None:
     from PIL import Image
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    cats = sorted({k.split("-")[1] for k in baked if k.startswith("cat-")})
+    cats = sorted({k.split("-")[1] for k in baked if k.startswith("cat-") and "@" not in k})
     for cid in cats:
         ids = [[f"cat-{cid}-{d}-{a}-{f}" for a, n in ANIMS for f in range(n)] for d in DIRS]
         cells = [baked[i] for row in ids for i in row if i in baked]

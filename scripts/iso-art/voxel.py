@@ -65,6 +65,8 @@ class Material:
     shine: bool = True
 
 
+#: Most material ids (the voxel grid stores them as 16-bit values).
+MATERIAL_CAP = 1024
 MATERIALS: list[Material] = [Material("void", "ink")]
 _BY_NAME: dict[str, int] = {"void": 0}
 
@@ -75,7 +77,7 @@ def mat(name: str, ramp: str, **kw) -> int:
         return _BY_NAME[name]
     MATERIALS.append(Material(name, ramp, **kw))
     _BY_NAME[name] = len(MATERIALS) - 1
-    assert len(MATERIALS) < 256
+    assert len(MATERIALS) < MATERIAL_CAP
     return _BY_NAME[name]
 
 
@@ -102,7 +104,7 @@ class Model:
     def __init__(self, x0: int, y0: int, x1: int, y1: int, z1: int, turn: int = 0):
         self.x0, self.y0 = x0, y0
         X, Y, Z = x1 - x0, y1 - y0, z1
-        self.m = np.zeros((X, Y, Z), np.uint8)
+        self.m = np.zeros((X, Y, Z), np.uint16)
         self.n = np.zeros((X, Y, Z, 3), np.float32)
         wx, wy, wz = np.meshgrid(np.arange(X) + x0 + 0.5, np.arange(Y) + y0 + 0.5, np.arange(Z) + 0.5, indexing="ij")
         self.turn = turn % 4

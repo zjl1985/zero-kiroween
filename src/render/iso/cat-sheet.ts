@@ -4,7 +4,9 @@
  * real directions: an asymmetric identity point (the chain pendant, the hair
  * sweep) stays on the cat's own side in every view instead of flipping with a
  * mirrored frame. The cat stands 30 to 32 native pixels from its foot to the
- * ear tips.
+ * ear tips. A worn costume is a second baked layer over the same frame
+ * (scripts/iso-art/costumes.py -> gen/costumes-pixels.ts): the pixels where
+ * the costumed frame differs, laid pixel-exact on the base frame.
  *
  * Every cat-specific colour and accessory is baked from the official head
  * palette and accessories (src/cats/, unchanged) and the clothing palette of
@@ -18,12 +20,12 @@ import { reducedPaperMotion } from "../paper-motion.js";
 import { CAT_PUPPET_FRAMES } from "./gen/cats-pixels.js";
 import { rampColour } from "./palette.js";
 import { snap, toScreen } from "./projection.js";
-import { PUPPET, drawPuppet, drawPuppetShadow, puppetFrame, puppetSprite } from "./puppet.js";
+import { PUPPET, drawPuppet, drawPuppetShadow, puppetFrame, puppetLayer, puppetSprite, type PuppetDraw } from "./puppet.js";
 import type { IsoAnim, IsoDir } from "./sprite-sheet.js";
 
 export const ISO_CAT = {
-  /** Native-pixel box every baked frame stays inside, around its foot: half width, rows above the foot, rows under it. */
-  box: { halfWidth: 12, top: 32, bottom: 4 },
+  /** Native-pixel box every baked frame stays inside, costumed ones included, around its foot: half width, rows above the foot, rows under it. */
+  box: { halfWidth: 16, top: 35, bottom: 8 },
   /** Rows from the foot to the ear tips of a standing cat in its front view (outline included). */
   stand: 31,
   /** Hard contact shadow, in native pixels, offset to the screen lower-left (spec section 5). */
@@ -55,17 +57,20 @@ export interface IsoCatAct {
  * half-size scale): contact shadow, the frame, then clothing wear.
  */
 export function drawIsoCat(ctx: Ctx, puppet: IsoPuppet, pose: CatPose, dir: IsoDir, act: IsoCatAct = {}): void {
-  const reduced = reducedPaperMotion(), anim = isoCatAnim(pose);
-  const id = puppetSprite(puppet, dir, anim, puppetFrame(puppet, anim, pose.time, reduced));
+  const reduced = reducedPaperMotion(), anim = isoCatAnim(pose), frame = puppetFrame(puppet, anim, pose.time, reduced);
+  const id = puppetSprite(puppet, dir, anim, frame), layer = pose.costume ? puppetLayer(puppet, pose.costume, dir, anim, frame) : undefined;
   const squash = act.squash ?? 0;
+  const draw: PuppetDraw = {
+    ...(act.flash && !reduced ? { look: "flash" } : {}),
+    ...(squash > 0 ? { sx: 1 + (PUPPET.squash.x - 1) * squash, sy: 1 + (PUPPET.squash.y - 1) * squash } : {}),
+  };
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   if (pose.decoy) ctx.globalAlpha *= 0.35;
   drawPuppetShadow(ctx, pose.x, pose.y, ISO_CAT.shadow);
-  drawPuppet(ctx, id, pose.x, pose.y, {
-    ...(act.flash && !reduced ? { look: "flash" } : {}),
-    ...(squash > 0 ? { sx: 1 + (PUPPET.squash.x - 1) * squash, sy: 1 + (PUPPET.squash.y - 1) * squash } : {}),
-  });
+  drawPuppet(ctx, id, pose.x, pose.y, draw);
+  // The costume layer flashes, squashes and fades with the cat under it.
+  if (layer) drawPuppet(ctx, layer, pose.x, pose.y, draw);
   if (pose.wear && !pose.decoy) {
     const p = toFoot(pose);
     ctx.fillStyle = rampColour("ink", 0);

@@ -11,7 +11,7 @@
  * Presentation only: reads no SimState and consumes no RNG.
  */
 import type { IsoPuppet } from "../art-registry.js";
-import { GEN_SHADOW, genImage, genSprite, type GenLook } from "./gen-sprites.js";
+import { GEN_SHADOW, genImage, genSprite, hasGenSprite, type GenLook } from "./gen-sprites.js";
 import { snap, toScreen } from "./projection.js";
 import type { IsoAnim, IsoDir } from "./sprite-sheet.js";
 
@@ -39,6 +39,17 @@ export function puppetFrame(p: IsoPuppet, anim: IsoAnim, time: number, reduced: 
 /** Sprite id of one baked frame. */
 export function puppetSprite(p: IsoPuppet, dir: IsoDir, anim: IsoAnim, frame: number): string {
   return `${p.identity}-${dir}-${anim}-${frame}`;
+}
+
+/**
+ * Sprite id of a baked layer on that frame (a worn costume: the pixels where
+ * the costumed frame differs from the base frame), or undefined when the
+ * layer has no baked pixels. Drawn right after the base frame at the same
+ * foot, with the same look and squash, it completes the costumed frame.
+ */
+export function puppetLayer(p: IsoPuppet, layer: string, dir: IsoDir, anim: IsoAnim, frame: number): string | undefined {
+  const id = `${p.identity}@${layer}-${dir}-${anim}-${frame}`;
+  return hasGenSprite(id) ? id : undefined;
 }
 
 export interface PuppetDraw {
