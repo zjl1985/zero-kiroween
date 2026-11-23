@@ -80,6 +80,7 @@ import {
 import { isoInView } from "./iso/cull.js";
 import { atFoot, depthSort, onGround } from "./iso/place.js";
 import { groundPass } from "./iso/ground.js";
+import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
 import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
@@ -98,8 +99,6 @@ export interface ViewState {
 }
 /** World units of margin around the view polygon for sprites, pickups and effects. */
 const NEAR_PAD = 140;
-/** Night colour behind the projected world until the tree wall / fog band exists. */
-const OFF_MAP = "#0b1322";
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -142,12 +141,14 @@ function drawWorldFrame(
     // Vector ground shapes: every vertex projected, line widths and images in screen space.
     ground = (paint: (g: Ctx) => void) => groundPass(ctx, paint),
     upright = (x: number, y: number, paint: () => void) => atFoot(ctx, x, y, paint);
-  // Off-map night behind the projected world (placeholder until the tree wall / fog band).
+  // Far fog behind everything, then the cached tree wall / night fog outside the projected WORLD.
   ctx.save();
-  ctx.fillStyle = OFF_MAP;
+  ctx.fillStyle = OFF_MAP.floor;
   ctx.fillRect(0, 0, width, height);
   ctx.translate(projection.x, projection.y);
   ctx.scale(zoom, zoom);
+  drawOffMap(ctx, -projection.x / zoom, -projection.y / zoom, (width - projection.x) / zoom, (height - projection.y) / zoom,
+    sim ? dawnAmount(progress, session) : 0);
   // Washed paper: chunks with lifted colour get their pencil layer (nothing runs when nothing was washed).
   const maskStart = view.profile ? performance.now() : 0;
   const wash = sim ? washFrame(sim) : null;
@@ -160,6 +161,8 @@ function drawWorldFrame(
     drawChunks(ctx, seed, cam, sim !== null);
     drawWashGround(ctx, cam, wash, false);
   });
+  // Background strip north of WORLD.playTop: a quiet fog veil on the ground.
+  drawNorthVeil(ctx, cam.x - cam.width / 2, cam.x + cam.width / 2);
   // Ground shapes from projected vertices: fire cells become 24-unit diamonds, rings 2:1 ellipses.
   ground((g) => {
     drawWashBlooms(g, cam, wash);
