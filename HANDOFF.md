@@ -1,5 +1,16 @@
 # Midnight Meow handoff
 
+## Isometric HD-2D decisions (2026-11-23, local)
+
+The user replied "按照推荐" (accept the recommendations) to every open decision in [the isometric plan](docs/ISOMETRIC_PIXEL_PLAN.md). This supersedes the top-down sprite-stacking look below.
+
+- D1 = C hybrid: FFT-style 2:1 isometric map and 4-direction sprites, plus HD-2D night lighting, fog, fake depth of field and particles. D2: no terrain height, the ground is flat.
+- D3 = M1: code-modelled volumes baked to pixels. The generated top-down village assets are not used for isometric art; the files stay in the repo.
+- D4: 4 directions, SE and NE drawn, SW and NW mirrored. D5: 960 x 540 native, k = 1, 64 x 32 px tile = 32 world units, cat 44 to 52 px tall.
+- D6 = P1: Canvas 2D only. D7: one fixed camera angle. D8: screen-relative controls (W is screen up). D9: the sim world stays rectangular; outside it is a tree wall or night fog.
+- D10: build the M1 vertical slice first, then stop for the user's screenshot review. D11: local tag `archive/pixel-village-2026-11-22` at `92562eb`, work on branch `refactor/iso-hd2d`.
+- Art numbers: [docs/iso-art-spec.md](docs/iso-art-spec.md). The simulation in `src/game/` and `src/defs/` must not change; git-ignored reference outputs for that check live in `output/iso-baseline/`.
+
 ## Generated village asset detail round (local)
 
 Follow-up to `15d176d`, working only from the four committed raw JPEGs (no new generation). Details and the Chinese recipe: [the workshop handoff](docs/PIXEL_ART_WORKSHOP.md).

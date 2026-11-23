@@ -11,6 +11,7 @@ output/releases/
 output/pixel-comparison/
 
 output/pixel-asset-review/
+output/iso-baseline/
 
 # Optional local art-tool environment, never source assets.
 .venv-art/
