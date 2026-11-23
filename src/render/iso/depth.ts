@@ -32,8 +32,8 @@ export interface ScreenBox {
 }
 
 export const ISO_DEPTH = {
-  /** The cat's projected sprite box around its foot point (screen pixels). */
-  cat: { halfWidth: 26, top: 68, bottom: 8 },
+  /** The cat's projected sprite box around its foot point (screen pixels): the iso cat (ISO_CAT in cat-sheet.ts, 40 px wide, 50 px stand) plus its contact shadow. */
+  cat: { halfWidth: 20, top: 50, bottom: 5 },
   /** Alpha of an occluder drawn over the cat. */
   fade: 0.48,
 } as const;

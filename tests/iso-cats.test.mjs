@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { CAT_ART } from "../dist/render/art-index.js";
 import { officialVariant } from "../dist/cats/official.js";
 import { ISO_CAT } from "../dist/render/iso/cat-sheet.js";
+import { ISO_DEPTH } from "../dist/render/iso/depth.js";
 import {
   ISO_ANIMS, ISO_DIRS, bakeIsoFrame, clearIsoDirections, frameCount, isoDirectionMemorySize, isoSpriteCacheKeys,
   isoSpriteCacheSize, isoSpriteFrame,
@@ -50,6 +51,16 @@ test("every registered cat has an iso sheet whose frames stay in bounds and stan
     }
     const idle = opaqueRows(bakeIsoFrame(sheet, "se", "idle", 0));
     assert.equal(idle.height, ISO_CAT.stand);
+  }
+});
+
+test("the occlusion box (ISO_DEPTH.cat) covers every iso cat frame and no more than its sheet", () => {
+  const k = ISO_DEPTH.cat;
+  assert.equal(k.halfWidth, ISO_CAT.width / 2);
+  assert.equal(k.top, ISO_CAT.stand);
+  for (const art of cats) for (const { dir, anim, f } of frames(art.iso)) {
+    const r = bakeIsoFrame(art.iso, dir, anim, f), rows = opaqueRows(r);
+    assert.ok(r.anchor.y - rows.lo <= k.top && rows.hi - r.anchor.y <= k.bottom, r.key);
   }
 });
 

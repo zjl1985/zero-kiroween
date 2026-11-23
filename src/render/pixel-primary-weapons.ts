@@ -5,6 +5,7 @@ import type { EffectProgress } from "./art-registry.js";
 import { reducedPaperMotion } from "./paper-motion.js";
 import { rect, line, polygon, type Point, type Ctx } from "./pixel-art.js";
 import { PIXEL_PAPER as paper } from "./pixel-paper-colors.js";
+import { toScreen } from "./iso/projection.js";
 
 const BOLT = [
   { face: "#97cbbf", shade: "#567e85", tip: "#dff0d6" },
@@ -32,18 +33,25 @@ export function paintSoundBlade(ctx: Ctx, x: number, y: number, vx: number, vy: 
   boltSprite(vx, vy, empowered ? 2 : echo ? 1 : 0).draw(ctx, { x: Math.round(x), y: Math.round(y) });
 }
 
-/** The launch mark remains at the real muzzle while the pulse travels. */
+/**
+ * The launch mark remains at the real muzzle while the pulse travels. Drawn
+ * atFoot(shot) in the iso view: the blade sits on the shot's own point and
+ * turns with the screen direction of its projected velocity; the launch mark
+ * is placed at the projection of its world muzzle relative to the shot.
+ */
 export function drawBoltFlight(ctx: Ctx, shot: ShotState, elapsed: number): void {
+  const heading = toScreen(shot.vx, shot.vy), here = toScreen(shot.x, shot.y);
   ctx.save();
   ctx.globalAlpha *= Math.min(1, Math.max(.15, shot.life / .075));
-  paintSoundBlade(ctx, shot.x, shot.y - 14, shot.vx, shot.vy, shot.empowered, shot.echo);
+  paintSoundBlade(ctx, shot.x, shot.y - 14, heading.x, heading.y, shot.empowered, shot.echo);
   ctx.restore();
   const start = shotLaunch(shot);
   if (!start) return;
   const age = elapsed - start.at;
   if (age < 0 || age >= .105) return;
   const p = BOLT[shot.empowered ? 2 : shot.echo ? 1 : 0];
-  const x = start.x, y = start.y - 14, { dx, dy } = start;
+  const muzzle = toScreen(start.x, start.y), aim = toScreen(start.dx, start.dy), len = Math.hypot(aim.x, aim.y) || 1;
+  const x = shot.x + muzzle.x - here.x, y = shot.y + muzzle.y - here.y - 14, dx = aim.x / len, dy = aim.y / len;
   const fade = 1 - age / .105, spread = 3 + fade * 2;
   ctx.save();
   ctx.globalAlpha *= Math.min(1, fade * 1.65);
