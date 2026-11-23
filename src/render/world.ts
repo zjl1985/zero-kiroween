@@ -70,6 +70,8 @@ import { catWear } from "./cat-detail.js";
 import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 import { withPaperMotion } from "./paper-motion.js";
+import { drawIsoDebugGrid } from "./iso/debug-grid.js";
+import type { IsoCamera } from "./iso/iso-camera.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   /** Optional developer CPU instrumentation; absent in normal gameplay. */
@@ -82,6 +84,8 @@ export interface ViewState {
   locale?: Locale;
   /** Presentation cues (timeline.ts) from main.ts. */
   cues?: readonly Cue[];
+  /** `?iso=grid` developer check view: the iso camera to draw the debug grid with. */
+  isoGrid?: IsoCamera;
 }
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
@@ -382,4 +386,6 @@ function drawWorldFrame(
     ctx.fillRect(0, height - 1 - i, width, 1);
   }
   ctx.restore();
+  // Developer-only ?iso=grid check view over the frame.
+  if (sim && view.isoGrid) drawIsoDebugGrid(ctx, sim, view.isoGrid);
 }

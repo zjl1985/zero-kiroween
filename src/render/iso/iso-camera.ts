@@ -76,8 +76,8 @@ export function clampIsoCamera(x: number, y: number, width: number, height: numb
 
 /** Frames a world point (the start yard by default). */
 export function createIsoCamera(
-  width = SCREEN.width,
-  height = SCREEN.height,
+  width: number = SCREEN.width,
+  height: number = SCREEN.height,
   at: Vec = { x: SCREEN.width / 2, y: SCREEN.height / 2 },
 ): IsoCamera {
   const s = toScreen(at.x, at.y);

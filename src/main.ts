@@ -33,6 +33,9 @@ import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
 import { clampCamera, createCamera, followCamera, type Camera } from "./render/camera.js";
+import { ISO_PIPELINE, isoInput } from "./render/iso/projection.js";
+import { createIsoCamera, followIsoCamera, type IsoCamera } from "./render/iso/iso-camera.js";
+import { isoGridRequested } from "./render/iso/debug-grid.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
@@ -195,6 +198,8 @@ function boot(): void {
     renderTime = 0;
   // The follow camera is presentation state; it never enters the sim.
   let camera: Camera = createCamera();
+  // Developer-only ?iso=grid check view keeps its own presentation-only iso camera.
+  let isoCamera: IsoCamera | null = isoGridRequested(location.search) ? createIsoCamera() : null;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const frameReview = createFrameReview(() => ({
     version: new URLSearchParams(location.search).get("reviewVersion") ?? "workspace",
@@ -310,6 +315,7 @@ function boot(): void {
     if (stage.height !== h) stage.height = h;
     const center = turned && sim ? sim.player : camera;
     camera = clampCamera(center.x, center.y, v.viewWidth, v.viewHeight);
+    if (isoCamera) isoCamera = createIsoCamera(v.viewWidth, v.viewHeight, sim ? sim.player : undefined);
     layout = v;
     for (const layer of [stage, overlay]) {
       layer.style.left = `${v.cssX}px`;
@@ -637,7 +643,9 @@ function boot(): void {
         const speed = presentationSpeed(motionCues, reducedMotion.matches);
         const count = presentationSteps(clock, real, speed);
         for (let i = 0; i < count; i++) {
-          step(sim, input.sample(touch.stick), FIXED_DT);
+          // Screen-relative keys / stick become world directions only once the iso view is live.
+          const sampled = input.sample(touch.stick);
+          step(sim, ISO_PIPELINE ? isoInput(sampled) : sampled, FIXED_DT);
           if (sim.ended !== "playing") {
             finishNight(sim);
             if (sim.ended === "won") {
@@ -680,6 +688,7 @@ function boot(): void {
     const updateCpu = profiling ? performance.now() - cpuStart : 0;
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
       if (sim && screen === "play") camera = followCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
+      if (isoCamera && sim && screen === "play") isoCamera = followIsoCamera(isoCamera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
       ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
       ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
@@ -687,7 +696,7 @@ function boot(): void {
       drawWorld(
         ctx,
         screen === "title" ? null : sim,
-        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(profiling ? { profile: renderProfile } : {}) },
+        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoCamera ? { isoGrid: isoCamera } : {}), ...(profiling ? { profile: renderProfile } : {}) },
       );
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;
