@@ -60,14 +60,18 @@ export const POST = {
     ash: ["#9a9a9e", "#6f6f76", "#c4c0b8"],
   },
   near: {
-    width: 180,
-    height: 120,
+    // Kept small (about 22% of a 443 px portrait bottom band per corner) so the
+    // corners never hide much of the play edge; they fade over any watched actor.
+    width: 96,
+    height: 64,
     blur: { radius: 2, passes: 2 },
-    alpha: 0.9,
-    /** Alpha when the cat stands inside the corner box. */
-    faded: 0.35,
+    alpha: 0.7,
+    /** Alpha when the cat, a hostile or a pickup stands inside the corner box. */
+    faded: 0.25,
+    /** Extra pixels above the box in which an actor's foot still fades the corner (its sprite rises above the foot). */
+    rise: 48,
     leaves: ["#0b191c", "#11262a", "#1a3533"],
-    clusters: 26,
+    clusters: 18,
     /** Sway amplitude (pixels) and speed (radians per second). */
     sway: { amount: 1.5, speed: 0.7 },
   },
@@ -264,7 +268,7 @@ export function nearLeavesPixels(side: 0 | 1): { width: number; height: number; 
     // The first clusters sit right in the corner so it is always filled.
     const reach = j < 3 ? 0.04 + j * 0.12 : 0.25 + 0.75 * hashOf(401, j, 1), ang = hashOf(401, j, 2) * Math.PI / 2;
     const cx = Math.cos(ang) * reach * width * 0.85, cy = height - Math.sin(ang) * reach * height * 0.9;
-    const rx = 10 + hashOf(401, j, 3) * 18 * (1.2 - reach), ry = rx * 0.6, tone = rgb[Math.floor(hashOf(401, j, 4) * rgb.length)]!;
+    const rx = (10 + hashOf(401, j, 3) * 18 * (1.2 - reach)) * width / 180, ry = rx * 0.6, tone = rgb[Math.floor(hashOf(401, j, 4) * rgb.length)]!;
     for (let y = Math.max(0, Math.floor(cy - ry)); y < Math.min(height, Math.ceil(cy + ry)); y++)
       for (let x = Math.max(0, Math.floor(cx - rx)); x < Math.min(width, Math.ceil(cx + rx)); x++) {
         if (Math.hypot((x - cx) / rx, (y - cy) / ry) > 1) continue;
@@ -285,18 +289,27 @@ export function nearBox(side: 0 | 1, width: number, height: number): { x: number
 }
 
 /**
- * The blurred foreground leaves in both bottom corners. A corner fades when
- * the cat's projected foot (`viewer`, view pixels) stands inside it.
+ * Does a near corner fade? True when any watched foot point (view pixels:
+ * the cat, hostiles, pickups, chests) stands inside the corner box or just
+ * above it, where its upright sprite reaches into the box.
  */
-export function drawNearLayer(ctx: Ctx, width: number, height: number, viewer: { x: number; y: number } | undefined, time: number, reduced: boolean): void {
+export function nearFaded(side: 0 | 1, width: number, height: number, watched: readonly { x: number; y: number }[]): boolean {
+  const box = nearBox(side, width, height);
+  return watched.some((p) => p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y - POST.near.rise && p.y <= box.y + box.h + POST.near.rise);
+}
+
+/**
+ * The blurred foreground leaves in both bottom corners. A corner fades when
+ * any watched foot point (`watched`, view pixels) stands inside it.
+ */
+export function drawNearLayer(ctx: Ctx, width: number, height: number, watched: readonly { x: number; y: number }[], time: number, reduced: boolean): void {
   const S = POST.near.sway, sway = reduced || !Number.isFinite(time) ? 0 : Math.round(Math.sin(time * S.speed) * S.amount);
   for (const side of [0, 1] as const) {
     const image = cachedImage(`near:${side}`, () => nearLeavesPixels(side));
     if (!image) continue;
     const box = nearBox(side, width, height);
-    const inside = !!viewer && viewer.x >= box.x && viewer.x <= box.x + box.w && viewer.y >= box.y - 40 && viewer.y <= box.y + box.h;
     ctx.save();
-    ctx.globalAlpha *= inside ? POST.near.faded : POST.near.alpha;
+    ctx.globalAlpha *= nearFaded(side, width, height, watched) ? POST.near.faded : POST.near.alpha;
     ctx.drawImage(image, box.x + (side ? -sway : sway), box.y, box.w, box.h);
     ctx.restore();
   }

@@ -470,8 +470,18 @@ function drawWorldFrame(
     fires.push(projectToView(projection, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell));
   }
   drawParticles(ctx, particles({ width, height, cameraX: camera.x, cameraY: camera.y, time: view.time, reduced, dawn, fires }));
-  // Pre-blurred foreground leaves at the bottom corners; a corner fades over the cat.
-  drawNearLayer(ctx, width, height, sim ? projectToView(projection, sim.player.x, sim.player.y) : undefined, view.time, reduced);
+  // Pre-blurred foreground leaves at the bottom corners; a corner fades over the cat,
+  // a hostile, a pickup or a chest standing in it.
+  const watched: { x: number; y: number }[] = [];
+  if (sim) {
+    const watch = (p: { x: number; y: number }) => watched.push(projectToView(projection, p.x, p.y));
+    watch(sim.player);
+    for (const e of sim.enemies) if (e.alive) watch(e);
+    for (const s of sim.pickups) if (s.alive) watch(s);
+    for (const c of sim.chests) if (c.alive) watch(c);
+    for (const t of sim.treats) if (t.alive) watch(t);
+  }
+  drawNearLayer(ctx, width, height, watched, view.time, reduced);
   // Screen UI overlays: cue screen, navigation tabs, the frame.
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
   if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);

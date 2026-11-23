@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  drawFog, drawNearLayer, drawParticles, fogOffset, fogTilePixels, nearBox, nearLeavesPixels, particles, POST,
+  drawFog, drawNearLayer, drawParticles, fogOffset, fogTilePixels, nearBox, nearFaded, nearLeavesPixels, particles, POST,
 } from "../dist/render/iso/post.js";
 import { boxBlurRGBA, paintBlurred } from "../dist/render/iso/blur.js";
 
@@ -80,11 +80,25 @@ test("near leaves sit in the bottom corners, mirrored, blurred, and fade over th
   assert.ok(soft > 0, "the edges are pre-blurred");
   // Where no canvas exists nothing is drawn; with images present a corner box fades over the cat.
   const ctx = recorder();
-  drawNearLayer(ctx, 960, 540, { x: 20, y: 530 }, 1, false);
+  drawNearLayer(ctx, 960, 540, [{ x: 20, y: 530 }], 1, false);
   drawFog(ctx, 960, 540, 0, 0, 1, false);
   assert.equal(ctx.calls.length, 0, "no canvas in Node: no draws");
   const box = nearBox(1, 960, 540);
   assert.deepEqual(box, { x: 960 - POST.near.width, y: 540 - POST.near.height, w: POST.near.width, h: POST.near.height });
+});
+
+test("near corners stay small and fade over any watched actor, not only the cat", () => {
+  // Portrait view (390 x 844 CSS at about 443 internal px wide): both corners together cover under half the bottom band.
+  const w = 443, h = 960;
+  assert.ok(2 * POST.near.width < 0.5 * w && POST.near.height <= 64, JSON.stringify(POST.near));
+  assert.ok(POST.near.alpha <= 0.7 && POST.near.faded < POST.near.alpha);
+  const left = nearBox(0, w, h), right = nearBox(1, w, h);
+  const enemy = { x: left.x + 30, y: left.y + 20 }, chest = { x: right.x + 10, y: right.y - 10 }, clear = { x: w / 2, y: h - 10 };
+  assert.equal(nearFaded(0, w, h, [enemy]), true, "a hostile in the left corner fades it");
+  assert.equal(nearFaded(1, w, h, [enemy]), false);
+  assert.equal(nearFaded(1, w, h, [chest]), true, "a pickup just above the right corner fades it");
+  assert.equal(nearFaded(0, w, h, [clear]), false);
+  assert.equal(nearFaded(0, w, h, []), false);
 });
 
 test("particles draw as whole-pixel rectangles and nothing for an empty list", () => {
