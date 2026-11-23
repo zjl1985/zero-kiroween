@@ -11,7 +11,8 @@ version. Frozen tag: `archive/papercraft-2026-11-21` at `d26859b`, work branch:
 `refactor/pixel-stacking`. Older paper-only, no-pixel and approved-paper-head
 contour requirements below are superseded for this refactor. Keep native pixel
 cat identities; no runtime style toggle. The latest user correction requires movement-only input: remove manual dash/displacement and active skill controls, retain automatic attacks. This supersedes old active-skill preservation rules below.
-Code-authored pixel slices/sprites may be cached. User-requested actual screenshots
+Code-authored pixel slices/sprites may be cached. Generated or code-authored pixel images are allowed for any art (characters, enemies, weapons, scenery) as long as they live in the repo with reproducible scripts (user, 2026-11-23); this supersedes the no-image rule further down.
+The 2026-11-23 art redo uses a low native 480x270 frame, voxel-baked assets, pixelfx effects (`src/render/pixelfx/`) and a retro post layer; render real frames offline with `node output/tools/frame-shot.mjs --preset <name>`. User-requested actual screenshots
 are authorized in the working Linux Chromium environment; the historical macOS
 launch failure is not this environment. Do not claim device performance or art approval.
 
@@ -64,7 +65,7 @@ Rules of thumb: `engine` imports nothing of ours. `defs` and `game` share types 
 ## Hard constraints
 
 - **One art style: papercraft / cut paper.** No pixel mode, no style toggle. Legacy `render/scene.ts`, `layout.ts`, `pixel.ts`, `pixel-art.ts`, `cast.ts` are code dependencies; do not delete them blindly.
-- **Everything is drawn by Canvas code.** No images, sprites, textures, CSS `url()` or data URIs, no audio files. Offscreen canvases may cache procedural drawing (`cachedSprite`). The user's reference image is an art target only.
+- **Everything is drawn by Canvas code.** (Superseded 2026-11-23: generated or code-authored pixel images in the repo with reproducible scripts are allowed for any art.) No images, sprites, textures, CSS `url()` or data URIs, no audio files. Offscreen canvases may cache procedural drawing (`cachedSprite`). The user's reference image is an art target only.
 - **Pick one cat.** Zero (male) or Nicole (female); only the chosen cat is in a run, never a companion. The meme cats are **costumes** the chosen cat wears (user decision 2026-11-19): all 14 are built, unlocked by play, each with one small auto skill on top of the cat's own kit. Random helper cats as separate characters remain not built; ask the user first. Recipe: [references/add-costume.md](references/add-costume.md).
 - **Approved heads.** The paper heads (`2d8b25e`) and `src/cats/` stay untouched. Costume makeup is allowed only as a separate cached layer on top (`paperFaceMakeup`), in the Meow Wall manner: markings, expression, accessories.
 - **Distinct kits.** Zero: meow-bolt, mirror dash decoy, empowered fire, night-claw, long-shadow, Echo Legion = max meow-bolt + long-shadow. Nicole: moon-stars, fold-moon field and shields, rescue shield, star-fall, deep-fold, moon-shield, Full Moon = max moon-stars + deep-fold. Evolutions only on opening a chest; a full passive bar (`BUILD.passiveSlots`) counts in place of the missing partner passive. Dawn wins only if the Eraser was defeated; dawn with the Boss alive is a loss (`endReason` `'boss-escaped'`).

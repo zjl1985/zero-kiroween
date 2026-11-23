@@ -104,6 +104,14 @@ uv run --no-project --offline --python /Users/zero/.local/share/uv/python/cpytho
 
 不要不带脚本参数调用 uv 的 python，否则会打开交互解释器挂住终端。连续两次运行的输出逐像素、逐字节一致；但这里的 Pillow 使用 zlib-ng，PNG 字节与别处生成的旧提交不同，解码后的像素相同。重新生成时所有 PNG 字节都可能变化，这不是像素改动。
 
+**2026-11-23 美术重做工具（sprite-stacking 切片器）**：`scripts/iso-art/vendor/views_to_slices.py` 原样复制自 [danielwh2/sprite-stacking](https://github.com/danielwh2/sprite-stacking)（MIT，`LICENSE` 在同目录），把四张正交像素视图雕刻成体素切片条。本沙箱里 `~/.cache/uv` 不可写，必须把 uv 缓存指向仓库内被忽略的目录（这样能联网解析依赖）：
+
+```sh
+UV_CACHE_DIR=output/tools/uv-cache uv run --with pillow --with numpy python scripts/iso-art/vendor/views_to_slices.py --help
+```
+
+2026-11-23 实测此命令可用；备用的 `~/.local/bin/python3 scripts/iso-art/vendor/views_to_slices.py --help`（Pillow 12.3 + NumPy 2.5.1）也可用。离线渲染真实游戏画面用 `node output/tools/frame-shot.mjs --preset start-zero`（`@napi-rs/canvas` 只装在被忽略的 `output/tools/`，不是项目依赖），输出 PNG 后直接查看，不启动浏览器。
+
 ### B. 不保证可重现：再次请求云端重画
 
 本批工具为 `cursor.studio.GenerateImage`，成功调用 **4 次**（不计此前由父级生成目标稿的那次）。当时接口只提供 description、参考路径、比例和文件名，没有暴露模型或 seed 选择。保存原图才是精确重现处理结果的基础。
