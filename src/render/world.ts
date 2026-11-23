@@ -43,7 +43,8 @@ import {
   YARD_PROPS,
 } from "./craft-scene.js";
 import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, type Footprint } from "./iso/depth.js";
-import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
+import { drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
+import { drawIsoGround } from "./iso/terrain-bake.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashBlooms, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
@@ -154,11 +155,15 @@ function drawWorldFrame(
   const wash = sim ? washFrame(sim) : null;
   if (view.profile) view.profile.mask = performance.now() - maskStart;
   beginSketchFrame();
-  // Chunk ground and its wash masks share the cached tile lattice (placeholder ground).
+  // Isometric ground: baked screen-space blocks from the terrain field (projected pixels, no affine).
   const washStart = view.profile ? performance.now() : 0;
+  drawIsoGround(ctx, seed, {
+    x0: -projection.x / zoom, y0: -projection.y / zoom,
+    x1: (width - projection.x) / zoom, y1: (height - projection.y) / zoom,
+  }, sim !== null);
+  // The wash chunk masks still sit on the world lattice under the projection's affine (FEAT-004 part C / later).
   affine(() => {
     // Pixel wash owns a bounded dirty-tile overlay; no legacy pencil terrain bake.
-    drawChunks(ctx, seed, cam, sim !== null);
     drawWashGround(ctx, cam, wash, false);
   });
   // Background strip north of WORLD.playTop: a quiet fog veil on the ground.
