@@ -12,7 +12,7 @@ export const ISO = { k: 1, tile: 32, tileW: 64, tileH: 32 } as const;
  * FEAT-003 flips it together with the renderer, so no commit ships iso
  * controls over a top-down view or the reverse.
  */
-export const ISO_PIPELINE = false;
+export const ISO_PIPELINE = true;
 
 export interface Vec {
   x: number;

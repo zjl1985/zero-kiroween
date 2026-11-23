@@ -228,7 +228,7 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
     if (id === 'moon-stars') {
         art.sprites = (c, s, time, add) => {
             const full = playerStats(s).fullMoon;
-            orbitPositions(s).forEach((p, i) => add(p.y, () => drawOrbitPaperStar(c, p.x, p.y, i, time, full)));
+            orbitPositions(s).forEach((p, i) => add(p.y, () => drawOrbitPaperStar(c, p.x, p.y, i, time, full), p));
         };
     }
     if (id === 'full-moon') {
@@ -253,7 +253,7 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                     rect(c, d.x + Math.cos(a) * 20, d.y - 20 + Math.sin(a) * 9, 4, 4, i % 2 ? FX.gold : FX.blue);
                 }
                 c.restore();
-            });
+            }, d);
         };
     if (id === 'watercolour-brush') art.ground = createBrushGround();
     if (id === 'paper-cut') art.ground = drawPaperCutGround;
@@ -268,7 +268,7 @@ export function pixelWeaponArt(old: WeaponArt): WeaponArt {
                         rect(c, x, y - 16, 5, 16, i % 2 ? FX.purple : FX.shade);
                         rect(c, x, y - 16, 5, 2, FX.cream);
                     }
-                });
+                }, { x: (w.x1 + w.x2) / 2, y: (w.y1 + w.y2) / 2 });
         };
     }
     return art;
@@ -297,9 +297,9 @@ export function pixelCostumeEffects(old: CostumeArt): CostumeArt {
                 if (z.until <= s.elapsed)
                     continue;
                 if (z.kind === 'turret')
-                    add(z.y, () => { rect(c, z.x - 10, z.y - 10, 20, 10, FX.shade); rect(c, z.x - 6, z.y - 24, 12, 14, FX.blue); rect(c, z.x - 2, z.y - 29, 16, 5, FX.cream); });
+                    add(z.y, () => { rect(c, z.x - 10, z.y - 10, 20, 10, FX.shade); rect(c, z.x - 6, z.y - 24, 12, 14, FX.blue); rect(c, z.x - 2, z.y - 29, 16, 5, FX.cream); }, z);
                 else if (z.kind === 'pad' || (z.kind === 'circle' && z.radius <= 14))
-                    add(z.y, () => glyph(c, 'star', z.x, z.y - 4, 5, FX.purple));
+                    add(z.y, () => glyph(c, 'star', z.x, z.y - 4, 5, FX.purple), z);
             }
         }
     };

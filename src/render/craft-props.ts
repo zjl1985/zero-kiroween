@@ -23,7 +23,8 @@ import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
 import { sketchAmount } from "./sprite-sketch.js";
 const PAD = 8;
-type Add = (y: number, draw: () => void, occludesPlayer?: boolean) => void;
+/** `foot` is the world point the painter draws around (placed at its projected foot in the iso view). */
+type Add = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: { x: number; y: number }) => void;
 function propSprite(art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burnt: boolean) {
     const b = art.bounds, s = Math.round(p.s * 20) / 20, v = Math.abs(p.seed) % art.variants, w = (b.r - b.l) * s + PAD * 2, h = (b.b - b.t) * s + PAD * 2, ax = -b.l * s + PAD, ay = -b.t * s + PAD, name = PROP_PHASES[phase]!;
     return cachedSprite(`prop:${art.id}:${name}:${burnt ? 1 : 0}:${s}:${v}`, w, h, 2, (c, canvas) => {
@@ -152,7 +153,7 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
                     inked: (m?.inkedUntil ?? 0) > elapsed,
                     regrow,
                     sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
-                }), !!sim && phase < 2 && !folded && paperOccludesActor(p.x, p.y, p.s, bd, sim.player));
+                }), !!sim && phase < 2 && !folded && paperOccludesActor(p.x, p.y, p.s, bd, sim.player), p);
             }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [
@@ -210,7 +211,7 @@ export function fireSprites(ctx: Ctx, sim: SimState, cam: Camera, time: number, 
         life = Math.max(0, Math.min(1, (FIRE.burnTime - left) / 0.4, left / 0.6));
         add(y + FIRE.cell * 0.3, () => {
             flame(ctx, x + (hash(sd) - 0.5) * 6, y + 4, 16 * Math.max(0.35, life), flicker(time, sd), sd);
-        });
+        }, false, { x, y });
     }
 }
 /** Flecks, scraps and embers from prop impacts. Returns true when drawn. */

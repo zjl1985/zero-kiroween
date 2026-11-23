@@ -5,7 +5,9 @@ import { bossEnemy } from "../game/sim.js";
 import { rect, line, ellipse, polygon, type Ctx } from "./pixel-art.js";
 import { visHash } from "./hash.js";
 import { catArt } from "./art-registry.js";
-import { cameraProjection, type Camera, type ViewSize } from "./camera.js";
+import type { ViewSize } from "./camera.js";
+import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
+import { toScreen } from "./iso/projection.js";
 import { beatFor, clamp01, cueEnvelope, cuePhase, easeInOut, easeOutCubic, PHASES, type Cue, type Phase } from "./timeline.js";
 
 const SPARKS = ["#f3ca70", "#a2d1b2", "#e88970", "#bda6db", "#f7e5a4"] as const;
@@ -98,7 +100,8 @@ function edgeArrow(ctx: Ctx, view: ViewSize, sx: number, sy: number, alpha: numb
     [x + px! * Math.cos(dir) - py! * Math.sin(dir), y + px! * Math.sin(dir) + py! * Math.cos(dir)] as const);
   ctx.save(); ctx.globalAlpha *= alpha; polygon(ctx, points, "#f29c8d"); ctx.restore();
 }
-export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: Camera, _time: number, reduced: boolean, view = cameraProjection(cam)): void {
+/** Screen-space cue layers; world targets are placed through the frame's isoProjection `view`. */
+export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam: IsoCamera, _time: number, reduced: boolean, view = isoProjection(cam)): void {
   for (const c of cues) {
     const env = cueEnvelope(c, reduced), p = cuePhase(c, reduced);
     if (!p.phase) continue;
@@ -106,10 +109,12 @@ export function drawCueScreen(ctx: Ctx, cues: readonly Cue[], sim: SimState, cam
     if (reduced) { frame(ctx, view, tone, .4 * env); continue; }
     if (c.kind === "boss") {
       frame(ctx, view, "#843c58", .65 * env);
-      const boss = bossEnemy(sim);
+      const boss = bossEnemy(sim),
+        target = boss ?? (c.x !== undefined && c.y !== undefined ? { x: c.x, y: c.y } : null),
+        at = target ? toScreen(target.x, target.y) : { x: cam.x, y: cam.y };
       if (p.phase === "anticipation" || p.phase === "reveal") edgeArrow(ctx, view,
-        (boss?.x ?? c.x ?? cam.x) * view.zoom + view.x,
-        (boss?.y ?? c.y ?? cam.y) * view.zoom + view.y, Math.min(1, env * 1.4));
+        at.x * view.zoom + view.x,
+        at.y * view.zoom + view.y, Math.min(1, env * 1.4));
     } else if (c.kind === "evolution" || c.kind === "boss-down") {
       frame(ctx, view, "#e3bf74", .5 * env);
       if (p.phase === "burst") fill(ctx, view, "#ffe5a6", .1 * (1 - p.local));

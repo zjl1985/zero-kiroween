@@ -17,7 +17,7 @@ import {
 } from "./craft-enemies.js";
 import { playerStats } from "../game/upgrades.js";
 import { enemyRadius } from "../game/sim.js";
-import { landmarks } from "../game/world-gen.js";
+import { landmarks, SCREEN } from "../game/world-gen.js";
 import { drawActorPaperStatus, drawPaperStatusEffect } from "./paper-status-art.js";
 import {
   drawCombatGround,
@@ -30,8 +30,6 @@ import type { CatPose } from "./layout.js";
 import { drawPlaybillStage } from "./playbill-stage.js";
 import { drawPixelStroke, drawFootDust } from "./pixel.js";
 import {
-  drawSky,
-  drawNightShift,
   drawDawnWash,
   drawForeground,
   drawProp,
@@ -50,7 +48,7 @@ import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketchedParts, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
-import { cameraProjection, createCamera, inView, viewRect, type Camera } from "./camera.js";
+import { viewRect } from "./camera.js";
 import type { Locale } from "../content/keys.js";
 import {
   cameraShake,
@@ -64,22 +62,31 @@ import {
   drawLandmarkActivity,
 } from "./craft-juice.js";
 import { light, polygon, line } from "./pixel-art.js";
-import { VIEW_WIDTH } from "./viewport.js";
 import { cueTremble, presentationZoom, type Cue } from "./timeline.js";
 import { catWear } from "./cat-detail.js";
 import type { Ctx } from "./paper-material.js";
 import { drawCueScreen, drawCueWorld } from "./cue-fx.js";
 import { withPaperMotion } from "./paper-motion.js";
 import { drawIsoDebugGrid } from "./iso/debug-grid.js";
-import type { IsoCamera } from "./iso/iso-camera.js";
+import {
+  createIsoCamera,
+  isoProjection,
+  isoWorldCamera,
+  projectToView,
+  viewWorldPolygon,
+  type IsoCamera,
+} from "./iso/iso-camera.js";
+import { isoInView } from "./iso/cull.js";
+import { atFoot, depthSort, onGround } from "./iso/place.js";
+import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   /** Optional developer CPU instrumentation; absent in normal gameplay. */
   profile?: { mask: number };
   time: number;
   reducedMotion?: boolean;
-  /** Follow camera from main.ts; defaults to the start-yard framing. */
-  camera?: Camera;
+  /** Isometric follow camera from main.ts; defaults to framing the cat (or the start yard). */
+  camera?: IsoCamera;
   /** For the navigation arrow labels. */
   locale?: Locale;
   /** Presentation cues (timeline.ts) from main.ts. */
@@ -87,6 +94,10 @@ export interface ViewState {
   /** `?iso=grid` developer check view: the iso camera to draw the debug grid with. */
   isoGrid?: IsoCamera;
 }
+/** World units of margin around the view polygon for sprites, pickups and effects. */
+const NEAR_PAD = 140;
+/** Night colour behind the projected world until the tree wall / fog band exists. */
+const OFF_MAP = "#0b1322";
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -109,33 +120,27 @@ function drawWorldFrame(
     tremble = cueTremble(cues, view.time, reduced),
     shake = { x: base.x + tremble.x, y: base.y + tremble.y },
     zoom = presentationZoom(cues, reduced);
-  const camera = view.camera ?? createCamera(),
-    focus = sim ? { x: sim.player.x, y: sim.player.y - 20 } : camera,
-    projection = cameraProjection(camera, focus, zoom, shake),
+  const camera = view.camera ?? createIsoCamera(SCREEN.width, SCREEN.height, sim?.player),
+    // Zoom gathers on the cat's body, 20 view pixels above its projected foot.
+    foot = sim ? toScreen(sim.player.x, sim.player.y) : { x: camera.x, y: camera.y + 20 },
+    focus = toWorld(foot.x, foot.y - 20),
+    projection = isoProjection(camera, focus, zoom, shake),
     { width, height } = projection,
-    cam = {
-      x: (width / 2 - projection.x) / zoom,
-      y: (height / 2 - projection.y) / zoom,
-      width: width / zoom, height: height / zoom,
-    },
+    // World box around the view polygon for painters that still cull by a world rectangle.
+    cam = isoWorldCamera(camera),
     seed = sim?.seed ?? 0,
     progress = sim ? sim.elapsed / sim.sessionSeconds : 0,
     session = sim?.sessionSeconds,
+    viewPoly = viewWorldPolygon(camera),
     view0 = viewRect(cam),
-    near = viewRect(cam, 140),
-    warnings = sim ? enemyWarnings(sim) : [];
-  // Screen-space sky behind the world; hidden once the camera is far south.
+    inNear = (x: number, y: number, pad = 0) => isoInView(viewPoly, x, y, NEAR_PAD + pad),
+    warnings = sim ? enemyWarnings(sim) : [],
+    ground = (paint: () => void) => onGround(ctx, paint),
+    upright = (x: number, y: number, paint: () => void) => atFoot(ctx, x, y, paint);
+  // Off-map night behind the projected world (placeholder until the tree wall / fog band).
   ctx.save();
-  if (view0.y0 < 250) {
-    // The moon keeps its shape and its place on the right as the screen narrows.
-    const skyWidth = Math.max(VIEW_WIDTH, width);
-    ctx.save();
-    ctx.translate((width - skyWidth) * 0.8, 0);
-    ctx.scale(skyWidth / VIEW_WIDTH, skyWidth / VIEW_WIDTH);
-    drawSky(ctx);
-    if (sim) drawNightShift(ctx, progress, session);
-    ctx.restore();
-  }
+  ctx.fillStyle = OFF_MAP;
+  ctx.fillRect(0, 0, width, height);
   ctx.translate(projection.x, projection.y);
   ctx.scale(zoom, zoom);
   // Washed paper: chunks with lifted colour get their pencil layer (nothing runs when nothing was washed).
@@ -143,58 +148,70 @@ function drawWorldFrame(
   const wash = sim ? washFrame(sim) : null;
   if (view.profile) view.profile.mask = performance.now() - maskStart;
   beginSketchFrame();
-  // Pixel wash owns a bounded dirty-tile overlay; no legacy pencil terrain bake.
-  drawChunks(ctx, seed, cam, sim !== null);
-  const washStart = view.profile ? performance.now() : 0;
-  drawWashGround(ctx, cam, wash);
-  if (view.profile) view.profile.mask += performance.now() - washStart;
-  if (sim) drawFoldGuards(ctx, sim, cam);
-  if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, cam.width, cam.height, session);
-  drawWind(ctx, view.time);
-  if (sim) {
-    drawCombatGround(ctx, sim);
-    drawEnemyGround(ctx, sim);
-    drawFireGround(ctx, sim, cam);
-    for (const landmark of landmarks(seed)) if (inView(near, landmark.x, landmark.y, landmark.radius))
-      drawLandmarkActivity(ctx, sim, landmark);
-  }
+  // Ground layers keep their world-space painters under the projection's affine (placeholder ground).
+  ground(() => {
+    // Pixel wash owns a bounded dirty-tile overlay; no legacy pencil terrain bake.
+    drawChunks(ctx, seed, cam, sim !== null);
+    const washStart = view.profile ? performance.now() : 0;
+    drawWashGround(ctx, cam, wash);
+    if (view.profile) view.profile.mask += performance.now() - washStart;
+    if (sim) drawFoldGuards(ctx, sim, cam);
+    if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, cam.width, cam.height, session);
+    drawWind(ctx, view.time);
+    if (sim) {
+      drawCombatGround(ctx, sim);
+      drawEnemyGround(ctx, sim);
+      drawFireGround(ctx, sim, cam);
+      for (const landmark of landmarks(seed)) if (inNear(landmark.x, landmark.y, landmark.radius))
+        drawLandmarkActivity(ctx, sim, landmark);
+    }
+  });
   const town = worldSprites(ctx, seed, cam, view.time, {
     cat: sim?.player ?? null, reduced, activities: sim?.landmarkEvents,
     ...(wash && sim ? { sketch: (x: number, y: number) => sketchAmount(sim, x, y) } : {}),
   });
   const sprites: WorldSprite[] = [...town.sprites];
-  const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean) => sprites.push({ y, draw, occludesPlayer });
+  type Foot = { x: number; y: number };
+  const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: Foot) =>
+    sprites.push({ y, draw, occludesPlayer, ...(foot ? { foot } : {}) });
+  const addHook = (y: number, draw: () => void, foot?: Foot) => addSprite(y, draw, false, foot);
   propSprites(ctx, sim, seed, cam, view.time, addSprite);
   if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
-  if (sim) townsfolkSprites(ctx, sim, cam, view.time, addSprite,
+  if (sim) townsfolkSprites(ctx, sim, cam, view.time, addHook,
     wash ? (x: number, y: number) => sketchAmount(sim, x, y) : undefined, reduced);
   const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
-    if (!inView(near, l.x, l.y)) continue;
+    if (!inNear(l.x, l.y)) continue;
     lamps.push(l);
     addSprite(l.y, () => drawLamp(ctx, l, view.time),
-      !!sim && paperOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player));
+      !!sim && paperOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
   }
-  for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s);
+  ground(() => { for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s); });
   for (const p of YARD_PROPS) {
-    if (!inView(near, p.x, p.y)) continue;
+    if (!inNear(p.x, p.y)) continue;
     addSprite(p.y, () => drawProp(ctx, p),
-      !!sim && paperOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player));
+      !!sim && paperOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
   }
   let solidForeground = Infinity;
   const addSolid = (x: number, y: number, s: number, bounds: { l: number; r: number; t: number; b: number }, draw: () => void) => {
-    if (!inView(near, x, y)) return;
-    addSprite(y, draw);
-    if (sim && paperOccludesActor(x, y, s, bounds, sim.player)) solidForeground = Math.min(solidForeground, y);
+    if (!inNear(x, y)) return;
+    addSprite(y, draw, false, { x, y });
+    if (sim && paperOccludesActor(x, y, s, bounds, sim.player)) solidForeground = Math.min(solidForeground, depthKey(x, y));
   };
   for (const p of YARD_FURNITURE)
     addSolid(p.x, p.y, 1, { l: p.left - p.radius, r: p.right + p.radius, t: -44, b: 12 }, () => drawYardFurniture(ctx, p));
   for (const p of YARD_RAILS)
     addSolid(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS.fence, () => drawProp(ctx, { ...p, kind: "fence", seed: 0 }));
+  // Depth of a sprite: depthKey of its foot plus the painter's small sort bias.
+  // Hooks without a foot point fall back to the cat's column.
+  const keyOf = (s: WorldSprite) => s.key ?? (s.foot
+    ? depthKey(s.foot.x, s.foot.y) + (s.y - s.foot.y)
+    : depthKey(sim?.player.x ?? 0, s.y));
   // The selected cat sorts just after the last scenery cut that could cover it.
   // Solid furniture stays opaque and keeps the cat behind it when seen from the north.
   const playerDepth = Math.min(solidForeground - .01,
-    sprites.reduce((y, sprite) => sprite.occludesPlayer ? Math.max(y, sprite.y) : y, sim?.player.y ?? 0));
+    sprites.reduce((k, sprite) => sprite.occludesPlayer ? Math.max(k, keyOf(sprite)) : k,
+      sim ? depthKey(sim.player.x, sim.player.y) : 0));
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
       const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>
@@ -206,22 +223,26 @@ function drawWorldFrame(
       const dx = pose.x - nearest.x,
         dy = pose.y - nearest.y,
         len = Math.hypot(dx, dy) || 1;
-      ctx.save();
-      ctx.globalAlpha = 0.24;
-      polygon(
-        ctx,
-        [
-          [pose.x - 9, pose.y],
-          [pose.x + 10, pose.y],
-          [pose.x + (dx / len) * 25 + 9, pose.y + (dy / len) * 12],
-          [pose.x + (dx / len) * 25 - 9, pose.y + (dy / len) * 12],
-        ],
-        "#101e28",
-      );
-      ctx.restore();
+      ground(() => {
+        ctx.save();
+        ctx.globalAlpha = 0.24;
+        polygon(
+          ctx,
+          [
+            [pose.x - 9, pose.y],
+            [pose.x + 10, pose.y],
+            [pose.x + (dx / len) * 25 + 9, pose.y + (dy / len) * 12],
+            [pose.x + (dx / len) * 25 - 9, pose.y + (dy / len) * 12],
+          ],
+          "#101e28",
+        );
+        ctx.restore();
+      });
     }
     sprites.push({
-      y: pose.decoy ? pose.y : playerDepth,
+      y: pose.y,
+      foot: pose,
+      ...(pose.decoy ? {} : { key: playerDepth }),
       draw: () => {
         drawFootDust(ctx, pose);
         // Keep the printed colours and the face readable on every paper tone.
@@ -232,14 +253,14 @@ function drawWorldFrame(
     });
   };
   if (sim) {
-    drawPixelStroke(
+    ground(() => drawPixelStroke(
       ctx,
       sim.stroke.points,
       sim.stroke.ink,
       sim.stroke.ink <= 0 && sim.stroke.blankTime > 0,
       sim.stroke.thickness,
       view.time,
-    );
+    ));
     if (sim.decoy.live) {
       cat({
         id: sim.player.id,
@@ -253,33 +274,33 @@ function drawWorldFrame(
         time: view.time,
         ...(sim.costume ? { costume: sim.costume.id } : {}),
       });
-      light(ctx, sim.decoy.x, sim.decoy.y - 18, 35, "#91bacf", 0.12, 1);
+      upright(sim.decoy.x, sim.decoy.y, () => light(ctx, sim.decoy.x, sim.decoy.y - 18, 35, "#91bacf", 0.12, 1));
     }
     const reach = playerStats(sim).pickupRadius;
     for (const s of sim.pickups)
-      if (s.alive && inView(near, s.x, s.y))
+      if (s.alive && inNear(s.x, s.y))
         sprites.push({
           y: s.y,
+          foot: s,
           draw: () => {
             drawShardTrail(ctx, s, sim, reach, view.time);
             drawInkShard(ctx, s.x, s.y, view.time, s.id, s.value);
           },
         });
     for (const o of sim.interactables)
-      if (inView(near, o.x, o.y)) sprites.push({ y: o.y + 0.1, draw: () => drawInteractable(ctx, o, view.time) });
+      if (inNear(o.x, o.y)) sprites.push({ y: o.y + 0.1, foot: o, draw: () => drawInteractable(ctx, o, view.time) });
     for (const t of sim.treats)
-      if (t.alive && inView(near, t.x, t.y)) sprites.push({ y: t.y, draw: () => drawTreat(ctx, t, view.time) });
+      if (t.alive && inNear(t.x, t.y)) sprites.push({ y: t.y, foot: t, draw: () => drawTreat(ctx, t, view.time) });
     for (const c of sim.chests)
-      if (c.alive && inView(near, c.x, c.y)) sprites.push({ y: c.y, draw: () => drawChest(ctx, c, view.time) });
+      if (c.alive && inNear(c.x, c.y)) sprites.push({ y: c.y, foot: c, draw: () => drawChest(ctx, c, view.time) });
     // Weapon pieces that stand in the world (orbit stars, echo shards).
-    for (const w of activeWeaponArt(sim))
-      w.sprites?.(ctx, sim, view.time, (y, draw) => sprites.push({ y, draw }));
+    for (const w of activeWeaponArt(sim)) w.sprites?.(ctx, sim, view.time, addHook);
     // Standing pieces of the worn costume's skill (paper turret, go stones).
-    if (sim.costume) costumeArt(sim)?.sprites?.(ctx, sim, view.time, (y, draw) => sprites.push({ y, draw }));
+    if (sim.costume) costumeArt(sim)?.sprites?.(ctx, sim, view.time, addHook);
     // Googly eyes follow the cat.
     const look = { x: sim.player.x, y: sim.player.y - 20 };
     // Off-screen ink is culled; the Eraser is large, so it gets a wider margin.
-    const shown = sim.enemies.filter((e) => e.alive && inView(near, e.x, e.y, ENEMY_ART.find(e.kind)?.cullMargin ?? 0)),
+    const shown = sim.enemies.filter((e) => e.alive && inNear(e.x, e.y, ENEMY_ART.find(e.kind)?.cullMargin ?? 0)),
       sketchOf = (e: (typeof shown)[number]) =>
         wash && ENEMY_DEFS.find(e.kind)?.wakesOn !== "colourless" ? sketchAmount(sim, e.x, e.y) : 0,
       // Over budget, the oldest pencil enemies keep the look (stable across frames, not draw order).
@@ -287,6 +308,7 @@ function drawWorldFrame(
     for (const e of shown)
         sprites.push({
           y: e.y,
+          foot: e,
           draw: () => {
             // Pencil enemies stamp cached pencil variants of their parts (one drawImage per part).
             drawSketchedParts(ctx, pick && !pick.has(e.id) ? 0 : sketchOf(e), (ctx) => drawCraftEnemy(ctx, e, view.time, look));
@@ -296,11 +318,10 @@ function drawWorldFrame(
           },
         });
     for (const s of sim.enemyShots)
-      if (s.alive)
-        sprites.push({
-          y: s.y0 + (s.ty - s.y0) * Math.min(1, s.t / s.flight),
-          draw: () => drawEnemyShot(ctx, s),
-        });
+      if (s.alive) {
+        const k = Math.min(1, s.t / s.flight), at = { x: s.x0 + (s.tx - s.x0) * k, y: s.y0 + (s.ty - s.y0) * k };
+        sprites.push({ y: at.y, foot: at, draw: () => drawEnemyShot(ctx, s) });
+      }
     cat({
       id: sim.player.id,
       x: sim.player.x,
@@ -316,64 +337,66 @@ function drawWorldFrame(
       ...(sim.costume ? { costume: sim.costume.id } : {}),
     });
     for (const shot of sim.shots) {
-      if (!shot.alive || !inView(near, shot.x, shot.y)) continue;
+      if (!shot.alive || !inNear(shot.x, shot.y)) continue;
       addSprite(shot.y, () => shot.weapon
         ? drawWeaponShot(ctx, shot, view.time)
-        : drawBoltFlight(ctx, shot, sim.elapsed));
+        : drawBoltFlight(ctx, shot, sim.elapsed), false, shot);
     }
   }
-  drawWarningGround(ctx, warnings);
-  sprites.sort((a, b) => a.y - b.y);
-  for (const sprite of sprites) {
+  ground(() => drawWarningGround(ctx, warnings));
+  for (const sprite of sprites) sprite.key = keyOf(sprite);
+  for (const sprite of depthSort(sprites as (WorldSprite & { key: number })[])) {
+    const paint = () => sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : ground(sprite.draw);
     if (!sprite.occludesPlayer) {
-      sprite.draw();
+      paint();
       continue;
     }
     ctx.save();
     ctx.globalAlpha *= 0.48;
-    sprite.draw();
+    paint();
     ctx.restore();
   }
-  if (sim) drawPaperRain(ctx, sim, cam, view.time, reduced);
+  if (sim) upright(cam.x, cam.y, () => drawPaperRain(ctx, sim, cam, view.time, reduced));
   if (sim) {
-    drawCombatFront(ctx, sim);
+    upright(sim.player.x, sim.player.y, () => drawCombatFront(ctx, sim));
     for (const effect of sim.impacts) {
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
-      if (effect.kind !== "moon-stun" && !inView(near, effect.x, effect.y, 60)) continue;
-      if (drawPaperStatusEffect(ctx, effect)) continue;
-      if (drawWashEffect(ctx, effect, sim)) continue;
-      if (drawPropEffect(ctx, effect)) continue;
-      if (drawCombatFeedback(ctx, effect)) continue;
-      if (drawJuiceEffect(ctx, effect)) continue;
-      if (effect.kind === "hit" || effect.kind === "defeat")
-        drawPaperImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
-      else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
+      if (effect.kind !== "moon-stun" && !inNear(effect.x, effect.y, 60)) continue;
+      upright(effect.x, effect.y, () => {
+        if (drawPaperStatusEffect(ctx, effect)) return;
+        if (drawWashEffect(ctx, effect, sim)) return;
+        if (drawPropEffect(ctx, effect)) return;
+        if (drawCombatFeedback(ctx, effect)) return;
+        if (drawJuiceEffect(ctx, effect)) return;
+        if (effect.kind === "hit" || effect.kind === "defeat")
+          drawPaperImpact(ctx, { ...effect, kind: effect.kind, y: effect.y - 7 });
+        else if (!drawEnemyEffect(ctx, effect)) drawSkillEffect(ctx, effect, sim);
+      });
     }
-    if (cues.length) drawCueWorld(ctx, cues, sim, view.time, reduced);
+    for (const c of cues) {
+      const x = c.kind === "evolution" ? sim.player.x : c.x ?? sim.player.x,
+        y = c.kind === "evolution" ? sim.player.y : c.y ?? sim.player.y;
+      upright(x, y, () => drawCueWorld(ctx, [c], sim, view.time, reduced));
+    }
   }
-  drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps);
+  ground(() => drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps));
   if (sim && warnings.length) {
     // Project just the hostile keylines over the effects and foreground. Keep the cat's face clear.
-    const exposed = new Path2D(), p = sim.player;
-    exposed.rect(near.x0, near.y0, near.x1 - near.x0, near.y1 - near.y0);
-    exposed.roundRect(p.x - 26, p.y - 72, 52, 49, 10);
+    const exposed = new Path2D(), p = toScreen(sim.player.x, sim.player.y);
+    exposed.rect(camera.x - camera.width / 2 - NEAR_PAD, camera.y - camera.height / 2 - NEAR_PAD,
+      camera.width + NEAR_PAD * 2, camera.height + NEAR_PAD * 2);
+    exposed.roundRect(snap(p.x) - 26, snap(p.y) - 72, 52, 49, 10);
     ctx.save();
     ctx.clip(exposed, "evenodd");
-    drawWarningEdges(ctx, warnings);
+    ground(() => drawWarningEdges(ctx, warnings));
     ctx.restore();
   }
-  if (!sim && titleCat) drawPlaybillStage(ctx, titleCat);
+  if (!sim && titleCat) upright(titleCat.x, titleCat.y, () => drawPlaybillStage(ctx, titleCat));
   ctx.restore();
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
   if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);
-  drawForeground(
-    ctx,
-    sim
-      ? { x: sim.player.x * zoom + projection.x, y: sim.player.y * zoom + projection.y }
-      : undefined,
-    false, width, height,
-  );
+  drawForeground(ctx, sim ? projectToView(projection, sim.player.x, sim.player.y) : undefined, false, width, height);
   drawFrame(ctx, width, height);
   // Subtle four-sided depth, leaving all gameplay visible.
   ctx.save();

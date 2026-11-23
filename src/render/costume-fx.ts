@@ -282,7 +282,7 @@ export function zoneSprites(ctx: Ctx, zones: readonly CostumeZone[], elapsed: nu
       ctx.globalAlpha *= fade;
       sprite.draw(ctx, { x: z.x, y: z.y });
       ctx.restore();
-    });
+    }, z);
   }
 }
 

@@ -61,7 +61,7 @@ export function drawTownsfolkTag(ctx: Ctx, art: TownsfolkArt, x: number, y: numb
  */
 export function townsfolkSprites(
   ctx: Ctx, sim: SimState, cam: Camera, time: number,
-  add: (y: number, draw: () => void) => void,
+  add: (y: number, draw: () => void, foot?: { x: number; y: number }) => void,
   sketch?: (x: number, y: number) => number, reduced = false,
 ): void {
   const view = viewRect(cam), t = sim.elapsed,
@@ -77,6 +77,6 @@ export function townsfolkSprites(
     add(pose.y, () => {
       drawTownsfolk(ctx, art, pose.x, pose.y, pose, bob, pencil);
       if (npc.id === talking) drawTownsfolkTag(ctx, art, pose.x, pose.y, reduced ? 0 : Math.sin(time * 2.4) * 0.8);
-    });
+    }, pose);
   }
 }

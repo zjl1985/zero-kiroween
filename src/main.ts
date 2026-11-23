@@ -32,9 +32,8 @@ import { pixelBacking } from "./render/pixel-resolution.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
-import { clampCamera, createCamera, followCamera, type Camera } from "./render/camera.js";
-import { ISO_PIPELINE, isoInput } from "./render/iso/projection.js";
-import { createIsoCamera, followIsoCamera, type IsoCamera } from "./render/iso/iso-camera.js";
+import { ISO_PIPELINE, isoInput, toWorld } from "./render/iso/projection.js";
+import { createIsoCamera, followIsoCamera, isoWorldCamera, type IsoCamera } from "./render/iso/iso-camera.js";
 import { isoGridRequested } from "./render/iso/debug-grid.js";
 import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
@@ -196,10 +195,13 @@ function boot(): void {
   const clock = createClock();
   let last = performance.now(),
     renderTime = 0;
-  // The follow camera is presentation state; it never enters the sim.
-  let camera: Camera = createCamera();
-  // Developer-only ?iso=grid check view keeps its own presentation-only iso camera.
-  let isoCamera: IsoCamera | null = isoGridRequested(location.search) ? createIsoCamera() : null;
+  // The isometric follow camera is presentation state; it never enters the sim.
+  let camera: IsoCamera = createIsoCamera();
+  // Developer-only ?iso=grid check view draws over the same camera.
+  const isoGrid = isoGridRequested(location.search);
+  // The HUD map marks the world box the iso view covers.
+  const hudCamera = () => isoWorldCamera(camera);
+  const cameraWorld = () => toWorld(camera.x, camera.y);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const frameReview = createFrameReview(() => ({
     version: new URLSearchParams(location.search).get("reviewVersion") ?? "workspace",
@@ -207,7 +209,7 @@ function boot(): void {
     dpr: devicePixelRatio || 1, reduced: reducedMotion.matches, seed: sim?.seed ?? 0,
     variant: `${selectedCat}:${selectedCostume ?? "plain"}`,
     context: { gameSeconds: sim?.elapsed ?? 0, playerX: sim?.player.x ?? 0, playerY: sim?.player.y ?? 0,
-      cameraX: camera.x, cameraY: camera.y, enemies: sim?.enemies.filter((e) => e.alive).length ?? 0 },
+      cameraX: cameraWorld().x, cameraY: cameraWorld().y, enemies: sim?.enemies.filter((e) => e.alive).length ?? 0 },
   }));
   const renderProfile = { mask: 0 };
   reducedMotion.addEventListener("change", () => frameReview?.stop("Motion preference changed — start a new capture"));
@@ -313,9 +315,8 @@ function boot(): void {
     const { width: w, height: h } = pixelBacking(v.viewWidth, v.viewHeight);
     if (stage.width !== w) stage.width = w;
     if (stage.height !== h) stage.height = h;
-    const center = turned && sim ? sim.player : camera;
-    camera = clampCamera(center.x, center.y, v.viewWidth, v.viewHeight);
-    if (isoCamera) isoCamera = createIsoCamera(v.viewWidth, v.viewHeight, sim ? sim.player : undefined);
+    const center = turned && sim ? sim.player : cameraWorld();
+    camera = createIsoCamera(v.viewWidth, v.viewHeight, center);
     layout = v;
     for (const layer of [stage, overlay]) {
       layer.style.left = `${v.cssX}px`;
@@ -372,7 +373,7 @@ function boot(): void {
       "aria-label",
       t(locale, "hud.fullscreen"),
     );
-    if (sim) renderHud(hudRefs, locale, sim, camera);
+    if (sim) renderHud(hudRefs, locale, sim, hudCamera());
     if (sim && screen === "upgrade") paintUpgradeCards(locale, sim, useTouch);
     if (sim) {
       const id = sim.player.id;
@@ -447,7 +448,7 @@ function boot(): void {
     clock.acc = 0;
     last = performance.now();
     cues = cueState(sim);
-    camera = createCamera();
+    camera = createIsoCamera(layout.viewWidth, layout.viewHeight);
     motionCues = [];
     finale = false;
     lastBoss = null;
@@ -484,7 +485,7 @@ function boot(): void {
     must(`upgrade-card-${i}`).addEventListener("click", () => pick(i));
   const title = () => {
     releaseRun();
-    camera = createCamera();
+    camera = createIsoCamera(layout.viewWidth, layout.viewHeight);
     motionCues = [];
     finale = false;
     show("title");
@@ -632,7 +633,7 @@ function boot(): void {
       if (finale) {
         // The night is over: the sim stops and the dawn finale plays out, then the journal opens.
         input.consumePause();
-        renderHud(hudRefs, locale, sim, camera);
+        renderHud(hudRefs, locale, sim, hudCamera());
         if (!motionCues.some((c) => c.kind === "finale")) {
           finale = false;
           show("result");
@@ -659,7 +660,7 @@ function boot(): void {
             break;
           }
         }
-        if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim, camera);
+        if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim, hudCamera());
       }
     } else if (screen === "upgrade") {
       if (input.consumePause()) show("pause");
@@ -687,8 +688,7 @@ function boot(): void {
     const still = reducedMotion.matches;
     const updateCpu = profiling ? performance.now() - cpuStart : 0;
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
-      if (sim && screen === "play") camera = followCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
-      if (isoCamera && sim && screen === "play") isoCamera = followIsoCamera(isoCamera, sim.player, still ? 1 : Math.min(real, 0.1));
+      if (sim && screen === "play") camera = followIsoCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
       ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
       ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
@@ -696,7 +696,7 @@ function boot(): void {
       drawWorld(
         ctx,
         screen === "title" ? null : sim,
-        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoCamera ? { isoGrid: isoCamera } : {}), ...(profiling ? { profile: renderProfile } : {}) },
+        { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) },
       );
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;

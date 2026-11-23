@@ -36,7 +36,9 @@ import { bossEnemy } from "../game/sim.js";
 import type { Locale, MessageKey } from "../content/keys.js";
 import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
-import { cameraProjection, viewRect } from "./camera.js";
+import { viewRect } from "./camera.js";
+import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
+import { toScreen } from "./iso/projection.js";
 import { drawInteractable } from "./craft-juice.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots } from "./paper-ground.js";
@@ -693,7 +695,12 @@ export function clearWorldRenderCache(): void {
 
 // ---------------------------------------------------------------- sprites
 export interface WorldSprite {
+  /** Sort position (foot y plus any small bias). */
   y: number;
+  /** The world point the painter draws around; the iso view places it at its projection. */
+  foot?: { x: number; y: number };
+  /** Resolved depth (depthKey of the foot plus bias); filled in by the renderer when absent. */
+  key?: number;
   draw: () => void;
   occludesPlayer?: boolean;
 }
@@ -741,6 +748,7 @@ export function worldSprites(
         const pencil = pop?.sketch?.(d.x, d.y) ?? 0;
         sprites.push({
           y: d.y,
+          foot: d,
           occludesPlayer: !!pop?.cat && paperOccludesActor(d.x, d.y, 1, bd, pop.cat),
           draw: () => drawDecor(ctx, d, pop?.reduced ? 0 : time, pop?.reduced ? undefined : activity, pencil),
         });
@@ -792,7 +800,8 @@ export function navTargets(sim: SimState): NavTarget[] {
 }
 const NAV_INSET = { side: 44, top: 78, bottom: 70 } as const;
 /** Native-pixel plaques on the screen edge, pointing at off-screen targets. */
-export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Locale, time: number, projection = cameraProjection(cam)): void {
+/** `projection` is the frame's isoProjection; targets are placed at their projected points. */
+export function drawNavArrows(ctx: Ctx, sim: SimState, cam: IsoCamera, locale: Locale, time: number, projection = isoProjection(cam)): void {
   const { width: W, height: H, zoom } = projection;
   const targets = navTargets(sim);
   const urgent = targets.some(target => target.kind !== "landmark");
@@ -802,8 +811,9 @@ export function drawNavArrows(ctx: Ctx, sim: SimState, cam: Camera, locale: Loca
   );
   for (const target of targets) {
     if (urgent && target.kind === "landmark") continue;
-    const sx = target.x * zoom + projection.x,
-      sy = target.y * zoom + projection.y;
+    const at = toScreen(target.x, target.y),
+      sx = at.x * zoom + projection.x,
+      sy = at.y * zoom + projection.y;
     if (sx > 0 && sx < W && sy > 0 && sy < H) continue;
     const cx = W / 2,
       cy = H / 2,

@@ -3,7 +3,7 @@
  * screen space; it reads the cat's world position and never touches SimState.
  * Deadzone and smoothing reuse CAMERA from the top-down camera.
  */
-import { CAMERA } from "../camera.js";
+import { CAMERA, type Camera } from "../camera.js";
 import { SCREEN, WORLD } from "../../game/world-gen.js";
 import { snap, toScreen, toWorld, type Vec } from "./projection.js";
 
@@ -114,6 +114,22 @@ export type IsoProjection = ReturnType<typeof isoProjection>;
 export function projectToView(proj: IsoProjection, x: number, y: number): Vec {
   const s = toScreen(x, y);
   return { x: snap(proj.x + proj.zoom * s.x), y: snap(proj.y + proj.zoom * s.y) };
+}
+
+/**
+ * The world-space axis-aligned box around the view polygon, shaped like the
+ * top-down Camera. Chunk, prop, fire and wash painters that still cull by a
+ * world rectangle get a superset of what the iso view can show; the HUD map
+ * marks the same box.
+ */
+export function isoWorldCamera(cam: IsoCamera, margin = 0): Camera & { width: number; height: number } {
+  const poly = viewWorldPolygon(cam, margin);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of poly) {
+    x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+  }
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0, height: y1 - y0 };
 }
 
 /** The view corners (grown by `margin` screen pixels) in world space: top-left, top-right, bottom-right, bottom-left. */

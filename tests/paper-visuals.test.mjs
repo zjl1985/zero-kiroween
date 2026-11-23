@@ -925,13 +925,17 @@ test("the gallery presents distinct colored, washed, blank and tide review state
 });
 
 import { drawWorld } from "../dist/render/world.js";
+import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
+import { toScreen } from "../dist/render/iso/projection.js";
+// The live view is isometric: drawWorld takes an iso camera that frames a world point.
+const isoCam = (at, width = 960, height = 540) => createIsoCamera(width, height, at);
 
 test("the pixel world draws all the way to the bottom and right of a portrait camera", (t) => {
   environment(t);
   const sim = createSim({ cat: "zero", seed: 7 });
   const ctx = canvas().getContext("2d");
   const width = 360, height = 720;
-  drawWorld(ctx, sim, { time: 0, camera: { x: sim.player.x, y: 360, width, height } });
+  drawWorld(ctx, sim, { time: 0, camera: isoCam({ x: sim.player.x, y: 360 }, width, height) });
   const edge = (...rect) => ctx.calls.some(c => c.op === "fillRect" && rect.every((n, i) => c.args[i] === n));
   assert.ok(edge(0, height - 1, width, 1), "bottom cut edge");
   assert.ok(edge(width - 1, 0, 1, height), "right cut edge");
@@ -949,15 +953,17 @@ test("warning tint stays below actors while its edge passes above raised skills 
   t.mock.method(ENEMY_ART.get("smudge"), "draw", ctx => {ctx.save();ctx.fillStyle="#040506";ctx.fillRect(x,y,4,5);ctx.restore();});
   t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => {ctx.save();ctx.fillStyle="#070809";ctx.fillRect(x,y,6,7);ctx.restore();});
   const ctx = canvas().getContext("2d");
-  drawWorld(ctx, sim, { time: 1, camera: sim.player });
+  drawWorld(ctx, sim, { time: 1, camera: isoCam(sim.player) });
   const skill = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#010203" && c.args[0] === x && c.args[1] === y);
   const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, cx, cy, r]) =>
     op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius));
   const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#040506" && c.args[0] === x && c.args[1] === y);
   const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#070809" && c.args[0] === x && c.args[1] === y);
+  // The face opening is cut in projected view space around the cat's projected foot.
+  const face = toScreen(x, y);
   const faceClip = ctx.calls.findIndex(c => c.op === "clip" && c.args[1] === "evenodd" &&
     c.args[0].ops.some(([op, l, top, width, height]) =>
-      op === "roundRect" && l < x && l + width > x && top < y - 40 && top + height > y - 40));
+      op === "roundRect" && l < face.x && l + width > face.x && top < face.y - 40 && top + height > face.y - 40));
   const edge = ctx.calls.findIndex(c => c.op === "stroke" && c.args[0] === ctx.calls[warning]?.args[0]);
   assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });
@@ -974,7 +980,7 @@ test("the selected cat retains its colours and draws above a foreground landmark
   t.mock.method(roof, "paint", c => c.fillRect(45, 46, 47, 48));
   t.mock.method(CAT_ART.get(sim.player.id), "draw", c => c.fillRect(51, 52, 53, 54));
   const ctx = canvas().getContext("2d");
-  drawWorld(ctx, sim, { time: 0, camera: sim.player, reducedMotion: true });
+  drawWorld(ctx, sim, { time: 0, camera: isoCam(sim.player), reducedMotion: true });
   const draws = ctx.calls;
   // Match the complete sentinel: real cached pixel art can also draw at x45/51.
   const withRect = marker => {
@@ -1000,7 +1006,7 @@ test("a whole world frame over washed, cut and folded paper leaves SimState unto
   t.after(clearWorldRenderCache);
   for (const at of [sim.player, WASH_AT]) {
     const ctx = canvas().getContext("2d");
-    drawWorld(ctx, sim, { time: 1.5, camera: { x: at.x, y: at.y } });
+    drawWorld(ctx, sim, { time: 1.5, camera: isoCam(at) });
     assert.ok(ctx.calls.length > 50);
   }
   assert.deepEqual(sim, before, "rendering never mutates SimState");

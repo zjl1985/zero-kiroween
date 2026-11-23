@@ -138,8 +138,12 @@ export interface EnemyArt {
   readonly effects?: Readonly<Record<string, EffectPainter>>;
 }
 
-/** Adds a y-sorted world sprite. */
-export type AddSprite = (y: number, draw: () => void) => void;
+/**
+ * Adds a depth-sorted world sprite. `foot` is the world point the painter
+ * draws around; the iso view places it at that point's projection. Hooks that
+ * omit it are drawn flat on the projected ground plane.
+ */
+export type AddSprite = (y: number, draw: () => void, foot?: { x: number; y: number }) => void;
 export interface WeaponArt {
   readonly id: WeaponId;
   /** Card glyph inside a 32 x 32 box. */
