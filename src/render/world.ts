@@ -80,6 +80,8 @@ import {
 } from "./iso/iso-camera.js";
 import { isoInView } from "./iso/cull.js";
 import { atFoot, depthSort, onGround } from "./iso/place.js";
+import { drawIsoCat, ISO_CAT } from "./iso/cat-sheet.js";
+import { isoDirection } from "./iso/sprite-sheet.js";
 import { groundPass } from "./iso/ground.js";
 import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
 import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
@@ -100,6 +102,8 @@ export interface ViewState {
 }
 /** World units of margin around the view polygon for sprites, pickups and effects. */
 const NEAR_PAD = 140;
+/** Render-only direction memory keys of the chosen cat and its decoy. */
+const CAT_DIR = "chosen-cat", CAT_DECOY_DIR = "chosen-cat-decoy";
 export function drawWorld(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -277,8 +281,18 @@ function drawWorldFrame(
       ...(pose.decoy ? {} : { key: playerDepth }),
       draw: () => {
         drawFootDust(ctx, pose);
+        const art = catArt(pose.id);
+        if (art.iso) {
+          // Direction from the projected velocity; a still cat (or its decoy) keeps its last one.
+          const dir = pose.decoy || !sim
+            ? isoDirection(CAT_DECOY_DIR, 0, 0, pose.facing)
+            : isoDirection(CAT_DIR, sim.player.vx, sim.player.vy, sim.player.facing);
+          drawIsoCat(ctx, art, art.iso, pose, dir);
+          if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, ISO_CAT.radius, ISO_CAT.stand);
+          return;
+        }
         // Keep the printed colours and the face readable on every paper tone.
-        const paintCat = (c: Ctx) => catArt(pose.id).draw(c, pose);
+        const paintCat = (c: Ctx) => art.draw(c, pose);
         paintCat(ctx);
         if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, 17, 58);
       },

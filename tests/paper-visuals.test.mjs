@@ -19,6 +19,7 @@ import { drawCraftEnemy, drawEnemyGround, drawWarningEdges, drawWarningGround, e
 import { drawCraftShot, paperDent } from "../dist/render/craft-combat.js";
 import { drawOrbitStar, drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
 import { withPaperMotion } from "../dist/render/paper-motion.js";
+import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
@@ -972,6 +973,16 @@ test("warning tint stays below actors while its edge passes above raised skills 
   assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });
 
+// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+function catFrameIndex(calls, id) {
+  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
+  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
+    const [, , dir, anim, frame, palette] = k.split(":");
+    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
+  }));
+  return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
+}
+
 test("the selected cat retains its colours and a foreground landmark fades over it (iso)", (t) => {
   environment(t);
   const sim = createSim({ cat: "nicole", seed: 2026 });
@@ -982,7 +993,8 @@ test("the selected cat retains its colours and a foreground landmark fades over 
   Object.assign(sim.player, { x: decor.x, y: decor.y - 70 });
   spillWater(sim, sim.player.x, sim.player.y, 16, 1, false);
   t.mock.method(roof, "paint", c => c.fillRect(45, 46, 47, 48));
-  t.mock.method(CAT_ART.get(sim.player.id), "draw", c => c.fillRect(51, 52, 53, 54));
+  clearWorldRenderCache();
+  t.after(clearWorldRenderCache);
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: isoCam(sim.player), reducedMotion: true });
   const draws = ctx.calls;
@@ -991,7 +1003,7 @@ test("the selected cat retains its colours and a foreground landmark fades over 
     const matches = op => op.op === "fillRect" && marker.every((value, i) => op.args[i] === value);
     return draws.findIndex(c => matches(c) || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(matches));
   };
-  const building = withRect([45,46,47,48]), cat = withRect([51,52,53,54]);
+  const building = withRect([45,46,47,48]), cat = catFrameIndex(draws, sim.player.id);
   // Iso: the cat stands north of (behind) the roof, so the roof draws after it, translucent.
   assert.ok(cat >= 0 && building > cat);
   assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");

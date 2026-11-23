@@ -16,6 +16,7 @@ import { createSim } from "../dist/game/sim.js";
 import { drawWorld } from "../dist/render/world.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
+import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 
 // Footprint and draw-order contracts only; the yard volumes were not viewed in a browser.
 const pieces = isoYardPieces();
@@ -139,11 +140,21 @@ function environment(t) {
   t.after(() => { clearSpriteCache(); clearWorldRenderCache(); });
 }
 
+// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+function catFrameIndex(calls, id) {
+  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
+  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
+    const [, , dir, anim, frame, palette] = k.split(":");
+    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
+  }));
+  return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
+}
+
 function frame(t, at) {
   environment(t);
+  clearWorldRenderCache();
   const sim = createSim({ cat: CAT_ART.ids()[0], seed: 2026 });
   Object.assign(sim.player, at);
-  t.mock.method(CAT_ART.get(sim.player.id), "draw", (c) => c.fillRect(51, 52, 53, 54));
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: createIsoCamera(960, 540, sim.player), reducedMotion: true });
   const barn = pieces.find((p) => p.key === "yard:barn");
@@ -154,7 +165,7 @@ function frame(t, at) {
     calls, barn, volume,
     building: image(volume.canvas),
     shadow: image(volume.shadow),
-    cat: calls.findIndex((d) => d.op === "fillRect" && [51, 52, 53, 54].every((v, i) => d.args[i] === v)),
+    cat: catFrameIndex(calls, sim.player.id),
   };
 }
 

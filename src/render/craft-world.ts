@@ -41,6 +41,7 @@ import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
 import { toScreen } from "./iso/projection.js";
 import { decorFootprint, isoOccludesActor, type Footprint } from "./iso/depth.js";
 import { clearIsoVolumeCache } from "./iso/rasterize.js";
+import { clearIsoDirections, clearIsoSpriteCache } from "./iso/sprite-sheet.js";
 import { drawInteractable } from "./craft-juice.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots } from "./paper-ground.js";
@@ -696,6 +697,8 @@ export function clearWorldRenderCache(): void {
   chunkCache.clear();
   clearIsoGroundCache();
   clearIsoVolumeCache();
+  clearIsoSpriteCache();
+  clearIsoDirections();
 }
 
 // ---------------------------------------------------------------- sprites

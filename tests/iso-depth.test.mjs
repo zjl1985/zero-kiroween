@@ -18,6 +18,8 @@ import { landmarkParts, landmarks } from "../dist/game/world-gen.js";
 import { drawWorld } from "../dist/render/world.js";
 import { worldSprites } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
+import { clearWorldRenderCache } from "../dist/render/craft-world.js";
+import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 
 // Command-order contracts only; the iso view was not viewed in a browser.
 class Path {
@@ -94,8 +96,20 @@ test("multi-tile buildings sort by the front-most corner and use their footprint
   assert.equal(decorFootprint("tree", x, y, 1), null);
 });
 
+// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+function catFrameIndex(calls, id) {
+  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
+  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
+    const [, , dir, anim, frame, palette] = k.split(":");
+    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
+  }));
+  return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
+}
+
 function roofFrame(t, dy) {
   environment(t);
+  clearWorldRenderCache();
+  t.after(clearWorldRenderCache);
   const sim = createSim({ cat: "nicole", seed: 2026 });
   const art = LANDMARK_ART.get("star-observatory");
   const place = landmarks(sim.seed).find((l) => l.kind === art.id);
@@ -103,7 +117,6 @@ function roofFrame(t, dy) {
   const decor = landmarkParts(place).decor.find((d) => d.kind === roof.kind);
   Object.assign(sim.player, { x: decor.x, y: decor.y + dy });
   t.mock.method(roof, "paint", (c) => c.fillRect(45, 46, 47, 48));
-  t.mock.method(CAT_ART.get(sim.player.id), "draw", (c) => c.fillRect(51, 52, 53, 54));
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: createIsoCamera(960, 540, sim.player), reducedMotion: true });
   const draws = ctx.calls;
@@ -114,7 +127,7 @@ function roofFrame(t, dy) {
   const pop = { cat: sim.player, reduced: true };
   const sprite = worldSprites(canvas().getContext("2d"), sim.seed, { x: decor.x, y: decor.y, width: 960, height: 540 }, 0, pop)
     .sprites.find((s) => s.foot?.x === decor.x && s.foot?.y === decor.y);
-  return { draws, building: withRect([45, 46, 47, 48]), cat: withRect([51, 52, 53, 54]), occludes: sprite.occludesPlayer };
+  return { draws, building: withRect([45, 46, 47, 48]), cat: catFrameIndex(draws, sim.player.id), occludes: sprite.occludesPlayer };
 }
 
 test("cat north of a building: the building draws after the cat, translucent", (t) => {

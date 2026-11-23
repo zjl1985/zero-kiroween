@@ -84,17 +84,52 @@ function headSprite(art: CatArt, costume: CostumeArt | undefined) {
       block(c, x, y, Math.max(1, Math.round((r.x + r.w) * 0.16 - 31) - x),
         Math.max(1, Math.round((r.y + r.h) * 0.16 - 46) - y), r.fill);
     }
-    if (costume) {
-      const p = officialVariant(art.id).palette;
-      costume.makeup.patches?.forEach((patch, i) => {
-        const color = (p as unknown as Record<string, string>)[patch.color] ?? patch.color;
-        // Native cheek/bridge markings stay away from the identifying eye accessories.
-        if (i === 0) block(c, -3, -10, 6, 2, color);
-        else { block(c, -22, -7, 7, 2, color); block(c, 15, -7, 7, 2, color); }
-      });
-      for (const name of costume.makeup.accessories ?? []) accessory(c, name, costume.colors.tag);
-    }
+    if (costume) paintCostumeHead(c, art, costume);
   }, { x: 0.5, y: 56 / 72 });
+}
+/** Costume makeup and head accessories in head-local coordinates (chin at y = 0, head about 62 x 46). */
+function paintCostumeHead(c: Ctx, art: CatArt, costume: CostumeArt): void {
+  const p = officialVariant(art.id).palette;
+  costume.makeup.patches?.forEach((patch, i) => {
+    const color = (p as unknown as Record<string, string>)[patch.color] ?? patch.color;
+    // Native cheek/bridge markings stay away from the identifying eye accessories.
+    if (i === 0) block(c, -3, -10, 6, 2, color);
+    else { block(c, -22, -7, 7, 2, color); block(c, 15, -7, 7, 2, color); }
+  });
+  for (const name of costume.makeup.accessories ?? []) accessory(c, name, costume.colors.tag);
+}
+/** Costume outfit parts in body-local coordinates (feet at y = 0, shoulders near y = -28). */
+function paintCostumeBody(c: Ctx, costume: CostumeArt, accent: string): void {
+  // Preserve outfit functions with a native vocabulary: back garment, hand tool,
+  // waist/front badge and underfoot board, selected from the existing part layers.
+  for (const [i, part] of costume.outfit.parts.entries()) {
+    if (part.layer === "under") { rimBox(c, -28, 1, 56, 4, LIGHT, accent); block(c, -7, 5, 20, 2, accent); }
+    else if (part.layer === "back") { rimBox(c, -23, -27, 9, 23, accent); block(c, -22, -23, 5, 2, costume.colors.ink); }
+    else if (part.layer === "hand") {
+      rimBox(c, 20, -18, 10, 14, costume.colors.tag, costume.colors.ink);
+      block(c, 23, -14, 4, 2, costume.colors.ink); block(c, 23 + i % 2, -10, 3, 2, INK);
+    } else { rimBox(c, -4 + (i % 2) * 7, -20, 6, 7, accent, costume.colors.ink); }
+  }
+}
+/**
+ * The old-style costume layer over an isometric cat sprite (placeholder until
+ * the costumes are redrawn in iso, plan M5): head accessories scaled onto the
+ * head box whose chin sits at `head`, outfit parts onto the body box above the
+ * feet at (x, y). `sign` mirrors the layer for west-facing frames.
+ */
+export function drawPixelCostumeLayer(ctx: Ctx, art: CatArt, costume: CostumeArt, x: number, y: number, sign: 1 | -1,
+  head: { readonly dy: number; readonly kx: number; readonly ky: number },
+  body: { readonly dy: number; readonly kx: number; readonly ky: number }): void {
+  ctx.save();
+  ctx.translate(x, y + body.dy);
+  ctx.scale(sign * body.kx, body.ky);
+  paintCostumeBody(ctx, costume, costume.colors.tag ?? art.colors.hud);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(x, y + head.dy);
+  ctx.scale(sign * head.kx, head.ky);
+  paintCostumeHead(ctx, art, costume);
+  ctx.restore();
 }
 function bodySprite(art: CatArt, costume: CostumeArt | undefined, frame: number, dash: boolean) {
   return cachedSprite(`pixel-body:${art.id}:${costume?.id ?? "plain"}:${frame}:${dash}`, 84, 42, 1, c => {
@@ -240,18 +275,7 @@ function bodySprite(art: CatArt, costume: CostumeArt | undefined, frame: number,
         grid(c, side < 0 ? arm : arm.map(row => [...row].reverse().join("")), palette, x, -23 + dy, 1);
       }
     }
-    if (costume) {
-      // Preserve outfit functions with a native vocabulary: back garment, hand tool,
-      // waist/front badge and underfoot board, selected from the existing part layers.
-      for (const [i, part] of costume.outfit.parts.entries()) {
-        if (part.layer === "under") { rimBox(c, -28, 1, 56, 4, LIGHT, accent); block(c, -7, 5, 20, 2, accent); }
-        else if (part.layer === "back") { rimBox(c, -23, -27, 9, 23, accent); block(c, -22, -23, 5, 2, costume.colors.ink); }
-        else if (part.layer === "hand") {
-          rimBox(c, 20, -18, 10, 14, costume.colors.tag, costume.colors.ink);
-          block(c, 23, -14, 4, 2, costume.colors.ink); block(c, 23 + i % 2, -10, 3, 2, INK);
-        } else { rimBox(c, -4 + (i % 2) * 7, -20, 6, 7, accent, costume.colors.ink); }
-      }
-    }
+    if (costume) paintCostumeBody(c, costume, accent);
   }, { x: 0.5, y: 35 / 42 });
 }
 export function pixelCatArt(art: CatArt): CatArt {

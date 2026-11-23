@@ -7,7 +7,9 @@
  * Import-safe in Node: art modules only define painters.
  */
 import { NICOLE_ART } from "../defs/cats/nicole/art.js";
+import { NICOLE_ISO } from "../defs/cats/nicole/iso.art.js";
 import { ZERO_ART } from "../defs/cats/zero/art.js";
+import { ZERO_ISO } from "../defs/cats/zero/iso.art.js";
 import { CRUMPLE_ART } from "../defs/enemies/crumple/art.js";
 import { ERASER_BOSS_ART } from "../defs/enemies/eraser-boss/art.js";
 import { INK_BLOB_ART } from "../defs/enemies/ink-blob/art.js";
@@ -98,7 +100,7 @@ import { pixelBiomeArt } from "./pixel-terrain.js";
 
 export * from "./art-registry.js";
 
-for (const a of [ZERO_ART, NICOLE_ART]) CAT_ART.register(pixelCatArt(a));
+for (const [a, iso] of [[ZERO_ART, ZERO_ISO], [NICOLE_ART, NICOLE_ISO]] as const) CAT_ART.register(pixelCatArt({ ...a, iso }));
 for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART, WASH_ART, SKETCH_ART])
   ENEMY_ART.register(pixelEnemyArt(a));
 for (const a of [
