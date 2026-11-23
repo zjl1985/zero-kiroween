@@ -4,6 +4,8 @@ import { test } from "node:test";
 import { atFoot, depthSort, onGround } from "../dist/render/iso/place.js";
 import { ISO_PIPELINE, depthKey, snap, toScreen } from "../dist/render/iso/projection.js";
 import { createIsoCamera, isoWorldCamera, viewWorldPolygon } from "../dist/render/iso/iso-camera.js";
+import { paintMinimap } from "../dist/render/journal-ui.js";
+import { mapPoint } from "../dist/ui/journal-geometry.js";
 
 function recorder() {
   const calls = [];
@@ -67,4 +69,24 @@ test("isoWorldCamera boxes the whole view polygon", () => {
     assert.ok(p.x >= box.x - box.width / 2 - 1e-9 && p.x <= box.x + box.width / 2 + 1e-9);
     assert.ok(p.y >= box.y - box.height / 2 - 1e-9 && p.y <= box.y + box.height / 2 + 1e-9);
   }
+});
+
+test("the HUD map outlines the iso view polygon, not its bounding box", () => {
+  const cam = createIsoCamera(960, 540, { x: 1200, y: 900 }), box = isoWorldCamera(cam);
+  assert.deepEqual(box.polygon, viewWorldPolygon(cam));
+  // Paint the minimap and collect the outline colour's pixels.
+  const fills = [];
+  let style = "";
+  const ctx = new Proxy({}, {
+    get: (_, key) => key === "fillRect" ? (...a) => fills.push({ style, a }) : () => {},
+    set: (_, key, value) => { if (key === "fillStyle") style = value; return true; },
+  });
+  const canvas = { width: 240, height: 240, getContext: () => ctx };
+  const view = { player: { x: 1200, y: 900 }, camera: box, accent: "#fff", explored: new Set(), landmarks: [], found: [], chests: [], boss: null };
+  paintMinimap(canvas, view);
+  const outline = fills.filter((f) => f.style === "#8fb6a5").map((f) => f.a.slice(0, 2).join(","));
+  const mw = 120 - 8, mh = 120 - 8, at = (x, y) => { const p = mapPoint(x, y, mw, mh); return [Math.round(p.x + 4), Math.round(p.y + 4)].join(","); };
+  for (const p of box.polygon) assert.ok(outline.includes(at(p.x, p.y)), "every view corner is on the outline");
+  const corner = at(box.x - box.width / 2, box.y - box.height / 2);
+  assert.ok(!outline.includes(corner), "the bounding box corner is not drawn");
 });

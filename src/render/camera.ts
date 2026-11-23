@@ -11,6 +11,8 @@ export interface Camera {
   /** Logical display dimensions. Older callers use the original yard framing. */
   width?: number;
   height?: number;
+  /** World corners of the actual view when it is not an axis-aligned box (the iso view); the HUD map outlines it. */
+  polygon?: readonly { x: number; y: number }[];
 }
 export interface ViewSize {
   width: number;

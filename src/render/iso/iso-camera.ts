@@ -129,7 +129,7 @@ export function isoWorldCamera(cam: IsoCamera, margin = 0): Camera & { width: nu
     x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
     x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
   }
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0, height: y1 - y0 };
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0, height: y1 - y0, polygon: poly };
 }
 
 /** The view corners (grown by `margin` screen pixels) in world space: top-left, top-right, bottom-right, bottom-left. */

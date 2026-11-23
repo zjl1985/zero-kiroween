@@ -136,9 +136,12 @@ export function paintMinimap(canvas: HTMLCanvasElement, v: MinimapView): void {
     rect(ctx, bx - 2, by - 2, 5, 5, "#ed8d8c");
     rect(ctx, bx, by - 1, 1, 3, "#452a46");
   }
+  // The view outline: the projected iso view's world corners when known, else its box.
   const view = viewRect(v.camera ?? v.player), [left, top] = at(view.x0, view.y0), [right, bottom] = at(view.x1, view.y1);
-  pixelLine(ctx, left, top, right, top, "#8fb6a5"); pixelLine(ctx, right, top, right, bottom, "#8fb6a5");
-  pixelLine(ctx, right, bottom, left, bottom, "#8fb6a5"); pixelLine(ctx, left, bottom, left, top, "#8fb6a5");
+  const outline = v.camera?.polygon?.length
+    ? v.camera.polygon.map((p) => at(p.x, p.y))
+    : [[left, top], [right, top], [right, bottom], [left, bottom]] as const;
+  outline.forEach(([x0, y0], i) => { const [x1, y1] = outline[(i + 1) % outline.length]!; pixelLine(ctx, x0, y0, x1, y1, "#8fb6a5"); });
   rect(ctx, px - 2, py - 2, 5, 5, "#0b2330"); rect(ctx, px - 1, py - 1, 3, 3, "#ffdf91");
   ctx.restore();
 }
