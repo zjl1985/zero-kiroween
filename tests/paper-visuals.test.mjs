@@ -954,9 +954,13 @@ test("warning tint stays below actors while its edge passes above raised skills 
   t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => {ctx.save();ctx.fillStyle="#070809";ctx.fillRect(x,y,6,7);ctx.restore();});
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 1, camera: isoCam(sim.player) });
-  const skill = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#010203" && c.args[0] === x && c.args[1] === y);
-  const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, cx, cy, r]) =>
-    op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius));
+  // Iso: ground painters run through isoGround, so the skill sheet is a projected path fill
+  // and the warning area is the sim-space path re-expressed with projected vertices (addPath).
+  const foot = toScreen(x, y);
+  const skill = ctx.calls.findIndex(c => c.op === "fill" && c.fillStyle === "#010203" &&
+    c.args[0].ops?.some(([op, px, py]) => op === "moveTo" && px === foot.x && py === foot.y));
+  const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, src]) => op === "addPath" &&
+    src.ops?.some(([op, cx, cy, r]) => op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius)));
   const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#040506" && c.args[0] === x && c.args[1] === y);
   const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#070809" && c.args[0] === x && c.args[1] === y);
   // The face opening is cut in projected view space around the cat's projected foot.

@@ -318,7 +318,7 @@ function forChunks(view: ViewRect, fn: (cx: number, cy: number) => void): void {
  * Washed ground for the visible chunks, under everything that stands on it:
  * joined pigment loss, wet film, blank paper and cut holes, then recolour cues.
  */
-export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): void {
+export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null, withBlooms = true): void {
     if (!frame)
         return;
     const view = viewRect(cam, 4), W = CHUNK.width, H = CHUNK.height;
@@ -329,7 +329,13 @@ export function drawWashGround(ctx: Ctx, cam: Camera, frame: WashFrame | null): 
         const mask = maskFor(frame.seed, key, bucket);
         ctx.drawImage(mask.pixels, cx * W, cy * H, W, H);
     });
-    drawBlooms(ctx, view, frame);
+    if (withBlooms)
+        drawBlooms(ctx, view, frame);
+}
+/** The recolour blooms alone, for a caller that draws the chunk masks and the marks in different passes. */
+export function drawWashBlooms(ctx: Ctx, cam: Camera, frame: WashFrame | null): void {
+    if (frame)
+        drawBlooms(ctx, viewRect(cam, 4), frame);
 }
 /** Splashes already show their own impact. Only returning pigment needs a
  * separate quiet cue here, so a wet field never sparkles on every grid cell. */

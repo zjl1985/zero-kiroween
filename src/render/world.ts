@@ -46,7 +46,7 @@ import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, type Footprint 
 import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { townsfolkSprites } from "./craft-townsfolk.js";
-import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
+import { drawFoldGuards, drawPaperRain, drawWashBlooms, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
 import { beginSketchFrame, drawSketchedParts, sketchAmount, sketchEnemyPick } from "./sprite-sketch.js";
 import { ENEMY_DEFS } from "../defs/registries.js";
 import { viewRect } from "./camera.js";
@@ -79,6 +79,7 @@ import {
 } from "./iso/iso-camera.js";
 import { isoInView } from "./iso/cull.js";
 import { atFoot, depthSort, onGround } from "./iso/place.js";
+import { groundPass } from "./iso/ground.js";
 import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
@@ -136,7 +137,10 @@ function drawWorldFrame(
     view0 = viewRect(cam),
     inNear = (x: number, y: number, pad = 0) => isoInView(viewPoly, x, y, NEAR_PAD + pad),
     warnings = sim ? enemyWarnings(sim) : [],
-    ground = (paint: () => void) => onGround(ctx, paint),
+    // Cached chunk images stay under the projection's affine until FEAT-004 rebuilds the ground.
+    affine = (paint: () => void) => onGround(ctx, paint),
+    // Vector ground shapes: every vertex projected, line widths and images in screen space.
+    ground = (paint: (g: Ctx) => void) => groundPass(ctx, paint),
     upright = (x: number, y: number, paint: () => void) => atFoot(ctx, x, y, paint);
   // Off-map night behind the projected world (placeholder until the tree wall / fog band).
   ctx.save();
@@ -149,22 +153,26 @@ function drawWorldFrame(
   const wash = sim ? washFrame(sim) : null;
   if (view.profile) view.profile.mask = performance.now() - maskStart;
   beginSketchFrame();
-  // Ground layers keep their world-space painters under the projection's affine (placeholder ground).
-  ground(() => {
+  // Chunk ground and its wash masks share the cached tile lattice (placeholder ground).
+  const washStart = view.profile ? performance.now() : 0;
+  affine(() => {
     // Pixel wash owns a bounded dirty-tile overlay; no legacy pencil terrain bake.
     drawChunks(ctx, seed, cam, sim !== null);
-    const washStart = view.profile ? performance.now() : 0;
-    drawWashGround(ctx, cam, wash);
+    drawWashGround(ctx, cam, wash, false);
+  });
+  // Ground shapes from projected vertices: fire cells become 24-unit diamonds, rings 2:1 ellipses.
+  ground((g) => {
+    drawWashBlooms(g, cam, wash);
     if (view.profile) view.profile.mask += performance.now() - washStart;
-    if (sim) drawFoldGuards(ctx, sim, cam);
-    if (sim) drawDawnWash(ctx, progress, view0.x0, view0.y0, cam.width, cam.height, session);
-    drawWind(ctx, view.time);
+    if (sim) drawFoldGuards(g, sim, cam);
+    if (sim) drawDawnWash(g, progress, view0.x0, view0.y0, cam.width, cam.height, session);
+    drawWind(g, view.time);
     if (sim) {
-      drawCombatGround(ctx, sim);
-      drawEnemyGround(ctx, sim);
-      drawFireGround(ctx, sim, cam);
+      drawCombatGround(g, sim);
+      drawEnemyGround(g, sim);
+      drawFireGround(g, sim, cam);
       for (const landmark of landmarks(seed)) if (inNear(landmark.x, landmark.y, landmark.radius))
-        drawLandmarkActivity(ctx, sim, landmark);
+        drawLandmarkActivity(g, sim, landmark);
     }
   });
   const town = worldSprites(ctx, seed, cam, view.time, {
@@ -187,7 +195,7 @@ function drawWorldFrame(
     addSprite(l.y, () => drawLamp(ctx, l, view.time),
       !!sim && isoOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
   }
-  ground(() => { for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s); });
+  ground((g) => { for (const l of lamps) drawGroundLight(g, l.x, l.y, view.time, l.s); });
   for (const p of YARD_PROPS) {
     if (!inNear(p.x, p.y)) continue;
     addSprite(p.y, () => drawProp(ctx, p),
@@ -231,11 +239,11 @@ function drawWorldFrame(
       const dx = pose.x - nearest.x,
         dy = pose.y - nearest.y,
         len = Math.hypot(dx, dy) || 1;
-      ground(() => {
-        ctx.save();
-        ctx.globalAlpha = 0.24;
+      ground((g) => {
+        g.save();
+        g.globalAlpha = 0.24;
         polygon(
-          ctx,
+          g,
           [
             [pose.x - 9, pose.y],
             [pose.x + 10, pose.y],
@@ -244,7 +252,7 @@ function drawWorldFrame(
           ],
           "#101e28",
         );
-        ctx.restore();
+        g.restore();
       });
     }
     sprites.push({
@@ -261,8 +269,8 @@ function drawWorldFrame(
     });
   };
   if (sim) {
-    ground(() => drawPixelStroke(
-      ctx,
+    ground((g) => drawPixelStroke(
+      g,
       sim.stroke.points,
       sim.stroke.ink,
       sim.stroke.ink <= 0 && sim.stroke.blankTime > 0,
@@ -351,10 +359,10 @@ function drawWorldFrame(
         : drawBoltFlight(ctx, shot, sim.elapsed), false, shot);
     }
   }
-  ground(() => drawWarningGround(ctx, warnings));
+  ground((g) => drawWarningGround(g, warnings));
   for (const sprite of sprites) sprite.key = keyOf(sprite);
   for (const sprite of depthSort(sprites as (WorldSprite & { key: number })[])) {
-    const paint = () => sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : ground(sprite.draw);
+    const paint = () => sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : affine(sprite.draw);
     if (!sprite.occludesPlayer) {
       paint();
       continue;
@@ -387,7 +395,7 @@ function drawWorldFrame(
       upright(x, y, () => drawCueWorld(ctx, [c], sim, view.time, reduced));
     }
   }
-  ground(() => drawAtmosphere(ctx, view.time, sim ? dawnAmount(progress, session) : 0, lamps));
+  ground((g) => drawAtmosphere(g, view.time, sim ? dawnAmount(progress, session) : 0, lamps));
   if (sim && warnings.length) {
     // Project just the hostile keylines over the effects and foreground. Keep the cat's face clear.
     const exposed = new Path2D(), p = toScreen(sim.player.x, sim.player.y);
@@ -396,7 +404,7 @@ function drawWorldFrame(
     exposed.roundRect(snap(p.x) - 26, snap(p.y) - 72, 52, 49, 10);
     ctx.save();
     ctx.clip(exposed, "evenodd");
-    ground(() => drawWarningEdges(ctx, warnings));
+    ground((g) => drawWarningEdges(g, warnings));
     ctx.restore();
   }
   if (!sim && titleCat) upright(titleCat.x, titleCat.y, () => drawPlaybillStage(ctx, titleCat));
