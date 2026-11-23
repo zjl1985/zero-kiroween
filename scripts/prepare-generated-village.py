@@ -1,27 +1,19 @@
 """Reproducible extraction of four GenerateImage outputs; no old pack is sampled.
-Run python3 scripts/prepare-generated-village.py. Requires Pillow + numpy.
+Run through uv: uv run --with pillow==13.0.0 --with numpy==2.5.5 python scripts/prepare-generated-village.py
 Original generated JPEGs are retained unmodified under assets/village/generated/raw.
 """
 from pathlib import Path
-from collections import deque
 import hashlib, json
 import numpy as np
-from PIL import Image, ImageOps, ImageDraw
+from PIL import Image, ImageFilter
 ROOT=Path(__file__).resolve().parents[1]
 BASE=ROOT/'assets/village'
 OUT=BASE/'generated'
 RAW=OUT/'raw'
 OUT.mkdir(exist_ok=True)
 
-def isolate(file, box, width, anchor=None):
-    source=Image.open(RAW/file).convert('RGB')
-    box=tuple(round(v*(source.width/1024 if i%2==0 else source.height/576)) for i,v in enumerate(box))
-    im=source.crop(box)
-    a=np.asarray(im).astype(float)
-    # Chroma key catches JPEG spill and the model's non-exact pink background.
-    pink=(a[:,:,0]>80)&(a[:,:,0]>a[:,:,1]*1.5)&(a[:,:,2]>a[:,:,1]*1.30)&(a[:,:,2]>45)
-    mask=~pink
-    # Keep the actual connected silhouette, not isolated compression speckles.
+def largest_component(mask):
+    """Largest 4-connected True region of a boolean array (deterministic scan order)."""
     h,w=mask.shape; seen=np.zeros((h,w),bool); best=[]
     for yy,xx in zip(*np.where(mask)):
         if seen[yy,xx]: continue
@@ -31,27 +23,54 @@ def isolate(file, box, width, anchor=None):
                 if 0<=nx<w and 0<=ny<h and mask[ny,nx] and not seen[ny,nx]:
                     seen[ny,nx]=True; q.append((nx,ny))
         if len(q)>len(best): best=q
-    alpha=Image.new('L',im.size)
-    alpha.putdata([0]*(w*h)); pixels=alpha.load()
-    for x,y in best: pixels[x,y]=255
-    rgba=im.convert('RGBA'); rgba.putalpha(alpha)
-    bounds=rgba.getbbox(); rgba=rgba.crop(bounds)
-    height=round(rgba.height*width/rgba.width)
-    # One common 2-world-unit logical pixel, no sharpening/filter recolor.
-    rgba=rgba.resize((width,height),Image.Resampling.NEAREST)
-    # Remove any isolated single-pixel fragments introduced by sampling.
-    m=rgba.getchannel('A'); vis={(x,y) for y in range(height) for x in range(width) if m.getpixel((x,y))}
-    best=set()
-    while vis:
-        start=vis.pop(); connected={start}; queue=[start]
-        for x,y in queue:
-            for pt in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
-                if pt in vis:vis.remove(pt);connected.add(pt);queue.append(pt)
-        if len(connected)>len(best):best=connected
-    rgba.putalpha(Image.new('L',rgba.size))
-    for x,y in best:rgba.putpixel((x,y),(*rgba.getpixel((x,y))[:3],255))
+    out=np.zeros((h,w),bool)
+    for x,y in best: out[y,x]=True
+    return out
+
+def reduce_block(rgb, mask, width, height):
+    """Area reduction to the logical grid. Each logical pixel is the masked source
+    pixel closest to the block mean (a real generated colour, never a JPEG speckle
+    picked by nearest neighbour); coverage >= 0.5 decides binary alpha."""
+    h,w=mask.shape
+    xs=np.linspace(0,w,width+1).round().astype(int); ys=np.linspace(0,h,height+1).round().astype(int)
+    col=np.zeros((height,width,3)); alpha=np.zeros((height,width),bool)
+    for j in range(height):
+        for i in range(width):
+            m=mask[ys[j]:ys[j+1],xs[i]:xs[i+1]]
+            if m.size==0 or m.mean()<.5: continue
+            px=rgb[ys[j]:ys[j+1],xs[i]:xs[i+1]][m]
+            mean=px.mean(0)
+            col[j,i]=px[np.argmin(((px-mean)**2).sum(1))]*.5+mean*.5
+            alpha[j,i]=True
+    return col,alpha
+
+def sel_out(col, alpha):
+    """1-pixel selective outline inside the silhouette: edge pixels become a darker,
+    slightly more saturated shade of their own hue; bounds never grow."""
+    pad=np.pad(alpha,1,constant_values=False)
+    edge=alpha&~(pad[:-2,1:-1]&pad[2:,1:-1]&pad[1:-1,:-2]&pad[1:-1,2:])
+    c=col[edge]; lum=c.mean(1,keepdims=True)
+    col[edge]=np.clip((lum+(c-lum)*1.25)*.62,0,255)
+    return col
+
+def isolate(file, box, width, anchor=None, outline=True):
+    source=Image.open(RAW/file).convert('RGB')
+    box=tuple(round(v*(source.width/1024 if i%2==0 else source.height/576)) for i,v in enumerate(box))
+    a=np.asarray(source.crop(box)).astype(float)
+    # Chroma key catches JPEG spill and the model's non-exact pink background.
+    pink=(a[:,:,0]>80)&(a[:,:,0]>a[:,:,1]*1.5)&(a[:,:,2]>a[:,:,1]*1.30)&(a[:,:,2]>45)
+    # Keep the actual connected silhouette, not isolated compression speckles.
+    mask=largest_component(~pink)
+    yy,xx=np.where(mask); y0,y1,x0,x1=yy.min(),yy.max()+1,xx.min(),xx.max()+1
+    a,mask=a[y0:y1,x0:x1],mask[y0:y1,x0:x1]
+    height=round(a.shape[0]*width/a.shape[1])
+    col,alpha=reduce_block(a,mask,width,height)
+    # Remove any isolated fragments introduced by the coverage threshold.
+    alpha=largest_component(alpha)
+    if outline: col=sel_out(col,alpha)
+    rgba=np.zeros((height,width,4),np.uint8); rgba[...,:3]=np.uint8(np.clip(col.round(),0,255)); rgba[...,3]=alpha*255
     ax=round(width*(anchor if anchor is not None else .5)); ay=height
-    return rgba,ax,ay
+    return Image.fromarray(rgba,'RGBA'),ax,ay
 
 spec={
  'barn':('cottages.jpg',(80,80,510,460),88,.42),
@@ -70,39 +89,63 @@ spec={
  'cabinet':('yard-details.jpg',(40,285,340,550),34,None),
  'herb0':('yard-details.jpg',(345,285,675,550),18,None),
  'pot':('yard-details.jpg',(680,285,1000,550),19,None),
+ # In-ground autumn shrub for crop beds: the same generated foliage as `pot`,
+ # cut above the clay rim so no flower pot is planted in the soil.
+ 'herb1':('yard-details.jpg',(680,285,1000,386),17,None),
+ 'pebble':('nature-props.jpg',(0,290,270,576),14,None),
 }
 assets={name:isolate(*args) for name,args in spec.items()}
-assets['herb1']=assets['pot']
-im,ax,ay=assets['stone'];small=im.resize((14,round(im.height*14/im.width)),Image.Resampling.NEAREST)
-assets['pebble']=(small,7,small.height)
 
 def periodic(im,size=128):
     a=np.array(im.resize((size,size),Image.Resampling.BOX)).astype(float)
-    # Symmetric opposite-edge crossfade: exact matching opposite boundary pixels.
-    # 100/128 interior pixels untouched, small border correction, no hard grid edge.
-    band=14
-    for axis in (0,1):
-        for i in range(band):
-            t=(1-i/band)**2*.5
-            if axis==0:
-                l=a[i].copy();r=a[-1-i].copy();a[i]=l*(1-t)+r*t;a[-1-i]=r*(1-t)+l*t
-            else:
-                l=a[:,i].copy();r=a[:,-1-i].copy();a[:,i]=l*(1-t)+r*t;a[:,-1-i]=r*(1-t)+l*t
-    return Image.fromarray(np.uint8(np.clip(a,0,255))).convert('RGBA')
+    # Separable offset blend, one axis at a time: inside a 24 px edge band the tile
+    # fades into a half-period rolled copy of itself, so the border shows interior
+    # pixels and wraps continuously, while the rolled copy's own seam (the centre
+    # line) always has zero weight. The sheet's darker frame never reaches a seam.
+    band=24; i=np.arange(size)+.5
+    t=np.clip(np.minimum(i,size-i)/band,0,1); t=t*t*(3-2*t)
+    for axis in (1,0):
+        w=t[None,:,None] if axis==1 else t[:,None,None]
+        a=a*w+np.roll(a,size//2,axis)*(1-w)
+    # Flatten the remaining low-frequency luminance drift (wrap-around blur) so the
+    # tile keeps one mean value everywhere; fine texture is untouched.
+    tiled=Image.fromarray(np.uint8(np.clip(np.tile(a,(3,3,1)),0,255)))
+    low=np.asarray(tiled.filter(ImageFilter.GaussianBlur(18))).astype(float)[size:2*size,size:2*size]
+    a=a-(low-low.mean((0,1)))*.85
+    # Exact opposite-edge equality (runtime and tests rely on it).
+    a[:,-1]=a[:,0]=(a[:,0]+a[:,-1])/2; a[-1]=a[0]=(a[0]+a[-1])/2
+    return Image.fromarray(np.uint8(np.clip(a.round(),0,255))).convert('RGBA')
 surface=Image.open(RAW/'surfaces.jpg').convert('RGB')
 for name,box in {'meadow':(16,16,496,496),'earth':(528,16,1008,496),'paving':(16,528,496,1008),'forest':(528,528,1008,1008)}.items():
     assets[name]=(periodic(surface.crop(box)),0,0)
+
+def tooth(i, salt):
+    """Deterministic 1..3 pixel cut depth, changing every two pixels along an edge."""
+    return 1+((i//2)*7+salt*5+(i//2)**2*3)%3
 # The existing garden neighbour API is preserved, but sourced from new earth pixels.
-earth=assets['earth'][0]
+# Each of the nine tiles samples its own interior offset; cut edges are irregular on
+# all four sides and the soil just inside a cut is darker (grass-lip shade).
+earth=np.asarray(assets['earth'][0]).astype(float)
 for cy in range(3):
  for cx in range(3):
-    tile=earth.crop((48,48,64,64))
+    ox,oy=24+cx*29+cy*7,20+cy*31+cx*5
+    tile=earth[oy:oy+16,ox:ox+16].copy()
+    # Shallow broken furrows at fixed rows so beds read as tilled rows across tiles.
+    for yy in (4,12):
+        for xx in range(16):
+            if ((xx+cx*5+yy)//3)%3: tile[yy,xx,:3]*=.9
+    cut=np.zeros((16,16)); shade=np.zeros((16,16),bool)
     for yy in range(16):
      for xx in range(16):
-      d=min(xx if cx==0 else 99,15-xx if cx==2 else 99,yy if cy==0 else 99,15-yy if cy==2 else 99)
-      if d < (1+(xx*7+yy*3)%3):tile.putpixel((xx,yy),(0,0,0,0))
-    assets[f'soil{cx}{cy}']=(tile,0,0)
-for i in range(5):assets[f'grass{i}']=(assets['meadow'][0].crop((i*16,0,i*16+16,16)),0,0)
+      d=min(xx-tooth(yy,cy*3+1) if cx==0 else 99,15-xx-tooth(yy,cy*3+2) if cx==2 else 99,
+            yy-tooth(xx,cx*3+1) if cy==0 else 99,15-yy-tooth(xx,cx*3+2) if cy==2 else 99)
+      cut[yy,xx]=d<0; shade[yy,xx]=0<=d<1
+    tile[shade,:3]*=.8; tile[cut.astype(bool),3]=0
+    assets[f'soil{cx}{cy}']=(Image.fromarray(np.uint8(np.clip(tile.round(),0,255)),'RGBA'),0,0)
+meadow=assets['meadow'][0]
+for i in range(5):
+    x,y=10+i*23,8+(i*41)%96
+    assets[f'grass{i}']=(meadow.crop((x,y,x+16,y+16)),0,0)
 # Shared palette quantization removes JPEG colour noise while retaining art detail.
 strip=Image.new('RGB',(sum(im.width for im,_,_ in assets.values()),128),(45,50,30));x=0
 for im,_,_ in assets.values():strip.paste(im.convert('RGB'),(x,0),im.getchannel('A'));x+=im.width
@@ -128,12 +171,22 @@ for name,(file,x,y,w,h,ax,ay) in manifest.items():
  sprites[name]={'width':w,'height':h,'ax':ax,'ay':ay,'rows':rows}
 hashes={'generated/atlas.png':hashlib.sha256((OUT/'atlas.png').read_bytes()).hexdigest()}
 out='// GENERATED from GenerateImage art; see assets/village/generated/PROVENANCE.json.\n'
-out+='// Rebuild with python3 scripts/prepare-generated-village.py; no Ninja Adventure pixels used.\n'
+out+='// Rebuild with scripts/prepare-generated-village.py (run through uv); no Ninja Adventure pixels used.\n'
 out+='export const VILLAGE_SOURCE_HASHES = '+json.dumps(hashes)+' as const;\n'
 out+='export const VILLAGE_PALETTE: readonly string[] = '+json.dumps(palette)+';\n'
 out+='export interface VillagePixels { width:number; height:number; ax:number; ay:number; rows:readonly string[]; }\n'
 out+='export const VILLAGE_PIXELS = '+json.dumps(sprites,separators=(',',':'))+' satisfies Record<string,VillagePixels>;\n'
 (ROOT/'src/render/village-pixels.ts').write_text(out)
-provenance={'generator':'cursor.studio.GenerateImage','generation_calls':4,'model':'Tool does not expose model selection; no model name asserted.','reference':'generated/reference-target.jpg','reference_sha256':hashlib.sha256((OUT/'reference-target.jpg').read_bytes()).hexdigest(),'generation_requests':'generated/GENERATION_REQUESTS.json','raw_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(RAW.glob('*.jpg'))},'extraction':spec,'processing':['pink JPEG chroma key','largest connected silhouette; no characters copied','nearest neighbour logical sprite resize','four filled surface crops; opposite edge periodic crossfade','224 shared palette colours, no dithering','binary alpha; bottom-centre or door-step anchors','synchronous indexed row-run compilation, no runtime image load'],'atlas_sha256':hashes['generated/atlas.png'],'legacy_pack':'Retained on disk only, not sampled by active compiler.'}
+provenance={'generator':'cursor.studio.GenerateImage','generation_calls':4,'model':'Tool does not expose model selection; no model name asserted.','reference':'generated/reference-target.jpg','reference_sha256':hashlib.sha256((OUT/'reference-target.jpg').read_bytes()).hexdigest(),'generation_requests':'generated/GENERATION_REQUESTS.json','raw_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(RAW.glob('*.jpg'))},'extraction':spec,'processing':[
+ 'pink JPEG chroma key',
+ 'largest connected silhouette; no characters copied',
+ 'area reduction to the logical grid: each pixel blends the block mean with the closest real masked source colour; binary alpha at 50% coverage; isolated fragments dropped',
+ 'one-pixel selective outline inside the silhouette (darker, slightly more saturated own hue; bounds unchanged)',
+ 'herb1 is the pot foliage cut above the clay rim (in-ground crop plant); pebble is reduced directly from the stone source',
+ 'four filled surface crops; separable 24 px edge-band blend with a half-period rolled copy plus wrap-around low-frequency luminance flattening; exact opposite edges',
+ 'soil00..soil22 sample nine earth offsets with broken furrow rows, irregular cuts on every open side and a shaded inner lip; grass0..grass4 sample five meadow offsets',
+ '224 shared palette colours, no dithering',
+ 'binary alpha; bottom-centre or door-step anchors',
+ 'synchronous indexed row-run compilation, no runtime image load'],'atlas_sha256':hashes['generated/atlas.png'],'legacy_pack':'Retained on disk only, not sampled by active compiler.'}
 (OUT/'PROVENANCE.json').write_text(json.dumps(provenance,indent=2)+'\n')
 print(f'Generated {len(sprites)} assets, {len(palette)-1} colors, {len(out)} source bytes, atlas {atlas.size}')

@@ -113,3 +113,64 @@ test('generated independent scenery retains transparent silhouettes and detailed
   }
   assert.ok(VILLAGE_PIXELS.barn.width>=88);
 });
+
+const rgbOf=(p,x,y)=>{const c=VILLAGE_PALETTE[p.rows[y].charCodeAt(x)-33];return c?[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)):null;};
+const lum=c=>(c[0]+c[1]+c[2])/3;
+const SPRITES=['barn','cottage','tree0','tree1','pine','bush','stone','fence','lamp','stump','pumpkin','candles','planter','cabinet','herb0','pot','herb1','pebble'];
+function silhouette(p){
+  const edge=[],inner=[];
+  for(let y=0;y<p.height;y++)for(let x=0;x<p.width;x++){
+    const c=rgbOf(p,x,y);if(!c)continue;
+    const open=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>{const xx=x+dx,yy=y+dy;return xx<0||yy<0||xx>=p.width||yy>=p.height||!rgbOf(p,xx,yy);});
+    (open?edge:inner).push(c);
+  }
+  return {edge,inner};
+}
+const mean=list=>list.reduce((s,c)=>s+lum(c),0)/list.length;
+
+test('crop-bed herb1 is an in-ground plant, never an alias of the potted plant',()=>{
+  assert.notDeepEqual(VILLAGE_PIXELS.herb1.rows,VILLAGE_PIXELS.pot.rows);
+  assert.ok(VILLAGE_PIXELS.herb1.height<VILLAGE_PIXELS.pot.height,'no clay pot body below the foliage');
+  assert.equal(VILLAGE_PIXELS.herb1.ay,VILLAGE_PIXELS.herb1.height,'bottom-centre anchor');
+});
+
+test('sprite silhouettes carry no pink chroma spill and a darker selective outline',()=>{
+  for(const key of SPRITES){
+    const {edge,inner}=silhouette(VILLAGE_PIXELS[key]);
+    for(const [r,g,b] of edge)assert.ok(!(r>g*1.3&&b>g*1.2&&r>90&&b>90),`${key} edge pixel #${[r,g,b]} is pinkish`);
+    assert.ok(edge.length>0&&inner.length>0);
+  }
+  for(const key of ['barn','cottage','tree0','tree1','pine','fence']){
+    const {edge,inner}=silhouette(VILLAGE_PIXELS[key]);
+    assert.ok(mean(edge)<mean(inner)*.75,`${key} outer edge reads darker than its interior`);
+  }
+});
+
+test('surface tiles keep one mean value up to their seams (no dark grid every tile)',()=>{
+  for(const key of ['meadow','earth','paving','forest']){
+    const p=VILLAGE_PIXELS[key],band=[],core=[];
+    for(let y=0;y<p.height;y++)for(let x=0;x<p.width;x++){
+      const inBand=x<14||y<14||x>=p.width-14||y>=p.height-14;
+      (inBand?band:core).push(rgbOf(p,x,y));
+    }
+    const a=mean(band),b=mean(core);
+    assert.ok(Math.abs(a-b)<=b*.04,`${key} edge band ${a.toFixed(1)} vs interior ${b.toFixed(1)}`);
+  }
+});
+
+test('derived soil and grass tiles sample distinct surface regions',()=>{
+  const meadow=VILLAGE_PIXELS.meadow;
+  const rowZero=[0,1,2,3,4].every(i=>{
+    const g=VILLAGE_PIXELS[`grass${i}`];
+    return g.rows.every((row,y)=>row===meadow.rows[y].slice(i*16,i*16+16));
+  });
+  assert.ok(!rowZero,'grass variants are not five neighbouring crops of the first meadow row');
+  const cores=new Set();
+  for(let cx=0;cx<3;cx++)for(let cy=0;cy<3;cy++)cores.add(VILLAGE_PIXELS[`soil${cx}${cy}`].rows.slice(5,11).map(r=>r.slice(5,11)).join('|'));
+  assert.equal(cores.size,9,'every soil tile has its own interior pixels');
+  for(const key of ['soil00','soil22']){
+    const p=VILLAGE_PIXELS[key];
+    const opaqueFrom=p.rows.map(r=>key==='soil00'?[...r].findIndex(ch=>ch!=='!'):[...r].findLastIndex(ch=>ch!=='!'));
+    assert.ok(new Set(opaqueFrom).size>1,`${key} west/east teeth vary along the edge`);
+  }
+});

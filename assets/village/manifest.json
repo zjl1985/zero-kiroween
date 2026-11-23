@@ -147,14 +147,14 @@
     "generated/atlas.png",
     705,
     0,
-    19,
-    26,
-    10,
-    26
+    17,
+    12,
+    8,
+    12
   ],
   "pebble": [
     "generated/atlas.png",
-    728,
+    726,
     0,
     14,
     13,
@@ -163,7 +163,7 @@
   ],
   "meadow": [
     "generated/atlas.png",
-    746,
+    744,
     0,
     128,
     128,
@@ -172,7 +172,7 @@
   ],
   "earth": [
     "generated/atlas.png",
-    878,
+    876,
     0,
     128,
     128,

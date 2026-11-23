@@ -187,17 +187,42 @@
       ],
       19,
       null
+    ],
+    "herb1": [
+      "yard-details.jpg",
+      [
+        680,
+        285,
+        1000,
+        386
+      ],
+      17,
+      null
+    ],
+    "pebble": [
+      "nature-props.jpg",
+      [
+        0,
+        290,
+        270,
+        576
+      ],
+      14,
+      null
     ]
   },
   "processing": [
     "pink JPEG chroma key",
     "largest connected silhouette; no characters copied",
-    "nearest neighbour logical sprite resize",
-    "four filled surface crops; opposite edge periodic crossfade",
+    "area reduction to the logical grid: each pixel blends the block mean with the closest real masked source colour; binary alpha at 50% coverage; isolated fragments dropped",
+    "one-pixel selective outline inside the silhouette (darker, slightly more saturated own hue; bounds unchanged)",
+    "herb1 is the pot foliage cut above the clay rim (in-ground crop plant); pebble is reduced directly from the stone source",
+    "four filled surface crops; separable 24 px edge-band blend with a half-period rolled copy plus wrap-around low-frequency luminance flattening; exact opposite edges",
+    "soil00..soil22 sample nine earth offsets with broken furrow rows, irregular cuts on every open side and a shaded inner lip; grass0..grass4 sample five meadow offsets",
     "224 shared palette colours, no dithering",
     "binary alpha; bottom-centre or door-step anchors",
     "synchronous indexed row-run compilation, no runtime image load"
   ],
-  "atlas_sha256": "3425ce79a9f6bbd533d8b2100bf447b187f5e355b46f4aec6aa25c2c7fcadac8",
+  "atlas_sha256": "20021c17c5dc025fb4d6ba838c8ce13a51a77f167479f6836ffa7ace9cc46e3d",
   "legacy_pack": "Retained on disk only, not sampled by active compiler."
 }
