@@ -29,11 +29,11 @@ export const SURFACE_TEXTURE = {
   /** hash2 salt base for variant picks. */
   salt: 911,
   /** Meadow patches: world value-noise cells (two octaves) and the Bayer band around each tone step. */
-  patch: { cell: 150, detail: 58, dither: 0.22 },
+  patch: { cell: 150, detail: 58, dither: 0.14 },
   /** Grass tufts (+1 blade, +2 tip, -1 root): screen scatter cell (px), clump noise cell (world units), density range. */
-  tuft: { cellW: 7, cellH: 5, clump: 44, min: 0, max: 0.62 },
+  tuft: { cellW: 7, cellH: 5, clump: 44, min: 0, max: 0.5 },
   /** Accent clusters per 32-unit tile: flowers on grass, pebbles on grass and dirt. */
-  flowers: 0.07,
+  flowers: 0.05,
   pebbles: 0.05,
 } as const;
 
