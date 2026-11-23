@@ -16,3 +16,4 @@ output/iso-baseline/
 # Optional local art-tool environment, never source assets.
 .venv-art/
 assets/village/legacy/village-pixels.ts
+__pycache__/

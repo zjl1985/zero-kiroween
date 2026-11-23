@@ -90,6 +90,9 @@ export interface LightSource {
   readonly z?: number;
   readonly power?: number;
   readonly scale?: number;
+  /** Native-pixel offset of the glow from the projected foot (baked voxel sprites; never scaled by UPRIGHT_SCALE). */
+  readonly dx?: number;
+  readonly lift?: number;
 }
 /** A spot placed in view pixels. */
 export interface PlacedLight {
@@ -141,6 +144,8 @@ export interface LightInputs {
   readonly windows: readonly { x: number; y: number; z: number }[];
   /** Decor pumpkins and candle clusters of the opening yard. */
   readonly decor: readonly { kind: string; x: number; y: number; s: number }[];
+  /** Emissive anchors of baked voxel sprites (gen-sprites.ts genGlows): foot plus native-pixel offset. */
+  readonly glows?: readonly { kind: LightKind; x: number; y: number; dx: number; lift: number }[];
   readonly sim: Pick<SimState, "interactables" | "fire" | "impacts"> | null;
 }
 
@@ -170,6 +175,7 @@ export function gatherLights(input: LightInputs): LightSource[] {
     // Decor pumpkins glow softly; lit interactive pumpkins are the strong ones.
     if (d.kind === "pumpkin") out.push({ kind: "pumpkin", x: d.x, y: d.y, z: H.pumpkin * d.s, scale: d.s, power: 0.45 });
   }
+  for (const g of input.glows ?? []) out.push({ kind: g.kind, x: g.x, y: g.y, dx: g.dx, lift: g.lift, ...(g.kind === "pumpkin" ? { power: 0.5 } : {}) });
   return out;
 }
 
@@ -186,7 +192,8 @@ export function lightFrame(sources: readonly LightSource[], view: LightView): Li
     const d = Math.hypot(s.x - view.focus.x, s.y - view.focus.y);
     if (!(d <= LIGHTING.cull)) return;
     const k = LIGHTING.kinds[s.kind], scale = (s.scale ?? 1) * view.zoom, p = view.project(s.x, s.y);
-    const sx = p.x, sy = p.y - Math.round((s.z ?? 0) * view.zoom * UPRIGHT_SCALE), rx = k.rx * scale, ry = k.ry * scale;
+    const sx = p.x + (s.dx ?? 0) * view.zoom,
+      sy = p.y - Math.round((s.z ?? 0) * view.zoom * UPRIGHT_SCALE) - (s.lift ?? 0) * view.zoom, rx = k.rx * scale, ry = k.ry * scale;
     if (sx + rx < 0 || sx - rx > view.width || sy + ry < 0 || sy - ry > view.height) return;
     kept.push({ s, d, i, sx, sy, scale });
   });

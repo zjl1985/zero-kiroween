@@ -152,7 +152,7 @@ test("cat south of a building: normal order, building opaque before the cat", (t
 test("an actor just south of a rail's west end sorts after the rail; actors behind it stay behind", () => {
   const rail = isoYardPieces().find((p) => p.kind === "rail");
   assert.ok(rail, "the opening yard has rails");
-  const fp = modelFootprint(rail.model().base, rail.x, rail.y), key = footprintKey(fp);
+  const fp = modelFootprint(rail.base, rail.x, rail.y), key = footprintKey(fp);
   assert.ok(fp.x1 - fp.x0 > 40, "a long rail");
   const occluders = [{ footprint: fp, key }];
   // The review's case: an ink blob at (x0 + 10, y1 + 5) has a plain key far below the rail's.

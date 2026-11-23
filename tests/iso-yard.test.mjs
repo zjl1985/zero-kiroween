@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { isoYardPieces } from "../dist/render/iso/yard-models.js";
-import { groundExtent } from "../dist/render/iso/model.js";
-import { clearIsoVolumeCache, isoVolume, isoVolumeCacheSize, ISO_VOLUME, rasterizeModel } from "../dist/render/iso/rasterize.js";
+import { genCanvas, genShadowCanvas, genSprite, genSpriteCacheSize } from "../dist/render/iso/gen-sprites.js";
 import { modelFootprint } from "../dist/render/iso/depth.js";
 import { SOLID_SCENERY, YARD_FURNITURE, YARD_RAILS } from "../dist/game/scenery.js";
 import { CROP_PATCHES, HOMESTEADS, HOUSE_WALKS, YARD_EXTENSION_PLOTS } from "../dist/render/homestead-layout.js";
@@ -18,56 +17,62 @@ import { clearWorldRenderCache } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 
-// Footprint and draw-order contracts only; the yard volumes were not viewed in a browser.
+// Footprint and draw-order contracts only; the baked yard sprites were viewed offline (frame-shot), not in a browser.
 const pieces = isoYardPieces();
-const world = (p) => modelFootprint(p.model().base, p.x, p.y);
+const world = (p) => modelFootprint(p.base, p.x, p.y);
 const capsuleBox = (c) => ({
   x0: Math.min(c.x1, c.x2) - c.radius, y0: Math.min(c.y1, c.y2) - c.radius,
   x1: Math.max(c.x1, c.x2) + c.radius, y1: Math.max(c.y1, c.y2) + c.radius,
 });
+const inside = (e, b) => e.x >= b.x && e.y >= b.y && e.x + e.w <= b.x + b.w && e.y + e.d <= b.y + b.d;
 
-test("every rail and furniture model declares exactly its sim capsule grown by the radius", () => {
+test("every rail, furniture piece and the boulder declare exactly their sim capsule grown by the radius", () => {
   const rails = pieces.filter((p) => p.kind === "rail"), furniture = pieces.filter((p) => p.kind === "furniture");
   assert.equal(rails.length, YARD_RAILS.length);
   assert.equal(furniture.length, YARD_FURNITURE.length);
   const used = new Set();
-  for (const p of [...rails, ...furniture]) {
-    assert.equal(p.solid, true);
+  for (const p of pieces.filter((q) => q.solid && q.kind !== "building")) {
     const fp = world(p);
     const match = SOLID_SCENERY.findIndex((c) => JSON.stringify(capsuleBox(c)) === JSON.stringify(fp));
     assert.ok(match >= 0, `${p.key} at ${p.x},${p.y}: ${JSON.stringify(fp)} matches no SOLID_SCENERY capsule`);
-    assert.ok(!used.has(match), "one model per capsule");
+    assert.ok(!used.has(match), "one sprite per capsule");
     used.add(match);
-    // Furniture capsules use the furniture radius.
     const f = YARD_FURNITURE.find((q) => q.x === p.x && q.y === p.y);
     if (f) assert.equal(fp.y1 - fp.y0, 2 * f.radius);
-    // The painted volume stands inside its declared base.
-    const g = groundExtent(p.model()), b = p.model().base;
-    assert.ok(g.x >= b.x && g.y >= b.y && g.x + g.w <= b.x + b.w && g.y + g.d <= b.y + b.d, p.key);
+    // The baked voxels stand inside the declared base.
+    const g = genSprite(p.sprite);
+    assert.ok(g, p.sprite);
+    assert.ok(inside(g.extent, p.base), `${p.key}: ${JSON.stringify(g.extent)} inside ${JSON.stringify(p.base)}`);
+  }
+});
+
+test("yard sprites were baked for the footprints the game declares", () => {
+  for (const p of pieces) {
+    const g = genSprite(p.sprite);
+    assert.ok(g, `${p.sprite} baked`);
+    if (g.base) assert.deepEqual(g.base, p.base, `${p.sprite}: scripts/iso-art/inputs.json is current`);
   }
 });
 
 test("barn and cottages fill their base and stand where the sim's world clamp keeps the cat out", () => {
   const buildings = pieces.filter((p) => p.kind === "building");
   assert.equal(buildings.length, 3, "barn and two cottages");
-  // The homesteads keep the doorsteps the old raster houses and the house walks used.
   for (const [i, h] of HOMESTEADS.entries()) {
     const p = buildings[i];
     assert.equal(p.key, `yard:${h.kind === "barn" ? "barn" : "cottage"}`);
     assert.ok(Math.hypot(p.x - HOUSE_WALKS[i][0][0], p.y - HOUSE_WALKS[i][0][1]) <= 1.5, "door on the house walk");
   }
-  for (const p of buildings) {
-    const m = p.model();
-    assert.deepEqual(groundExtent(m), m.base, `${p.key}: walls fill the declared base`);
+  for (const p of [...buildings, ...pieces.filter((q) => q.kind === "dressing" && q.fades)]) {
+    const e = genSprite(p.sprite).extent;
+    assert.ok(inside(e, p.base), `${p.key}: voxels inside the base`);
+    if (p.kind === "building") assert.ok(e.w * e.d >= 0.85 * p.base.w * p.base.d, `${p.key}: walls fill the base`);
     const fp = world(p);
-    // No sim collider for the houses: the clamp to WORLD.playTop is their collision.
-    assert.ok(fp.y1 <= WORLD.playTop, `${p.key} front wall north of playTop`);
+    assert.ok(fp.y1 <= WORLD.playTop, `${p.key} front north of playTop`);
     for (let x = fp.x0; x <= fp.x1; x += 4)
       for (let y = fp.y0; y <= fp.y1; y += 4) {
         const c = clampToWorld(x, y, STATS.playerRadius);
         assert.ok(c.y - STATS.playerRadius >= fp.y1, "the cat's circle never enters a building base");
       }
-    // Clear of every solid capsule.
     for (const c of SOLID_SCENERY) {
       const b = capsuleBox(c);
       assert.ok(b.x1 <= fp.x0 || b.x0 >= fp.x1 || b.y1 <= fp.y0 || b.y0 >= fp.y1, `${p.key} overlaps a capsule`);
@@ -86,15 +91,9 @@ test("crops are walkable dressing inside the garden plots", () => {
   }
 });
 
-test("yard volumes are deterministic, few enough for the volume cache, and pure", () => {
-  const keys = new Set(pieces.map((p) => p.key));
-  assert.ok(keys.size <= ISO_VOLUME.cacheLimit / 2, `${keys.size} distinct yard models`);
-  for (const key of keys) {
-    const p = pieces.find((q) => q.key === key);
-    const a = rasterizeModel(p.model()), b = rasterizeModel(p.model());
-    assert.deepEqual(a.pixels, b.pixels, key);
-    assert.ok(a.pixels.every((v, i) => (i & 3) !== 3 || v === 0 || v === 255), "binary alpha");
-  }
+test("yard pieces are pure data with a bounded set of sprites", () => {
+  const sprites = new Set(pieces.map((p) => p.sprite));
+  assert.ok(sprites.size <= 40, `${sprites.size} distinct yard sprites`);
   const src = readFileSync(new URL("../src/render/iso/yard-models.ts", import.meta.url), "utf8");
   assert.doesNotMatch(src, /Math\.random/);
   for (const id of CAT_ART.ids()) assert.doesNotMatch(src, new RegExp(`["'\`]${id}["'\`]`));
@@ -130,7 +129,7 @@ function canvas() {
 }
 function environment(t) {
   clearSpriteCache();
-  clearIsoVolumeCache();
+  clearWorldRenderCache();
   for (const [key, value] of Object.entries({ document: { createElement: () => canvas() }, Path2D: Path, DOMMatrix: Matrix })) {
     const old = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -158,25 +157,25 @@ function frame(t, at) {
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: createIsoCamera(960, 540, sim.player), reducedMotion: true });
   const barn = pieces.find((p) => p.key === "yard:barn");
-  const volume = isoVolume(barn.key, barn.model);
-  assert.ok(volume.canvas && volume.shadow, "baked canvases in the mock DOM");
+  const barnImage = genCanvas(barn.sprite), shadow = genShadowCanvas(barn.sprite);
+  assert.ok(barnImage && shadow, "baked canvases in the mock DOM");
   const calls = ctx.calls, image = (c) => calls.findIndex((d) => d.op === "drawImage" && d.args[0] === c);
   return {
-    calls, barn, volume,
-    building: image(volume.canvas),
-    shadow: image(volume.shadow),
+    calls, barn,
+    building: image(barnImage),
+    shadow: image(shadow),
     cat: catFrameIndex(calls, sim.player.id),
   };
 }
 
-test("world.ts draws the yard volumes; their shadows lie under every sprite", (t) => {
+test("world.ts draws the baked yard sprites; their shadows lie under every sprite", (t) => {
   const { calls, shadow, building, cat } = frame(t, { x: 430, y: 300 });
   assert.ok(shadow >= 0 && building > shadow && cat > shadow);
-  for (const p of pieces.filter((q) => q.kind !== "building" && Math.hypot(q.x - 430, q.y - 300) < 300)) {
-    const v = isoVolume(p.key, p.model);
-    assert.ok(calls.some((d) => d.op === "drawImage" && d.args[0] === v.canvas), `${p.key} drawn`);
-  }
-  assert.ok(isoVolumeCacheSize() <= ISO_VOLUME.cacheLimit);
+  for (const p of pieces.filter((q) => q.kind !== "building" && Math.hypot(q.x - 430, q.y - 300) < 300))
+    assert.ok(calls.some((d) => d.op === "drawImage" && d.args[0] === genCanvas(p.sprite)), `${p.key} drawn`);
+  // Native scale: the barn is stamped at its own pixel size, never through the half-size upright transform.
+  const barnCall = calls[building];
+  assert.equal(barnCall.args.length, 3, "drawImage(image, x, y) at 1:1");
 });
 
 test("a cat west of the barn's front corner still draws after it: the barn sorts by its footprint", (t) => {
@@ -193,9 +192,9 @@ test("a cat behind the barn: the barn draws after the cat, faded", (t) => {
   assert.equal(calls[cat].globalAlpha, 1, "the cat stays visible");
 });
 
-test("leaving a run releases the baked yard volumes", (t) => {
+test("leaving a run releases the decoded sprites", (t) => {
   frame(t, { x: 430, y: 300 });
-  assert.ok(isoVolumeCacheSize() > 0);
+  assert.ok(genSpriteCacheSize() > 0);
   clearWorldRenderCache();
-  assert.equal(isoVolumeCacheSize(), 0);
+  assert.equal(genSpriteCacheSize(), 0);
 });

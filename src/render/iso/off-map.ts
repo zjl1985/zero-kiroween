@@ -8,8 +8,8 @@
 import { cachedSprite } from "../../engine/sprite.js";
 import { WORLD } from "../../game/world-gen.js";
 import { visHash } from "../hash.js";
-import { mix } from "../pixel-art.js";
-import { ISO, depthKey, toScreen, toWorld } from "./projection.js";
+import { depthKey, toScreen, toWorld } from "./projection.js";
+import { genBounds, genCanvas, genSprite } from "./gen-sprites.js";
 import { isoPath } from "./ground.js";
 import { paintBlurred } from "./blur.js";
 import { surface } from "../../engine/surface.js";
@@ -59,7 +59,12 @@ export function blockOffMap(bx: number, by: number): boolean {
   return [[x0, y0], [x0 + B, y0], [x0 + B, y0 + B], [x0, y0 + B]].some(([x, y]) => offMapAt(x!, y!));
 }
 
-interface Tree { sx: number; sy: number; h: number; r: number; fog: number; seed: number }
+interface Tree { sx: number; sy: number; h: number; r: number; fog: number; seed: number; sprite: string }
+
+/** Baked voxel trees of the wall (gen-sprites.ts), picked by the render hash. */
+const WALL_TREES = ["tree-pine-2", "tree-pine-1", "tree-oak-2", "tree-pine-0", "tree-dead-1", "tree-oak-1", "tree-maple-1", "tree-pine-2"] as const;
+/** Fog levels a wall tree is pre-tinted at (cached per sprite and level). */
+const FOG_LEVELS = 4;
 
 /** Trees whose sprite box can touch block (bx, by), nearest last. Pure of (bx, by). */
 export function blockTrees(bx: number, by: number): Tree[] {
@@ -77,10 +82,11 @@ export function blockTrees(bx: number, by: number): Tree[] {
       if (d < from || d > to) continue;
       const s = toScreen(x, y);
       if (s.x < x0 || s.x > x1 || s.y < y0 || s.y > y1) continue;
-      const fog = (d - from) / (to - from), h = Math.round((38 + visHash(seed + 3) * 34 - fog * 10) * ISO.k), r = Math.round(h * 0.34);
+      const fog = (d - from) / (to - from), sprite = WALL_TREES[Math.floor(visHash(seed + 3) * WALL_TREES.length)]!, b = genBounds(sprite);
+      const h = -b.t, r = Math.max(-b.l, b.r);
       // The whole crown stays off the map, so the ground never cuts a tree.
       if (!offMapAt(s.x - r, s.y - h) || !offMapAt(s.x + r, s.y - h) || !offMapAt(s.x - r, s.y) || !offMapAt(s.x + r, s.y)) continue;
-      out.push({ sx: s.x, sy: s.y, h, r, fog, seed });
+      out.push({ sx: s.x, sy: s.y, h, r, fog, seed, sprite });
     }
   return out.sort((a, b) => depthKey(...xy(a)) - depthKey(...xy(b)) || a.seed - b.seed);
 }
@@ -92,26 +98,18 @@ const fogColour = (d: number) => {
   return OFF_MAP.fog[Math.min(OFF_MAP.fog.length - 1, Math.floor(k * OFF_MAP.fog.length))]!;
 };
 
-/** A flat pixel tree: trunk, three stepped crown tiers, lit on the right (moon top-right). */
+/** A baked tree of the wall, pre-tinted toward the fog (cached per sprite and fog level). */
 function paintTree(c: Ctx, t: Tree, ox: number, oy: number): void {
-  const x = Math.round(t.sx - ox), y = Math.round(t.sy - oy), fogAt = OFF_MAP.fog[3];
-  const tone = (col: string) => mix(col, fogAt, t.fog * 0.75);
-  c.fillStyle = tone(OFF_MAP.trunk);
-  c.fillRect(x - 1, y - Math.round(t.h * 0.3), 2, Math.round(t.h * 0.3));
-  for (let tier = 0; tier < 3; tier++) {
-    const top = y - t.h + Math.round(tier * t.h * 0.22), w = Math.round(t.r * (0.55 + tier * 0.25)), rows = Math.round(t.h * 0.3);
-    for (let row = 0; row < rows; row += 2) {
-      const half = Math.max(1, Math.round((w * (row + 2)) / rows));
-      c.fillStyle = tone(OFF_MAP.crown[0]);
-      c.fillRect(x - half, top + row, half, 2);
-      c.fillStyle = tone(OFF_MAP.crown[1]);
-      c.fillRect(x, top + row, half, 2);
-      if (row % 4 === 0 && visHash(t.seed + tier * 7 + row) > 0.5) {
-        c.fillStyle = tone(OFF_MAP.crown[2]);
-        c.fillRect(x + Math.max(1, half - 3), top + row, 2, 2);
-      }
-    }
-  }
+  const level = Math.min(FOG_LEVELS - 1, Math.floor(t.fog * FOG_LEVELS)), src = genCanvas(t.sprite), g = genSprite(t.sprite);
+  if (!src || !g) return;
+  const tinted = cachedSprite(`offmap-tree:${t.sprite}:${level}`, g.w, g.h, 1, (s) => {
+    s.drawImage(src, 0, 0);
+    s.globalCompositeOperation = "source-atop";
+    s.globalAlpha = 0.35 + 0.55 * ((level + 0.5) / FOG_LEVELS);
+    s.fillStyle = OFF_MAP.fog[1];
+    s.fillRect(0, 0, g.w, g.h);
+  }).canvas;
+  if (tinted) c.drawImage(tinted, Math.round(t.sx - ox) - g.ax, Math.round(t.sy - oy) - g.ay);
 }
 
 /**

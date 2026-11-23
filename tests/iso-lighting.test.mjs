@@ -5,6 +5,7 @@ import {
   bloomPixels, dawnTint, drawLighting, frameLightBuffer, gatherLights, IMPACT_LIGHT, LIGHTING, lightFrame, spotPixels,
 } from "../dist/render/iso/lighting.js";
 import { UPRIGHT_SCALE } from "../dist/render/iso/place.js";
+import { genGlows } from "../dist/render/iso/gen-sprites.js";
 import { isoYardPieces } from "../dist/render/iso/yard-models.js";
 import { toScreen } from "../dist/render/iso/projection.js";
 import { createSim } from "../dist/game/sim.js";
@@ -126,8 +127,14 @@ test("light spots are Bayer-dithered stepped ellipses, pure of the kind", () => 
 
 test("frame sources: lamps, yard windows, decor, lit pumpkins, lanterns, fire cells and skill hits", () => {
   const sim = createSim({ cat: CAT_ART.ids()[0], seed: 7 });
-  const windows = isoYardPieces().flatMap((p) => (p.glows ?? []).map((g) => ({ x: p.x + g.x, y: p.y + g.y, z: g.z })));
-  assert.ok(windows.length >= 10, "barn and both cottages glow");
+  // Baked yard sprites carry their window anchors (scripts/iso-art emissive layer).
+  const glows = [];
+  for (const p of isoYardPieces()) genGlows(p.sprite, p.x, p.y, glows);
+  assert.ok(glows.filter((g) => g.kind === "window").length >= 10, "barn and both cottages glow");
+  const glowSources = gatherLights({ lamps: [], windows: [], decor: [], glows, sim: null });
+  assert.equal(glowSources.length, glows.length);
+  assert.ok(glowSources.every((s, i) => s.dx === glows[i].dx && s.lift === glows[i].lift && s.lift > 0), "native offsets above the foot");
+  const windows = glows.filter((g) => g.kind === "window").map((g) => ({ x: g.x, y: g.y, z: 0 }));
   sim.fire.cells["3,4"] = FIRE.burnTime;
   sim.impacts.push({ kind: "hit", x: 1, y: 2, life: 0.1 }, { kind: "collect", x: 1, y: 2, life: 0.2 });
   const before = structuredClone(sim);

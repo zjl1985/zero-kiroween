@@ -9,10 +9,13 @@ import { GRAVEYARD_WOODS_ART } from "../dist/defs/biomes/graveyard-woods.art.js"
 import { LANTERN_CANAL_ART } from "../dist/defs/biomes/lantern-canal.art.js";
 import { MOON_MEADOW_ART } from "../dist/defs/biomes/moon-meadow.art.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
-import { WORLD, chunkContent, chunkOf } from "../dist/game/world-gen.js";
+import { WORLD, biomeAt, chunkContent, chunkOf } from "../dist/game/world-gen.js";
 import { drawPixelDecor } from "../dist/render/pixel-scene-art.js";
 import { PIXEL_DECOR_BOUNDS } from "../dist/render/pixel-decor-bounds.js";
 import { worldSprites } from "../dist/render/craft-world.js";
+import { decorSprite } from "../dist/render/iso/scenery.js";
+import { genCanvas, genSprite } from "../dist/render/iso/gen-sprites.js";
+import { SCENERY_PALETTE } from "../dist/render/iso/gen/scenery-pixels.js";
 import { pixelBiomeArt, TERRAIN_PALETTE } from "../dist/render/pixel-terrain.js";
 import { spriteCacheSize, SPRITE_CACHE_LIMIT } from "../dist/engine/sprite.js";
 
@@ -284,22 +287,19 @@ test("world scenery reuses bounded native-resolution caches without repainting d
       }
     }
 
-    const b = PIXEL_DECOR_BOUNDS[kind], size = [b.r-b.l,b.b-b.t], s = Math.round(decor.s * 20) / 20;
-    assert.deepEqual([first.image.width, first.image.height], size.map((n) => Math.ceil(n * s + 16)), "same world BOUNDS/PAD, baked at one pixel per world unit");
+    // Generic decor is a baked voxel sprite (FEAT-003), picked per district by iso/scenery.ts.
+    const { cx, cy } = chunkOf(decor.x, decor.y), id = decorSprite(decor, biomeAt(seed, cx, cy).id), g = genSprite(id);
+    assert.ok(g, `${kind} has a baked sprite`);
+    assert.equal(first.image, genCanvas(id), "the decoded sprite canvas is stamped");
+    assert.deepEqual([first.image.width, first.image.height], [g.w, g.h], "native scale, one pixel per baked pixel");
     const paints = first.image.getContext("2d").calls.length, allocated = created.length;
     assert.equal(draw().image, first.image, "same sprite identity");
     assert.equal(created.length, allocated, "no new offscreen canvas on a cache hit");
     assert.equal(first.image.getContext("2d").calls.length, paints, "details are not repainted on a cache hit");
     assert.ok(ctx.calls.every((c) => c.op === "drawImage"), "live pass only stamps the cached sprite");
-    const asset = VILLAGE_PIXELS[kind === "tree" ? Math.abs(decor.seed) % 2 ? "tree1" : "tree0" : "cottage"];
-    const stamps = first.image.getContext("2d").calls.filter(c => c.op === "drawImage");
-    assert.equal(stamps.length, 1, "the scenery cache stamps one complete artist-authored raster, not a projected stack");
-    const raster = stamps[0].image;
-    assert.deepEqual([raster.width,raster.height],[asset.width*2,asset.height*2],"native source pixels use a shared 2x raster grid");
-    const runs = raster.getContext("2d").calls.filter(c=>c.op === "fillRect");
-    assert.ok(runs.length>20,"real source pixel contours and internal detail are present");
-    assert.ok(runs.every(c=>VILLAGE_PALETTE.includes(c.color)),"one asset palette, not stack lighting");
-    assert.ok(stamps.every(call => call.smoothing === false), "raster stamps use nearest-neighbour sampling");
+    const runs = first.image.getContext("2d").calls.filter(c => c.op === "fillRect");
+    assert.ok(runs.length > 20, "real baked pixel runs and internal detail are present");
+    assert.ok(runs.every(c => SCENERY_PALETTE.includes(c.color)), "one baked scenery palette");
     assert.ok(spriteCacheSize() <= SPRITE_CACHE_LIMIT, "stack and decor sprites share the bounded LRU");
     assert.equal(JSON.stringify(decor), before, "rendering does not mutate decor");
   }

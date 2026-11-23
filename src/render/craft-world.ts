@@ -39,7 +39,11 @@ import type { Camera, ViewRect } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
 import { toScreen } from "./iso/projection.js";
-import { decorFootprint, isoOccludesActor, type Footprint } from "./iso/depth.js";
+import { decorFootprint, isoOccludesActor, nativeOccludesActor, type Footprint } from "./iso/depth.js";
+import { clearGenSprites, drawGen, drawGenShadow, genBounds, genGlows, type GenGlow } from "./iso/gen-sprites.js";
+import { decorSprite } from "./iso/scenery.js";
+/** World units around the view box inside which baked decor is still considered (tall crowns). */
+const GEN_CULL = 160;
 import { clearIsoVolumeCache } from "./iso/rasterize.js";
 import { clearIsoDirections, clearIsoSpriteCache } from "./iso/sprite-sheet.js";
 import { drawInteractable } from "./craft-juice.js";
@@ -699,6 +703,7 @@ export function clearWorldRenderCache(): void {
   chunkCache.clear();
   clearIsoGroundCache();
   clearIsoVolumeCache();
+  clearGenSprites();
   clearIsoSpriteCache();
   clearIsoDirections();
   clearLighting();
@@ -717,6 +722,8 @@ export interface WorldSprite {
   footprint?: Footprint;
   draw: () => void;
   occludesPlayer?: boolean;
+  /** Draws in projected native pixels itself (baked voxel sprites); the renderer skips the atFoot scale. */
+  native?: boolean;
 }
 export interface VisibleLamp {
   x: number;
@@ -743,16 +750,39 @@ export function worldSprites(
   cam: Camera,
   time: number,
   pop?: PopupView,
-): { sprites: WorldSprite[]; lamps: VisibleLamp[] } {
+): { sprites: WorldSprite[]; lamps: VisibleLamp[]; shadows: (() => void)[]; glows: GenGlow[] } {
   const view = viewRect(cam),
     { a, b } = chunkRange(viewRect(cam, 480)),
     sprites: WorldSprite[] = [],
-    lamps: VisibleLamp[] = [];
+    lamps: VisibleLamp[] = [],
+    shadows: (() => void)[] = [],
+    glows: GenGlow[] = [];
   for (let cy = a.cy; cy <= b.cy; cy++)
     for (let cx = a.cx; cx <= b.cx; cx++) {
       const chunk = chunkContent(seed, cx, cy);
       const activity = chunk.landmark ? pop?.activities?.[chunk.landmark.id] : undefined;
+      const biome = biomeAt(seed, cx, cy).id;
       for (const d of chunk.decor) {
+        // Generic decor is a baked voxel sprite (iso/scenery.ts picks it per district).
+        const gen = decorSprite(d, biome);
+        if (gen) {
+          const gb = genBounds(gen);
+          // Cull by the world box of the view, padded for the tallest crowns.
+          if (d.x < view.x0 - GEN_CULL || d.x > view.x1 + GEN_CULL || d.y < view.y0 - GEN_CULL || d.y > view.y1 + GEN_CULL) continue;
+          if (d.kind === "lamp") lamps.push(d);
+          genGlows(gen, d.x, d.y, glows);
+          const footprint = decorFootprint(d.kind, d.x, d.y, d.s);
+          shadows.push(() => drawGenShadow(ctx, gen, d.x, d.y));
+          sprites.push({
+            y: d.y,
+            foot: d,
+            native: true,
+            ...(footprint ? { footprint } : {}),
+            occludesPlayer: !FLAT_DECOR.has(d.kind) && !!pop?.cat && nativeOccludesActor(d.x, d.y, gb, pop.cat, footprint ?? undefined),
+            draw: () => drawGen(ctx, gen, d.x, d.y),
+          });
+          continue;
+        }
         if (FLAT_DECOR.has(d.kind)) continue;
         const bd = decorBounds(d);
         if (!bd) continue;
@@ -769,7 +799,7 @@ export function worldSprites(
         });
       }
     }
-  return { sprites, lamps };
+  return { sprites, lamps, shadows, glows };
 }
 
 // ---------------------------------------------------------------- navigation

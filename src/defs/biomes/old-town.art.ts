@@ -14,6 +14,8 @@ const COURSES: readonly (readonly Point[])[] = [
 /** Old town: worn masonry courses, inset drain grates and leaves caught in the joints. */
 export const OLD_TOWN_ART: BiomeArt = {
   id: "old-town",
+  // Baked voxel scenery pools (src/render/iso/scenery.ts).
+  scenery: { trees: ["oak", "maple", "oak"], bushes: ["green"], stones: ["barrel", "crates", "rock", "rock"], fences: ["fence-x", "fence-y"], lamps: ["lamp-iron-0"], flowers: ["flowers-pink", "flowers-yellow"] },
   swatch: ["#686153", "#948776", "#e3b866"],
   sheet: { colors: ["#5b574e", "#635e53", "#56524a"], seam: "ruled" },
   patchChance: 0.55,

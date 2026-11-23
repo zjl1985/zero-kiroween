@@ -14,6 +14,8 @@ const ASTERISMS: readonly (readonly Point[])[] = [
 /** Moon meadow: scalloped clover, folded flower bouquets and quiet pebble asterisms. */
 export const MOON_MEADOW_ART: BiomeArt = {
   id: "moon-meadow",
+  // Baked voxel scenery pools (src/render/iso/scenery.ts).
+  scenery: { trees: ["birch", "pine", "birch"], bushes: ["green", "autumn"], stones: ["rock", "rock", "stump"], fences: ["fence-x", "fence-y"], lamps: ["lamp-lantern"], flowers: ["flowers-blue", "flowers-white", "flowers-pink", "flowers-yellow"] },
   swatch: ["#62647a", "#9d96a8", "#cdb8f2"],
   sheet: { colors: ["#555771", "#5e5f79", "#50546a"], seam: "scallop", fringe: "#6b7567" },
   patchChance: 0.7,

@@ -110,6 +110,8 @@ uv run --no-project --offline --python /Users/zero/.local/share/uv/python/cpytho
 UV_CACHE_DIR=output/tools/uv-cache uv run --with pillow --with numpy python scripts/iso-art/vendor/views_to_slices.py --help
 ```
 
+**2026-11-23 体素场景烘焙（FEAT-003）**：`scripts/iso-art/models.py` 用体素原语（盒、圆柱、椭球叶团、山墙/复折屋顶、圆锥、枝条）或 ASCII 三视图雕刻（`carve_views`，即 views_to_slices.py 的视觉外壳思路）建模；`voxel.py` 以固定 45°/2:1 角度逐像素光线投射烘焙（1 体素 = 2 x 2 世界单位、1 像素高），按面/法线分阶上色、缝隙 AO、亮边、深度轮廓、单像素 sel-out 外描边、发光锚点和 Bayer 抖动硬阴影；`build.py` 输出 `src/render/iso/gen/scenery-pixels.ts`（调色板索引 + 游程编码，两次运行字节一致）和 `output/iso-art/sheets/*.png` 接触表。院子占地等输入先用 `npm run build && node scripts/iso-art/dump-inputs.mjs` 写入 `scripts/iso-art/inputs.json`，再运行 `PYTHONDONTWRITEBYTECODE=1 UV_CACHE_DIR=output/tools/uv-cache uv run --with pillow --with numpy python scripts/iso-art/build.py`。
+
 2026-11-23 实测此命令可用；备用的 `~/.local/bin/python3 scripts/iso-art/vendor/views_to_slices.py --help`（Pillow 12.3 + NumPy 2.5.1）也可用。离线渲染真实游戏画面用 `node output/tools/frame-shot.mjs --preset start-zero`（`@napi-rs/canvas` 只装在被忽略的 `output/tools/`，不是项目依赖），输出 PNG 后直接查看，不启动浏览器。
 
 ### B. 不保证可重现：再次请求云端重画

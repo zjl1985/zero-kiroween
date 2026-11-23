@@ -8,6 +8,8 @@ import { variant } from "../../render/variants.js";
 /** Raised moss shelves and branching roots frame a quieter, readable central opening. */
 export const GRAVEYARD_WOODS_ART: BiomeArt = {
   id: "graveyard-woods",
+  // Baked voxel scenery pools (src/render/iso/scenery.ts).
+  scenery: { trees: ["dead", "pine", "pine", "dead"], bushes: ["dark"], stones: ["headstone-slab", "headstone-cross", "headstone-obelisk", "rock"], fences: ["iron-fence-x", "iron-fence-y"], lamps: ["lamp-iron-1"], flowers: ["flowers-white", "flowers-blue"] },
   swatch: ["#4e5956", "#404d4d", "#a6b9cc"],
   sheet: { colors: ["#485450", "#4b5850", "#424f52"], seam: "torn", fringe: "#5b6a59" },
   patchChance: 0.44,

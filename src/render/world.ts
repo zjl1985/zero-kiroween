@@ -1,6 +1,6 @@
-import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
 import { isoYardPieces } from "./iso/yard-models.js";
-import { drawIsoShadow, drawIsoVolume, isoVolume } from "./iso/rasterize.js";
+import { drawGen, drawGenShadow, genBounds, genGlows, type GenGlow } from "./iso/gen-sprites.js";
+import { lampSprite, yardPropSprite } from "./iso/scenery.js";
 import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
 import { drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import { enemyContact } from "../game/combat-observation.js";
@@ -31,8 +31,6 @@ import { drawPlaybillStage } from "./playbill-stage.js";
 import { drawPixelStroke, drawFootDust } from "./pixel.js";
 import {
   drawDawnWash,
-  drawProp,
-  drawLamp,
   drawWind,
   drawGroundLight,
   drawFrame,
@@ -40,7 +38,7 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
-import { footprintKey, ISO_DEPTH, isoOccludesActor, liftInFront, modelFootprint, pointFootprint, volumeBounds, type DepthOccluder } from "./iso/depth.js";
+import { footprintKey, ISO_DEPTH, liftInFront, modelFootprint, nativeOccludesActor, pointFootprint, type DepthOccluder } from "./iso/depth.js";
 import { drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawIsoGround, drawIsoWater } from "./iso/terrain-bake.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
@@ -242,6 +240,9 @@ function drawWorldFrame(
     ...(wash && sim ? { sketch: (x: number, y: number) => sketchAmount(sim, x, y) } : {}),
   });
   const sprites: WorldSprite[] = [...town.sprites];
+  const glows: GenGlow[] = [...town.glows];
+  // Baked hard shadows lie on the ground under every sprite.
+  for (const shadow of town.shadows) shadow();
   type Foot = { x: number; y: number };
   const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: Foot) =>
     sprites.push({ y, draw, occludesPlayer, ...(foot ? { foot } : {}) });
@@ -250,38 +251,39 @@ function drawWorldFrame(
   if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
   if (sim) townsfolkSprites(ctx, sim, cam, view.time, addHook,
     wash ? (x: number, y: number) => sketchAmount(sim, x, y) : undefined, reduced);
+  /** A baked voxel sprite at its world foot: ground shadow now, the sprite in the depth sort, its emissive anchors as lights. */
+  const baked = (id: string, x: number, y: number, extra: Partial<WorldSprite> & { fades?: boolean } = {}) => {
+    drawGenShadow(ctx, id, x, y);
+    genGlows(id, x, y, glows);
+    const { fades = true, ...rest } = extra;
+    sprites.push({
+      y,
+      foot: { x, y },
+      native: true,
+      occludesPlayer: fades && !!sim && nativeOccludesActor(x, y, genBounds(id), sim.player, rest.footprint),
+      draw: () => drawGen(ctx, id, x, y),
+      ...rest,
+    });
+  };
   const lamps: VisibleLamp[] = [...town.lamps];
   for (const l of LAMPS) {
     if (!inNear(l.x, l.y)) continue;
     lamps.push(l);
-    addSprite(l.y, () => drawLamp(ctx, l, view.time),
-      !!sim && isoOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
+    baked(lampSprite(l.s), l.x, l.y);
   }
   ground((g) => { for (const l of lamps) drawGroundLight(g, l.x, l.y, view.time, l.s); });
-  const yardDecor: (typeof YARD_PROPS)[number][] = [], yardWindows: { x: number; y: number; z: number }[] = [];
+  let fence = 0;
   for (const p of YARD_PROPS) {
-    if (!inNear(p.x, p.y)) continue;
-    yardDecor.push(p);
-    addSprite(p.y, () => drawProp(ctx, p),
-      !!sim && isoOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
+    const id = yardPropSprite(p, p.kind === "fence" ? fence++ : 0);
+    if (!id || !inNear(p.x, p.y)) continue;
+    baked(id, p.x, p.y);
   }
-  // The opening yard as baked iso volumes (iso/yard-models.ts). Buildings fade over a cat
+  // The opening yard as baked voxel sprites (iso/yard-models.ts). Buildings fade over a cat
   // behind them; low furniture and rails stay opaque, drawn after the cat when it is behind.
   for (const p of isoYardPieces()) {
     if (!inNear(p.x, p.y, p.reach)) continue;
-    for (const g of p.glows ?? []) yardWindows.push({ x: p.x + g.x, y: p.y + g.y, z: g.z });
-    const v = isoVolume(p.key, p.model),
-      fx = snap(p.x), fy = snap(p.y),
-      footprint = p.solid ? modelFootprint(v.base, p.x, p.y) : undefined;
-    // Hard shadows lie on the ground under every sprite.
-    upright(p.x, p.y, () => drawIsoShadow(ctx, v, fx, fy));
-    sprites.push({
-      y: p.y,
-      foot: { x: p.x, y: p.y },
-      ...(footprint ? { footprint } : {}),
-      occludesPlayer: p.fades && !!sim && isoOccludesActor(p.x, p.y, 1, volumeBounds(v.volume), sim.player, footprint),
-      draw: () => drawIsoVolume(ctx, v, fx, fy),
-    });
+    const footprint = p.kind === "crop" ? undefined : modelFootprint(p.base, p.x, p.y);
+    baked(p.sprite, p.x, p.y, { fades: p.fades, ...(footprint ? { footprint } : {}) });
   }
   // Depth of a sprite: the front-most corner of its footprint, or depthKey of
   // its foot plus the painter's small sort bias. Hooks without a foot point
@@ -454,7 +456,7 @@ function drawWorldFrame(
   }
   for (const sprite of sprites) sprite.key = keyOf(sprite);
   for (const sprite of depthSort(sprites as (WorldSprite & { key: number })[])) {
-    const paint = () => sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : affine(sprite.draw);
+    const paint = () => sprite.native ? sprite.draw() : sprite.foot ? upright(sprite.foot.x, sprite.foot.y, sprite.draw) : affine(sprite.draw);
     if (!sprite.occludesPlayer) {
       paint();
       continue;
@@ -504,7 +506,8 @@ function drawWorldFrame(
   // Post, in native view pixels: additive light buffer (+ dawn tint) -> fog -> particles -> near layer.
   // The retro layer and the screen UI follow on the presentation canvas (presentWorld).
   const dawn = sim ? dawnAmount(progress, session) : 0;
-  drawLighting(ctx, lightFrame(gatherLights({ lamps, windows: yardWindows, decor: yardDecor, sim }), {
+  // Every lamp, window, candle and carved pumpkin of the scenery is a baked sprite whose emissive anchors light the frame.
+  drawLighting(ctx, lightFrame(gatherLights({ lamps: [], windows: [], decor: [], glows, sim }), {
     project: (x, y) => projectToView(projection, x, y), zoom, width, height,
     focus: sim?.player ?? toWorld(camera.x, camera.y), dawn, time: view.time, reduced,
   }), width, height);

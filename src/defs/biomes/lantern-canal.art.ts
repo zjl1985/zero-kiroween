@@ -7,6 +7,8 @@ import { variant } from "../../render/variants.js";
 /** Dry towpath scraps only. Real water is generated once and drawn by water-art. */
 export const LANTERN_CANAL_ART: BiomeArt = {
   id: "lantern-canal",
+  // Baked voxel scenery pools (src/render/iso/scenery.ts).
+  scenery: { trees: ["birch", "oak"], bushes: ["green"], stones: ["rock", "crates", "barrel"], fences: ["fence-x", "fence-y"], lamps: ["lamp-lantern", "lamp-iron-0"], flowers: ["flowers-blue", "flowers-pink"] },
   swatch: ["#476263", "#2c4560", "#f0b85a"],
   sheet: { colors: ["#4a5a57", "#52635d", "#465451"], seam: "wave", fringe: "#5f7364" },
   patchChance: 0.6,

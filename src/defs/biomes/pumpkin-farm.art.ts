@@ -7,6 +7,8 @@ import { variant } from "../../render/variants.js";
 /** Furrowed beds: a leafy runner, paired seedlings, or a tied harvest-straw bundle. */
 export const PUMPKIN_FARM_ART: BiomeArt = {
   id: "pumpkin-farm",
+  // Baked voxel scenery pools (src/render/iso/scenery.ts).
+  scenery: { trees: ["maple", "oak", "maple"], bushes: ["autumn", "green"], stones: ["hay-bale", "rock", "stump"], fences: ["fence-x", "fence-y"], lamps: ["lamp-lantern"], flowers: ["flowers-yellow", "flowers-white"] },
   swatch: ["#736343", "#8d6142", "#e0863f"],
   sheet: { colors: ["#5d5240", "#655840", "#57503a"], seam: "furrow", fringe: "#6f7547" },
   patchChance: 0.7,

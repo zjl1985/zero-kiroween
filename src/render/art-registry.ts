@@ -253,6 +253,25 @@ export interface BiomeArt {
   readonly patchChance: number;
   /** One flat cluster of ground detail around (x, y), about r wide; baked into chunk caches. */
   patch(ctx: Ctx, x: number, y: number, r: number, seed: number): void;
+  /**
+   * Baked voxel scenery (src/render/iso/gen/scenery-pixels.ts) this district
+   * dresses its generic decor kinds with: tree species, bush palettes, what a
+   * `stone` becomes (rocks, headstones, barrels ...), fence and lamp sprites,
+   * flower colours. Absent pools fall back to iso/scenery.ts defaults.
+   */
+  readonly scenery?: BiomeScenery;
+}
+/** Sprite pools of one district (see BiomeArt.scenery). */
+export interface BiomeScenery {
+  /** Tree species: sprite `tree-<species>-<0..2>`. */
+  readonly trees?: readonly string[];
+  /** Bush palettes: sprite `bush-<palette>-<0..2>`. */
+  readonly bushes?: readonly string[];
+  /** Sprite ids (or `rock`, sized by the decor scale) for `stone` decor. */
+  readonly stones?: readonly string[];
+  readonly fences?: readonly string[];
+  readonly lamps?: readonly string[];
+  readonly flowers?: readonly string[];
 }
 
 export const CAT_ART = createRegistry<CatArt>("cat art");

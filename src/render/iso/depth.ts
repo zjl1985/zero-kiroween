@@ -125,6 +125,16 @@ export function isoOccludesActor(
 }
 
 /**
+ * isoOccludesActor for a sprite drawn at native scale (baked voxel sprites,
+ * gen-sprites.ts): `b` is in native pixels around the projected foot.
+ */
+export function nativeOccludesActor(x: number, y: number, b: Bounds, actor: Vec, footprint: Footprint = pointFootprint(x, y)): boolean {
+  const p = toScreen(x, y);
+  const box = { x0: p.x + b.l, x1: p.x + b.r, y0: p.y + b.t, y1: p.y + b.b };
+  return actorBehind(footprint, actor) && boxesOverlap(box, actorBox(actor));
+}
+
+/**
  * Render-side ground footprints of multi-tile decor, as offsets from the foot
  * at scale 1 (they follow the art's wall line, not a gameplay number).
  */
