@@ -634,7 +634,7 @@ def birch(v, turn=0):
     th = 36 * s
     m.segment((0, 0, 0), (0.8, -0.5, th), 1.2, M["birch"])
     m.segment((0.3, 0, th * 0.55), (4 * s, -2 * s, th * 0.85), 0.6, M["birch"])
-    marks = (vhash(np.floor(m.X * 2), 0, np.floor(m.Z / 2), 17) < 0.3) & (m.m == M["birch"])
+    marks = (vhash(np.floor(m.X), np.floor(m.Y), np.floor(m.Z), 17) < 0.16) & (m.m == M["birch"])
     m.paint(marks, M["birch_mark"])
     centers = []
     for a in range(8):
@@ -780,10 +780,10 @@ def barrel():
 def crates():
     m = Model(-6, -6, 6, 6, 14)
     for (x, y, z, w) in ((-5, -4, 0, 6), (1, -3, 0, 5), (-3, -3, 6, 5)):
-        m.box(x, y, z, x + w, y + w, z + w, M["wood"])
+        m.box(x, y, z, x + w, y + w, z + w, M["wood_dk"])
         edge = (band(m.X, x, x + 1) | band(m.X, x + w - 1, x + w) | band(m.Y, y, y + 1) | band(m.Y, y + w - 1, y + w) | band(m.Z, z, z + 1) | band(m.Z, z + w - 1, z + w))
         inside = band(m.X, x, x + w) & band(m.Y, y, y + w) & band(m.Z, z, z + w)
-        m.paint(inside & edge, M["wood_dk"])
+        m.paint(inside & edge, M["bark"])
     return m
 
 
