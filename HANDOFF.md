@@ -1,5 +1,56 @@
 # Midnight Meow handoff
 
+## Isometric art redo, paused mid-way (2026-11-23, local, not pushed)
+
+Task `task-iso-art-redo` (plan and per-feature findings in the untracked `.agents/tasks/task-iso-art-redo/`). The user paused it for quota reasons; **FEAT-006 is half done, FEAT-007 and FEAT-008 are not started.** Nothing is pushed, nothing was viewed in a real browser, and no art is user-approved: the only evidence is offline frames from the Node harness.
+
+Commits on `refactor/iso-hd2d` since `4df3f6d`, oldest first:
+
+```
+876671a ✨ feat: voxel puppet cats, native hit acting and a 1024-colour sprite palette   (FEAT-005)
+15df04f ✨ feat: baked voxel costume layers on both cats                                 (FEAT-009, part A)
+578da91 ✨ feat: roster dais and gallery cats drawn from the baked puppet frames         (FEAT-009, part B)
+66c5064 ✨ feat: baked voxel enemy puppets, elites, crown and drops (not yet wired)      (FEAT-006, bake only)
+```
+
+Done: FEAT-001 to 005 and 009. Both cats are baked voxel puppets (`scripts/iso-art/puppet.py`, four real turns, idle 2 / walk 6 / hurt 1, 30 to 32 px) drawn natively with a hit flash, squash, burn and wet marks; the 14 costumes are baked layers on every cat frame (`scripts/iso-art/costumes.py`); the roster dais and the gallery use the baked figures. The see-through fix for trees in front of the cat is in `world.ts` (`seeThroughClip`).
+
+Decisions made this session that differ from older text:
+
+- **Palette cap 256 -> 1024**, and sprite data now holds 10-bit palette indices (U+0100 + index, U+0500 + run length). The pups alone passed 256. Spec section 7 is updated.
+- **HUD badge, character tickets and wardrobe tickets keep the official Meow Wall pixel heads.** Only the full-body old pixel cat was replaced (the FEAT-009 step text asked for all of them). The heads are the cats' identity source data and a deliberately more detailed portrait; change it if the user wants one style everywhere (`drawPuppetFigure` can stamp a head at 2x).
+- A costume is allowed to be fully hidden from behind for one frame: `cat-nicole@linus-ne-hurt-0` has no layer, the base frame shows.
+
+**FEAT-006 state.** `scripts/iso-art/enemies.py` bakes every enemy (idle 2, walk 4, hurt 1; `attack` 2 frames for the smudge and the wash; `sweep`, `summon`, `charge` 2 frames each for the Eraser), elites as the same model on a finer grid (`Model(..., scale=1.55)`), plus `crown-elite`, `shot-ink`, `shot-water`. Output `src/render/iso/gen/enemies-pixels.ts` (387 sprites, 246 KB) with `ENEMY_PUPPETS` (frames per animation, `halfWidth`, `top`, `bottom`, `crown`, `shadow` per `kind` and `kind@elite`). **Nothing imports it yet: the run still draws the old enemies.** The sheets in `output/iso-art/sheets/enemies-*.png` and `enemies-lineup.png` were rendered and glanced at once (all kinds, elites with crowns and drops show; the sketch and the ghost look small) and have had no look-fix round.
+
+Next steps, in order:
+
+1. Wire the enemies (design already settled): give `EnemyArt` a `puppet?: IsoPuppet` set in `art-index.ts` from `ENEMY_PUPPETS`; let `IsoPuppet.frames` take any animation name; merge `ENEMY_SPRITES` into `GEN_SPRITES`; add a generic `src/render/iso/enemy-puppets.ts`. In `world.ts` an enemy sprite is `native` only when its art has a puppet and `spawnTime <= 0` (the spawn marker and a puppet-less art keep the old `upright` path).
+2. Frame choice: hurt while `hitFlash > 0`; the attack animation while `windup > 0` (frame 0, then frame 1 for about 0.2 s after it ends, remembered in a render-only `WeakMap`) or while the Eraser has `act` (its `kind` names the animation: telegraph `t > 0` is frame 0, `run > 0` or the 0.25 s after frame 1); walk while `isoMotion` says it moves and it is not stunned; else idle. Direction as in the old `drawIsoEnemy` in `pixel-actors.ts`.
+3. Acting: contact shadow from `shadow`, look `"pencil"` when the ground under the enemy is colourless (`sketchOf(e) > 0.25`; the sketch keeps its baked graphite), look `"flash"` while `hitFlash > 0`, squash by the contact direction (`hitPress` in `pixel-actors.ts`), a 13 x 2 px health bar under a damaged enemy, a stepped gold floor marker and the crown at `crown` for elites, `drawPuppetStatus` with the meta box, native stun stars. Draw the two drops natively on the old arc (lift `32 + sin(k pi) * 46 - k * 18` in k = 1 units, times `ISO.k`).
+4. Add a `zoo` preset to `output/tools/frame-shot.mjs` (one of each kind, the elites, the Eraser with `act` set), then at least three look-fix rounds on the sheets, the zoo, `combat` and `boss` frames; rewrite `tests/iso-enemies.test.mjs`; commit.
+5. FEAT-007 (pixelfx effects: every weapon and impact, pickups, fire and water, cues, hit-stop through `presentationSteps`) and FEAT-008 (whole-game polish, retire `ink-blob-sheet.ts` and the old enemy and cat painters, refresh the user's browser capture script, rewrite this handoff and the spec numbers).
+
+Things that bit during this session:
+
+- Enemy ramps and materials must stay under the `enemy-` prefix: unprefixed `ink`, `water`, `paper`, `gold` silently replaced the scenery ramps and recoloured props and landmarks.
+- Materials register while models build, and the bake looks every material's ramp up, so a bake refreshes the ramp table from the cats first (`en._bake`, `pz.bake_cat`).
+- Re-run the full bake before `npm run build` after touching `inputs.json` or the bake scripts: stale generated modules with a new decoder drew confetti once.
+- `build.py --only` takes one substring; `npm run build` alone is not enough, `npm test` is the check (646 at `66c5064`, sim baselines identical, `git diff --check` clean).
+
+Commands:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 ~/.local/bin/python3 scripts/iso-art/build.py            # full bake, about 22 s (uv run ... works too)
+npx tsc -p . && node scripts/iso-art/dump-inputs.mjs                               # after changing ramps, yard, cats, costumes, ELITE data
+node output/tools/frame-shot.mjs --preset start-zero --costume musk --out output/iso-art/frames/x.png
+node output/tools/ui-shot.mjs <prefix>                                              # dais, ticket portraits, gallery cards
+```
+
+Offline helpers under `output/tools/`: `sheetzoom.py` (crop and zoom), `stack.py`, `pair.py`, `quad.py`, `dbg_costume.py`, `measure.py`, `extent.py`. Kept frames to open first: `output/iso-art/frames/feat005-*.png`, `feat009-*.png` (both cats, plain and costumed, start and combat), then `feat004-*.png`.
+
+Still open from earlier rounds: all five districts share one grass ramp, wash-out ground is still the affine placeholder, bushes carry many pale specks, the barn is only about twice the cat's height, and nothing was heard or measured on a device.
+
 ## Isometric HD-2D M1 vertical slice (local)
 
 M1 from [the isometric plan](docs/ISOMETRIC_PIXEL_PLAN.md) is implemented on branch `refactor/iso-hd2d` (D10). It is local only and not pushed. **M2 waits for the user's review and approval of the screenshots below.** Nothing in M1 is approved art.

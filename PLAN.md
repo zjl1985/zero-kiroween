@@ -16,7 +16,7 @@
 
 美术规格：[`docs/iso-art-spec.md`](docs/iso-art-spec.md)。模拟（`src/game/`、`src/defs/`）不变。
 
-当前进度：M1 垂直切片已在本地实现（`2e4698d`～`d6b762b`，未推送；构建与 615 项测试通过，固定输入模拟对比与 `ce999f9` 一致）。浏览器中尚未查看任何画面。下一步是用户运行 `npm run build && node output/playwright/iso-m1-shot.cjs` 看截图评审；用户同意后才开始 M2。仍用旧精灵或占位的部分与已知风险见 [HANDOFF.md](HANDOFF.md#isometric-hd-2d-m1-vertical-slice-local)。
+当前进度（2026-11-23 晚）：美术重做做到一半后暂停，状态、提交、已定事项和下一步见 [HANDOFF.md](HANDOFF.md#isometric-art-redo-paused-mid-way-2026-11-23-local-not-pushed)。猫与服装已是烘焙的体素木偶；敌人只烘焙完、还没接进游戏；特效（FEAT-007）和整体打磨（FEAT-008）未开始。仍未在浏览器中查看，美术未获认可。
 
 最新画面目标（用户农场参考图）：像素风可保留，但必须用完整前中远景、足量建筑体量、连续院落/田地/道路、成组生活陈设建立整屏完成度。先重做可玩的开场整屏与手机构图，再扩展其他场景；不能用单素材放大图或测试通过替代画面验收。只移动＋自动攻击保持，不改碰撞、水区、伤害或移动速度。
 
