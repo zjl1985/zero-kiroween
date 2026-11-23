@@ -18,6 +18,7 @@ import { prepareTerrainField, type FieldBox, type TerrainSample } from "./terrai
 import { MATERIAL_SURFACE, SURFACE_RAMP, surfaceRgb } from "./surface-texture.js";
 import { rampColour, type Rgb } from "./palette.js";
 import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
+import { roadRgb, roadSurface } from "./road-texture.js";
 import { toScreen, toWorld } from "./projection.js";
 
 type Ctx = CanvasRenderingContext2D;
@@ -66,8 +67,10 @@ const inWorld = (x: number, y: number) => x >= WORLD.minX && x < WORLD.maxX && y
 
 /** Ground colour of screen pixel (px, py) at world point (x, y) with field sample `s`. */
 function groundRgb(seed: number, px: number, py: number, x: number, y: number, s: TerrainSample, sample: Sampler): Rgb {
-  const surface = MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
-  return (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface])) || surfaceRgb(seed, surface, px, py);
+  const road = s.material === "road",
+    surface = road ? roadSurface(s) : MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
+  return (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
+    || (road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
 }
 
 /**

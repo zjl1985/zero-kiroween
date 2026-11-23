@@ -24,6 +24,10 @@ export interface TerrainSample {
   edge: number;
   /** District biome id of the containing chunk. */
   biome: string;
+  /** Roads only: unit world direction of the deepest road capsule (road texture orientation). */
+  tangent?: readonly [number, number];
+  /** Roads only: true on a paved branch (see TERRAIN.pavedBiomes). */
+  paved?: boolean;
 }
 
 export const TERRAIN = {
@@ -33,14 +37,16 @@ export const TERRAIN = {
   yardStep: 4,
   yardTop: 222,
   yardBottom: 540,
+  /** A landmark branch road whose landmark lies in one of these districts is paved with stone. */
+  pavedBiomes: ["old-town"] as readonly string[],
 } as const;
 
-interface Capsule { ax: number; ay: number; dx: number; dy: number; len2: number; width: number }
+interface Capsule { ax: number; ay: number; dx: number; dy: number; len2: number; width: number; paved: boolean }
 interface Field { seed: number; capsules: readonly Capsule[]; plots: readonly (readonly GroundPoint[])[] }
 
-function capsule(a: { x: number; y: number }, b: { x: number; y: number }, width: number): Capsule {
+function capsule(a: { x: number; y: number }, b: { x: number; y: number }, width: number, paved = false): Capsule {
   const dx = b.x - a.x, dy = b.y - a.y;
-  return { ax: a.x, ay: a.y, dx, dy, len2: dx * dx + dy * dy, width };
+  return { ax: a.x, ay: a.y, dx, dy, len2: dx * dx + dy * dy, width, paved };
 }
 function yardCapsules(): Capsule[] {
   const out: Capsule[] = [];
@@ -55,8 +61,12 @@ let memo: Field | undefined;
 function field(seed: number): Field {
   if (memo?.seed === seed) return memo;
   const capsules: Capsule[] = [];
-  for (const r of roads(seed))
-    for (let i = 1; i < r.points.length; i++) capsules.push(capsule(r.points[i - 1]!, r.points[i]!, r.width));
+  for (const [k, r] of roads(seed).entries()) {
+    // The spine (road 0) stays a dirt track; branches into a paved district are stone.
+    const end = r.points[r.points.length - 1]!,
+      paved = k > 0 && TERRAIN.pavedBiomes.includes(biomeAt(seed, Math.floor(end.x / CHUNK.width), Math.floor(end.y / CHUNK.height)).id);
+    for (let i = 1; i < r.points.length; i++) capsules.push(capsule(r.points[i - 1]!, r.points[i]!, r.width, paved));
+  }
   capsules.push(...yardCapsules());
   memo = { seed, capsules, plots: [...CROP_PATCHES.map((p) => p.outline), ...YARD_EXTENSION_PLOTS] };
   return memo;
@@ -67,13 +77,20 @@ function field(seed: number): Field {
  * the depth in the deepest capsule (a 1-Lipschitz lower bound of the true
  * union distance, exact on a single road); outside it is the exact distance.
  */
-function roadField(f: Field, x: number, y: number): number {
-  let d = Infinity;
+function roadField(f: Field, x: number, y: number): { d: number; best: Capsule | undefined } {
+  let d = Infinity, best: Capsule | undefined;
   for (const s of f.capsules) {
-    const t = s.len2 <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((x - s.ax) * s.dx + (y - s.ay) * s.dy) / s.len2));
-    d = Math.min(d, Math.hypot(x - s.ax - t * s.dx, y - s.ay - t * s.dy) - s.width);
+    const t = s.len2 <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((x - s.ax) * s.dx + (y - s.ay) * s.dy) / s.len2)),
+      v = Math.hypot(x - s.ax - t * s.dx, y - s.ay - t * s.dy) - s.width;
+    if (v < d) { d = v; best = s; }
   }
-  return d;
+  return { d, best };
+}
+/** Unit direction of a capsule; a degenerate capsule reads as world +x. */
+function tangentOf(s: Capsule | undefined): readonly [number, number] {
+  if (!s || s.len2 <= 1e-8) return [1, 0];
+  const len = Math.sqrt(s.len2);
+  return [s.dx / len, s.dy / len];
 }
 /** Even-odd test plus distance to the outline: negative inside, positive outside. */
 function plotField(points: readonly GroundPoint[], x: number, y: number): number {
@@ -109,8 +126,8 @@ export function materialAt(seed: number, x: number, y: number): TerrainSample {
   if (status === "bridge") return { material: "bridge", edge: clamp(deck), biome };
   if (status === "deep") return { material: "deep", edge: clamp(Math.min(core, crossing)), biome };
   if (status === "shallow") return { material: "shallow", edge: clamp(Math.min(shore, core, crossing)), biome };
-  const road = roadField(f, x, y);
-  if (road < 0) return { material: "road", edge: clamp(Math.min(-road, crossing)), biome };
+  const { d: road, best } = roadField(f, x, y);
+  if (road < 0) return { material: "road", edge: clamp(Math.min(-road, crossing)), biome, tangent: tangentOf(best), paved: !!best?.paved };
   let soil = Infinity;
   for (const plot of f.plots) soil = Math.min(soil, plotField(plot, x, y));
   if (soil < 0) return { material: "soil", edge: clamp(Math.min(-soil, road, crossing)), biome };
@@ -165,14 +182,17 @@ export function prepareTerrainField(seed: number, box: FieldBox): (x: number, y:
       x1: Math.max(s.ax, s.ax + s.dx) + s.width + cap, y1: Math.max(s.ay, s.ay + s.dy) + s.width + cap,
     })),
     plotBoxes = plots.map((p) => { const b = plotBounds(p); return { x0: b.x0 - cap, y0: b.y0 - cap, x1: b.x1 + cap, y1: b.y1 + cap }; });
+  let nearest: Capsule | undefined;
   const roadNear = (x: number, y: number) => {
     let d = Infinity;
+    nearest = undefined;
     for (let i = 0; i < capsules.length; i++) {
       const b = capsuleBoxes[i]!;
       if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) continue;
       const s = capsules[i]!,
         t = s.len2 <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((x - s.ax) * s.dx + (y - s.ay) * s.dy) / s.len2));
-      d = Math.min(d, Math.hypot(x - s.ax - t * s.dx, y - s.ay - t * s.dy) - s.width);
+      const v = Math.hypot(x - s.ax - t * s.dx, y - s.ay - t * s.dy) - s.width;
+      if (v < d) { d = v; nearest = s; }
     }
     return d;
   };
@@ -206,7 +226,7 @@ export function prepareTerrainField(seed: number, box: FieldBox): (x: number, y:
     if (inCore) return { material: "deep", edge: clamp(Math.min(core, crossing)), biome };
     if (inShore) return { material: "shallow", edge: clamp(Math.min(shore, core, crossing)), biome };
     const road = roadNear(x, y);
-    if (road < 0) return { material: "road", edge: clamp(Math.min(-road, crossing)), biome };
+    if (road < 0) return { material: "road", edge: clamp(Math.min(-road, crossing)), biome, tangent: tangentOf(nearest), paved: !!nearest?.paved };
     let soil = Infinity;
     for (let i = 0; i < plots.length; i++) {
       const b = plotBoxes[i]!;
