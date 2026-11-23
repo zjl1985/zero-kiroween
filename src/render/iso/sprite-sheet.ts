@@ -35,6 +35,8 @@ export const ISO_SPRITE = {
   still: 1e-3,
   /** Remembered actor directions at once; the least recently used is dropped. */
   memoryLimit: 256,
+  /** Seconds after its last observed step that an actor without a sim velocity still counts as moving. */
+  moving: 0.2,
   /** Cached frame canvases alive at once. */
   cacheLimit: 128,
 } as const;
@@ -105,12 +107,44 @@ export function isoDirection(id: number | string, vx: number, vy: number, facing
 }
 export function forgetIsoDirection(id: number | string): void {
   memory.delete(id);
+  motion.delete(id);
 }
 export function clearIsoDirections(): void {
   memory.clear();
+  motion.clear();
+}
+
+interface Motion { x: number; y: number; vx: number; vy: number; at: number }
+const motion = new Map<number | string, Motion>();
+
+/**
+ * Render-only motion of an actor without a sim velocity (enemies): the last
+ * world step it was seen to make between drawn frames, and whether that step
+ * happened within `ISO_SPRITE.moving` seconds of render time. Bounded like
+ * the direction memory; never touches the simulation.
+ */
+export function isoMotion(id: number | string, x: number, y: number, time: number): { vx: number; vy: number; moving: boolean } {
+  const prev = motion.get(id);
+  let m: Motion;
+  if (!prev) m = { x, y, vx: 0, vy: 0, at: -Infinity };
+  else if (prev.x !== x || prev.y !== y) m = { x, y, vx: x - prev.x, vy: y - prev.y, at: time };
+  else m = prev;
+  motion.delete(id);
+  motion.set(id, m);
+  while (motion.size > ISO_SPRITE.memoryLimit) motion.delete(motion.keys().next().value!);
+  const moving = Number.isFinite(m.at) && time - m.at >= 0 && time - m.at < ISO_SPRITE.moving;
+  return { vx: moving ? m.vx : 0, vy: moving ? m.vy : 0, moving };
+}
+export function isoMotionMemorySize(): number {
+  return motion.size;
 }
 export function isoDirectionMemorySize(): number {
   return memory.size;
+}
+
+/** Frame palette key of a wash step (0, 0.5 or 1 -> index 0 / 1 / 2) plus an optional attack mark ("a"). */
+export function isoWashPalette(wash: number, attack: boolean): string {
+  return `${wash >= 1 ? 2 : wash > 0 ? 1 : 0}${attack ? "a" : ""}`;
 }
 
 export type Rgb = readonly [number, number, number];

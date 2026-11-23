@@ -10,7 +10,8 @@ const CONTOURS = [
     [-11,12],[-11,12],[-11,12],[-12,12],[-12,12],[-12,12],[-13,12],[-13,12],
     [-14,13],[-15,14],[-15,15],[-14,15],[-13,14],[-12,12],[-10,10],[-8,8]],
 ] as const;
-const PALETTES = [
+/** Painted, fading and colourless ink (wash 0 / 0.5 / 1); the iso sheet reuses them. */
+export const INK_BLOB_PALETTES = [
   { edge: "#292337", body: "#4d3c68", shade: "#382d4c", plane: "#6d5684", eye: "#d8b474", mouth: "#ab91b3" },
   { edge: "#34373c", body: "#77737d", shade: "#565760", plane: "#96919b", eye: "#c4b79c", mouth: "#b2aaad" },
   { edge: "#41474a", body: "#aaa99c", shade: "#7d8480", plane: "#c5c1ae", eye: "#d5cdb4", mouth: "#646e6d" },
@@ -19,7 +20,7 @@ const PALETTES = [
 /** Native ink drop, drawn into the caller's enemy cache at its grounded origin. */
 export function drawPixelInkBlob(ctx: Ctx, frame: number, attack: boolean, wash: number): void {
   const phase = frame % 2 === 0 ? 0 : 1, rows = CONTOURS[phase];
-  const p = PALETTES[wash >= 1 ? 2 : wash > 0 ? 1 : 0];
+  const p = INK_BLOB_PALETTES[wash >= 1 ? 2 : wash > 0 ? 1 : 0];
   const r = (x: number, y: number, w: number, h: number, color: string) => {
     ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
   };

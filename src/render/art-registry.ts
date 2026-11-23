@@ -136,6 +136,8 @@ export interface EnemyArt {
   readonly previewBounds?: ArtBounds;
   /** Crown seat on the unscaled illustration for actors whose heads sit above the hit radius. */
   readonly crownY?: number;
+  /** Four-direction isometric sprite sheet drawn instead of the old body when present (render/iso/). */
+  readonly iso?: IsoSheet;
   readonly dissolve: EnemyDissolve;
   /** Impact kinds this enemy's attacks and defeat leave (ENEMY_FX_LIFE). */
   readonly effects?: Readonly<Record<string, EffectPainter>>;
