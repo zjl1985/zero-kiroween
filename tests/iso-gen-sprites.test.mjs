@@ -21,7 +21,7 @@ const encode = (indices) => {
     let j = i + 1;
     while (j < indices.length && indices[j] === indices[i] && j - i < 255) j++;
     out += String.fromCharCode(0x100 + indices[i]);
-    if (j - i > 1) out += String.fromCharCode(0x200 + j - i);
+    if (j - i > 1) out += String.fromCharCode(0x500 + j - i);
     i = j;
   }
   return out;
@@ -32,7 +32,7 @@ test("the run decoder round-trips the build script's encoding", () => {
   const rand = () => ((s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296);
   for (let n = 0; n < 20; n++) {
     const len = 1 + Math.floor(rand() * 2000), idx = [];
-    for (let i = 0; i < len; i++) idx.push(rand() < 0.7 && i ? idx[i - 1] : Math.floor(rand() * 200));
+    for (let i = 0; i < len; i++) idx.push(rand() < 0.7 && i ? idx[i - 1] : Math.floor(rand() * 1024));
     assert.deepEqual([...decodeRuns(encode(idx), len)], idx);
   }
 });
@@ -45,7 +45,7 @@ test("every sprite decodes to exactly its size with palette indices only", () =>
     let total = 0;
     for (let i = 0; i < s.data.length; i++) {
       const c = s.data.charCodeAt(i);
-      if (c >= 0x200) { total += c - 0x200 - 1; continue; }
+      if (c >= 0x500) { total += c - 0x500 - 1; continue; }
       assert.ok(c >= 0x100 && c - 0x100 < SCENERY_PALETTE.length, `${id}: index in palette`);
       total++;
     }
@@ -77,7 +77,7 @@ test("one binary-alpha palette that stays inside the colour cap together with th
 
 test("the generated module matches the committed bake sources", () => {
   const h = createHash("sha256");
-  for (const f of ["build.py", "voxel.py", "models.py", "world_models.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
+  for (const f of ["build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
   assert.equal(SCENERY_SOURCE_HASH, h.digest("hex"), "re-run scripts/iso-art/build.py after editing the models");
 });
 

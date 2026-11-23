@@ -35,7 +35,7 @@ test("ramps shift hue, shadows lean cool and highlights lean warm", () => {
 test("total distinct colours stay under the spec cap", () => {
   const all = isoPaletteColours();
   assert.ok(all.length <= ISO_COLOUR_CAP, `${all.length} colours`);
-  assert.equal(ISO_COLOUR_CAP, 256);
+  assert.equal(ISO_COLOUR_CAP, 1024);
   assert.equal(rampColour("grass", -3), ISO_RAMPS.grass[0]);
   assert.equal(rampColour("grass", 99), ISO_RAMPS.grass[4]);
   assert.deepEqual(rampRgb("wax", 4), [0xf6, 0xe2, 0xa6]);

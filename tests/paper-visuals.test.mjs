@@ -19,9 +19,8 @@ import { drawCraftEnemy, drawEnemyGround, drawWarningEdges, drawWarningGround, e
 import { drawCraftShot, paperDent } from "../dist/render/craft-combat.js";
 import { drawOrbitStar, drawSkillEffect, ring, star } from "../dist/render/combat-fx.js";
 import { withPaperMotion } from "../dist/render/paper-motion.js";
-import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
-import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { GEN_SPRITES, genCanvas } from "../dist/render/iso/gen-sprites.js";
 import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
@@ -975,13 +974,10 @@ test("warning tint stays below actors while its edge passes above raised skills 
   assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });
 
-// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+// The chosen cat draws its baked puppet frame; find that frame's drawImage (iso/cat-sheet.ts).
 function catFrameIndex(calls, id) {
-  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
-  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
-    const [, , dir, anim, frame, palette] = k.split(":");
-    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
-  }));
+  const prefix = `cat-${id}-`;
+  const canvases = new Set(Object.keys(GEN_SPRITES).filter((k) => k.startsWith(prefix)).map((k) => genCanvas(k)));
   return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
 }
 

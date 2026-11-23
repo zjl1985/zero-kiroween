@@ -17,7 +17,19 @@ import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
 import type { VariantBase } from "./variants.js";
 import type { MascotPalette } from "../cats/meow-wall-art.js";
-import type { IsoSheet } from "./iso/sprite-sheet.js";
+import type { IsoAnim, IsoSheet } from "./iso/sprite-sheet.js";
+
+/**
+ * A baked voxel puppet (scripts/iso-art/ -> render/iso/gen/*-pixels.ts):
+ * frames `<identity>-<dir>-<anim>-<frame>` turned in four real directions,
+ * drawn natively at the projected foot (render/iso/puppet.ts).
+ */
+export interface IsoPuppet {
+  /** Sprite id prefix of its baked frames. */
+  readonly identity: string;
+  /** Frame count of each animation. */
+  readonly frames: Readonly<Record<IsoAnim, number>>;
+}
 
 export type SkillIconKind = "attack" | "active" | "passive";
 /** Paper colours and clothing cut selected by the cat's art definition. */
@@ -85,8 +97,8 @@ export interface CatArt {
   skillIcon(ctx: Ctx, kind: SkillIconKind): void;
   /** Flat ground marks under the cat (fields, empower ring). */
   ground?(ctx: Ctx, state: SimState): void;
-  /** Four-direction isometric sprite sheet the world draws when present (render/iso/cat-sheet.ts). */
-  readonly iso?: IsoSheet;
+  /** Baked four-direction voxel puppet the world draws when present (render/iso/cat-sheet.ts). */
+  readonly iso?: IsoPuppet;
   /** HUD status line when no shield or empower is up; the role line otherwise. */
   status?(state: SimState): MessageKey | null;
 }

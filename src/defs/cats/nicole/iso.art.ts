@@ -1,20 +1,10 @@
 /**
- * Nicole as a four-direction isometric pixel sprite: long dark hair heavier on
- * one side, rectangular glasses, a light muzzle, a white T-shirt and jeans.
- * Colours and accessories are read from the official head data (src/cats/,
- * untouched).
+ * Nicole as a baked voxel puppet (scripts/iso-art/puppet.py): long dark hair
+ * heavier on one side, rectangular glasses, a light muzzle, pink cheeks, a
+ * white T-shirt and jeans. Colours and accessories are baked from the
+ * official head data (src/cats/, untouched) by scripts/iso-art/dump-inputs.mjs.
  */
-import { officialVariant } from "../../../cats/official.js";
-import { isoCatSheet } from "../../../render/iso/cat-sheet.js";
+import { isoCatPuppet } from "../../../render/iso/cat-sheet.js";
 import { NICOLE_ART } from "./art.js";
 
-const official = officialVariant(NICOLE_ART.id);
-
-export const NICOLE_ISO = isoCatSheet({
-  identity: `cat-${NICOLE_ART.id}`,
-  palette: official.palette,
-  accessories: official.accessories ?? [],
-  body: NICOLE_ART.body,
-  hair: { color: "headDark", style: "long" },
-  build: "slim",
-});
+export const NICOLE_ISO = isoCatPuppet(NICOLE_ART.id);

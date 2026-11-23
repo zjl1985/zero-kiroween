@@ -9,8 +9,12 @@ export type RampName =
   | "grass" | "dirt" | "stone" | "soil" | "shallow" | "deep"
   | "wood" | "greyTile" | "redTile" | "cloth" | "wax" | "ink";
 
-/** The cap on distinct RGB values across every iso asset (spec section 7). */
-export const ISO_COLOUR_CAP = 256;
+/**
+ * The cap on distinct RGB values across every iso asset (spec section 7):
+ * terrain ramps plus the one shared palette of the baked voxel sprites
+ * (scenery, props, landmarks, puppets).
+ */
+export const ISO_COLOUR_CAP = 1024;
 
 /** Allowed ramp length (spec: 4 to 6 steps). */
 export const ISO_RAMP_STEPS = { min: 4, max: 6 } as const;

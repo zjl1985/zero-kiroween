@@ -77,6 +77,8 @@ import {
 import { isoInView } from "./iso/cull.js";
 import { atFoot, depthSort, onGround } from "./iso/place.js";
 import { drawIsoCat, ISO_CAT } from "./iso/cat-sheet.js";
+import { drawPuppetDust, PUPPET } from "./iso/puppet.js";
+import { drawPuppetStatus } from "./iso/puppet-status.js";
 import { isoDirection } from "./iso/sprite-sheet.js";
 import { groundPass } from "./iso/ground.js";
 import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
@@ -102,6 +104,19 @@ export interface ViewState {
 }
 /** World units of margin around the view polygon for sprites, pickups and effects. */
 const NEAR_PAD = 140;
+/** Render-only hit memory of a run: the last drawn hp and when it last dropped. */
+const hitMemory = new WeakMap<SimState, { hp: number; at: number }>();
+/** Acting of the cat's puppet for the frame at `time`: a flash right after its hp dropped, a squash easing back. */
+function catHitAct(sim: SimState, time: number): { flash: boolean; squash: number } {
+  const p = sim.player, seen = hitMemory.get(sim);
+  const at = seen && p.hp < seen.hp ? time : seen?.at ?? -Infinity;
+  hitMemory.set(sim, { hp: p.hp, at });
+  const since = time - at;
+  return {
+    flash: seen !== undefined && since >= 0 && since < PUPPET.flash,
+    squash: since < PUPPET.squash.time ? 1 - since / PUPPET.squash.time : 0,
+  };
+}
 /** Render-only direction memory keys of the chosen cat and its decoy. */
 const CAT_DIR = "chosen-cat", CAT_DECOY_DIR = "chosen-cat-decoy";
 export function drawWorld(
@@ -167,6 +182,20 @@ function frameView(sim: SimState | null, view: ViewState) {
 }
 /** Height of the cat's body centre over its foot in k = 1 art pixels. */
 const CAT_BODY = 20;
+/** Native-pixel window around the cat's foot inside which a piece in front of it turns into a sparse dither. */
+const SEE_THROUGH = { halfWidth: 14, top: 36, bottom: 6 } as const;
+/**
+ * Clip for a native piece that stands in front of the cat: everything except the window
+ * around the cat, plus one pixel of every 2 x 2 block inside it (odd-even rule).
+ */
+function seeThroughClip(cat: { x: number; y: number }): Path2D {
+  const p = toScreen(cat.x, cat.y), fx = snap(p.x), fy = snap(p.y), s = SEE_THROUGH, clip = new Path2D();
+  clip.rect(-1e6, -1e6, 2e6, 2e6);
+  clip.rect(fx - s.halfWidth, fy - s.top, s.halfWidth * 2, s.top + s.bottom);
+  for (let y = fy - s.top; y < fy + s.bottom; y += 2)
+    for (let x = fx - s.halfWidth; x < fx + s.halfWidth; x += 2) clip.rect(x, y, 1, 1);
+  return clip;
+}
 
 function drawWorldFrame(
   ctx: CanvasRenderingContext2D,
@@ -303,6 +332,8 @@ function drawWorldFrame(
   for (const sprite of sprites)
     if (sprite.occludesPlayer) sprite.key = Math.max(keyOf(sprite), playerDepth + .01);
   const cat = (pose: CatPose) => {
+    const art = catArt(pose.id);
+    const act = sim && !pose.decoy ? catHitAct(sim, view.time) : { flash: false, squash: 0 };
     if (!pose.decoy) {
       const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>
         Math.hypot(a.x - pose.x, a.y - pose.y) <
@@ -332,19 +363,21 @@ function drawWorldFrame(
     sprites.push({
       y: pose.y,
       foot: pose,
+      // The baked puppet draws natively; the old paper cat keeps the upright half-size transform.
+      native: !!art.iso,
       ...(pose.decoy ? {} : { key: playerDepth }),
       draw: () => {
-        drawFootDust(ctx, pose);
-        const art = catArt(pose.id);
         if (art.iso) {
           // Direction from the projected velocity; a still cat (or its decoy) keeps its last one.
           const dir = pose.decoy || !sim
             ? isoDirection(CAT_DECOY_DIR, 0, 0, pose.facing)
             : isoDirection(CAT_DIR, sim.player.vx, sim.player.vy, sim.player.facing);
-          drawIsoCat(ctx, art, art.iso, pose, dir);
-          if (sim && !pose.decoy) drawActorPaperStatus(ctx, sim.player, view.time, ISO_CAT.radius, ISO_CAT.stand);
+          if (sim) drawPuppetDust(ctx, pose.x, pose.y, pose.moving ? sim.player.vx : 0, pose.moving ? sim.player.vy : 0, view.time, reduced);
+          drawIsoCat(ctx, art.iso, pose, dir, act);
+          if (sim && !pose.decoy) drawPuppetStatus(ctx, sim.player, view.time, ISO_CAT.box);
           return;
         }
+        drawFootDust(ctx, pose);
         // Keep the printed colours and the face readable on every paper tone.
         const paintCat = (c: Ctx) => art.draw(c, pose);
         paintCat(ctx);
@@ -462,6 +495,16 @@ function drawWorldFrame(
       paint();
       continue;
     }
+    if (sim && sprite.native && !sprite.footprint) {
+      // A tall piece on a single point in front of the cat (a tree, a lamp post, a landmark piece):
+      // it keeps its own colours, but inside a window around the cat it leaves three of every four
+      // pixels open, so the cat shows through in pure palette colours instead of a muddy blend.
+      ctx.save();
+      ctx.clip(seeThroughClip(sim.player), "evenodd");
+      paint();
+      ctx.restore();
+      continue;
+    }
     ctx.save();
     ctx.globalAlpha *= ISO_DEPTH.fade;
     paint();
@@ -474,6 +517,8 @@ function drawWorldFrame(
       // Off-screen effects are culled; the moon pulse spreads over the whole view.
       if (effect.kind !== "moon-stun" && !inNear(effect.x, effect.y, 60)) continue;
       upright(effect.x, effect.y, () => {
+        // The puppet's own hit acting (flash, squash, recoil, shake) replaces the old red burst over the cat.
+        if (effect.kind === "hurt" && catArt(sim.player.id).iso) return;
         if (drawPaperStatusEffect(ctx, effect)) return;
         if (drawWashEffect(ctx, effect, sim)) return;
         if (drawPropEffect(ctx, effect)) return;

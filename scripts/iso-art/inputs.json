@@ -365,5 +365,70 @@
   0.9,
   0.86,
   0.85
- ]
+ ],
+ "cats": {
+  "zero": {
+   "palette": {
+    "head": "#E3B686",
+    "headDark": "#1B1716",
+    "headLight": "#F6D3A0",
+    "earInner": "#D98B80",
+    "ink": "#120B18",
+    "blush": "#D8948C",
+    "nose": "#5A3828",
+    "white": "#FFFFFF",
+    "mark": "#F0C341"
+   },
+   "accessories": [
+    "sunglasses",
+    "gold-chain"
+   ],
+   "body": {
+    "rim": "#c9bba6",
+    "tail": "#c6a05b",
+    "paw": "#51424a",
+    "pawEdge": "#8d746c",
+    "cape": "#483a50",
+    "capeEdge": "#a18664",
+    "fold": "#282537",
+    "body": "#302a34",
+    "bodyEdge": "#726055",
+    "bib": "#4c3c3c",
+    "belt": "#77613f",
+    "arm": "#3c303b",
+    "tailoring": "split-coat",
+    "lining": "#79604e",
+    "trim": "#c5a16a",
+    "metal": "#ddb66b"
+   }
+  },
+  "nicole": {
+   "palette": {
+    "head": "#E8C7AA",
+    "headDark": "#1A1416",
+    "headLight": "#F8EDE3",
+    "earInner": "#D98890",
+    "ink": "#120B18",
+    "blush": "#D993A4",
+    "nose": "#5A3436",
+    "white": "#FFFFFF"
+   },
+   "accessories": [
+    "glasses"
+   ],
+   "body": {
+    "rim": "#cbbfae",
+    "tail": "#a98e77",
+    "paw": "#ceb28f",
+    "pawEdge": "#ead4af",
+    "body": "#f6f1e7",
+    "bodyEdge": "#fffdf6",
+    "arm": "#d3b69b",
+    "fold": "#576174",
+    "tailoring": "tee-and-jeans",
+    "denim": "#547da2",
+    "denimEdge": "#a4b9cb"
+   }
+  }
+ }
 }

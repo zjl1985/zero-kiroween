@@ -22,8 +22,7 @@ import { drawWorld } from "../dist/render/world.js";
 import { worldSprites } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
-import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
-import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { GEN_SPRITES, genCanvas } from "../dist/render/iso/gen-sprites.js";
 import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Command-order contracts only; the iso view was not viewed in a browser.
@@ -102,13 +101,10 @@ test("multi-tile buildings sort by the front-most corner and use their footprint
   assert.equal(decorFootprint("tree", x, y, 1), null);
 });
 
-// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+// The chosen cat draws its baked puppet frame; find that frame's drawImage (iso/cat-sheet.ts).
 function catFrameIndex(calls, id) {
-  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
-  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
-    const [, , dir, anim, frame, palette] = k.split(":");
-    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
-  }));
+  const prefix = `cat-${id}-`;
+  const canvases = new Set(Object.keys(GEN_SPRITES).filter((k) => k.startsWith(prefix)).map((k) => genCanvas(k)));
   return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
 }
 

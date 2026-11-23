@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { isoYardPieces } from "../dist/render/iso/yard-models.js";
-import { genCanvas, genShadowCanvas, genSprite, genSpriteCacheSize } from "../dist/render/iso/gen-sprites.js";
+import { GEN_SPRITES, genCanvas, genShadowCanvas, genSprite, genSpriteCacheSize } from "../dist/render/iso/gen-sprites.js";
 import { modelFootprint } from "../dist/render/iso/depth.js";
 import { SOLID_SCENERY, YARD_FURNITURE, YARD_RAILS } from "../dist/game/scenery.js";
 import { CROP_PATCHES, HOMESTEADS, HOUSE_WALKS, YARD_EXTENSION_PLOTS } from "../dist/render/homestead-layout.js";
@@ -15,7 +15,6 @@ import { createSim } from "../dist/game/sim.js";
 import { drawWorld } from "../dist/render/world.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
-import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 
 // Footprint and draw-order contracts only; the baked yard sprites were viewed offline (frame-shot), not in a browser.
 const pieces = isoYardPieces();
@@ -139,13 +138,10 @@ function environment(t) {
   t.after(() => { clearSpriteCache(); clearWorldRenderCache(); });
 }
 
-// The chosen cat draws its cached iso frame; find that frame's drawImage (iso/cat-sheet.ts).
+// The chosen cat draws its baked puppet frame; find that frame's drawImage (iso/cat-sheet.ts).
 function catFrameIndex(calls, id) {
-  const sheet = CAT_ART.get(id).iso, prefix = `iso-sprite:${sheet.identity}:`;
-  const canvases = new Set(isoSpriteCacheKeys().filter((k) => k.startsWith(prefix)).map((k) => {
-    const [, , dir, anim, frame, palette] = k.split(":");
-    return isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas;
-  }));
+  const prefix = `cat-${id}-`;
+  const canvases = new Set(Object.keys(GEN_SPRITES).filter((k) => k.startsWith(prefix)).map((k) => genCanvas(k)));
   return calls.findIndex((c) => c.op === "drawImage" && canvases.has(c.args[0]));
 }
 
