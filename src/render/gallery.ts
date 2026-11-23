@@ -6,6 +6,7 @@
  * locale change at time 0, with fixed render-only seeds.
  */
 import { drawVillageSprite, type VillageAsset, VILLAGE_PIXEL } from "./village-art.js";
+import { drawPuppetFigure } from "./iso/puppet.js";
 import { VILLAGE_PIXELS } from "./village-pixels.js";
 import { t } from "../content/i18n.js";
 import type { Locale } from "../content/keys.js";
@@ -60,6 +61,8 @@ const PAINTERS: Record<GalleryKind, Painter> = {
   cat(ctx, cell, st) {
     const art = CAT_ART.find(cell.id);
     if (!art) return;
+    // The baked puppet, enlarged by a whole factor so its pixels stay square and it fills the cell like the old figure.
+    if (art.iso && drawPuppetFigure(ctx, art.iso, { x: st.x + st.w / 2, y: st.y + st.h - 10, scale: Math.min(4, Math.floor((st.h - 16) / 35)) })) return;
     const k = Math.min(2.1, st.h / 70);
     ctx.save();
     ctx.translate(st.x + st.w / 2, st.y + st.h - 10);
@@ -168,13 +171,17 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     const cat = cell.cat === undefined ? undefined : CAT_ART.find(cell.cat), art = costumeArtOf(cell.id);
     if (!cat || !art) return;
     const pose = { id: cat.id, x: 0, y: 0, facing: 1 as const, moving: false, dashing: false, hurt: false, time: 0, costume: cell.id };
-    // Full body on the left, fitted to the whole cat box (outfit and makeup included).
-    const k = Math.min(1.5, (st.h - 6) / (CAT_BOX.b - CAT_BOX.t));
-    ctx.save();
-    ctx.translate(st.x + st.w * 0.3, st.y + st.h - 3 - CAT_BOX.b * k);
-    ctx.scale(k, k);
-    cat.draw(ctx, pose);
-    ctx.restore();
+    // Full body on the left: the baked puppet under its costume layer, enlarged three times.
+    if (cat.iso && drawPuppetFigure(ctx, cat.iso, { x: st.x + st.w * 0.3, y: st.y + st.h - 3, scale: 3, layer: cell.id })) {
+      // (the portrait and the skill marks follow below)
+    } else {
+      const k = Math.min(1.5, (st.h - 6) / (CAT_BOX.b - CAT_BOX.t));
+      ctx.save();
+      ctx.translate(st.x + st.w * 0.3, st.y + st.h - 3 - CAT_BOX.b * k);
+      ctx.scale(k, k);
+      cat.draw(ctx, pose);
+      ctx.restore();
+    }
     // Head portrait with the makeup layer, top right.
     cat.portrait(ctx, { ...pose, x: st.x + st.w * 0.77, y: st.y + 8 + 52 * 0.85 }, 0.16 * 0.85);
     // The costume skill's ground marks, bottom right.

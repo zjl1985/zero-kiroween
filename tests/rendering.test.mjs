@@ -13,7 +13,7 @@ import { paintGallery } from "../dist/render/gallery.js";
 import { tintedSprite } from "../dist/render/sprite-tint.js";
 import { POPUP } from "../dist/render/timeline.js";
 import { drawWaterShape } from "../dist/render/water-art.js";
-import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { GEN_SPRITES, genCanvas } from "../dist/render/iso/gen-sprites.js";
 import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Command recording only: these tests check dispatch/compositing, not browser pixels.
@@ -69,21 +69,19 @@ const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
 const tints = (ctx) => ctx.calls.filter((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-atop");
 const signature = (c) => [c.op, c.fillStyle, c.args.map((a) => a instanceof RecordingPath ? a.ops : a)];
 
-test("gallery dispatches movement-only cat cards through registered art", (t) => {
+test("gallery draws every cat card and wardrobe card from the baked puppet frames", (t) => {
   drawingEnvironment(t);
-  const seen = [];
-  for (const art of CAT_ART.all()) {
-    t.mock.method(art, "draw", (_ctx, pose) => seen.push([art.id, "idle", { ...pose }]));
-    t.mock.method(art, "skillPreview", (_ctx, pose) => seen.push([art.id, "skill", { ...pose }]));
-  }
-  assert.ok(paintGallery(canvas(), "en", 760, 1) > 0);
-  const plain = seen.filter(([, , pose]) => pose.costume === undefined);
-  assert.deepEqual(plain.map(([id, state]) => [id, state]), CATS.ids().flatMap((id) => [[id, "idle"]]));
-  // The wardrobe draws every costume on every cat, in wardrobe order.
-  const worn = seen.filter(([, , pose]) => pose.costume !== undefined);
-  assert.deepEqual(worn.map(([id, state, pose]) => [pose.costume, id, state]),
-    COSTUME_DEFS.ids().flatMap((c) => CATS.ids().map((id) => [c, id, "idle"])));
-  for (const [, , pose] of seen) assert.equal(pose.dashing, false, "generic gallery never chooses a dash");
+  const sheet = canvas();
+  assert.ok(paintGallery(sheet, "en", 760, 1) > 0);
+  // Every baked sprite decodes to one canvas per id, so a drawn canvas names its frame.
+  const byCanvas = new Map(Object.keys(GEN_SPRITES).filter((k) => k.startsWith("cat-")).map((k) => [genCanvas(k), k]));
+  const drawn = images(sheet.getContext()).flatMap((c) => (byCanvas.has(c.args[0]) ? [byCanvas.get(c.args[0])] : []));
+  const cats = CATS.ids();
+  // Cat cards: the standing front frame of each cat, in registration order.
+  assert.deepEqual(drawn.slice(0, cats.length), cats.map((id) => `cat-${id}-se-idle-0`));
+  // The wardrobe shows every costume on every cat, in wardrobe order: the frame, then its costume layer.
+  assert.deepEqual(drawn.slice(cats.length),
+    COSTUME_DEFS.ids().flatMap((c) => cats.flatMap((id) => [`cat-${id}-se-idle-0`, `cat-${id}@${c}-se-idle-0`])));
 });
 
 test("cat skill previews keep the dash for Zero and use a native moon field for Nicole", (t) => {

@@ -10,7 +10,8 @@ import { SCENERY_PALETTE } from "../dist/render/iso/gen/scenery-pixels.js";
 import {
   decodeRuns, genBounds, genCanvas, genImage, GEN_SPRITES, genSpriteCacheKeys, genSpriteCacheSize,
 } from "../dist/render/iso/gen-sprites.js";
-import { PUPPET, puppetFrame, puppetLayer, puppetSprite } from "../dist/render/iso/puppet.js";
+import { PUPPET, drawPuppetFigure, puppetFrame, puppetLayer, puppetSprite } from "../dist/render/iso/puppet.js";
+import { figureScale, paintPlaybillPortrait } from "../dist/render/playbill-stage.js";
 import { drawPuppetStatus } from "../dist/render/iso/puppet-status.js";
 import { ISO, snap, toScreen } from "../dist/render/iso/projection.js";
 import { ISO_ANIMS, ISO_DIRS, clearIsoDirections, isoDirectionMemorySize } from "../dist/render/iso/sprite-sheet.js";
@@ -323,6 +324,28 @@ test("hurt, the hit flash and squash, the decoy and a costume draw through the c
   assert.ok(worn.every((d) => d.alpha === 1));
   for (const id of COSTUME_DEFS.ids())
     for (const art2 of cats) assert.equal(typeof puppetLayer(art2.iso, id, "sw", "walk", 3), "string", `${id} on ${art2.id}`);
+});
+
+test("UI figures stamp the baked frame and its layer at a whole-number scale on the same foot", (t) => {
+  const art = cats[0], costume = COSTUME_DEFS.ids()[0];
+  environment(t);
+  const ctx = canvas().getContext("2d");
+  assert.equal(drawPuppetFigure(ctx, art.iso, { x: 100.6, y: 50.2, scale: 3, layer: costume }), true);
+  const draws = catDraws(ctx.calls, art);
+  assert.deepEqual(draws.map((d) => d.key), [`cat-${art.id}-se-idle-0`, `cat-${art.id}@${costume}-se-idle-0`], "the layer follows the frame");
+  const s = GEN_SPRITES[`cat-${art.id}-se-idle-0`], l = GEN_SPRITES[`cat-${art.id}@${costume}-se-idle-0`];
+  assert.deepEqual(ctx.calls[draws[0].i].args.slice(1), [101 - s.ax * 3, 50 - s.ay * 3, s.w * 3, s.h * 3], "3x about the foot (101, 50)");
+  assert.deepEqual(ctx.calls[draws[1].i].args.slice(1), [101 - l.ax * 3, 50 - l.ay * 3, l.w * 3, l.h * 3], "the layer keeps the frame's foot");
+  assert.equal(drawPuppetFigure(ctx, art.iso, { x: 0, y: 0, scale: 3, layer: "no-such-layer" }), true, "a missing layer is skipped");
+  assert.equal(catDraws(ctx.calls, art).length, 3);
+  // The roster dais paints the same figure over its pedestal for the character panel.
+  const stage = canvas();
+  paintPlaybillPortrait(stage, art.id, costume);
+  const dais = catDraws(stage.getContext("2d").calls, art);
+  assert.deepEqual(dais.map((d) => d.key), [`cat-${art.id}-se-idle-0`, `cat-${art.id}@${costume}-se-idle-0`]);
+  const k = figureScale(stage.height);
+  assert.ok(Number.isInteger(k) && k >= 2, `scale ${k}`);
+  assert.deepEqual(stage.getContext("2d").calls[dais[0].i].args.slice(1), [200 - s.ax * k, 231 - s.ay * k, s.w * k, s.h * k]);
 });
 
 test("burn and wet marks sit on the puppet's body box; a wet cat does not burn", () => {

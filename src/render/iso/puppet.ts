@@ -77,6 +77,41 @@ export function drawPuppet(ctx: Ctx, id: string, x: number, y: number, o: Puppet
   return true;
 }
 
+export interface PuppetFigure {
+  /** Foot position in the caller's pixel space. */
+  readonly x: number;
+  readonly y: number;
+  /** Whole-number enlargement of the native frame (1 is the in-game size). */
+  readonly scale: number;
+  readonly dir?: IsoDir;
+  readonly anim?: IsoAnim;
+  readonly frame?: number;
+  /** A baked layer on the frame (the worn costume). */
+  readonly layer?: string;
+}
+
+/**
+ * A baked puppet frame for the UI (the roster dais, the gallery): enlarged by
+ * a whole factor, nearest neighbour, with its foot on (x, y) and its layer
+ * over it. Returns false when the frame has no canvas.
+ */
+export function drawPuppetFigure(ctx: Ctx, p: IsoPuppet, o: PuppetFigure): boolean {
+  const anim = o.anim ?? "idle", frame = o.frame ?? 0, dir = o.dir ?? "se", id = puppetSprite(p, dir, anim, frame);
+  const s = genSprite(id), img = genImage(id), k = Math.max(1, Math.round(o.scale));
+  if (!s || !img) return false;
+  const layer = o.layer ? puppetLayer(p, o.layer, dir, anim, frame) : undefined;
+  const x = Math.round(o.x), y = Math.round(o.y);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, x - s.ax * k, y - s.ay * k, s.w * k, s.h * k);
+  if (layer) {
+    const l = genSprite(layer)!, li = genImage(layer)!;
+    ctx.drawImage(li, x - l.ax * k, y - l.ay * k, l.w * k, l.h * k);
+  }
+  ctx.restore();
+  return true;
+}
+
 /** Hard contact shadow under a puppet at world (x, y): a stepped 2:1 ellipse in native pixels. */
 export function drawPuppetShadow(ctx: Ctx, x: number, y: number, s: { readonly rx: number; readonly ry: number; readonly dx?: number; readonly dy?: number }): void {
   const p = toScreen(x, y), fx = snap(p.x) + (s.dx ?? 0), fy = snap(p.y) + (s.dy ?? 0);
