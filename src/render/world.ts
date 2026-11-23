@@ -31,10 +31,8 @@ import { drawPlaybillStage } from "./playbill-stage.js";
 import { drawPixelStroke, drawFootDust } from "./pixel.js";
 import {
   drawDawnWash,
-  drawForeground,
   drawProp,
   drawLamp,
-  drawAtmosphere,
   drawWind,
   drawGroundLight,
   drawFrame,
@@ -86,6 +84,8 @@ import { groundPass } from "./iso/ground.js";
 import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
 import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
 import { drawLighting, gatherLights, lightFrame } from "./iso/lighting.js";
+import { drawFog, drawNearLayer, drawParticles, particles } from "./iso/post.js";
+import { FIRE } from "../defs/fire.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   /** Optional developer CPU instrumentation; absent in normal gameplay. */
@@ -429,7 +429,6 @@ function drawWorldFrame(
       upright(x, y, () => drawCueWorld(ctx, [c], sim, view.time, reduced));
     }
   }
-  ground((g) => drawAtmosphere(g, view.time, sim ? dawnAmount(progress, session) : 0, lamps));
   if (sim && warnings.length) {
     // Project just the hostile keylines over the effects and foreground. Keep the cat's face clear.
     const exposed = new Path2D(), p = toScreen(sim.player.x, sim.player.y);
@@ -443,16 +442,27 @@ function drawWorldFrame(
   }
   if (!sim && titleCat) upright(titleCat.x, titleCat.y, () => drawPlaybillStage(ctx, titleCat));
   ctx.restore();
-  // HD-2D light buffer multiplied onto the finished scene (iso/lighting.ts).
+  // HD-2D post, in view pixels: light multiply -> fog -> particles -> blurred near layer -> UI overlays.
+  const dawn = sim ? dawnAmount(progress, session) : 0;
   drawLighting(ctx, lightFrame(gatherLights({ lamps, windows: yardWindows, decor: yardDecor, sim }), {
     project: (x, y) => projectToView(projection, x, y), zoom, width, height,
-    focus: sim?.player ?? toWorld(camera.x, camera.y),
-    dawn: sim ? dawnAmount(progress, session) : 0, time: view.time, reduced,
+    focus: sim?.player ?? toWorld(camera.x, camera.y), dawn, time: view.time, reduced,
   }), width, height);
+  // Two parallax ground-fog layers (iso/post.ts).
+  drawFog(ctx, width, height, camera.x, camera.y, view.time, reduced, dawn);
+  // Fireflies, falling leaves, and ash over the first burning cells (render hash, capped).
+  const fires: { x: number; y: number }[] = [];
+  if (sim) for (const [key, left] of Object.entries(sim.fire.cells)) {
+    if (!(left > 0) || fires.length >= 8) continue;
+    const [ix, iy] = key.split(",").map(Number) as [number, number];
+    fires.push(projectToView(projection, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell));
+  }
+  drawParticles(ctx, particles({ width, height, cameraX: camera.x, cameraY: camera.y, time: view.time, reduced, dawn, fires }));
+  // Pre-blurred foreground leaves at the bottom corners; a corner fades over the cat.
+  drawNearLayer(ctx, width, height, sim ? projectToView(projection, sim.player.x, sim.player.y) : undefined, view.time, reduced);
+  // Screen UI overlays: cue screen, navigation tabs, the frame.
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
-  // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
   if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);
-  drawForeground(ctx, sim ? projectToView(projection, sim.player.x, sim.player.y) : undefined, false, width, height);
   drawFrame(ctx, width, height);
   // Subtle four-sided depth, leaving all gameplay visible.
   ctx.save();

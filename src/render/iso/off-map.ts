@@ -11,6 +11,8 @@ import { visHash } from "../hash.js";
 import { mix } from "../pixel-art.js";
 import { depthKey, toScreen, toWorld } from "./projection.js";
 import { isoPath } from "./ground.js";
+import { paintBlurred } from "./blur.js";
+import { surface } from "../../engine/surface.js";
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -34,6 +36,8 @@ export const OFF_MAP = {
   dawnAlpha: 0.45,
   /** Fog veil over the background strip north of WORLD.playTop: bands and peak alpha at y = 0. */
   veil: { bands: 4, alpha: 0.28, color: "#1c2d40" },
+  /** Cache-time blur of each block: the pre-blurred far layer of the fake depth of field (plan 8.3). */
+  blur: { radius: 1, passes: 2 },
 } as const;
 
 /** World units outside the WORLD rectangle (0 inside). */
@@ -110,23 +114,32 @@ function paintTree(c: Ctx, t: Tree, ox: number, oy: number): void {
   }
 }
 
-/** Paints one block: banded fog cells outside the diamond, then the tree wall. Pure of (bx, by). */
-function paintBlock(c: Ctx, bx: number, by: number): void {
-  const B = OFF_MAP.block, S = OFF_MAP.cell, ox = bx * B, oy = by * B;
-  for (let y = 0; y < B; y += S) {
+/**
+ * Paints one block: banded fog cells outside the diamond, then the tree
+ * wall, with the block's top-left corner at (dx, dy) of `c`. With a margin
+ * (dx, dy > 0) the fog cells and trees around the block are painted too, from
+ * the same global functions, so blurred neighbours meet without a seam.
+ * Pure of (bx, by, dx, dy).
+ */
+function paintBlock(c: Ctx, bx: number, by: number, dx = 0, dy = 0): void {
+  const B = OFF_MAP.block, S = OFF_MAP.cell, ox = bx * B - dx, oy = by * B - dy;
+  const w = B + 2 * dx, h = B + 2 * dy;
+  // Fog cells stay on the global 4 px grid whatever the margin.
+  const gx0 = Math.floor(ox / S) * S, gy0 = Math.floor(oy / S) * S;
+  for (let gy = gy0; gy < oy + h; gy += S) {
     // Run-length rows: one rectangle per run of one fog colour.
-    let run = 0, colour = "";
-    const end = (x: number) => {
-      if (colour) { c.fillStyle = colour; c.fillRect(run, y, x - run, S); }
+    let run = gx0, colour = "";
+    const end = (gx: number) => {
+      if (colour) { c.fillStyle = colour; c.fillRect(run - ox, gy - oy, gx - run, S); }
     };
-    for (let x = 0; x < B; x += S) {
-      const w = toWorld(ox + x + S / 2, oy + y + S / 2), d = outsideDistance(w.x, w.y), next = d > 0 ? fogColour(d) : "";
+    for (let gx = gx0; gx < ox + w; gx += S) {
+      const p = toWorld(gx + S / 2, gy + S / 2), d = outsideDistance(p.x, p.y), next = d > 0 ? fogColour(d) : "";
       if (next === colour) continue;
-      end(x);
-      run = x;
+      end(gx);
+      run = gx;
       colour = next;
     }
-    end(B);
+    end(Math.ceil((ox + w - gx0) / S) * S + gx0);
   }
   for (const t of blockTrees(bx, by)) paintTree(c, t, ox, oy);
 }
@@ -141,7 +154,9 @@ export function drawOffMap(ctx: Ctx, x0: number, y0: number, x1: number, y1: num
   for (let by = Math.floor(y0 / B); by <= Math.floor(y1 / B); by++)
     for (let bx = Math.floor(x0 / B); bx <= Math.floor(x1 / B); bx++) {
       if (!blockOffMap(bx, by)) continue;
-      cachedSprite(`offmap:${bx}:${by}`, B, B, 1, (c) => paintBlock(c as Ctx, bx, by)).draw(ctx, { x: bx * B, y: by * B });
+      cachedSprite(`offmap:${bx}:${by}`, B, B, 1, (c) =>
+        paintBlurred(c, surface, B, B, OFF_MAP.blur.radius, OFF_MAP.blur.passes, (s, dx, dy) => paintBlock(s as Ctx, bx, by, dx, dy)),
+      ).draw(ctx, { x: bx * B, y: by * B });
     }
   if (dawn > 0) {
     ctx.save();

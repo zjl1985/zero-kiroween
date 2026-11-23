@@ -89,6 +89,7 @@ import {
 } from "./paper-material.js";
 import { clearIsoGroundCache } from "./iso/terrain-bake.js";
 import { clearLighting } from "./iso/lighting.js";
+import { clearPost } from "./iso/post.js";
 
 // ---------------------------------------------------------------- decor sprite cache
 export interface Bounds {
@@ -701,6 +702,7 @@ export function clearWorldRenderCache(): void {
   clearIsoSpriteCache();
   clearIsoDirections();
   clearLighting();
+  clearPost();
 }
 
 // ---------------------------------------------------------------- sprites
