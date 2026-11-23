@@ -1,4 +1,4 @@
-import { CROP_PATCHES, type GroundPoint } from "./homestead-layout.js";
+import { CROP_PATCHES, YARD_EXTENSION_PLOTS, type GroundPoint } from "./homestead-layout.js";
 import type { Ctx } from "./paper-material.js";
 import { drawVillageSoil, drawVillageSprite } from "./village-art.js";
 
@@ -51,8 +51,7 @@ export function drawYardGarden(ctx: Ctx): void {
  * water still draw afterwards, so decorative plots never impersonate a route.
  */
 export function drawYardGardenExtension(ctx: Ctx): void {
-  plot(ctx,[[278,568],[365,558],[420,591],[425,643],[402,688],[329,712],[270,668]]);
-  plot(ctx,[[634,610],[698,597],[738,629],[731,694],[706,737],[650,731],[624,680]]);
+  for (const outline of YARD_EXTENSION_PLOTS) plot(ctx,outline);
   for (const [x,y,v] of [[303,590,0],[340,583,1],[381,608,0],[293,625,0],[329,644,1],
     [385,665,1],[353,682,0],[287,666,1],
     [665,629,1],[706,641,0],[652,670,1],[692,686,1],[707,718,0],

@@ -15,6 +15,11 @@ export const CROP_PATCHES = [
   {kind:"vegetable",outline:[[638,358],[698,345],[743,365],[755,403],[724,435],[665,439],[628,409],[619,381]],
    rows:[[645,371,5],[637,390,6],[650,411,5]]},
 ] as const;
+/** Garden soil plots one screen south of the yard (chunks (0, 1) and (1, 1)). */
+export const YARD_EXTENSION_PLOTS: readonly (readonly GroundPoint[])[] = [
+  [[278,568],[365,558],[420,591],[425,643],[402,688],[329,712],[270,668]],
+  [[634,610],[698,597],[738,629],[731,694],[706,737],[650,731],[624,680]],
+];
 /** Smooth arrival, with zero derivative at either side of the 480..540 join. */
 export function roadArrival(t: number): number {
   const q = Math.max(0,Math.min(1,t)); return q*q*(3-2*q);
