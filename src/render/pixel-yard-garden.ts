@@ -2,7 +2,7 @@ import { CROP_PATCHES, type GroundPoint } from "./homestead-layout.js";
 import type { Ctx } from "./paper-material.js";
 import { drawVillageSoil, drawVillageSprite } from "./village-art.js";
 
-function inPlot(points: readonly GroundPoint[], x: number, y: number): boolean {
+export function inPlot(points: readonly GroundPoint[], x: number, y: number): boolean {
   let inside = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
     const a = points[i]!, b = points[j]!;
@@ -10,11 +10,21 @@ function inPlot(points: readonly GroundPoint[], x: number, y: number): boolean {
   }
   return inside;
 }
+/** Signed distance to the authored outline: negative inside, positive outside. */
+export function plotDistance(points: readonly GroundPoint[], x: number, y: number): number {
+  let d = Infinity;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[j]!, b = points[i]!, dx = b[0]-a[0], dy = b[1]-a[1];
+    const t = Math.max(0, Math.min(1, ((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy)));
+    d = Math.min(d, Math.hypot(x-a[0]-t*dx, y-a[1]-t*dy));
+  }
+  return inPlot(points,x,y) ? -d : d;
+}
 function plot(ctx: Ctx, points: readonly GroundPoint[]): void {
   drawVillageSoil(ctx, {
     x0: Math.min(...points.map(p=>p[0])), y0: Math.min(...points.map(p=>p[1])),
     x1: Math.max(...points.map(p=>p[0])), y1: Math.max(...points.map(p=>p[1])),
-  }, (x,y)=>inPlot(points,x,y));
+  }, (x,y)=>plotDistance(points,x,y));
 }
 /** Authored garden pockets, not two flat polygon stickers. The grass/soil
  * corners and vegetation now come from the same raster sheet as the houses.
