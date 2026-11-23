@@ -136,3 +136,61 @@ test("drawIsoGround bakes visible blocks on the fallback path and evicts canvase
   assert.equal(cachedIsoBlockCount(), 0);
   assert.ok(canvases.every((c) => c.width === 0 && c.height === 0));
 });
+
+test("a failed or stalled terrain worker is replaced once, then blocks bake on the main thread", (t) => {
+  const workers = [];
+  class TerrainWorker {
+    requests = [];
+    terminated = false;
+    constructor() { workers.push(this); }
+    postMessage(request) { this.requests.push(request); }
+    terminate() { this.terminated = true; }
+  }
+  const canvases = [], draws = [];
+  const ctx2d = (canvas) => ({ canvas, createImageData: (w, hgt) => ({ data: new Uint8ClampedArray(w * hgt * 4) }), putImageData() {} });
+  const view = {
+    save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {},
+    drawImage: (img) => draws.push(img),
+  };
+  const globals = {
+    Worker: TerrainWorker, OffscreenCanvas: class {},
+    document: { createElement: () => { const c = { width: 0, height: 0 }; c.getContext = () => ctx2d(c); canvases.push(c); return c; } },
+  };
+  for (const [key, value] of Object.entries(globals)) {
+    const old = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    t.after(() => old ? Object.defineProperty(globalThis, key, old) : delete globalThis[key]);
+  }
+  let clock = 1000;
+  t.mock.method(performance, "now", () => clock);
+  t.after(clearIsoGroundCache);
+  clearIsoGroundCache();
+  const s = toScreen(480, 270), rect = { x0: s.x - 480, y0: s.y - 270, x1: s.x + 480, y1: s.y + 270 };
+  drawIsoGround(view, SEED, rect, false);
+  assert.equal(workers.length, 1);
+  assert.equal(workers[0].requests.length, 1);
+  // A null reply (no OffscreenCanvas context in the worker) terminates it; the next frame starts a fresh worker.
+  workers[0].onmessage({ data: { id: workers[0].requests[0].id, bitmap: null } });
+  assert.equal(workers[0].terminated, true);
+  drawIsoGround(view, SEED, rect, false);
+  assert.equal(workers.length, 2, "one retry with a fresh worker");
+  assert.equal(workers[1].requests.length, 1);
+  // The fresh worker never replies: within the timeout warming waits, after it the worker is dropped.
+  clock += ISO_BLOCK.workerTimeoutMs - 1;
+  drawIsoGround(view, SEED, rect, false);
+  assert.equal(workers[1].terminated, false);
+  assert.equal(cachedIsoBlockCount(), 0);
+  clock += 2;
+  drawIsoGround(view, SEED, rect, false);
+  assert.equal(workers[1].terminated, true, "a stalled request times out");
+  assert.equal(workers.length, 2, "no third worker: bake locally from now on");
+  assert.ok(cachedIsoBlockCount() > 0, "the main-thread fallback baked a block in the same frame");
+  // A late reply from the dropped worker is ignored.
+  const late = { closed: false, close() { this.closed = true; } };
+  workers[1].onmessage({ data: { id: workers[1].requests[0].id, bitmap: late } });
+  assert.equal(late.closed, true);
+  // clearIsoGroundCache starts the next run with a fresh worker budget.
+  clearIsoGroundCache();
+  drawIsoGround(view, SEED, rect, false);
+  assert.equal(workers.length, 3);
+});

@@ -39,6 +39,10 @@ export const ISO_BLOCK = {
   localBudgetMs: 2,
   /** Screen pixels around the view that are warmed ahead. */
   prefetch: 128,
+  /** A worker request with no reply after this long counts as a failure (ms). */
+  workerTimeoutMs: 4000,
+  /** Fresh workers started after a failure before baking falls back to the main thread. */
+  workerRetries: 1,
 } as const;
 
 export interface IsoBlockRequest {
@@ -249,17 +253,20 @@ interface Tile { key: string; col: number; row: number }
 
 let wanted = new Set<string>();
 let worker: Worker | null | undefined;
-let inFlight: { id: number; key: string } | undefined;
+let inFlight: { id: number; key: string; sent: number } | undefined;
 let requestId = 0;
+/** Worker failures this run (null reply, error, stall); after ISO_BLOCK.workerRetries fresh workers, bake locally. */
+let workerFailures = 0;
 let localBake: { key: string; pixels: Uint8ClampedArray; water: WaterFrames; steps: Generator<void> } | undefined;
 /** Keys whose canvas copy failed (no pixel context): placeholder only, never retried in a loop. */
 const failed = new Set<string>();
 
+/** Drops a failed or stalled worker; a fresh one is started up to ISO_BLOCK.workerRetries times. */
 function disableWorker(w: Worker): void {
   if (worker !== w) return;
   w.terminate();
   inFlight = undefined;
-  worker = null;
+  worker = ++workerFailures > ISO_BLOCK.workerRetries ? null : undefined;
 }
 function blockWorker(): Worker | null {
   if (worker !== undefined) return worker;
@@ -285,11 +292,13 @@ function blockWorker(): Worker | null {
 }
 function warm(seed: number, tile: Tile | undefined): void {
   if (localBake && !wanted.has(localBake.key)) localBake = undefined;
+  // A worker that never replies is a failure too, so warming never stops for good.
+  if (inFlight && worker && performance.now() - inFlight.sent > ISO_BLOCK.workerTimeoutMs) disableWorker(worker);
   if (!tile || inFlight) return;
   const w = blockWorker();
   if (w) {
     const id = ++requestId, request: IsoBlockRequest = { kind: "iso-block", id, seed, col: tile.col, row: tile.row };
-    inFlight = { id, key: tile.key };
+    inFlight = { id, key: tile.key, sent: performance.now() };
     try { w.postMessage(request); return; } catch { disableWorker(w); }
   }
   if (!localBake || localBake.key !== tile.key) {
@@ -402,6 +411,7 @@ export function cachedIsoImageCount(): number {
 export function clearIsoGroundCache(): void {
   worker?.terminate();
   worker = undefined;
+  workerFailures = 0;
   inFlight = undefined;
   localBake = undefined;
   wanted = new Set();
