@@ -300,6 +300,8 @@ export function rasterizeModel(model: IsoModel): IsoRaster {
 /** A baked volume: canvases where the platform has them, plus placement data. */
 export interface IsoVolume {
   readonly key: string;
+  /** The model's declared ground footprint, local units around the foot. */
+  readonly base: Footprint;
   readonly anchor: Vec;
   readonly bounds: ScreenBox;
   readonly volume: ScreenBox;
@@ -343,12 +345,13 @@ export function isoVolume(key: string, build: () => IsoModel): IsoVolume {
     volumes.set(key, hit);
     return hit;
   }
-  const r = rasterizeModel(build());
+  const model = build();
+  const r = rasterizeModel(model);
   const canvas = toCanvas(r.width, r.height, r.pixels);
   const hasShadow = r.shadow.some((v, i) => (i & 3) === 3 && v > 0);
   const shadow = hasShadow ? toCanvas(r.width, r.height, r.shadow) : undefined;
   const v: IsoVolume = {
-    key, anchor: r.anchor, bounds: r.bounds, volume: r.volume, footprint: r.footprint,
+    key, base: model.base, anchor: r.anchor, bounds: r.bounds, volume: r.volume, footprint: r.footprint,
     ...(canvas ? { canvas } : {}),
     ...(shadow ? { shadow } : {}),
   };

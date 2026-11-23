@@ -103,3 +103,13 @@ export function decorFootprint(kind: string, x: number, y: number, s: number): F
   const f = DECOR_FOOTPRINT[kind];
   return f ? { x0: x + f.l * s, x1: x + f.r * s, y0: y + f.t * s, y1: y + f.b * s } : null;
 }
+
+/** World footprint of a volume model's declared base (model.ts, local units) drawn at foot (x, y). */
+export function modelFootprint(base: { x: number; y: number; w: number; d: number }, x: number, y: number): Footprint {
+  return { x0: x + base.x, y0: y + base.y, x1: x + base.x + base.w, y1: y + base.y + base.d };
+}
+
+/** Art bounds around the foot of a baked volume (rasterize.ts `volume` box, relative to its anchor). */
+export function volumeBounds(volume: { x: number; y: number; w: number; h: number }): Bounds {
+  return { l: volume.x, r: volume.x + volume.w, t: volume.y, b: volume.y + volume.h };
+}

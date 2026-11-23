@@ -1,6 +1,6 @@
 import { PIXEL_DECOR_BOUNDS } from "./pixel-decor-bounds.js";
-import { YARD_FURNITURE, YARD_RAILS } from "../game/scenery.js";
-import { drawYardFurniture } from "./pixel-yard-props.js";
+import { isoYardPieces } from "./iso/yard-models.js";
+import { drawIsoShadow, drawIsoVolume, isoVolume } from "./iso/rasterize.js";
 import { activeWeaponArt, catArt, costumeArt, ENEMY_ART } from "./art-index.js";
 import { drawInkShard, drawPaperImpact } from "./craft-combat.js";
 import { enemyContact } from "../game/combat-observation.js";
@@ -42,7 +42,7 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
-import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, type Footprint } from "./iso/depth.js";
+import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, modelFootprint, volumeBounds } from "./iso/depth.js";
 import { drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawIsoGround, drawIsoWater } from "./iso/terrain-bake.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
@@ -212,18 +212,23 @@ function drawWorldFrame(
     addSprite(p.y, () => drawProp(ctx, p),
       !!sim && isoOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
   }
-  // Solid yard furniture stays opaque: drawn after the cat when the cat is behind it.
-  const addSolid = (x: number, y: number, draw: () => void, footprint?: Footprint) => {
-    if (!inNear(x, y)) return;
-    sprites.push({ y, draw, foot: { x, y }, ...(footprint ? { footprint } : {}) });
-  };
-  for (const p of YARD_FURNITURE)
-    addSolid(p.x, p.y, () => drawYardFurniture(ctx, p), {
-      x0: p.x + p.left - p.radius, x1: p.x + p.right + p.radius,
-      y0: p.y + p.contactY - p.radius, y1: p.y + p.contactY + p.radius,
+  // The opening yard as baked iso volumes (iso/yard-models.ts). Buildings fade over a cat
+  // behind them; low furniture and rails stay opaque, drawn after the cat when it is behind.
+  for (const p of isoYardPieces()) {
+    if (!inNear(p.x, p.y, p.reach)) continue;
+    const v = isoVolume(p.key, p.model),
+      fx = snap(p.x), fy = snap(p.y),
+      footprint = p.solid ? modelFootprint(v.base, p.x, p.y) : undefined;
+    // Hard shadows lie on the ground under every sprite.
+    upright(p.x, p.y, () => drawIsoShadow(ctx, v, fx, fy));
+    sprites.push({
+      y: p.y,
+      foot: { x: p.x, y: p.y },
+      ...(footprint ? { footprint } : {}),
+      occludesPlayer: p.fades && !!sim && isoOccludesActor(p.x, p.y, 1, volumeBounds(v.volume), sim.player, footprint),
+      draw: () => drawIsoVolume(ctx, v, fx, fy),
     });
-  for (const p of YARD_RAILS)
-    addSolid(p.x, p.y, () => drawProp(ctx, { ...p, kind: "fence", seed: 0 }));
+  }
   // Depth of a sprite: the front-most corner of its footprint, or depthKey of
   // its foot plus the painter's small sort bias. Hooks without a foot point
   // fall back to the cat's column.
