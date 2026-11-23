@@ -17,7 +17,7 @@ import { inFootprint } from "../game/props.js";
 import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
-import { paperOccludesActor } from "./craft-world.js";
+import { isoOccludesActor } from "./iso/depth.js";
 import { hash, type Ctx } from "./paper-material.js";
 import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
@@ -153,7 +153,7 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
                     inked: (m?.inkedUntil ?? 0) > elapsed,
                     regrow,
                     sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
-                }), !!sim && phase < 2 && !folded && paperOccludesActor(p.x, p.y, p.s, bd, sim.player), p);
+                }), !!sim && phase < 2 && !folded && isoOccludesActor(p.x, p.y, p.s, bd, sim.player), p);
             }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [

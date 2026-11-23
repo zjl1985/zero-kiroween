@@ -39,6 +39,7 @@ import type { Camera, ViewRect } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
 import { toScreen } from "./iso/projection.js";
+import { decorFootprint, isoOccludesActor, type Footprint } from "./iso/depth.js";
 import { drawInteractable } from "./craft-juice.js";
 import { drawSketched, sketchedSprite } from "./sprite-sketch.js";
 import { patchSpots } from "./paper-ground.js";
@@ -92,7 +93,7 @@ export interface Bounds {
   t: number;
   b: number;
 }
-/** Can a foreground paper piece cover the player's head or body? */
+/** Top-down test: can a foreground paper piece cover the player's head or body? The iso view uses iso/depth.ts isoOccludesActor. */
 export function paperOccludesActor(x: number, y: number, s: number, b: Bounds, actor: { x: number; y: number }): boolean {
   return actor.y <= y && actor.x + 26 > x + b.l * s && actor.x - 26 < x + b.r * s &&
     actor.y + 8 > y + b.t * s && actor.y - 68 < y + b.b * s;
@@ -701,6 +702,8 @@ export interface WorldSprite {
   foot?: { x: number; y: number };
   /** Resolved depth (depthKey of the foot plus bias); filled in by the renderer when absent. */
   key?: number;
+  /** Multi-tile ground footprint; the sprite then sorts by its front-most corner (iso/depth.ts). */
+  footprint?: Footprint;
   draw: () => void;
   occludesPlayer?: boolean;
 }
@@ -745,11 +748,12 @@ export function worldSprites(
         // Cull by the sprite's own bounds.
         if (d.x + bd.r < view.x0 || d.x + bd.l > view.x1 || d.y + bd.b < view.y0 || d.y + bd.t > view.y1) continue;
         if (d.kind === "lamp") lamps.push(d);
-        const pencil = pop?.sketch?.(d.x, d.y) ?? 0;
+        const pencil = pop?.sketch?.(d.x, d.y) ?? 0, footprint = decorFootprint(d.kind, d.x, d.y, d.s);
         sprites.push({
           y: d.y,
           foot: d,
-          occludesPlayer: !!pop?.cat && paperOccludesActor(d.x, d.y, 1, bd, pop.cat),
+          ...(footprint ? { footprint } : {}),
+          occludesPlayer: !!pop?.cat && isoOccludesActor(d.x, d.y, 1, bd, pop.cat, footprint ?? undefined),
           draw: () => drawDecor(ctx, d, pop?.reduced ? 0 : time, pop?.reduced ? undefined : activity, pencil),
         });
       }

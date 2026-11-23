@@ -42,7 +42,8 @@ import {
   LAMPS,
   YARD_PROPS,
 } from "./craft-scene.js";
-import { drawChunks, drawNavArrows, paperOccludesActor, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
+import { actorBehind, footprintKey, ISO_DEPTH, isoOccludesActor, type Footprint } from "./iso/depth.js";
+import { drawChunks, drawNavArrows, worldSprites, type VisibleLamp, type WorldSprite } from "./craft-world.js";
 import { drawFireGround, drawPropEffect, fireSprites, propSprites } from "./craft-props.js";
 import { townsfolkSprites } from "./craft-townsfolk.js";
 import { drawFoldGuards, drawPaperRain, drawWashEffect, drawWashGround, washFrame } from "./wash-art.js";
@@ -184,34 +185,41 @@ function drawWorldFrame(
     if (!inNear(l.x, l.y)) continue;
     lamps.push(l);
     addSprite(l.y, () => drawLamp(ctx, l, view.time),
-      !!sim && paperOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
+      !!sim && isoOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
   }
   ground(() => { for (const l of lamps) drawGroundLight(ctx, l.x, l.y, view.time, l.s); });
   for (const p of YARD_PROPS) {
     if (!inNear(p.x, p.y)) continue;
     addSprite(p.y, () => drawProp(ctx, p),
-      !!sim && paperOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
+      !!sim && isoOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
   }
-  let solidForeground = Infinity;
-  const addSolid = (x: number, y: number, s: number, bounds: { l: number; r: number; t: number; b: number }, draw: () => void) => {
+  // Solid yard furniture stays opaque: drawn after the cat when the cat is behind it.
+  const addSolid = (x: number, y: number, draw: () => void, footprint?: Footprint) => {
     if (!inNear(x, y)) return;
-    addSprite(y, draw, false, { x, y });
-    if (sim && paperOccludesActor(x, y, s, bounds, sim.player)) solidForeground = Math.min(solidForeground, depthKey(x, y));
+    sprites.push({ y, draw, foot: { x, y }, ...(footprint ? { footprint } : {}) });
   };
   for (const p of YARD_FURNITURE)
-    addSolid(p.x, p.y, 1, { l: p.left - p.radius, r: p.right + p.radius, t: -44, b: 12 }, () => drawYardFurniture(ctx, p));
+    addSolid(p.x, p.y, () => drawYardFurniture(ctx, p), {
+      x0: p.x + p.left - p.radius, x1: p.x + p.right + p.radius,
+      y0: p.y + p.contactY - p.radius, y1: p.y + p.contactY + p.radius,
+    });
   for (const p of YARD_RAILS)
-    addSolid(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS.fence, () => drawProp(ctx, { ...p, kind: "fence", seed: 0 }));
-  // Depth of a sprite: depthKey of its foot plus the painter's small sort bias.
-  // Hooks without a foot point fall back to the cat's column.
-  const keyOf = (s: WorldSprite) => s.key ?? (s.foot
-    ? depthKey(s.foot.x, s.foot.y) + (s.y - s.foot.y)
-    : depthKey(sim?.player.x ?? 0, s.y));
-  // The selected cat sorts just after the last scenery cut that could cover it.
-  // Solid furniture stays opaque and keeps the cat behind it when seen from the north.
-  const playerDepth = Math.min(solidForeground - .01,
-    sprites.reduce((k, sprite) => sprite.occludesPlayer ? Math.max(k, keyOf(sprite)) : k,
-      sim ? depthKey(sim.player.x, sim.player.y) : 0));
+    addSolid(p.x, p.y, () => drawProp(ctx, { ...p, kind: "fence", seed: 0 }));
+  // Depth of a sprite: the front-most corner of its footprint, or depthKey of
+  // its foot plus the painter's small sort bias. Hooks without a foot point
+  // fall back to the cat's column.
+  const keyOf = (s: WorldSprite) => s.key ?? (s.footprint
+    ? footprintKey(s.footprint)
+    : s.foot
+      ? depthKey(s.foot.x, s.foot.y) + (s.y - s.foot.y)
+      : depthKey(sim?.player.x ?? 0, s.y));
+  // The cat sorts at its own foot, after every multi-tile footprint it stands in front of.
+  // Occluders it stands behind sort after it and fade (iso/depth.ts).
+  const playerDepth = sprites.reduce((k, sprite) =>
+    sim && sprite.footprint && !actorBehind(sprite.footprint, sim.player) ? Math.max(k, keyOf(sprite) + .01) : k,
+  sim ? depthKey(sim.player.x, sim.player.y) : 0);
+  for (const sprite of sprites)
+    if (sprite.occludesPlayer) sprite.key = Math.max(keyOf(sprite), playerDepth + .01);
   const cat = (pose: CatPose) => {
     if (!pose.decoy) {
       const nearest = (lamps.length ? lamps : LAMPS).reduce((a, b) =>
@@ -352,7 +360,7 @@ function drawWorldFrame(
       continue;
     }
     ctx.save();
-    ctx.globalAlpha *= 0.48;
+    ctx.globalAlpha *= ISO_DEPTH.fade;
     paint();
     ctx.restore();
   }

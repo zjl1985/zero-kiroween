@@ -968,7 +968,7 @@ test("warning tint stays below actors while its edge passes above raised skills 
   assert.ok(skill >= 0 && warning > skill && actor > warning && front > actor && faceClip > front && edge > faceClip, JSON.stringify({skill,warning,actor,front,faceClip,edge}));
 });
 
-test("the selected cat retains its colours and draws above a foreground landmark", (t) => {
+test("the selected cat retains its colours and a foreground landmark fades over it (iso)", (t) => {
   environment(t);
   const sim = createSim({ cat: "nicole", seed: 2026 });
   const art = LANDMARK_ART.get("star-observatory");
@@ -988,7 +988,8 @@ test("the selected cat retains its colours and draws above a foreground landmark
     return draws.findIndex(c => matches(c) || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(matches));
   };
   const building = withRect([45,46,47,48]), cat = withRect([51,52,53,54]);
-  assert.ok(building >= 0 && cat > building);
+  // Iso: the cat stands north of (behind) the roof, so the roof draws after it, translucent.
+  assert.ok(cat >= 0 && building > cat);
   assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");
   assert.equal(draws[cat].globalAlpha, 1);
 });
