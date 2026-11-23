@@ -40,8 +40,8 @@ import { viewRect } from "./camera.js";
 import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
 import { toScreen } from "./iso/projection.js";
 import { decorFootprint, isoOccludesActor, nativeOccludesActor, type Footprint } from "./iso/depth.js";
-import { clearGenSprites, drawGen, drawGenShadow, genBounds, genGlows, type GenGlow } from "./iso/gen-sprites.js";
-import { decorSprite } from "./iso/scenery.js";
+import { clearGenSprites, drawGen, drawGenShadow, genBaseFootprint, genBounds, genGlows, washLook, type GenGlow } from "./iso/gen-sprites.js";
+import { decorSprite, landmarkSet, liveTurn, pieceSprite, rotorSprite } from "./iso/scenery.js";
 /** World units around the view box inside which baked decor is still considered (tall crowns). */
 const GEN_CULL = 160;
 import { clearIsoVolumeCache } from "./iso/rasterize.js";
@@ -750,19 +750,52 @@ export function worldSprites(
   cam: Camera,
   time: number,
   pop?: PopupView,
-): { sprites: WorldSprite[]; lamps: VisibleLamp[]; shadows: (() => void)[]; glows: GenGlow[] } {
+): { sprites: WorldSprite[]; lamps: VisibleLamp[]; shadows: (() => void)[]; glows: GenGlow[]; grounds: (() => void)[] } {
   const view = viewRect(cam),
     { a, b } = chunkRange(viewRect(cam, 480)),
     sprites: WorldSprite[] = [],
     lamps: VisibleLamp[] = [],
     shadows: (() => void)[] = [],
-    glows: GenGlow[] = [];
+    glows: GenGlow[] = [],
+    grounds: (() => void)[] = [];
+  /** A baked voxel sprite standing at (x, y) with its footprint, shadow, lights and occlusion fade. */
+  const bakedPiece = (id: string, x: number, y: number, after?: () => void) => {
+    const footprint = genBaseFootprint(id, x, y) ?? undefined, pencil = pop?.sketch?.(x, y) ?? 0;
+    genGlows(id, x, y, glows);
+    shadows.push(() => drawGenShadow(ctx, id, x, y));
+    sprites.push({
+      y,
+      foot: { x, y },
+      native: true,
+      ...(footprint ? { footprint } : {}),
+      occludesPlayer: !!pop?.cat && nativeOccludesActor(x, y, genBounds(id), pop.cat, footprint),
+      draw: () => {
+        drawGen(ctx, id, x, y, washLook(pencil));
+        after?.();
+      },
+    });
+  };
   for (let cy = a.cy; cy <= b.cy; cy++)
     for (let cx = a.cx; cx <= b.cx; cx++) {
       const chunk = chunkContent(seed, cx, cy);
       const activity = chunk.landmark ? pop?.activities?.[chunk.landmark.id] : undefined;
       const biome = biomeAt(seed, cx, cy).id;
+      if (chunk.landmark) {
+        // The landmark's flat baked ground base and its extra standing pieces (generated art data).
+        const l = chunk.landmark, set = landmarkSet(l.kind), base = set.base;
+        if (base) grounds.push(() => drawGen(ctx, base[0], l.x + base[1], l.y + base[2]));
+        for (const [id, dx, dy] of set.extras ?? []) bakedPiece(id, l.x + dx, l.y + dy);
+      }
       for (const d of chunk.decor) {
+        // Landmark buildings and furniture: baked voxel dioramas; live parts (the windmill
+        // rotor) pick a cached frame from the sim-owned turn angle.
+        const piece = decorSprite(d, biome) ? null : pieceSprite(d);
+        if (piece) {
+          if (d.x < view.x0 - GEN_CULL * 2 || d.x > view.x1 + GEN_CULL * 2 || d.y < view.y0 - GEN_CULL * 2 || d.y > view.y1 + GEN_CULL * 2) continue;
+          const live = decorPiece(d.kind)?.live ? rotorSprite(d.kind, liveTurn(activity, pop?.reduced ? 0 : time)) : null;
+          bakedPiece(piece, d.x, d.y, live ? () => drawGen(ctx, live, d.x, d.y) : undefined);
+          continue;
+        }
         // Generic decor is a baked voxel sprite (iso/scenery.ts picks it per district).
         const gen = decorSprite(d, biome);
         if (gen) {
@@ -799,7 +832,7 @@ export function worldSprites(
         });
       }
     }
-  return { sprites, lamps, shadows, glows };
+  return { sprites, lamps, shadows, glows, grounds };
 }
 
 // ---------------------------------------------------------------- navigation

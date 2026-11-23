@@ -23,6 +23,8 @@ import { worldSprites } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
 import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
+import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Command-order contracts only; the iso view was not viewed in a browser.
 class Path {
@@ -120,18 +122,16 @@ function roofFrame(t, dy) {
   const roof = art.pieces.find((p) => p.bounds.t < -200);
   const decor = landmarkParts(place).decor.find((d) => d.kind === roof.kind);
   Object.assign(sim.player, { x: decor.x, y: decor.y + dy });
-  t.mock.method(roof, "paint", (c) => c.fillRect(45, 46, 47, 48));
+  // The roof is a baked voxel piece (iso/gen/landmarks-pixels.ts); find its cached canvas.
+  const id = pieceSprite(decor);
+  assert.ok(id, "the observatory building has a baked piece");
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: createIsoCamera(960, 540, sim.player), reducedMotion: true });
-  const draws = ctx.calls;
-  const withRect = (marker) => {
-    const matches = (op) => op.op === "fillRect" && marker.every((value, i) => op.args[i] === value);
-    return draws.findIndex((c) => matches(c) || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(matches));
-  };
+  const draws = ctx.calls, image = genCanvas(id);
   const pop = { cat: sim.player, reduced: true };
   const sprite = worldSprites(canvas().getContext("2d"), sim.seed, { x: decor.x, y: decor.y, width: 960, height: 540 }, 0, pop)
     .sprites.find((s) => s.foot?.x === decor.x && s.foot?.y === decor.y);
-  return { draws, building: withRect([45, 46, 47, 48]), cat: catFrameIndex(draws, sim.player.id), occludes: sprite.occludesPlayer };
+  return { draws, building: draws.findIndex((c) => c.op === "drawImage" && c.args[0] === image), cat: catFrameIndex(draws, sim.player.id), occludes: sprite.occludesPlayer };
 }
 
 test("cat north of a building: the building draws after the cat, translucent", (t) => {

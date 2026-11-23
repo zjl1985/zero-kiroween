@@ -3,13 +3,15 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { SCENERY_PALETTE, SCENERY_SOURCE_HASH, SCENERY_SPRITES } from "../dist/render/iso/gen/scenery-pixels.js";
-import { clearGenSprites, decodeRuns, drawGen, genBounds, genCanvas, genGlows, genSpriteCacheSize } from "../dist/render/iso/gen-sprites.js";
-import { decorSprite, lampSprite, yardPropSprite } from "../dist/render/iso/scenery.js";
+import { clearGenSprites, decodeRuns, drawGen, genBounds, genCanvas, genGlows, genSpriteCacheSize, GEN_SPRITES } from "../dist/render/iso/gen-sprites.js";
+import { decorSprite, folkDirection, folkSprite, lampSprite, pieceSprite, propSprite, rotorSprite, yardPropSprite } from "../dist/render/iso/scenery.js";
+import { ROTOR_FRAMES } from "../dist/render/iso/gen/landmarks-pixels.js";
+import { PROP_PHASES } from "../dist/defs/types.js";
 import { ISO_COLOUR_CAP, isoPaletteColours } from "../dist/render/iso/palette.js";
 import { snap, toScreen } from "../dist/render/iso/projection.js";
 import { YARD_PROPS, LAMPS } from "../dist/render/scene.js";
-import { BIOME_DEFS } from "../dist/defs/registries.js";
-import { BIOME_ART } from "../dist/render/art-index.js";
+import { BIOME_DEFS, PROP_DEFS, TOWNSFOLK_DEFS } from "../dist/defs/registries.js";
+import { BIOME_ART, LANDMARK_ART } from "../dist/render/art-index.js";
 
 // Data contracts of the baked voxel scenery (scripts/iso-art/build.py). The art was looked at offline
 // (contact sheets and frame-shot PNGs), not in a browser.
@@ -75,7 +77,7 @@ test("one binary-alpha palette that stays inside the colour cap together with th
 
 test("the generated module matches the committed bake sources", () => {
   const h = createHash("sha256");
-  for (const f of ["build.py", "voxel.py", "models.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
+  for (const f of ["build.py", "voxel.py", "models.py", "world_models.py", "inputs.json"]) h.update(readFileSync(new URL(`../scripts/iso-art/${f}`, import.meta.url)));
   assert.equal(SCENERY_SOURCE_HASH, h.digest("hex"), "re-run scripts/iso-art/build.py after editing the models");
 });
 
@@ -108,6 +110,32 @@ test("every decor kind, district pool, yard prop and lamp resolves to a baked sp
   let fence = 0;
   for (const p of YARD_PROPS) assert.ok(SCENERY_SPRITES[yardPropSprite(p, p.kind === "fence" ? fence++ : 0)], p.kind);
   for (const l of LAMPS) assert.ok(SCENERY_SPRITES[lampSprite(l.s)]);
+});
+
+test("every prop phase, landmark piece, rotor frame and townsfolk pose resolves to a baked sprite", () => {
+  for (const def of PROP_DEFS.all()) {
+    for (const phase of PROP_PHASES) assert.ok(GEN_SPRITES[propSprite(def.id, phase, false)], `${def.id} ${phase}`);
+    assert.match(propSprite(def.id, "scraps", true), /-ash$/, `${def.id} burnt scraps are ash`);
+  }
+  for (const art of LANDMARK_ART.all())
+    for (const piece of art.pieces ?? [])
+      for (let seed = 0; seed < 4; seed++)
+        assert.ok(decorSprite({ kind: piece.kind, s: 1, seed }) ?? pieceSprite({ kind: piece.kind, seed }), `${art.id} ${piece.kind}`);
+  const live = LANDMARK_ART.all().flatMap((a) => a.pieces ?? []).filter((p) => p.live);
+  assert.ok(live.length > 0);
+  for (const p of live) {
+    const frames = new Set();
+    for (let i = 0; i < 64; i++) frames.add(rotorSprite(p.kind, i * 0.05));
+    assert.equal(frames.size, ROTOR_FRAMES, `${p.kind} cycles its finite rotor frames`);
+    assert.equal(rotorSprite(p.kind, 0), rotorSprite(p.kind, Math.PI / 2), "quarter-turn symmetry");
+  }
+  for (const def of TOWNSFOLK_DEFS.all())
+    for (const dir of ["se", "sw", "nw", "ne"]) for (const frame of [0, 1]) assert.ok(folkSprite(def.id, dir, frame), `${def.id} ${dir} ${frame}`);
+  assert.equal(folkDirection(1, 0, true, 1), "se");
+  assert.equal(folkDirection(0, 1, true, 1), "sw");
+  assert.equal(folkDirection(-1, 0, true, 1), "nw");
+  assert.equal(folkDirection(0, -1, true, 1), "ne");
+  assert.equal(folkDirection(0, 0, false, -1), "sw");
 });
 
 test("baked sprites draw 1:1 at the snapped projected foot and cache one canvas per id", (t) => {

@@ -13,6 +13,8 @@ import { paintGallery } from "../dist/render/gallery.js";
 import { tintedSprite } from "../dist/render/sprite-tint.js";
 import { POPUP } from "../dist/render/timeline.js";
 import { drawWaterShape } from "../dist/render/water-art.js";
+import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Command recording only: these tests check dispatch/compositing, not browser pixels.
 class RecordingPath {
@@ -241,8 +243,11 @@ test("native landmark scenery stays upright at every distance and preserves fore
   const piece = art.pieces.find((p) => p.popup), seed = 24681357;
   const place = landmarks(seed).find((l) => l.kind === art.id);
   const decor = landmarkParts(place).decor.find((d) => d.kind === piece.kind);
+  // Landmark pieces are baked voxel sprites now: the legacy painter must never run.
+  const id = pieceSprite(decor);
+  assert.ok(id, `${art.id} ${piece.kind} has a baked piece`);
   let painted = 0;
-  t.mock.method(piece, "paint", (ctx, x, y) => { painted++; ctx.fillRect(x - 10, y - 20, 20, 20); });
+  t.mock.method(piece, "paint", () => { painted++; });
   const draw = (distance) => {
     const ctx = canvas().getContext("2d");
     const pop = Object.freeze({ cat: Object.freeze({ x: decor.x + distance, y: decor.y }), reduced: true });
@@ -261,7 +266,8 @@ test("native landmark scenery stays upright at every distance and preserves fore
   assert.ok(!distant.ctx.calls.some(c => c.op === "stroke"), "no detached paper hinge under the building");
   const imagesAtDistance = new Set(Array.from({length:33},(_,i)=>draw(POPUP.near+(POPUP.far-POPUP.near)*i/32).image));
   assert.equal(imagesAtDistance.size, 1, "approach reuses the one cached native shape");
-  assert.equal(painted, 1, "moving around the landmark never repaints geometry");
+  assert.equal(upright.image, genCanvas(id), "the piece draws its cached baked canvas");
+  assert.equal(painted, 0, "moving around the landmark never repaints geometry");
 });
 
 test("the two hot paths have no filter assignments or generic cat-id branches", () => {

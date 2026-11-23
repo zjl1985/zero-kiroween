@@ -17,14 +17,17 @@ import { inFootprint } from "../game/props.js";
 import { PROP_ART, PROP_LOOK, type PropArt } from "./art-registry.js";
 import type { Camera } from "./camera.js";
 import { viewRect } from "./camera.js";
-import { isoOccludesActor } from "./iso/depth.js";
+import { isoOccludesActor, nativeOccludesActor } from "./iso/depth.js";
+import { drawGen, drawGenFolded, drawGenShadow, genBounds, genGlows, washLook, type GenGlow } from "./iso/gen-sprites.js";
+import { propSprite as bakedPropSprite } from "./iso/scenery.js";
+import { atFoot } from "./iso/place.js";
 import { hash, type Ctx } from "./paper-material.js";
 import { drawPaperFlame, drawRegrowCue } from "./paper-status-art.js";
 import { variant } from "./variants.js";
 import { sketchAmount } from "./sprite-sketch.js";
 const PAD = 8;
 /** `foot` is the world point the painter draws around (placed at its projected foot in the iso view). */
-type Add = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: { x: number; y: number }) => void;
+type Add = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: { x: number; y: number }, native?: boolean) => void;
 function propSprite(art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burnt: boolean) {
     const b = art.bounds, s = Math.round(p.s * 20) / 20, v = Math.abs(p.seed) % art.variants, w = (b.r - b.l) * s + PAD * 2, h = (b.b - b.t) * s + PAD * 2, ax = -b.l * s + PAD, ay = -b.t * s + PAD, name = PROP_PHASES[phase]!;
     return cachedSprite(`prop:${art.id}:${name}:${burnt ? 1 : 0}:${s}:${v}`, w, h, 2, (c, canvas) => {
@@ -131,8 +134,24 @@ export function drawProp(ctx: Ctx, art: PropArt, p: PropSpot, phase: 0 | 1 | 2, 
         drawRegrowCue(ctx, 0, 0, state.regrow, p.s);
     ctx.restore();
 }
-/** Props inside the view as y-sorted sprites, burning ones with flames. */
-export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: Camera, time: number, add: Add): void {
+/**
+ * One prop drawn from its baked voxel sprite (iso/gen/props-pixels.ts) at the projected foot:
+ * the phase picks the sprite, status looks are palette swaps of it (char while burning, ink
+ * coat, wash steps) and a fold squashes it flat. Flames and the regrow cue stay live painters
+ * at the legacy upright scale (FEAT-007 may refine them).
+ */
+function drawBakedProp(ctx: Ctx, id: string, art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burning: boolean, time: number, state: PropVisualState): void {
+    const look = burning ? "char" : state.inked && phase < 2 ? "ink" : washLook(state.sketch ?? 0);
+    if (state.folded && phase < 2) drawGenFolded(ctx, id, p.x, p.y, look);
+    else drawGen(ctx, id, p.x, p.y, look);
+    if (burning)
+        atFoot(ctx as CanvasRenderingContext2D, p.x, p.y, () => art.flames.forEach(([fx, fy], i) =>
+            flame(ctx, p.x + fx * p.s, p.y + fy * p.s, 13 * p.s, flicker(time, p.seed + i), p.seed + i)));
+    if (phase === 2 && state.regrow)
+        atFoot(ctx as CanvasRenderingContext2D, p.x, p.y, () => drawRegrowCue(ctx, p.x, p.y, state.regrow!, p.s));
+}
+/** Props inside the view as y-sorted sprites, burning ones with flames; baked props also cast shadows and glow. */
+export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: Camera, time: number, add: Add, glows?: GenGlow[]): void {
     const activeFire = sim ? cellsInView(sim.fire.cells, cam).filter(([, , left]) => left > 0) : [];
     const view = viewRect(cam, 60), a = chunkOf(view.x0 - 120, view.y0 - 60), b = chunkOf(view.x1 + 120, view.y1 + 60);
     for (let cy = a.cy; cy <= b.cy; cy++)
@@ -148,12 +167,21 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
                     activeFire.some(([x, y]) => inFootprint(p, def, x, y, 0));
                 const elapsed = sim?.elapsed ?? 0, folded = m?.foldedUntil !== undefined, regrow = m?.regrowAt !== undefined && m.destroyedAt !== undefined
                     ? Math.max(0, Math.min(1, (elapsed - m.destroyedAt) / Math.max(0.01, m.regrowAt - m.destroyedAt))) : 0;
-                add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time, {
+                const state: PropVisualState = {
                     folded,
                     inked: (m?.inkedUntil ?? 0) > elapsed,
                     regrow,
                     sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
-                }), !!sim && phase < 2 && !folded && isoOccludesActor(p.x, p.y, p.s, bd, sim.player), p);
+                };
+                const id = bakedPropSprite(art.id, PROP_PHASES[phase]!, burnt);
+                if (id) {
+                    if (!(folded && phase < 2)) drawGenShadow(ctx, id, p.x, p.y);
+                    if (glows && phase < 2 && !folded && !state.inked) genGlows(id, p.x, p.y, glows);
+                    add(p.y, () => drawBakedProp(ctx, id, art, p, phase, burning, time, state),
+                        !!sim && phase < 2 && !folded && nativeOccludesActor(p.x, p.y, genBounds(id), sim.player), p, true);
+                    continue;
+                }
+                add(p.y, () => drawProp(ctx, art, p, phase, burnt, burning, time, state), !!sim && phase < 2 && !folded && isoOccludesActor(p.x, p.y, p.s, bd, sim.player), p);
             }
 }
 function cellsInView(cells: Record<string, number>, cam: Camera): [

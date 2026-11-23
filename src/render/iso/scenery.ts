@@ -6,8 +6,11 @@
  * scale (render-only, deterministic). Decor kinds without a baked sprite
  * (landmark pieces) return null and keep their own painters.
  */
-import { BIOME_ART, type BiomeScenery } from "../art-registry.js";
+import { BIOME_ART, decorPiece, type BiomeScenery } from "../art-registry.js";
 import { hasGenSprite } from "./gen-sprites.js";
+import { LANDMARK_SETS, ROTOR_FRAMES, type LandmarkSet } from "./gen/landmarks-pixels.js";
+import { LANDMARK_ACTIONS } from "../../defs/landmark-activities.js";
+import type { PropPhase } from "../../defs/types.js";
 
 const DEFAULTS: Required<BiomeScenery> = {
   trees: ["oak", "maple"],
@@ -60,4 +63,48 @@ export function yardPropSprite(p: { kind: string; s: number; seed: number }, fen
 /** Baked sprite of a yard lamp (craft-scene LAMPS) by its scale. */
 export function lampSprite(s: number): string {
   return s >= 0.95 ? "lamp-iron-0" : "lamp-iron-1";
+}
+
+// ---------------------------------------------------------------- FEAT-004 world content
+/** Baked sprite of a sim prop (art id) in a phase; burnt scraps become ash. Null when it has none. */
+export function propSprite(art: string, phase: PropPhase, burnt: boolean): string | null {
+  const id = `prop-${art}-${phase === "scraps" && burnt ? "ash" : phase}`;
+  return hasGenSprite(id) ? id : null;
+}
+
+/** Baked sprite of a landmark decor piece (decorPiece kind) in its seeded variant, or null. */
+export function pieceSprite(d: { kind: string; seed: number }): string | null {
+  const n = decorPiece(d.kind)?.variants ?? 1, v = Math.abs(d.seed | 0) % n;
+  for (const id of [`piece-${d.kind}-${v}`, `piece-${d.kind}-0`]) if (hasGenSprite(id)) return id;
+  return null;
+}
+
+/**
+ * Rotor frame of a live landmark piece (the windmill sails) for the sim-owned turn angle;
+ * a finite frame set over the sails' quarter-turn symmetry, never a time-keyed texture.
+ */
+export function rotorSprite(kind: string, angle: number): string | null {
+  const q = Math.PI / 2, a = ((angle % q) + q) % q, f = Math.floor((a / q) * ROTOR_FRAMES) % ROTOR_FRAMES, id = `rotor-${kind}-${f}`;
+  return hasGenSprite(id) ? id : null;
+}
+/** Turn angle a live piece shows: the sim's own turn, else the idle drift (frozen under reduced motion). */
+export function liveTurn(activity: { turn?: number } | undefined, time: number): number {
+  return activity?.turn ?? time * LANDMARK_ACTIONS.idleTurn;
+}
+
+/** The flat ground base and extra standing pieces of a landmark kind (generated art data). */
+export function landmarkSet(kind: string): LandmarkSet {
+  return LANDMARK_SETS[kind] ?? {};
+}
+
+/** Iso direction a townsfolk puppet faces from its world motion (or its idle facing). */
+export function folkDirection(dx: number, dy: number, moving: boolean, facing: number): "se" | "sw" | "nw" | "ne" {
+  if (!moving || Math.abs(dx) + Math.abs(dy) < 1e-6) return facing < 0 ? "sw" : "se";
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? "se" : "nw";
+  return dy > 0 ? "sw" : "ne";
+}
+/** Baked sprite of a townsfolk kind facing `dir` in step frame `frame`, or null. */
+export function folkSprite(kind: string, dir: string, frame: number): string | null {
+  const id = `folk-${kind}-${dir}-${frame ? 1 : 0}`;
+  return hasGenSprite(id) ? id : null;
 }

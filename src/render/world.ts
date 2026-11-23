@@ -241,16 +241,17 @@ function drawWorldFrame(
   });
   const sprites: WorldSprite[] = [...town.sprites];
   const glows: GenGlow[] = [...town.glows];
-  // Baked hard shadows lie on the ground under every sprite.
+  // Landmark ground bases, then the baked hard shadows on the ground under every sprite.
+  for (const g of town.grounds) g();
   for (const shadow of town.shadows) shadow();
   type Foot = { x: number; y: number };
-  const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: Foot) =>
-    sprites.push({ y, draw, occludesPlayer, ...(foot ? { foot } : {}) });
-  const addHook = (y: number, draw: () => void, foot?: Foot) => addSprite(y, draw, false, foot);
-  propSprites(ctx, sim, seed, cam, view.time, addSprite);
+  const addSprite = (y: number, draw: () => void, occludesPlayer?: boolean, foot?: Foot, native?: boolean) =>
+    sprites.push({ y, draw, occludesPlayer, ...(foot ? { foot } : {}), ...(native ? { native } : {}) });
+  const addHook = (y: number, draw: () => void, foot?: Foot, native?: boolean) => addSprite(y, draw, false, foot, native);
+  propSprites(ctx, sim, seed, cam, view.time, addSprite, glows);
   if (sim) fireSprites(ctx, sim, cam, view.time, addSprite);
   if (sim) townsfolkSprites(ctx, sim, cam, view.time, addHook,
-    wash ? (x: number, y: number) => sketchAmount(sim, x, y) : undefined, reduced);
+    wash ? (x: number, y: number) => sketchAmount(sim, x, y) : undefined, reduced, glows);
   /** A baked voxel sprite at its world foot: ground shadow now, the sprite in the depth sort, its emissive anchors as lights. */
   const baked = (id: string, x: number, y: number, extra: Partial<WorldSprite> & { fades?: boolean } = {}) => {
     drawGenShadow(ctx, id, x, y);

@@ -9,6 +9,9 @@
  */
 import { surface, type CanvasSurface } from "../../engine/surface.js";
 import { SCENERY_PALETTE, SCENERY_SPRITES, type GenLightKind, type GenSprite } from "./gen/scenery-pixels.js";
+import { PROP_SPRITES } from "./gen/props-pixels.js";
+import { LANDMARK_SPRITES } from "./gen/landmarks-pixels.js";
+import { TOWNSFOLK_SPRITES } from "./gen/townsfolk-pixels.js";
 import type { Bounds, Footprint } from "./depth.js";
 import { snap, toScreen } from "./projection.js";
 
@@ -37,11 +40,48 @@ export function decodeRuns(data: string, length: number): Uint8Array {
   return out;
 }
 
+/** Every generated sprite module under one id space (they share SCENERY_PALETTE). */
+export const GEN_SPRITES: Readonly<Record<string, GenSprite>> = { ...SCENERY_SPRITES, ...PROP_SPRITES, ...LANDMARK_SPRITES, ...TOWNSFOLK_SPRITES };
+
 export function genSprite(id: string): GenSprite | undefined {
-  return SCENERY_SPRITES[id];
+  return GEN_SPRITES[id];
 }
 export function hasGenSprite(id: string): boolean {
-  return id in SCENERY_SPRITES;
+  return id in GEN_SPRITES;
+}
+
+/**
+ * Status looks of a baked sprite as palette swaps of its own pixels (crisp, cached per
+ * id and look, so the cache stays bounded by the finite sprite list): `char` while a
+ * prop burns, `ink` while it is coated, `wash1..4` as the colour lifts off the page.
+ */
+export type GenLook = "char" | "ink" | "wash1" | "wash2" | "wash3" | "wash4";
+export const GEN_LOOKS = {
+  char: { colour: "#2a1d22", amount: 0.58 },
+  ink: { colour: "#281d44", amount: 0.6 },
+  wash: { colour: "#b7b9aa", amount: 0.72 },
+  /** Vertical squash of a folded prop (its cut lies almost flat). */
+  fold: 0.34,
+} as const;
+const mix = (a: string, b: string, t: number) => {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16)), pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return "#" + pa.map((v, i) => Math.round(v + (pb[i]! - v) * t).toString(16).padStart(2, "0")).join("");
+};
+function lookPalette(look: GenLook | undefined): readonly string[] {
+  if (!look) return SCENERY_PALETTE;
+  let p = paletteMemo.get(look);
+  if (p) return p;
+  const spec = look === "char" ? GEN_LOOKS.char : look === "ink" ? GEN_LOOKS.ink : GEN_LOOKS.wash,
+    t = look.startsWith("wash") ? (Number(look.slice(4)) / 4) * GEN_LOOKS.wash.amount : spec.amount;
+  p = SCENERY_PALETTE.map((c) => (c ? mix(c, spec.colour, t) : c));
+  paletteMemo.set(look, p);
+  return p;
+}
+const paletteMemo = new Map<string, readonly string[]>();
+/** Wash look of a pencil amount (0 painted .. 1 colourless), or undefined when painted. */
+export function washLook(amount: number): GenLook | undefined {
+  const step = Math.min(4, Math.max(0, Math.round(amount * 4)));
+  return step ? (`wash${step}` as GenLook) : undefined;
 }
 
 interface Baked { image?: CanvasSurface; shadow?: CanvasSurface }
@@ -64,19 +104,20 @@ function paintRuns(c: Ctx, idx: Uint8Array, w: number, colour: (v: number) => st
     }
 }
 
-function baked(id: string): Baked | undefined {
-  let b = cache.get(id);
+function baked(id: string, look?: GenLook): Baked | undefined {
+  const key = look ? `${id}|${look}` : id;
+  let b = cache.get(key);
   if (b) return b;
-  const s = SCENERY_SPRITES[id];
+  const s = GEN_SPRITES[id];
   if (!s) return undefined;
   b = {};
   if (canMake()) {
-    const image = surface(s.w, s.h), c = image.getContext("2d") as Ctx | null;
+    const image = surface(s.w, s.h), c = image.getContext("2d") as Ctx | null, pal = lookPalette(look);
     if (c) {
-      paintRuns(c, decodeRuns(s.data, s.w * s.h), s.w, (v) => (v ? SCENERY_PALETTE[v]! : null));
+      paintRuns(c, decodeRuns(s.data, s.w * s.h), s.w, (v) => (v ? pal[v]! : null));
       b.image = image;
     }
-    if (s.shadow) {
+    if (s.shadow && !look) {
       const sh = s.shadow, shadow = surface(sh.w, sh.h), d = shadow.getContext("2d") as Ctx | null;
       if (d) {
         paintRuns(d, decodeRuns(sh.data, sh.w * sh.h), sh.w, (v) => (v ? GEN_SHADOW.colour : null));
@@ -84,7 +125,7 @@ function baked(id: string): Baked | undefined {
       }
     }
   }
-  cache.set(id, b);
+  cache.set(key, b);
   return b;
 }
 
@@ -97,16 +138,27 @@ export function genShadowCanvas(id: string): CanvasSurface | undefined {
 }
 
 /** Draws sprite `id` with its foot on the projected world point (x, y); `ctx` carries the camera transform. */
-export function drawGen(ctx: Ctx, id: string, x: number, y: number): void {
-  const s = SCENERY_SPRITES[id], img = baked(id)?.image;
+export function drawGen(ctx: Ctx, id: string, x: number, y: number, look?: GenLook, lift = 0): void {
+  const s = GEN_SPRITES[id], img = baked(id, look)?.image;
   if (!s || !img) return;
   const p = toScreen(x, y);
-  ctx.drawImage(img, snap(p.x) - s.ax, snap(p.y) - s.ay);
+  ctx.drawImage(img, snap(p.x) - s.ax, snap(p.y) - s.ay - Math.round(lift));
+}
+
+/** A folded sprite: squashed toward its foot (GEN_LOOKS.fold), nearest neighbour. */
+export function drawGenFolded(ctx: Ctx, id: string, x: number, y: number, look?: GenLook): void {
+  const s = GEN_SPRITES[id], img = baked(id, look)?.image;
+  if (!s || !img) return;
+  const p = toScreen(x, y), k = GEN_LOOKS.fold, h = Math.max(1, Math.round(s.h * k));
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, snap(p.x) - s.ax, snap(p.y) - Math.round(s.ay * k), s.w, h);
+  ctx.imageSmoothingEnabled = smooth;
 }
 
 /** Draws the baked ground shadow of sprite `id` under foot (x, y). */
 export function drawGenShadow(ctx: Ctx, id: string, x: number, y: number): void {
-  const s = SCENERY_SPRITES[id], img = baked(id)?.shadow;
+  const s = GEN_SPRITES[id], img = baked(id)?.shadow;
   if (!s?.shadow || !img) return;
   const p = toScreen(x, y);
   ctx.save();
@@ -117,14 +169,20 @@ export function drawGenShadow(ctx: Ctx, id: string, x: number, y: number): void 
 
 /** Native-pixel art bounds around the foot (for culling and occlusion). */
 export function genBounds(id: string): Bounds {
-  const s = SCENERY_SPRITES[id];
+  const s = GEN_SPRITES[id];
   if (!s) return { l: 0, r: 0, t: 0, b: 0 };
   return { l: -s.ax, r: s.w - s.ax, t: -s.ay, b: s.h - s.ay };
 }
 
 /** World footprint of a sprite's voxels at foot (x, y). */
 export function genFootprint(id: string, x: number, y: number): Footprint | null {
-  const e = SCENERY_SPRITES[id]?.extent;
+  const e = GEN_SPRITES[id]?.extent;
+  return e ? { x0: x + e.x, y0: y + e.y, x1: x + e.x + e.w, y1: y + e.y + e.d } : null;
+}
+
+/** Footprint a sprite stands on: its declared / ground-level base, else its voxel extent. */
+export function genBaseFootprint(id: string, x: number, y: number): Footprint | null {
+  const e = GEN_SPRITES[id]?.base ?? GEN_SPRITES[id]?.extent;
   return e ? { x0: x + e.x, y0: y + e.y, x1: x + e.x + e.w, y1: y + e.y + e.d } : null;
 }
 
@@ -141,7 +199,7 @@ export interface GenGlow {
 
 /** Emissive anchors of sprite `id` standing at (x, y), appended to `out`. */
 export function genGlows(id: string, x: number, y: number, out: GenGlow[]): void {
-  for (const l of SCENERY_SPRITES[id]?.lights ?? []) out.push({ kind: l.kind, x, y, dx: l.x, lift: -l.y });
+  for (const l of GEN_SPRITES[id]?.lights ?? []) out.push({ kind: l.kind, x, y, dx: l.x, lift: -l.y });
 }
 
 /** Releases every decoded sprite canvas. */

@@ -21,6 +21,8 @@ import { drawOrbitStar, drawSkillEffect, ring, star } from "../dist/render/comba
 import { withPaperMotion } from "../dist/render/paper-motion.js";
 import { isoSpriteCacheKeys, isoSpriteFrame } from "../dist/render/iso/sprite-sheet.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
+import { genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
 class Path {
@@ -992,18 +994,15 @@ test("the selected cat retains its colours and a foreground landmark fades over 
   const decor = landmarkParts(place).decor.find(d => d.kind === roof.kind);
   Object.assign(sim.player, { x: decor.x, y: decor.y - 70 });
   spillWater(sim, sim.player.x, sim.player.y, 16, 1, false);
-  t.mock.method(roof, "paint", c => c.fillRect(45, 46, 47, 48));
   clearWorldRenderCache();
   t.after(clearWorldRenderCache);
+  // The roof is a baked voxel piece; find the draw of its cached canvas.
+  const id = pieceSprite(decor);
+  assert.ok(id, "the observatory building has a baked piece");
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 0, camera: isoCam(sim.player), reducedMotion: true });
-  const draws = ctx.calls;
-  // Match the complete sentinel: real cached pixel art can also draw at x45/51.
-  const withRect = marker => {
-    const matches = op => op.op === "fillRect" && marker.every((value, i) => op.args[i] === value);
-    return draws.findIndex(c => matches(c) || c.op === "drawImage" && c.args[0].getContext("2d").calls.some(matches));
-  };
-  const building = withRect([45,46,47,48]), cat = catFrameIndex(draws, sim.player.id);
+  const draws = ctx.calls, image = genCanvas(id);
+  const building = draws.findIndex(c => c.op === "drawImage" && c.args[0] === image), cat = catFrameIndex(draws, sim.player.id);
   // Iso: the cat stands north of (behind) the roof, so the roof draws after it, translucent.
   assert.ok(cat >= 0 && building > cat);
   assert.ok(draws[building].globalAlpha < 1, "a blocking building yields while retaining its shape");

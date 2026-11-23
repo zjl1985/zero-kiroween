@@ -12,6 +12,9 @@ import { TOWNSFOLK_ART, type TownsfolkArt } from "./art-registry.js";
 import { viewRect, type Camera } from "./camera.js";
 import type { Ctx } from "./paper-material.js";
 import { sketchedSprite } from "./sprite-sketch.js";
+import { drawGen, drawGenShadow, genBounds, genGlows, washLook, type GenGlow } from "./iso/gen-sprites.js";
+import { folkDirection, folkSprite } from "./iso/scenery.js";
+import { snap, toScreen } from "./iso/projection.js";
 
 const PAD = 4;
 /** The cached sprite of one townsfolk pose (pure in its key). */
@@ -55,14 +58,26 @@ export function drawTownsfolkTag(ctx: Ctx, art: TownsfolkArt, x: number, y: numb
   ctx.restore();
 }
 
+/** The speech tag over a baked puppet, in native pixels above its sprite top. */
+function drawNativeTag(ctx: Ctx, id: string, x: number, y: number, bob: number): void {
+  const p = toScreen(x, y), top = genBounds(id).t;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  tagSprite().draw(ctx, { x: snap(p.x) + 3, y: snap(p.y) + top - 1 + Math.round(bob) });
+  ctx.restore();
+}
+/** Step of time used to read a puppet's heading from its pure route (render only). */
+const HEADING_DT = 0.1;
+
 /**
  * Adds the townsfolk inside the view to the y-sorted world sprites. `sketch`
  * gives the pencil amount at a base point when the page has washed cells.
+ * Kinds with baked voxel puppets (iso/gen/townsfolk-pixels.ts) draw natively in
+ * four directions read from their route, cast a baked shadow and add their lights.
  */
 export function townsfolkSprites(
   ctx: Ctx, sim: SimState, cam: Camera, time: number,
-  add: (y: number, draw: () => void, foot?: { x: number; y: number }) => void,
-  sketch?: (x: number, y: number) => number, reduced = false,
+  add: (y: number, draw: () => void, foot?: { x: number; y: number }, native?: boolean) => void,
+  sketch?: (x: number, y: number) => number, reduced = false, glows?: GenGlow[],
 ): void {
   const view = viewRect(cam), t = sim.elapsed,
     talking = nearestTownsfolk(sim.seed, sim.player.x, sim.player.y, t)?.npc.id;
@@ -73,7 +88,18 @@ export function townsfolkSprites(
     if (pose.x + b.r < view.x0 || pose.x + b.l > view.x1 || pose.y + b.b < view.y0 || pose.y + b.t - 24 > view.y1) continue;
     // Render-only motion: a step hop while walking, a slow breath while resting.
     const bob = reduced ? 0 : pose.moving ? -Math.round(Math.abs(Math.sin(time * 9))) : 0,
-      pencil = sketch?.(pose.x, pose.y) ?? 0;
+      pencil = sketch?.(pose.x, pose.y) ?? 0,
+      ahead = townsfolkPose(npc, t + HEADING_DT),
+      id = folkSprite(art.id, folkDirection(ahead.x - pose.x, ahead.y - pose.y, pose.moving, pose.facing), pose.frame);
+    if (id) {
+      drawGenShadow(ctx, id, pose.x, pose.y);
+      if (glows) genGlows(id, pose.x, pose.y, glows);
+      add(pose.y, () => {
+        drawGen(ctx, id, pose.x, pose.y, washLook(pencil), -bob);
+        if (npc.id === talking) drawNativeTag(ctx, id, pose.x, pose.y, reduced ? 0 : Math.sin(time * 2.4) * 0.8);
+      }, pose, true);
+      continue;
+    }
     add(pose.y, () => {
       drawTownsfolk(ctx, art, pose.x, pose.y, pose, bob, pencil);
       if (npc.id === talking) drawTownsfolkTag(ctx, art, pose.x, pose.y, reduced ? 0 : Math.sin(time * 2.4) * 0.8);
