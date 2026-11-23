@@ -85,6 +85,7 @@ import { isoDirection } from "./iso/sprite-sheet.js";
 import { groundPass } from "./iso/ground.js";
 import { drawNorthVeil, drawOffMap, OFF_MAP } from "./iso/off-map.js";
 import { depthKey, snap, toScreen, toWorld } from "./iso/projection.js";
+import { drawLighting, gatherLights, lightFrame } from "./iso/lighting.js";
 export { VIEW_WIDTH, VIEW_HEIGHT } from "./viewport.js";
 export interface ViewState {
   /** Optional developer CPU instrumentation; absent in normal gameplay. */
@@ -211,8 +212,10 @@ function drawWorldFrame(
       !!sim && isoOccludesActor(l.x, l.y, l.s, PIXEL_DECOR_BOUNDS.lamp, sim.player), l);
   }
   ground((g) => { for (const l of lamps) drawGroundLight(g, l.x, l.y, view.time, l.s); });
+  const yardDecor: (typeof YARD_PROPS)[number][] = [], yardWindows: { x: number; y: number; z: number }[] = [];
   for (const p of YARD_PROPS) {
     if (!inNear(p.x, p.y)) continue;
+    yardDecor.push(p);
     addSprite(p.y, () => drawProp(ctx, p),
       !!sim && isoOccludesActor(p.x, p.y, p.s, PIXEL_DECOR_BOUNDS[p.kind], sim.player), p);
   }
@@ -220,6 +223,7 @@ function drawWorldFrame(
   // behind them; low furniture and rails stay opaque, drawn after the cat when it is behind.
   for (const p of isoYardPieces()) {
     if (!inNear(p.x, p.y, p.reach)) continue;
+    for (const g of p.glows ?? []) yardWindows.push({ x: p.x + g.x, y: p.y + g.y, z: g.z });
     const v = isoVolume(p.key, p.model),
       fx = snap(p.x), fy = snap(p.y),
       footprint = p.solid ? modelFootprint(v.base, p.x, p.y) : undefined;
@@ -439,6 +443,12 @@ function drawWorldFrame(
   }
   if (!sim && titleCat) upright(titleCat.x, titleCat.y, () => drawPlaybillStage(ctx, titleCat));
   ctx.restore();
+  // HD-2D light buffer multiplied onto the finished scene (iso/lighting.ts).
+  drawLighting(ctx, lightFrame(gatherLights({ lamps, windows: yardWindows, decor: yardDecor, sim }), {
+    project: (x, y) => projectToView(projection, x, y), zoom, width, height,
+    focus: sim?.player ?? toWorld(camera.x, camera.y),
+    dawn: sim ? dawnAmount(progress, session) : 0, time: view.time, reduced,
+  }), width, height);
   if (sim && cues.length) drawCueScreen(ctx, cues, sim, camera, view.time, reduced, projection);
   // Screen space: navigation tabs, the diorama's foreground leaves, the frame.
   if (sim) drawNavArrows(ctx, sim, camera, view.locale ?? "zh", view.time, projection);

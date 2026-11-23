@@ -35,6 +35,14 @@ export interface IsoYardPiece {
   /** Extra culling margin (world units) for large volumes. */
   readonly reach: number;
   readonly model: () => IsoModel;
+  /**
+   * Warm window glows for the light buffer (lighting.ts), local world units
+   * from the foot with z the height of the pane centre. Derived from the
+   * window rectangles painted below: a +y (front) face cell u sits at world
+   * x = wall x0 + u, a +x (side) face cell u at y = wall y1 - u, and row v
+   * at z = wall top - v.
+   */
+  readonly glows?: readonly Vec3[];
 }
 
 // ---------------------------------------------------------------- painters
@@ -419,12 +427,29 @@ function cropFeet(): { kind: "wheat" | "vegetable"; x: number; y: number }[] {
   return out;
 }
 
+// ---------------------------------------------------------------- window glows
+/** Barn: wall x -47..47, y -63..-1, top z 36; front windows u 12 / 74 (w 8, v 9), side u 12 / 40 (w 7, v 10). */
+const BARN_GLOWS: readonly Vec3[] = [
+  { x: -31, y: -1, z: 24 }, { x: 31, y: -1, z: 24 },
+  { x: 47, y: -16.5, z: 22.5 }, { x: 47, y: -44.5, z: 22.5 },
+];
+/** Cottage: wall x -36..36, y -49..-1, top z 32; front u 8 / 55 (w 9, v 7), side u 9 / 32 (w 8, v 8). */
+const COTTAGE_GLOWS: readonly Vec3[] = [
+  { x: -23.5, y: -1, z: 21 }, { x: 23.5, y: -1, z: 21 },
+  { x: 36, y: -14, z: 20 }, { x: 36, y: -37, z: 20 },
+];
+/** West cottage: wall x -30..30, y -43..-1, top z 27; front u 9 / 44 (w 8, v 6), side u 17 (w 9, v 7). */
+const WEST_COTTAGE_GLOWS: readonly Vec3[] = [
+  { x: -17, y: -1, z: 17.5 }, { x: 18, y: -1, z: 17.5 },
+  { x: 30, y: -22.5, z: 16.5 },
+];
+
 // ---------------------------------------------------------------- pieces
 function buildPieces(): IsoYardPiece[] {
   const pieces: IsoYardPiece[] = [
-    { key: "yard:barn", kind: "building", ...BARN_AT, solid: true, fades: true, reach: 120, model: barnModel },
-    { key: "yard:cottage", kind: "building", ...COTTAGE_AT, solid: true, fades: true, reach: 100, model: cottageModel },
-    { key: "yard:west-cottage", kind: "building", ...WEST_COTTAGE_AT, solid: true, fades: true, reach: 90, model: westCottageModel },
+    { key: "yard:barn", kind: "building", ...BARN_AT, solid: true, fades: true, reach: 120, model: barnModel, glows: BARN_GLOWS },
+    { key: "yard:cottage", kind: "building", ...COTTAGE_AT, solid: true, fades: true, reach: 100, model: cottageModel, glows: COTTAGE_GLOWS },
+    { key: "yard:west-cottage", kind: "building", ...WEST_COTTAGE_AT, solid: true, fades: true, reach: 90, model: westCottageModel, glows: WEST_COTTAGE_GLOWS },
   ];
   for (const r of YARD_RAILS as readonly Rail[])
     pieces.push({ key: "yard:rail", kind: "rail", x: r.x, y: r.y, solid: true, fades: false, reach: 40, model: railModel });
