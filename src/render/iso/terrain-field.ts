@@ -116,3 +116,104 @@ export function materialAt(seed: number, x: number, y: number): TerrainSample {
   if (soil < 0) return { material: "soil", edge: clamp(Math.min(-soil, road, crossing)), biome };
   return { material: "grass", edge: clamp(Math.min(road, soil, shore, crossing)), biome };
 }
+
+/** A world-space box (inclusive), e.g. the AABB of one bake block. */
+export interface FieldBox { x0: number; y0: number; x1: number; y1: number }
+
+/** Same arithmetic as nearestWaterEdge(...).distance, without allocating a result per edge. */
+function edgeDistance(x: number, y: number, polygon: WaterPolygon): number {
+  let best = Infinity;
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i]!, b = polygon[(i + 1) % polygon.length]!, dx = b.x - a.x, dy = b.y - a.y,
+      len = Math.hypot(dx, dy);
+    if (len < 1e-8) continue;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (len * len))),
+      distance = Math.hypot(x - (a.x + dx * t), y - (a.y + dy * t));
+    if (distance < best) best = distance;
+  }
+  return best;
+}
+function plotBounds(points: readonly GroundPoint[]): FieldBox {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of points) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  return { x0, y0, x1, y1 };
+}
+const overlaps = (a: FieldBox, b: FieldBox, pad: number) =>
+  a.x1 + pad >= b.x0 && a.x0 - pad <= b.x1 && a.y1 + pad >= b.y0 && a.y0 - pad <= b.y1;
+
+/**
+ * materialAt for many points inside `box`, with the road capsules, garden
+ * plots and water regions filtered once to those that can reach the box
+ * (within TERRAIN.edgeCap). Anything filtered out is farther than the cap,
+ * so the clamped results equal materialAt's (tested on samples). Water
+ * regions are still matched per point with the sim's own bounds rule
+ * (waterRegionsNear's 24-unit bucket margin around a +-edgeCap box).
+ */
+export function prepareTerrainField(seed: number, box: FieldBox): (x: number, y: number) => TerrainSample {
+  const f = field(seed), cap = TERRAIN.edgeCap,
+    capsules = f.capsules.filter((s) => overlaps({
+      x0: Math.min(s.ax, s.ax + s.dx), y0: Math.min(s.ay, s.ay + s.dy),
+      x1: Math.max(s.ax, s.ax + s.dx), y1: Math.max(s.ay, s.ay + s.dy),
+    }, box, s.width + cap)),
+    plots = f.plots.filter((p) => overlaps(plotBounds(p), box, cap)),
+    cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2,
+    regions = waterRegionsNear(seed, cx, cy, Math.max(box.x1 - cx, box.y1 - cy) + cap),
+    biomes = new Map<number, string>(), clamp = (v: number) => Math.max(0, Math.min(cap, v));
+  // Per point, a capsule or plot whose box grown by the cap misses the point is farther than the cap: skip it.
+  const capsuleBoxes = capsules.map((s) => ({
+      x0: Math.min(s.ax, s.ax + s.dx) - s.width - cap, y0: Math.min(s.ay, s.ay + s.dy) - s.width - cap,
+      x1: Math.max(s.ax, s.ax + s.dx) + s.width + cap, y1: Math.max(s.ay, s.ay + s.dy) + s.width + cap,
+    })),
+    plotBoxes = plots.map((p) => { const b = plotBounds(p); return { x0: b.x0 - cap, y0: b.y0 - cap, x1: b.x1 + cap, y1: b.y1 + cap }; });
+  const roadNear = (x: number, y: number) => {
+    let d = Infinity;
+    for (let i = 0; i < capsules.length; i++) {
+      const b = capsuleBoxes[i]!;
+      if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) continue;
+      const s = capsules[i]!,
+        t = s.len2 <= 1e-8 ? 0 : Math.max(0, Math.min(1, ((x - s.ax) * s.dx + (y - s.ay) * s.dy) / s.len2));
+      d = Math.min(d, Math.hypot(x - s.ax - t * s.dx, y - s.ay - t * s.dy) - s.width);
+    }
+    return d;
+  };
+  const biomeOf = (x: number, y: number) => {
+    const bx = Math.floor(x / CHUNK.width), by = Math.floor(y / CHUNK.height), key = bx * 4096 + by;
+    let id = biomes.get(key);
+    if (id === undefined) { id = biomeAt(seed, bx, by).id; biomes.set(key, id); }
+    return id;
+  };
+  return (x, y) => {
+    const p = { x, y }, biome = biomeOf(x, y);
+    let shore = Infinity, core = Infinity, crossing = Infinity, deck = 0,
+      onCrossing = false, inCore = false, inShore = false;
+    for (const r of regions) {
+      const b = r.bounds;
+      // waterRegionsNear(seed, x, y, cap): touchesWaterBounds against the +-cap box.
+      if (!(x + cap >= b.minX - 24 && x - cap <= b.maxX + 24 && y + cap >= b.minY - 24 && y - cap <= b.maxY + 24)) continue;
+      shore = Math.min(shore, edgeDistance(x, y, r.shore));
+      if (r.core.length) {
+        core = Math.min(core, edgeDistance(x, y, r.core));
+        if (!inCore && inWaterPolygon(p, r.core)) inCore = true;
+      }
+      if (!inShore && inWaterPolygon(p, r.shore)) inShore = true;
+      for (const c of r.crossings) {
+        const e = edgeDistance(x, y, c.polygon);
+        crossing = Math.min(crossing, e);
+        if (inWaterPolygon(p, c.polygon)) { onCrossing = true; deck = Math.max(deck, e); }
+      }
+    }
+    if (onCrossing) return { material: "bridge", edge: clamp(deck), biome };
+    if (inCore) return { material: "deep", edge: clamp(Math.min(core, crossing)), biome };
+    if (inShore) return { material: "shallow", edge: clamp(Math.min(shore, core, crossing)), biome };
+    const road = roadNear(x, y);
+    if (road < 0) return { material: "road", edge: clamp(Math.min(-road, crossing)), biome };
+    let soil = Infinity;
+    for (let i = 0; i < plots.length; i++) {
+      const b = plotBoxes[i]!;
+      if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) continue;
+      soil = Math.min(soil, plotField(plots[i]!, x, y));
+    }
+    if (soil < 0) return { material: "soil", edge: clamp(Math.min(-soil, road, crossing)), biome };
+    return { material: "grass", edge: clamp(Math.min(road, soil, shore, crossing)), biome };
+  };
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { TERRAIN, materialAt } from "../dist/render/iso/terrain-field.js";
+import { TERRAIN, materialAt, prepareTerrainField } from "../dist/render/iso/terrain-field.js";
 import { visHash } from "../dist/render/hash.js";
 import { CHUNK, WORLD, biomeAt, roads, waterRegionsNear } from "../dist/game/world-gen.js";
 import { waterAt } from "../dist/game/water.js";
@@ -87,4 +87,17 @@ test("edge distances are continuous and reach zero where the material changes", 
     }
   }
   assert.ok(changes > 4, `${changes} material changes crossed`);
+});
+
+test("a field prepared for a box answers exactly like materialAt inside it", () => {
+  for (const seed of [SEED, 22]) {
+    const fields = new Map();
+    for (const p of samples(seed)) {
+      // 512-unit boxes, the size of a bake block's world AABB.
+      const bx = Math.floor(p.x / 512), by = Math.floor(p.y / 512), key = bx + "," + by;
+      let f = fields.get(key);
+      if (!f) fields.set(key, f = prepareTerrainField(seed, { x0: bx * 512, y0: by * 512, x1: bx * 512 + 512, y1: by * 512 + 512 }));
+      assert.deepEqual(f(p.x, p.y), materialAt(seed, p.x, p.y), `seed ${seed} at ${p.x}, ${p.y}`);
+    }
+  }
 });
