@@ -14,6 +14,7 @@ import { LANDMARK_SPRITES } from "./gen/landmarks-pixels.js";
 import { TOWNSFOLK_SPRITES } from "./gen/townsfolk-pixels.js";
 import { CAT_SPRITES } from "./gen/cats-pixels.js";
 import { COSTUME_SPRITES } from "./gen/costumes-pixels.js";
+import { ENEMY_SPRITES } from "./gen/enemies-pixels.js";
 import type { Bounds, Footprint } from "./depth.js";
 import { snap, toScreen } from "./projection.js";
 
@@ -48,6 +49,7 @@ export function decodeRuns(data: string, length: number): Uint16Array {
 /** Every generated sprite module under one id space (they share SCENERY_PALETTE). */
 export const GEN_SPRITES: Readonly<Record<string, GenSprite>> = {
   ...SCENERY_SPRITES, ...PROP_SPRITES, ...LANDMARK_SPRITES, ...TOWNSFOLK_SPRITES, ...CAT_SPRITES, ...COSTUME_SPRITES,
+  ...ENEMY_SPRITES,
 };
 
 export function genSprite(id: string): GenSprite | undefined {

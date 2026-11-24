@@ -13,7 +13,7 @@
  *   under the deck edge is shadowed.
  * No RNG, no DOM.
  */
-import { rampRgb, type RampName, type Rgb } from "./palette.js";
+import { grassRgb, rampRgb, type RampName, type Rgb } from "./palette.js";
 import { surfaceStep, texHash } from "./surface-texture.js";
 import { bayer } from "../pixelfx/math.js";
 import { ISO } from "./projection.js";
@@ -90,7 +90,7 @@ export function transitionRgb(
   const L = TRANSITION.lip;
   if ((m === "road" || m === "soil") && n === "grass") {
     const w = borderWidth(seed, x, y), f = TRANSITION.fringe;
-    if (e < w) return rampRgb("grass", surfaceStep(seed, "grass", px, py)); // grass overhang (no flowers on the edge)
+    if (e < w) return grassRgb(s.biome, surfaceStep(seed, "grass", px, py)); // grass overhang (no flowers on the edge)
     // A dithered fringe of grass pixels thinning into the road (4 x 4 Bayer).
     if (e < w + f && bayer(px, py) < 0.55 * (1 - (e - w) / f)) return rampRgb("grass", 1);
     if (e < w + f + L && bayer(px + 2, py) < 0.5) return rampRgb(ownRamp, 0); // its shadow: a broken dark lip

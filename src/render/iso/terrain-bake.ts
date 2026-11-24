@@ -12,11 +12,12 @@
  * per-frame slices on the main thread. Missing blocks show a flat grass
  * placeholder inside the world diamond. No DOM reads, no RNG.
  */
-import { CHUNK, WORLD } from "../../game/world-gen.js";
+import { biomeAt, CHUNK, WORLD } from "../../game/world-gen.js";
 import { surface, type CanvasSurface } from "../../engine/surface.js";
+import { bayer } from "../pixelfx/math.js";
 import { prepareTerrainField, type FieldBox, type TerrainSample } from "./terrain-field.js";
-import { MATERIAL_SURFACE, SURFACE_RAMP, accentRgb, surfaceRgb } from "./surface-texture.js";
-import { rampColour, type Rgb } from "./palette.js";
+import { MATERIAL_SURFACE, SURFACE_RAMP, accentRgb, surfaceRgb, surfaceStep, valueNoise } from "./surface-texture.js";
+import { grassRgb, rampColour, type Rgb } from "./palette.js";
 import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
 import { roadRgb, roadSurface } from "./road-texture.js";
 import { ISO_WATER, rippleFrame, rippleRgb, waterRgb } from "./water-layers.js";
@@ -72,6 +73,20 @@ export function blockTouchesWorld(col: number, row: number): boolean {
 
 const inWorld = (x: number, y: number) => x >= WORLD.minX && x < WORLD.maxX && y >= WORLD.minY && y < WORLD.maxY;
 
+/** Feather the world chunk boundary with the two districts' actual colors. */
+function grassBiome(seed: number, x: number, y: number, px: number, py: number, own: string): string {
+  const cx = Math.floor(x / CHUNK.width), cy = Math.floor(y / CHUNK.height);
+  const localX = x - cx * CHUNK.width, localY = y - cy * CHUNK.height;
+  const dx = Math.min(localX, CHUNK.width - localX), dy = Math.min(localY, CHUNK.height - localY);
+  const feather = 52, distance = Math.min(dx, dy);
+  if (distance >= feather) return own;
+  const chance = (1 - distance / feather) * (0.35 + valueNoise(x, y, 31, seed + 191) * 0.3);
+  if (bayer(px, py) >= chance) return own;
+  return dx < dy
+    ? biomeAt(seed, cx + (localX < CHUNK.width / 2 ? -1 : 1), cy).id
+    : biomeAt(seed, cx, cy + (localY < CHUNK.height / 2 ? -1 : 1)).id;
+}
+
 /** Ground colour of screen pixel (px, py) at world point (x, y) with field sample `s`. */
 function groundRgb(seed: number, px: number, py: number, x: number, y: number, s: TerrainSample, sample: Sampler): Rgb {
   const road = s.material === "road", water = s.material === "shallow" || s.material === "deep",
@@ -79,7 +94,8 @@ function groundRgb(seed: number, px: number, py: number, x: number, y: number, s
   return (water && waterRgb(seed, px, py, x, y, s, n))
     || (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
     || (road && surface === "dirt" ? accentRgb(seed, "dirt", px, py) : undefined)
-    || (road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
+    || (surface === "grass" ? accentRgb(seed, surface, px, py) ?? grassRgb(grassBiome(seed, x, y, px, py, s.biome), surfaceStep(seed, surface, px, py))
+      : road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
 }
 
 /**

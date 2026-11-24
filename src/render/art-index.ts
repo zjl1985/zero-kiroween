@@ -94,7 +94,7 @@ import { LEVELS_ART } from "../defs/costumes/levels/art.js";
 import { DARIO_ART } from "../defs/costumes/dario/art.js";
 import { BIOME_ART, CAT_ART, COSTUME_ART, ENEMY_ART, LANDMARK_ART, PASSIVE_ART, PROP_ART, TOWNSFOLK_ART, WEAPON_ART } from "./art-registry.js";
 import { pixelCatArt, pixelEnemyArt, pixelTownsfolkArt, pixelCostumeArt } from "./pixel-actors.js";
-import { INK_BLOB_ISO, ISO_INK_BLOB } from "./iso/ink-blob-sheet.js";
+import { ENEMY_PUPPETS } from "./iso/gen/enemies-pixels.js";
 import { pixelWeaponArt, pixelPassiveArt, pixelCostumeEffects } from "./pixel-combat.js";
 import { pixelPropArt, pixelLandmarkArt } from "./pixel-world-art.js";
 import { pixelBiomeArt } from "./pixel-terrain.js";
@@ -102,8 +102,11 @@ import { pixelBiomeArt } from "./pixel-terrain.js";
 export * from "./art-registry.js";
 
 for (const [a, iso] of [[ZERO_ART, ZERO_ISO], [NICOLE_ART, NICOLE_ISO]] as const) CAT_ART.register(pixelCatArt({ ...a, iso }));
-for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART, WASH_ART, SKETCH_ART])
-  ENEMY_ART.register(pixelEnemyArt(a === INK_BLOB_ART ? { ...a, iso: INK_BLOB_ISO, crownY: ISO_INK_BLOB.crownY } : a));
+for (const a of [INK_BLOB_ART, PAPER_BAT_ART, CRUMPLE_ART, SMUDGE_ART, ERASER_BOSS_ART, KIRO_GHOST_ART, WASH_ART, SKETCH_ART]) {
+  const base = ENEMY_PUPPETS[a.id], elite = ENEMY_PUPPETS[`${a.id}@elite`], identity = `enemy-${a.id}`;
+  const puppet = base && { ...base, identity, elite: elite && { ...elite, identity: `${identity}@elite` } };
+  ENEMY_ART.register(pixelEnemyArt({ ...a, puppet }));
+}
 for (const a of [
   MEOW_BOLT_ART,
   NIGHT_CLAW_ART,

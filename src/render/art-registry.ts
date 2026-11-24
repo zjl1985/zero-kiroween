@@ -17,7 +17,7 @@ import type { CatPose } from "./layout.js";
 import type { Ctx } from "./paper-material.js";
 import type { VariantBase } from "./variants.js";
 import type { MascotPalette } from "../cats/meow-wall-art.js";
-import type { IsoAnim, IsoSheet } from "./iso/sprite-sheet.js";
+import type { EnemyPuppetMeta } from "./iso/gen/enemies-pixels.js";
 
 /**
  * A baked voxel puppet (scripts/iso-art/ -> render/iso/gen/*-pixels.ts):
@@ -28,7 +28,11 @@ export interface IsoPuppet {
   /** Sprite id prefix of its baked frames. */
   readonly identity: string;
   /** Frame count of each animation. */
-  readonly frames: Readonly<Record<IsoAnim, number>>;
+  readonly frames: Readonly<Record<string, number>>;
+}
+
+export interface EnemyPuppet extends IsoPuppet, EnemyPuppetMeta {
+  readonly elite?: EnemyPuppet;
 }
 
 export type SkillIconKind = "attack" | "active" | "passive";
@@ -148,8 +152,8 @@ export interface EnemyArt {
   readonly previewBounds?: ArtBounds;
   /** Crown seat on the unscaled illustration for actors whose heads sit above the hit radius. */
   readonly crownY?: number;
-  /** Four-direction isometric sprite sheet drawn instead of the old body when present (render/iso/). */
-  readonly iso?: IsoSheet;
+  /** Native four-direction body and, where available, its separately baked elite. */
+  readonly puppet?: EnemyPuppet;
   readonly dissolve: EnemyDissolve;
   /** Impact kinds this enemy's attacks and defeat leave (ENEMY_FX_LIFE). */
   readonly effects?: Readonly<Record<string, EffectPainter>>;

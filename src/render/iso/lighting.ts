@@ -147,6 +147,7 @@ export interface LightInputs {
   /** Emissive anchors of baked voxel sprites (gen-sprites.ts genGlows): foot plus native-pixel offset. */
   readonly glows?: readonly { kind: LightKind; x: number; y: number; dx: number; lift: number }[];
   readonly sim: Pick<SimState, "interactables" | "fire" | "impacts"> | null;
+  readonly nativeEffects?: boolean;
 }
 
 /** Light sources of a frame, in a fixed order (pure). */
@@ -157,9 +158,10 @@ export function gatherLights(input: LightInputs): LightSource[] {
     for (const [key, left] of Object.entries(sim.fire.cells)) {
       if (!(left > 0)) continue;
       const [ix, iy] = key.split(",").map(Number) as [number, number];
-      out.push({ kind: "fire", x: (ix + 0.5) * FIRE.cell, y: (iy + 0.5) * FIRE.cell, z: H.fire, power: Math.min(1, 0.45 + left / FIRE.burnTime) });
+      const power = Math.min(1, 0.45 + left / FIRE.burnTime) * (input.nativeEffects ? 0.37 : 1);
+      out.push({ kind: "fire", x: (ix + 0.5) * FIRE.cell, y: (iy + 0.5) * FIRE.cell, z: H.fire, power });
     }
-    for (const e of sim.impacts) {
+    for (const e of input.nativeEffects ? [] : sim.impacts) {
       const kind = IMPACT_LIGHT[e.kind];
       if (kind && e.life > 0) out.push({ kind, x: e.x, y: e.y, z: H[kind], power: Math.min(1, e.life / IMPACT_FADE) });
     }
@@ -297,6 +299,8 @@ export function clearLighting(): void {
 
 export type LightComposite = "none" | "tint" | "buffer";
 export interface LightOptions {
+  /** Native-view emissive pixels from this frame's combat effects. */
+  effects?: CanvasImageSource;
   /** Test hooks: the buffer and spot images to use instead of the module caches. */
   buffer?: LightBuffer;
   spot?: (kind: LightKind) => Spot | undefined;
@@ -311,7 +315,7 @@ export interface LightOptions {
 export function drawLighting(ctx: Ctx, frame: LightFrame, width: number, height: number, opts: LightOptions = {}): LightComposite {
   bufferLive = false;
   const tint = dawnTint(frame.dawn);
-  if (!frame.lights.length && tint.alpha <= 0) return "none";
+  if (!frame.lights.length && !opts.effects && tint.alpha <= 0) return "none";
   ctx.save();
   ctx.globalAlpha = 1;
   if (tint.alpha > 0) {
@@ -321,7 +325,7 @@ export function drawLighting(ctx: Ctx, frame: LightFrame, width: number, height:
     ctx.fillRect(0, 0, width, height);
     ctx.globalAlpha = 1;
   }
-  const buf = frame.lights.length ? opts.buffer ?? viewBuffer(width, height) : undefined;
+  const buf = frame.lights.length || opts.effects ? opts.buffer ?? viewBuffer(width, height) : undefined;
   if (!buf) {
     ctx.restore();
     return "tint";
@@ -333,6 +337,7 @@ export function drawLighting(ctx: Ctx, frame: LightFrame, width: number, height:
   b.imageSmoothingEnabled = false;
   b.clearRect(0, 0, buf.canvas.width, buf.canvas.height);
   b.globalCompositeOperation = "lighter";
+  if (opts.effects) b.drawImage(opts.effects, 0, 0);
   for (const l of frame.lights) {
     const s = spotOf(l.kind);
     if (!s) continue;

@@ -160,8 +160,8 @@ def courses(m, mask, a, b, pitch=3):
 # ---------------------------------------------------------------- buildings
 def barn(base):
     x0, y0, x1, y1 = vbox(base)
-    m = Model(x0, y0, x1, y1, 64)
-    wall_top = 28
+    m = Model(x0, y0, x1, y1, 72)
+    wall_top = 34
     prof = gambrel(13, 10, 0.5)
     # Plinth, walls, gables.
     m.box(x0, y0, 0, x1, y1, 2, M["stone"])
@@ -184,7 +184,7 @@ def barn(base):
     courses(m, roof, M["slate"], M["slate_dk"], 3)
     m.paint(roof & (m.Z >= top.max() - 2), M["slate_lt"])
     # Front: big double door with white X braces, hayloft, two windows.
-    dz0, dz1, du0, du1 = 2, 20, -7, 7
+    dz0, dz1, du0, du1 = 2, 23, -7, 7
     fl = band(m.Y, *front)
     m.paint(fl & band(m.X, du0 - 1, du1 + 1) & band(m.Z, dz0, dz1 + 1), M["trim"])
     m.paint(fl & band(m.X, du0, du1) & band(m.Z, dz0, dz1), M["red_seam"])
@@ -657,7 +657,7 @@ def bush(v, palette, seed=5):
         rr = r.uniform(3.2, 4.6)
         m.ellipsoid(d * math.cos(t), d * math.sin(t), rr * 0.7 + r.uniform(0, 2), rr, rr, rr * 0.8, M[palette[i % len(palette)]], lumpy=0.4, salt=i + seed)
     if palette[0] == "leaf":
-        dots = (vhash(np.floor(m.X), np.floor(m.Y), np.floor(m.Z), 21 + v) < 0.04) & (m.m > 0)
+        dots = (vhash(np.floor(m.X), np.floor(m.Y), np.floor(m.Z), 21 + v) < 0.014) & (m.m > 0)
         m.paint(dots, M["berry"])
     return m
 

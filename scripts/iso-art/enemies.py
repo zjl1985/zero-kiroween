@@ -67,7 +67,7 @@ def materials() -> dict:
         ink=tone("ink", "#3d3156", light=0.5, light_to="#9b84b4", shade=0.26, deep=0.42),
         ink_dark=tone("inkdark", "#2c2340", light=0.4, light_to="#5a4a74"),
         eye=bright("eye", "#d9952a", "#f0b03a", "#fbd45a", "#fbd45a", "#fff0a8"),
-        bat=tone("bat", "#3a3049", light=0.42, light_to="#77688f", shade=0.25),
+        bat=tone("bat", "#54435f", light=0.45, light_to="#9c83b0", shade=0.25),
         bat_dark=tone("batdark", "#221c2c", light=0.35, light_to="#5e5174"),
         bat_tan=tone("battan", "#c9a76f", light=0.3, shade=0.3),
         eye_red=bright("eyer", "#c8433a", "#e8604e", "#ff8a6a", "#ff8a6a", "#ffd0a8"),
@@ -82,7 +82,7 @@ def materials() -> dict:
         dye_dark=tone("dyedark", "#386a8c", light=0.35, light_to="#8fb6c8"),
         water=tone("water", "#a9cfdc", light=0.3, light_to="#e8f2f4", shade=0.25),
         rim=tone("rim", "#cfe6ef", light=0.2, light_to="#ffffff", shade=0.2),
-        sk_paper=tone("skpaper", "#e2d5bc", light=0.35, light_to="#fffaf0", shade=0.22),
+        sk_paper=tone("skpaper", "#a6a49f", light=0.3, light_to="#e0ded4", shade=0.22),
         ghost=tone("ghost", "#e7dff0", light=0.3, light_to="#ffffff", shade=0.3, deep=0.45),
         ghost_ink=tone("ghostink", "#17131d", light=0.3, light_to="#5a4a74"),
         ghost_violet=bright("ghostviolet", "#7a3ae0", "#9046ff", "#b07cff", "#c9a7ff", "#e6d6ff"),
@@ -153,9 +153,18 @@ def crumple(m, Mt, anim, f):
     else:
         dz, s, salt = 0.0, 0.74, 1
     r = 6.6 / math.sqrt(s)
-    m.ellipsoid(0, 0, 5.7 * s + dz, r, r, 5.9 * s, Mt["paper"], lumpy=0.34, salt=salt)
+    paper, crease = Mt["paper"], Mt["paper_dark"]
+    m.ellipsoid(0, 0, 5.7 * s + dz, r, r, 5.9 * s, paper, lumpy=0.54, salt=salt)
+    # Break the upper dome into irregular folds; the bevel and shadow sit on
+    # either side of the same diagonal through the volume.
+    fold = m.X - m.Y * 0.55 + (f % 3 - 1) * 1.4
+    upper = m.Z > (6.4 + np.abs(m.Y) * .23) * s + dz
+    m.paint((m.m == paper) & upper & (fold > -1.8) & (fold < -.45), crease)
+    m.carve((m.m == paper) & upper & (fold >= -.45) & (fold < .6))
+    m.paint((m.m == paper) & (np.abs(fold + (m.Z - dz) * 0.44 - 2.1) < 0.82) & (m.Z > 4.4 * s + dz), crease)
+    m.paint((m.m == paper) & (m.Z < 4.8 * s + dz) & (np.abs(m.Y + m.X * .45 - 1.0) < 1.1), crease)
     for side in (-1, 1):
-        m.ellipsoid(r * 0.8, side * 2.0, 5.0 * s + dz, 0.7, 0.75, 0.5 if anim == "hurt" else 0.8, Mt["graphite"])
+        m.ellipsoid(r * 0.94, side * 2.0, 5.0 * s + dz, 0.9, 0.85, 0.5 if anim == "hurt" else 0.95, Mt["graphite"])
         y0, y1 = between(side * 2.2, side * 4.2)
         m.box(2.0, y0, -0.2, 4.4, y1, 1.4, Mt["paper_dark"])
 
@@ -210,14 +219,14 @@ def sketch(m, Mt, anim, f):
     m.ellipsoid(-0.6 + stretch * 0.5, 0, 3.0 + dz, 5.2 + stretch, 3.8, 2.9, body)
     m.ellipsoid(3.9 + stretch, 0, 4.4 + dz, 2.7, 2.5, 2.4, body)
     for side in (-1, 1):
-        m.cone(3.5 + stretch, side * 1.3, 1.0, 5.9 + dz, 8.3 + dz, body)
+        m.cone(3.5 + stretch, side * 1.5, 1.4, 5.8 + dz, 10.2 + dz, g)
         for lx in (-3.4, 1.4):
             y0, y1 = between(side * 2.4, side * 3.7)
             m.box(lx + stretch * 0.5, y0, -0.2, lx + 1.7, y1, 2.4 + dz, body)
     # Hatching along the flank and a scribbled spine.
-    m.paint((m.m == body) & (np.abs(m.Y) < 0.45) & (m.X < 2.4 + stretch) & (m.Z > 4.0 + dz) & (m.Z < 5.9 + dz), g)
+    m.paint((m.m == body) & (np.abs(m.Y) < 0.8) & (m.X < 2.4 + stretch) & (m.Z > 4.0 + dz), g)
     for x in (-3.8, -2.0, 0.0, 2.0):
-        m.paint((m.m == body) & (np.abs(m.X - x - stretch * 0.4) < 0.45) & (m.Z > 1.6 + dz) & (np.abs(m.Y) > 1.2), g)
+        m.paint((m.m == body) & (np.abs(m.X - x - stretch * 0.4 + m.Z * .3) < 0.65) & (m.Z > 1.6 + dz) & (np.abs(m.Y) > 1.2), g)
     for side in (-1, 1):
         for a in (-0.6, 0.6):
             for b in (-0.6, 0.6):
@@ -357,10 +366,10 @@ def stamp_boss(b, info, turn):
 def crown(m, Mt):
     """The elite crown: three gold prongs round a red gem."""
     gold, gem = Mt["gold"], Mt["gem"]
-    m.box(-4.2, -2.2, -1.0, 4.2, 2.2, 1.4, gold)
-    for x in (-3.4, -0.7, 2.0):
-        m.box(x, -1.6, 1.4, x + 1.4, 1.6, 5.2 if x < -1 else 4.0, gold)
-    m.box(-0.8, -2.3, -0.6, 0.8, -1.6, 0.9, gem)
+    m.segment((-4.0, 4.0, 0.5), (4.0, -4.0, 0.5), 1.2, gold)
+    for a, h in ((-3.5, 4.5), (0.0, 6.0), (3.5, 4.5)):
+        m.segment((a, -a, 0.8), (a, -a, h), 1.0, gold)
+    m.ellipsoid(1.1, 1.1, 0.5, 1.0, 1.0, 1.0, gem)
 
 
 def shot(m, Mt, water):
@@ -368,7 +377,7 @@ def shot(m, Mt, water):
     mat_ = Mt["shot_water"] if water else Mt["shot_ink"]
     m.ellipsoid(0, 0, 2.2, 2.1, 1.9, 2.2, mat_)
     m.cone(0, 0, 1.7, 3.4, 7.0, mat_)
-    m.ellipsoid(-0.8, -1.2, 2.6, 0.6, 0.5, 1.0, Mt["rim"] if water else Mt["sm_violet"])
+    m.ellipsoid(1.2, 0.5, 3.3, 0.8, 0.8, 1.3, Mt["rim"] if water else Mt["sm_violet"])
 
 
 # ---------------------------------------------------------------- bake

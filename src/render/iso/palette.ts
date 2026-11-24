@@ -41,6 +41,15 @@ export const ISO_RAMPS: Readonly<Record<RampName, readonly string[]>> = {
 export const ISO_RAMP_LIST: readonly { name: RampName; steps: readonly string[] }[] =
   (Object.keys(ISO_RAMPS) as RampName[]).map((name) => ({ name, steps: ISO_RAMPS[name] }));
 
+/** District grass follows the same value steps as the opening yard. */
+const DISTRICT_GRASS: Readonly<Record<string, readonly string[]>> = {
+  "old-town": ["#171929", "#242935", "#34423e", "#485647", "#748057"],
+  "pumpkin-farm": ["#1b1a25", "#252d2c", "#414534", "#5b5c40", "#877a50"],
+  "graveyard-woods": ["#141727", "#202838", "#29383e", "#3b4d4e", "#587363"],
+  "lantern-canal": ["#121b2c", "#172b3b", "#24434b", "#335865", "#547880"],
+  "moon-meadow": ISO_RAMPS.grass,
+};
+
 export type Rgb = readonly [number, number, number];
 
 export function hexRgb(hex: string): Rgb {
@@ -65,15 +74,21 @@ export function rampColour(name: RampName, step: number): string {
 }
 
 const rgbMemo = new Map<string, Rgb>();
-/** Ramp colour as RGB for pixel writers (memoised by colour). */
-export function rampRgb(name: RampName, step: number): Rgb {
-  const hex = rampColour(name, step);
+function cachedRgb(hex: string): Rgb {
   let rgb = rgbMemo.get(hex);
   if (!rgb) { rgb = hexRgb(hex); rgbMemo.set(hex, rgb); }
   return rgb;
 }
+/** Ramp colour as RGB for pixel writers (memoised by colour). */
+export function rampRgb(name: RampName, step: number): Rgb {
+  return cachedRgb(rampColour(name, step));
+}
+
+export function grassRgb(biome: string, step: number): Rgb {
+  return cachedRgb((DISTRICT_GRASS[biome] ?? ISO_RAMPS.grass)[step]!);
+}
 
 /** Distinct colours across every ramp, lower-case #rrggbb. */
 export function isoPaletteColours(): readonly string[] {
-  return [...new Set(ISO_RAMP_LIST.flatMap((r) => r.steps.map((c) => c.toLowerCase())))];
+  return [...new Set([...ISO_RAMP_LIST.flatMap((r) => r.steps), ...Object.values(DISTRICT_GRASS).flat()])];
 }

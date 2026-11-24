@@ -7,6 +7,7 @@
  */
 import { drawVillageSprite, type VillageAsset, VILLAGE_PIXEL } from "./village-art.js";
 import { drawPuppetFigure } from "./iso/puppet.js";
+import { drawEnemyPuppet } from "./iso/enemy-puppets.js";
 import { VILLAGE_PIXELS } from "./village-pixels.js";
 import { t } from "../content/i18n.js";
 import type { Locale } from "../content/keys.js";
@@ -91,6 +92,18 @@ const PAINTERS: Record<GalleryKind, Painter> = {
       };
     const art = ENEMY_ART.find(cell.id);
     if (!art) return;
+    const p = (elite ? art.puppet?.elite : undefined) ?? art.puppet;
+    if (p) {
+      const bottom = Math.max(p.bottom, p.shadow[1]);
+      const top = elite ? p.crown + 8 : p.top;
+      const scale = Math.max(1, Math.min(4, Math.floor(Math.min((st.h - 12) / (top + bottom), (st.w - 16) / (2 * p.halfWidth)))));
+      ctx.save();
+      ctx.translate(Math.round(st.x + st.w / 2), Math.round(st.y + (st.h + (top - bottom) * scale) / 2));
+      ctx.scale(scale, scale);
+      drawEnemyPuppet(ctx, art.puppet!, { ...e, maxHp: e.hp }, 0, { x: 1, y: 0 }, false);
+      ctx.restore();
+      return;
+    }
     const mul = elite ? ELITE.radiusMul : 1;
     const bounds = art.previewBounds;
     const f = bounds ? fit({

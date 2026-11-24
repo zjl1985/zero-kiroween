@@ -14,9 +14,14 @@ export function paperTrail(ctx: Ctx, x: number, y: number, angle: number, length
     rect(ctx, x - Math.cos(angle) * d, y - Math.sin(angle) * d, Math.max(2, width * 2), 2, color);
 } }
 export function drawOrbitStar(ctx: Ctx, x: number, y: number, _time: number, index: number, full = false): void { glyph(ctx, 'star', x, y - 12, full ? 9 : 7, index % 2 ? FX.cream : FX.purple); }
-export function drawCombatGround(ctx: Ctx, state: SimState): void { catArt(state.player.id).ground?.(ctx, state); for (const w of activeWeaponArt(state))
-    w.ground?.(ctx, state); if (state.costume)
-    costumeArt(state)?.ground?.(ctx, state); }
+export function drawCombatGround(ctx: Ctx, state: SimState, nativeOrbit = false): void {
+    catArt(state.player.id).ground?.(ctx, state);
+    for (const w of activeWeaponArt(state)) {
+        if (nativeOrbit && (w.id === "moon-stars" || w.id === "full-moon")) continue;
+        w.ground?.(ctx, state);
+    }
+    if (state.costume) costumeArt(state)?.ground?.(ctx, state);
+}
 export function drawCombatFront(ctx: Ctx, state: SimState): void { for (const w of activeWeaponArt(state))
     w.front?.(ctx, state); const p = state.player; if (p.shield > 0 && p.shieldTime > 0) {
     ctx.save();

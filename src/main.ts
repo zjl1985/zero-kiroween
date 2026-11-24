@@ -49,6 +49,8 @@ import {
   BEATS,
   cuePhase,
   DEAL,
+  HIT_STOP,
+  hitStopCause,
   presentationSpeed,
   presentationSteps,
   type Cue,
@@ -250,7 +252,14 @@ function boot(): void {
   // cues above, aged in real time, never stored in the sim.
   let motionCues: Cue[] = [],
     finale = false,
+    hitStop = 0,
+    lastBossStop = -Infinity,
     lastBoss: { x: number; y: number } | null = null;
+  const hitObservation = (s: SimState) => ({
+    elites: s.stats.elitesDefeated,
+    chests: s.stats.chestsOpened,
+    bossHp: s.boss.defeated ? 0 : bossEnemy(s)?.hp,
+  });
   const cue = (kind: CueKind, at?: { x: number; y: number } | null) => {
     motionCues = [...motionCues.filter((c) => c.kind !== kind), { kind, t: 0, x: at?.x, y: at?.y }];
   };
@@ -439,6 +448,8 @@ function boot(): void {
     sim = null;
     lastBoss = null;
     motionCues = [];
+    hitStop = 0;
+    lastBossStop = -Infinity;
     clearWorldRenderCache();
     clearWashRender();
     clearWorldCache();
@@ -648,9 +659,12 @@ function boot(): void {
         }
       } else if (input.consumePause()) show("pause");
       else {
-        // Slow motion = fewer FIXED_DT steps per real second; dt never changes.
-        const speed = presentationSpeed(motionCues, reducedMotion.matches);
-        const count = presentationSteps(clock, real, speed);
+        // Slow motion and hit-stop spend only real time; every game step retains FIXED_DT.
+        const reduced = reducedMotion.matches;
+        const speed = presentationSpeed(motionCues, reduced);
+        const count = presentationSteps(clock, real, speed, reduced ? 0 : hitStop);
+        hitStop = reduced ? 0 : Math.max(0, hitStop - Math.max(0, real));
+        const beforeHit = count > 0 && !reduced ? hitObservation(sim) : null;
         for (let i = 0; i < count; i++) {
           // Screen-relative keys / stick become world directions only once the iso view is live.
           const sampled = input.sample(touch.stick);
@@ -666,6 +680,13 @@ function boot(): void {
           if (sim.pendingChoice) {
             openCards();
             break;
+          }
+        }
+        if (beforeHit) {
+          const cause = hitStopCause(beforeHit, hitObservation(sim));
+          if (cause === "reward" || (cause === "boss" && renderTime - lastBossStop >= HIT_STOP.bossRecovery)) {
+            hitStop = HIT_STOP.seconds;
+            if (cause === "boss") lastBossStop = renderTime;
           }
         }
         if (screen === "play" && count > 0) renderHud(hudRefs, locale, sim, hudCamera());
@@ -702,7 +723,7 @@ function boot(): void {
       nativeCtx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
       const drawStart = profiling ? performance.now() : 0;
       const shown = screen === "title" ? null : sim,
-        worldView = { time, reducedMotion: still, camera, locale, cues: motionCues, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) };
+        worldView = { time, reducedMotion: still, camera, locale, cues: motionCues, hitStop, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) };
       drawWorld(nativeCtx, shown, worldView);
       presentWorld(ctx, native, shown, worldView, stage.width, stage.height);
       if (profiling) drawCpu = performance.now() - drawStart;

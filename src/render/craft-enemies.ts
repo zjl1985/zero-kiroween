@@ -7,7 +7,7 @@ import { reducedPaperMotion } from "./paper-motion.js";
 import { liveSketchStep, sketchedPart } from "./sprite-sketch.js";
 import { ENEMIES, ENEMY_FX_LIFE, SMUDGE } from "../game/enemies.js";
 import { enemyMaxHp, enemyRadius } from "../game/sim.js";
-import type { EnemyShotState, EnemyState, Impact, SimState } from "../game/types.js";
+import type { EnemyState, Impact, SimState } from "../game/types.js";
 import { ENEMY_ART, effectPainter, type EnemyWarning } from "./art-registry.js";
 import { lobFlightTime, type KiteLobParams } from "../defs/enemies/behaviours.js";
 import { WASH_DRIP } from "../defs/enemies/wash/def.js";
@@ -214,22 +214,6 @@ export function drawWarningEdges(ctx: Ctx, warnings: readonly EnemyWarning[]): v
     const k = Math.max(0, Math.min(1, progress));
     dashed(ctx, area, edge, 0.85 + k * 0.15, 1.6 + k * 0.35);
   }
-}
-/** A slow ink drop arcing toward its locked landing spot. */
-export function drawEnemyShot(ctx: Ctx, s: EnemyShotState): void {
-  const k = Math.min(1, s.t / s.flight),
-    x = s.x0 + (s.tx - s.x0) * k,
-    gy = s.y0 + (s.ty - s.y0) * k,
-    lift = 32 + Math.sin(k * Math.PI) * 46 - k * 18;
-  enemyShadow(ctx, x, gy, 4, 1.5);
-  const water = s.kind === "water";
-  enemyPart(water ? "water-drop" : "ink-drop", 24, 28, (c) => {
-    c.fillStyle = "#192333";
-    c.fillRect(-2, -8, 4, 4); c.fillRect(-4, -4, 8, 5); c.fillRect(-5, 1, 10, 6); c.fillRect(-3, 7, 6, 2);
-    c.fillStyle = water ? "#7fb3c8" : "#624a7b";
-    c.fillRect(-1, -6, 2, 3); c.fillRect(-3, -3, 6, 8); c.fillRect(-2, 5, 4, 2);
-    c.fillStyle = water ? "#c8e9e8" : "#ac8fbd"; c.fillRect(-2, -2, 2, 4);
-  }, false).draw(ctx, { x: Math.round(x), y: Math.round(gy - lift) });
 }
 /** Splats, erase smears, summons, crumple bursts and the Boss's defeat. */
 export function drawEnemyEffect(ctx: Ctx, e: Impact): boolean {

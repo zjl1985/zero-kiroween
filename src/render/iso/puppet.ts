@@ -37,7 +37,7 @@ export function puppetFrame(p: IsoPuppet, anim: IsoAnim, time: number, reduced: 
 }
 
 /** Sprite id of one baked frame. */
-export function puppetSprite(p: IsoPuppet, dir: IsoDir, anim: IsoAnim, frame: number): string {
+export function puppetSprite(p: IsoPuppet, dir: IsoDir, anim: string, frame: number): string {
   return `${p.identity}-${dir}-${anim}-${frame}`;
 }
 
@@ -58,6 +58,9 @@ export interface PuppetDraw {
   /** Squash factors about the foot (1, 1 is the baked frame). */
   readonly sx?: number;
   readonly sy?: number;
+  /** Recoil from the foot, in native pixels. */
+  readonly dx?: number;
+  readonly dy?: number;
 }
 
 /**
@@ -68,7 +71,7 @@ export interface PuppetDraw {
 export function drawPuppet(ctx: Ctx, id: string, x: number, y: number, o: PuppetDraw = {}): boolean {
   const s = genSprite(id), img = genImage(id, o.look);
   if (!s || !img) return false;
-  const p = toScreen(x, y), fx = snap(p.x), fy = snap(p.y), sx = o.sx ?? 1, sy = o.sy ?? 1;
+  const p = toScreen(x, y), fx = snap(p.x + (o.dx ?? 0)), fy = snap(p.y + (o.dy ?? 0)), sx = o.sx ?? 1, sy = o.sy ?? 1;
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   if (sx === 1 && sy === 1) ctx.drawImage(img, fx - s.ax, fy - s.ay);

@@ -1,85 +1,50 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { ENEMY_ART } from "../dist/render/art-index.js";
-import { INK_BLOB_ISO, ISO_INK_BLOB } from "../dist/render/iso/ink-blob-sheet.js";
-import { INK_BLOB_PALETTES } from "../dist/render/pixel-ink-blob.js";
-import {
-  ISO_ANIMS, ISO_DIRS, ISO_SPRITE, bakeIsoFrame, clearIsoDirections, frameCount, isoMotion, isoMotionMemorySize,
-  isoSpriteCacheKeys, isoSpriteFrame, isoWashPalette,
-} from "../dist/render/iso/sprite-sheet.js";
-import { drawSketchedParts } from "../dist/render/sprite-sketch.js";
+import { ENEMY_DEFS } from "../dist/defs/registries.js";
+import { ELITE } from "../dist/defs/horde.js";
+import { decodeRuns, genImage, genSprite, genSpriteCacheKeys } from "../dist/render/iso/gen-sprites.js";
+import { SCENERY_PALETTE } from "../dist/render/iso/gen/scenery-pixels.js";
+import { ISO_COLOUR_CAP } from "../dist/render/iso/palette.js";
+import { ISO } from "../dist/render/iso/projection.js";
+import { drawEnemyPuppet, enemyPose } from "../dist/render/iso/enemy-puppets.js";
+import { puppetSprite } from "../dist/render/iso/puppet.js";
+import { ISO_DIRS, ISO_SPRITE, clearIsoDirections, isoMotion, isoMotionMemorySize } from "../dist/render/iso/sprite-sheet.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
 import { createSim } from "../dist/game/sim.js";
 import { drawWorld } from "../dist/render/world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 
-// Pixel and dispatch contracts only; the iso ink blob was not viewed in a browser.
-const sheet = INK_BLOB_ISO;
-const all = ISO_DIRS.flatMap((dir) => ISO_ANIMS.flatMap((anim) =>
-  Array.from({ length: frameCount(anim, sheet.walkFrames) }, (_, f) => ({ dir, anim, f }))));
-const palettes = [0, 0.5, 1].flatMap((w) => [isoWashPalette(w, false), isoWashPalette(w, true)]);
-function opaqueRows(r) {
-  let lo = Infinity, hi = -Infinity;
-  for (let y = 0; y < r.height; y++)
-    for (let x = 0; x < r.width; x++)
-      if (r.pixels[(y * r.width + x) * 4 + 3]) { lo = Math.min(lo, y); hi = Math.max(hi, y); }
-  return { lo, hi, height: hi - lo + 1 };
-}
-const hex = (r, i) => "#" + [0, 1, 2].map((k) => r.pixels[i + k].toString(16).padStart(2, "0")).join("");
-function colours(r) {
-  const set = new Set();
-  for (let i = 0; i < r.pixels.length; i += 4) if (r.pixels[i + 3]) set.add(hex(r, i));
-  return set;
-}
-
-test("ink-blob frames stay in bounds, binary, grounded and 28 to 48 px tall in every palette", () => {
-  assert.equal(sheet.walkFrames, 4, "normal enemies walk in 4 frames (spec)");
-  for (const palette of palettes) for (const { dir, anim, f } of all) {
-    const r = bakeIsoFrame(sheet, dir, anim, f, palette);
-    assert.equal(r.clipped, 0, r.key);
-    for (let i = 3; i < r.pixels.length; i += 4) assert.ok(r.pixels[i] === 0 || r.pixels[i] === 255, "binary alpha");
-    const rows = opaqueRows(r);
-    assert.ok(rows.height >= 28 && rows.height <= 48, `${r.key}: ${rows.height} px tall`);
-    assert.ok(rows.hi > sheet.foot.y && rows.hi <= sheet.foot.y + 6, `${r.key}: the puddle lies on the foot`);
-    assert.ok(rows.lo < sheet.foot.y + ISO_INK_BLOB.crownY + 10, `${r.key}: the crown seat sits on the dome top`);
-  }
-});
-
-test("SW / NW mirror SE / NE exactly; front, back, move and hurt frames differ", () => {
-  for (const anim of ISO_ANIMS) for (let f = 0; f < frameCount(anim, sheet.walkFrames); f++) {
-    const se = bakeIsoFrame(sheet, "se", anim, f), ne = bakeIsoFrame(sheet, "ne", anim, f);
-    assert.notDeepEqual(se.pixels, ne.pixels, `${anim} ${f}: face and back differ`);
-    for (const [a, b] of [["se", "sw"], ["ne", "nw"]]) {
-      const p = bakeIsoFrame(sheet, a, anim, f), m = bakeIsoFrame(sheet, b, anim, f);
-      for (let y = 0; y < p.height; y++) for (let x = 0; x < p.width; x++)
-        for (let k = 0; k < 4; k++) assert.equal(m.pixels[(y * p.width + (p.width - 1 - x)) * 4 + k], p.pixels[(y * p.width + x) * 4 + k]);
+test("every registered enemy and available elite bakes each pose in four directions", () => {
+  assert.ok(SCENERY_PALETTE.length <= ISO_COLOUR_CAP);
+  for (const def of ENEMY_DEFS.all()) {
+    const p = ENEMY_ART.get(def.id).puppet;
+    assert.ok(p, def.id);
+    assert.equal(!!p.elite, ELITE.kinds.includes(def.id), def.id);
+    for (const puppet of p.elite ? [p, p.elite] : [p]) {
+      const r = def.stats.radius * (puppet === p ? 1 : ELITE.radiusMul);
+      assert.deepEqual(
+        [puppet.frames.idle, puppet.frames.walk, puppet.frames.hurt], [2, 4, 1],
+      );
+      assert.ok(puppet.halfWidth > 0 && puppet.halfWidth <= r * 1.5);
+      assert.ok(puppet.top + puppet.bottom <= r * 3.6);
+      assert.ok(Math.abs(puppet.shadow[0] - r * Math.SQRT2 * ISO.k) < 2);
+      assert.ok(puppet.crown >= puppet.top + 2);
+      for (const dir of ISO_DIRS) for (const [anim, count] of Object.entries(puppet.frames)) {
+        for (let f = 0; f < count; f++) {
+          const id = puppetSprite(puppet, dir, anim, f), s = genSprite(id);
+          assert.ok(s, id);
+          const pixels = decodeRuns(s.data, s.w * s.h);
+          assert.ok(pixels.some((p) => p > 0) && pixels.every((p) => p < SCENERY_PALETTE.length), id);
+          assert.ok(s.ay <= puppet.top && s.h - s.ay <= puppet.bottom, id);
+        }
+      }
     }
   }
-  const walk = Array.from({ length: 4 }, (_, f) => bakeIsoFrame(sheet, "se", "walk", f).pixels.join());
-  assert.equal(new Set(walk).size, 4, "every move frame is distinct");
-  assert.notDeepEqual(bakeIsoFrame(sheet, "se", "idle", 0).pixels, bakeIsoFrame(sheet, "se", "idle", 1).pixels);
-  assert.notDeepEqual(bakeIsoFrame(sheet, "se", "idle", 0).pixels, bakeIsoFrame(sheet, "se", "hurt", 0).pixels);
-  assert.notDeepEqual(bakeIsoFrame(sheet, "se", "idle", 0, "0").pixels, bakeIsoFrame(sheet, "se", "idle", 0, "0a").pixels, "attack squints");
-});
-
-test("the three wash palettes (0 / 0.5 / 1) come from pixel-ink-blob.ts and differ", () => {
-  assert.deepEqual([0, 0.25, 0.5, 0.99, 1].map((w) => isoWashPalette(w, false)), ["0", "1", "1", "1", "2"]);
-  const sets = [0, 1, 2].map((i) => colours(bakeIsoFrame(sheet, "se", "idle", 0, String(i))));
-  for (let i = 0; i < 3; i++) {
-    const p = INK_BLOB_PALETTES[i];
-    for (const c of [p.edge, p.body, p.eye]) assert.ok(sets[i].has(c), `wash ${i} uses ${c}`);
-    for (let j = 0; j < 3; j++) if (i !== j) assert.ok(!sets[i].has(INK_BLOB_PALETTES[j].body), `wash ${i} != ${j}`);
-  }
-});
-
-test("the ink-blob art registers the iso sheet; every other enemy keeps its old sprite", () => {
-  assert.equal(ENEMY_ART.get("ink-blob").iso, sheet);
-  assert.equal(ENEMY_ART.get("ink-blob").crownY, ISO_INK_BLOB.crownY);
-  for (const art of ENEMY_ART.all()) if (art.id !== "ink-blob") assert.equal(art.iso, undefined, art.id);
-  const src = readFileSync(new URL("../src/render/iso/ink-blob-sheet.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(src, /Math\.random/);
+  assert.ok(genSprite("crown-elite"));
+  assert.ok(genSprite("shot-ink"));
+  assert.ok(genSprite("shot-water"));
 });
 
 test("isoMotion is render-only, bounded and reports a step for a short while", () => {
@@ -133,57 +98,70 @@ function environment(t) {
   t.mock.method(Math, "random", () => assert.fail("rendering consumes no random numbers"));
   t.after(() => { clearSpriteCache(); clearWorldRenderCache(); });
 }
-function blobDraws(calls) {
-  const byCanvas = new Map(isoSpriteCacheKeys().filter((k) => k.startsWith(`iso-sprite:${sheet.identity}:`)).map((k) => {
-    const [, , dir, anim, frame, palette] = k.split(":");
-    return [isoSpriteFrame(sheet, dir, anim, Number(frame), palette).canvas, k];
-  }));
-  return calls.flatMap((c, i) => c.op === "drawImage" && byCanvas.has(c.args[0]) ? [{ i, key: byCanvas.get(c.args[0]), args: c.args }] : []);
+function enemy(over = {}) {
+  return { id: 7, kind: "ink-blob", x: 100, y: 50, hp: 3, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0, ...over };
 }
-const blob = (over = {}) => ({ id: 7, kind: "ink-blob", x: 100.4, y: 50.6, hp: 3, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0, ...over });
 
-test("the ink blob stamps its iso frame at its foot; direction from its motion, hurt and wash keys", (t) => {
-  environment(t);
-  const art = ENEMY_ART.get("ink-blob"), look = { x: 0, y: 200 };
-  let ctx = canvas().getContext("2d");
-  art.draw(ctx, blob(), 1, look);
-  let d = blobDraws(ctx.calls);
-  assert.equal(d.length, 1);
-  const f = isoSpriteFrame(sheet, "sw", "idle", 0, "0");
-  // Still: faces the cat (screen left of the blob, so south-west).
-  assert.match(d[0].key, /:sw:idle:\d:0$/);
-  const translate = ctx.calls.findLast((c, i) => c.op === "translate" && i < d[0].i);
-  assert.deepEqual(translate.args, [100, 51]);
-  assert.deepEqual(d[0].args.slice(1), [-f.anchor.x, -f.anchor.y], "the foot pixel lands on the foot point");
-  // A step to world (0, -1) is screen up-right: north-east, moving.
-  ctx = canvas().getContext("2d");
-  art.draw(ctx, blob({ y: 49.6 }), 1.05, look);
-  assert.match(blobDraws(ctx.calls)[0].key, /:ne:walk:\d:0$/);
-  // Hit flash: hurt frame; pencil step 1: colourless palette; windup: attack squint.
-  ctx = canvas().getContext("2d");
-  drawSketchedParts(ctx, 1, (c) => art.draw(c, blob({ y: 49.6, hitFlash: 0.1, windup: 0.3 }), 9, look));
-  assert.match(blobDraws(ctx.calls)[0].key, /:hurt:0:2a$/);
-  // Spawning blobs keep the old ground mark, no iso frame.
-  ctx = canvas().getContext("2d");
-  art.draw(ctx, blob({ id: 8, spawnTime: 0.4 }), 1, look);
-  assert.equal(blobDraws(ctx.calls).length, 0);
+test("release poses persist briefly after a lob or Boss attack; hurt and stun remain legible", () => {
+  const lob = enemy({ kind: "smudge", windup: 0.1 });
+  const sp = ENEMY_ART.get(lob.kind).puppet;
+  assert.deepEqual(enemyPose(lob, sp, 1, false, false), { anim: "attack", frame: 0 });
+  lob.windup = 0;
+  assert.deepEqual(enemyPose(lob, sp, 1.1, true, false), { anim: "attack", frame: 1 });
+  assert.equal(enemyPose(lob, sp, 1.4, true, false).anim, "walk");
+  lob.stun = 1;
+  assert.deepEqual(enemyPose(lob, sp, 1.5, true, false), { anim: "idle", frame: 0 });
+  lob.hitFlash = 0.14;
+  assert.deepEqual(enemyPose(lob, sp, 1.6, false, false), { anim: "hurt", frame: 0 });
+
+  const boss = enemy({ kind: "eraser-boss", act: { kind: "charge", t: 1, run: 0 } });
+  const bp = ENEMY_ART.get(boss.kind).puppet;
+  assert.deepEqual(enemyPose(boss, bp, 1, false, false), { anim: "charge", frame: 0 });
+  boss.act.t = 0;
+  boss.act.run = 0.5;
+  assert.deepEqual(enemyPose(boss, bp, 1.2, true, false), { anim: "charge", frame: 1 });
+  boss.act = null;
+  assert.deepEqual(enemyPose(boss, bp, 1.6, true, true), { anim: "charge", frame: 0 });
+  assert.equal(enemyPose(boss, bp, 1.9, true, false).anim, "walk");
 });
 
-test("world.ts draws the iso ink blob and the other enemies with their old sprites", (t) => {
+test("the enemy stamps the selected baked frame at the projected foot", (t) => {
   environment(t);
-  const sim = createSim({ cat: "zero", seed: 2026 });
+  const e = enemy(), look = { x: 0, y: 200 }, p = ENEMY_ART.get(e.kind).puppet;
+  const ctx = canvas().getContext("2d");
+  drawEnemyPuppet(ctx, p, e, 1, look, true);
+  const key = genSpriteCacheKeys().find((k) => k.startsWith("enemy-ink-blob-sw-idle") && k.endsWith("|pencil"));
+  assert.ok(key);
+  const s = genSprite(key.split("|")[0]), call = ctx.calls.find((c) => c.op === "drawImage" && c.args[0] === genImage(key.split("|")[0], "pencil"));
+  assert.deepEqual(call.args.slice(1), [25 - s.ax, 38 - s.ay]);
+  e.y -= 1;
+  e.hitFlash = 0.14;
+  drawEnemyPuppet(ctx, p, e, 1.05, look, false);
+  assert.ok(genSpriteCacheKeys().includes("enemy-ink-blob-ne-hurt-0|flash"));
+});
+
+test("the world draws native bodies, an elite crown and both drops without touching the sim", (t) => {
+  environment(t);
+  const sim = createSim({ seed: 2026 });
   const { x, y } = sim.player;
   sim.enemies.push(
-    blob({ id: 900, x: x + 60, y }),
-    blob({ id: 901, x: x - 60, y, elite: true, maxHp: 9, hp: 4 }),
-    { id: 902, kind: "paper-bat", x, y: y + 60, hp: 3, alive: true, spawnTime: 0, slowTime: 0, orbitCooldown: 0 },
+    enemy({ id: 900, x: x + 60, y }),
+    enemy({ id: 901, x: x - 60, y, elite: true }),
+    enemy({ id: 902, kind: "paper-bat", x, y: y + 60 }),
+    enemy({ id: 903, kind: "crumple", x: x + 30, y, spawnTime: 0.4 }),
   );
+  for (const kind of [undefined, "water"]) sim.enemyShots.push({
+    id: sim.enemyShots.length, x0: x, y0: y, tx: x + 50, ty: y, t: 0.4, flight: 1, alive: true, kind,
+  });
   const before = structuredClone(sim);
   const ctx = canvas().getContext("2d");
-  drawWorld(ctx, sim, { time: 0.35, camera: createIsoCamera(960, 540, sim.player), reducedMotion: true });
-  assert.deepEqual(sim, before, "drawing leaves SimState untouched");
-  assert.equal(blobDraws(ctx.calls).length, 2, "both ink blobs, elite included");
-  const old = ctx.calls.filter((c) => c.op === "drawImage" && c.args.length === 5 && c.args[0].width === 104 && c.args[0].height === 112);
-  assert.ok(old.length >= 1, "the paper bat keeps its cached 104 x 112 sprite");
-  assert.ok(!isoSpriteCacheKeys().some((k) => /paper-bat/.test(k)));
+  drawWorld(ctx, sim, { time: 0.35, camera: createIsoCamera(480, 270, sim.player), reducedMotion: true });
+  assert.deepEqual(sim, before);
+  const keys = genSpriteCacheKeys();
+  for (const id of ["enemy-ink-blob-", "enemy-ink-blob@elite-", "enemy-paper-bat-", "crown-elite", "shot-ink", "shot-water"]) {
+    const key = keys.find((k) => k.startsWith(id));
+    assert.ok(key, id);
+    assert.ok(ctx.calls.some((c) => c.op === "drawImage" && c.args[0] === genImage(key)), key);
+  }
+  assert.ok(!keys.some((k) => k.startsWith("enemy-crumple-")), "spawn pad precedes the body");
 });

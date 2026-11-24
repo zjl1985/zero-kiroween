@@ -12,6 +12,7 @@ import { visHash } from './hash.js';
 import { insidePolygon } from '../defs/weapons/paper-geometry.js';
 import { mix, type Ctx } from './paper-material.js';
 import { WASH_LOOK } from './timeline.js';
+import { clearIsoWashGround } from './iso/wash-ground.js';
 /** Blot radius as a share of the wash cell: neighbours (also diagonal ones) merge into one stain. */
 const BLOT = 0.8;
 const COLORS = Object.freeze({
@@ -92,6 +93,7 @@ let memorySeed = NaN, memoryClock = -1, frameNo = 0;
 /** Forget masks, revisions and bloom memory (a new run). */
 export function clearWashRender(): void {
     clearMasks();
+    clearIsoWashGround();
     revisions.clear();
     memory.clear();
     memorySeed = NaN;

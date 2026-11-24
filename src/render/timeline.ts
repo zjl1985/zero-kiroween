@@ -181,12 +181,32 @@ export function cueTremble(cues: readonly Cue[], time: number, reduced: boolean)
   }
   return { x: Math.sin(time * 61) * amp, y: Math.cos(time * 47) * amp * 0.6 };
 }
+/** Short presentation holds for heavy contacts and rewards. The Eraser can
+ * take hits many times per second, so its holds have a recovery window. */
+export const HIT_STOP = { seconds: 0.12, bossRecovery: 0.36, shake: 2.6 } as const;
+export interface HitStopObservation {
+  readonly elites: number;
+  readonly chests: number;
+  readonly bossHp?: number;
+}
+
+export function hitStopCause(before: HitStopObservation, after: HitStopObservation): "reward" | "boss" | undefined {
+  if (after.elites > before.elites || after.chests > before.chests) return "reward";
+  if (before.bossHp !== undefined && after.bossHp !== undefined && after.bossHp < before.bossHp) return "boss";
+}
+
+export function presentationHitShake(left: number, time: number, reduced: boolean): { x: number; y: number } {
+  const amp = reduced ? 0 : clamp01(left / HIT_STOP.seconds) * HIT_STOP.shake;
+  return { x: Math.sin(time * 75) * amp, y: Math.cos(time * 58) * amp * 0.55 };
+}
+
 /**
  * How many fixed steps to run this frame. Slow motion only scales the real
- * time fed to the clock; every step still uses FIXED_DT.
+ * time fed to the clock; every step still uses FIXED_DT. Subtract the exact
+ * held fraction first so the rest of the frame can run when the hold ends.
  */
-export function presentationSteps(clock: Clock, realDt: number, speed: number): number {
-  return tickClock(clock, Math.max(0, realDt) * clamp01(speed));
+export function presentationSteps(clock: Clock, realDt: number, speed: number, hold = 0): number {
+  return tickClock(clock, Math.max(0, realDt - Math.max(0, hold)) * clamp01(speed));
 }
 /** Deal delay of the i-th card in milliseconds. */
 export function dealDelayMs(index: number): number {

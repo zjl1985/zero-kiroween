@@ -17,14 +17,7 @@ import { ENEMIES } from "../game/enemies.js";
 import type { EnemyState } from "../game/types.js";
 import { enemyContact } from "../game/combat-observation.js";
 import { tintedSprite } from "./sprite-tint.js";
-import { toScreen } from "./iso/projection.js";
-import {
-  drawIsoSprite, frameFor, isoDirection, isoMotion, isoSpriteFrame, isoWashPalette,
-  type IsoAnim, type IsoSheet,
-} from "./iso/sprite-sheet.js";
 
-/** Hard contact shadow under an iso enemy's foot (screen pixels, a 2:1 ellipse). */
-const ISO_ENEMY_SHADOW = { rx: 15, ry: 4, dx: -1, dy: 1, alpha: 0.4 } as const;
 
 const INK = "#192333", LIGHT = "#f5e7c4";
 function block(c: Ctx, x: number, y: number, w: number, h: number, color: string): void {
@@ -466,48 +459,6 @@ function enemyCrease(ctx: Ctx, e: EnemyState, radius: number, hit: number): void
   ctx.restore();
 }
 /** Contact squash of a struck body: (sx, sy) scale around the foot; stays 1 under reduced motion. */
-function hitPress(e: EnemyState, hit: number): { sx: number; sy: number } {
-  const contact = hit > 0 ? enemyContact(e) : undefined, t = 1 - hit,
-    press = reducedPaperMotion() || hit <= 0 ? 0 : t < .6 ? .1 * (1 - t / .6) : -.035 * Math.sin((t - .6) / .4 * Math.PI),
-    horizontal = contact && Math.abs(contact.dx) > Math.abs(contact.dy);
-  return horizontal ? { sx: 1 - press, sy: 1 + press * .5 } : { sx: 1 + press * .5, sy: 1 - press };
-}
-function hpBar(ctx: Ctx, e: EnemyState, y = 4): void {
-  const max = enemyMaxHp(e);
-  if (e.hp < max) { block(ctx, -13, y, 26, 3, INK); block(ctx, -12, y + 1, Math.max(1, 24 * Math.max(0, e.hp) / max), 1, "#d3a4bf"); }
-}
-/**
- * An enemy with an isometric sheet: contact shadow, the frame for its
- * render-time direction (from its observed motion, else facing the cat) and
- * animation (hurt while the hit flash lasts, move while it steps, idle), the
- * wash palette of the live pencil step, then the shared crease and HP bar.
- */
-function drawIsoEnemy(ctx: Ctx, sheet: IsoSheet, e: EnemyState, time: number, attack: boolean, look?: { x: number; y: number }): void {
-  const key = `enemy:${e.id}`, m = isoMotion(key, e.x, e.y, time),
-    toCat = look ? toScreen(look.x - e.x, look.y - e.y).x : 1,
-    dir = isoDirection(key, m.vx, m.vy, toCat >= 0 ? 1 : -1),
-    hit = Math.max(0, Math.min(1, (e.hitFlash ?? 0) / .14)),
-    stunned = (e.stun ?? 0) > 0,
-    anim: IsoAnim = hit > 0 ? "hurt" : m.moving && !stunned ? "walk" : "idle",
-    frame = stunned ? 0 : frameFor(anim, time + (e.id % 4) * .13, reducedPaperMotion(), sheet.walkFrames),
-    f = isoSpriteFrame(sheet, dir, anim, frame, isoWashPalette(liveSketchStep(), attack)),
-    s = ISO_ENEMY_SHADOW;
-  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(e.x), Math.round(e.y));
-  ctx.save(); ctx.globalAlpha *= s.alpha; ctx.fillStyle = "#172631";
-  for (let dy = -s.ry; dy <= s.ry; dy++) {
-    const w = Math.floor(s.rx * Math.sqrt(1 - (dy / (s.ry + 1)) ** 2));
-    ctx.fillRect(s.dx - w, s.dy + dy, w * 2 + 1, 1);
-  }
-  ctx.restore();
-  const press = hitPress(e, hit);
-  ctx.save();
-  ctx.scale(press.sx, press.sy);
-  drawIsoSprite(ctx, f, 0, 0);
-  if (hit > 0) enemyCrease(ctx, e, ENEMIES[e.kind].radius, hit);
-  ctx.restore();
-  hpBar(ctx, e, 6);
-  ctx.restore();
-}
 export function pixelEnemyArt(art: EnemyArt): EnemyArt {
   const effects: Record<string, EffectPainter> = {};
   for (const kind of Object.keys(art.effects ?? {})) effects[kind] = (ctx, e, { fade, ease }) => {
@@ -533,7 +484,6 @@ export function pixelEnemyArt(art: EnemyArt): EnemyArt {
   } : undefined, draw(ctx, e, time, look) {
     const frame = reducedPaperMotion() || (e.stun ?? 0) > 0 ? 0 : Math.floor(time * 7 + e.id % 2) % 2,
       attack = (e.windup ?? 0) > 0 || !!e.act && e.act.t > 0;
-    if (art.iso && e.spawnTime <= 0) { drawIsoEnemy(ctx, art.iso, e, time, attack, look); return; }
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(e.x), Math.round(e.y));
     if (e.spawnTime > 0) {
       ctx.globalAlpha *= 0.6;

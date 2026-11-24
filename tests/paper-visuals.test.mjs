@@ -21,6 +21,8 @@ import { drawOrbitStar, drawSkillEffect, ring, star } from "../dist/render/comba
 import { withPaperMotion } from "../dist/render/paper-motion.js";
 import { drawChunks, clearWorldRenderCache, cachedChunkCount, paperOccludesActor } from "../dist/render/craft-world.js";
 import { GEN_SPRITES, genCanvas } from "../dist/render/iso/gen-sprites.js";
+import { IsoFxFrame } from "../dist/render/iso/fx-frame.js";
+import { clearIsoWashGround, drawIsoWashGround } from "../dist/render/iso/wash-ground.js";
 import { pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Static command contracts only. These do not claim pixel, animation or performance approval.
@@ -289,12 +291,37 @@ test("world status hooks follow actual actor art and exclude decoys; props follo
   const world = readFileSync(new URL("../src/render/world.ts", import.meta.url), "utf8");
   assert.match(world, /paintCat\(ctx\);\s*if \(sim && !pose\.decoy\) drawActorPaperStatus/);
   assert.match(world, /drawCraftEnemy\(ctx, e,[\s\S]*?if \(e\.spawnTime <= 0\) drawActorPaperStatus/);
-  assert.match(world, /drawPaperStatusEffect\(ctx, effect\)/);
+  assert.match(world, /drawIsoCat\(ctx, art\.iso, pose, dir, act\);\s*if \(sim && !pose\.decoy\) drawPuppetStatus/);
+  const puppet = readFileSync(new URL("../src/render/iso/enemy-puppets.ts", import.meta.url), "utf8");
+  assert.match(puppet, /drawPuppet\(ctx, id,[\s\S]*?drawPuppetStatus\(ctx, e,/);
   const props = readFileSync(new URL("../src/render/craft-props.ts", import.meta.url), "utf8");
   assert.match(props, /folded = m\?\.foldedUntil !== undefined/);
   assert.match(props, /activeFire\.some/);
   for (const file of ["paper-face.ts", "paper-status-art.ts", "craft-combat.ts", "craft-enemies.ts", "combat-fx.ts"])
     assert.doesNotMatch(readFileSync(new URL(`../src/render/${file}`, import.meta.url), "utf8"), /Math\.random|Date\.now|performance\.now|requestAnimationFrame|new Image\b/);
+});
+
+test("native wash masks meet at a chunk edge and reuse their canvases", (t) => {
+  environment(t);
+  t.after(clearIsoWashGround);
+  // Cell (14, 10) sits just west of world x = 480, with a stain across it.
+  const bucket = { sig: 1, marks: [{ ix: 14, iy: 10, code: 4 }] };
+  const frame = { seed: 7, buckets: new Map([["0,0", bucket], ["1,0", bucket]]) };
+  const view = { x0: 40, x1: 120, y0: 165, y1: 235 };
+  const ctx = canvas().getContext("2d");
+  drawIsoWashGround(ctx, view, frame);
+  const stamps = ctx.calls.filter((c) => c.op === "drawImage");
+  assert.equal(stamps.length, 2);
+  for (const stamp of stamps) {
+    const [mask, x, y] = stamp.args;
+    const upload = mask.getContext("2d").calls.find((c) => c.op === "putImageData");
+    const { data } = upload.args[0];
+    const sample = toScreen(mask === stamps[0].args[0] ? 478 : 481, 336);
+    const index = ((Math.floor(sample.y) - y) * mask.width + Math.floor(sample.x) - x) * 4;
+    assert.ok(data[index + 3] > 0, "the stain remains visible on each side of the shared edge");
+  }
+  drawIsoWashGround(ctx, view, frame);
+  assert.deepEqual(ctx.calls.filter((c) => c.op === "drawImage").slice(2), stamps);
 });
 
 test("leaving a run clears chunk pixels and permits rebuilding the same view", (t) => {
@@ -952,8 +979,7 @@ test("warning tint stays below actors while its edge passes above raised skills 
   sim.enemies = [{ id: 17, kind: "smudge", x: x + 65, y, hp: 3, alive: true, spawnTime: 0,
     windup: 0.4, tx: x, ty: y }];
   t.mock.method(WEAPON_ART.get("page-fold"), "ground", ctx => {ctx.save();ctx.fillStyle="#010203";ctx.fillRect(x,y,2,3);ctx.restore();});
-  t.mock.method(ENEMY_ART.get("smudge"), "draw", ctx => {ctx.save();ctx.fillStyle="#040506";ctx.fillRect(x,y,4,5);ctx.restore();});
-  t.mock.method(WEAPON_ART.get("full-moon"), "front", ctx => {ctx.save();ctx.fillStyle="#070809";ctx.fillRect(x,y,6,7);ctx.restore();});
+  t.mock.method(IsoFxFrame.prototype, "front", ctx => {ctx.save();ctx.fillStyle="#070809";ctx.fillRect(x,y,6,7);ctx.restore();});
   const ctx = canvas().getContext("2d");
   drawWorld(ctx, sim, { time: 1, camera: isoCam(sim.player) });
   // Iso: ground painters run through isoGround, so the skill sheet is a projected path fill
@@ -963,7 +989,7 @@ test("warning tint stays below actors while its edge passes above raised skills 
     c.args[0].ops?.some(([op, px, py]) => op === "moveTo" && px === foot.x && py === foot.y));
   const warning = ctx.calls.findIndex(c => c.op === "fill" && c.args[0].ops?.some(([op, src]) => op === "addPath" &&
     src.ops?.some(([op, cx, cy, r]) => op === "arc" && cx === x && cy === y && r === SMUDGE.splashRadius)));
-  const actor = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#040506" && c.args[0] === x && c.args[1] === y);
+  const actor = catFrameIndex(ctx.calls, sim.player.id);
   const front = ctx.calls.findIndex(c => c.op === "fillRect" && c.fillStyle === "#070809" && c.args[0] === x && c.args[1] === y);
   // The face opening is cut in projected view space around the cat's projected foot.
   const face = toScreen(x, y);

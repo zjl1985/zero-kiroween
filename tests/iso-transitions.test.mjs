@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { materialAt, prepareTerrainField } from "../dist/render/iso/terrain-field.js";
 import { TRANSITION, borderWidth, neighbourMaterial } from "../dist/render/iso/transitions.js";
 import { ISO_BLOCK, bakeBlockPixels, blockWorldBox } from "../dist/render/iso/terrain-bake.js";
-import { ISO_RAMPS, hexRgb } from "../dist/render/iso/palette.js";
+import { grassRgb, ISO_RAMPS, hexRgb } from "../dist/render/iso/palette.js";
 import { toScreen, toWorld } from "../dist/render/iso/projection.js";
 import { WORLD, roads, waterRegionsNear } from "../dist/game/world-gen.js";
 
@@ -61,11 +61,13 @@ test("grass overhangs road edges with a dark lip; roads keep their texture insid
   for (const { s, n, rgb } of blockPixels(SEED, col, row)) {
     if (s.material !== "road") continue;
     const ramps = [...rampOf(rgb)];
-    if (n === "grass" && s.edge < TRANSITION.minWidth) { assert.ok(ramps.some((r) => r.startsWith("grass:")), "overhang is grass"); overhang++; }
+    const isGrass = ramps.some((r) => r.startsWith("grass:")) ||
+      ISO_RAMPS.grass.some((_, i) => grassRgb(s.biome, i).join() === rgb.join());
+    if (n === "grass" && s.edge < TRANSITION.minWidth) { assert.ok(isGrass, "overhang is grass"); overhang++; }
     // Past the overhang a dithered grass fringe thins out, then a broken one-pixel dark lip follows.
     const fringeEnd = TRANSITION.maxWidth + TRANSITION.fringe;
     if (n === "grass" && s.edge >= fringeEnd && s.edge < fringeEnd + TRANSITION.lip && ramps.some((r) => r.endsWith(":0"))) lip++;
-    if (s.edge > fringeEnd + TRANSITION.lip) { assert.ok(!ramps.some((r) => r.startsWith("grass:")), "no grass inside the road"); inside++; }
+    if (s.edge > fringeEnd + TRANSITION.lip) { assert.ok(!isGrass, "no grass inside the road"); inside++; }
   }
   assert.ok(overhang > 12 && inside > 250, `${overhang} overhang, ${inside} inside`);
   assert.ok(lip > 0, "a dark lip follows the overhang");

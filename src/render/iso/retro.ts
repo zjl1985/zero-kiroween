@@ -27,7 +27,7 @@ type Ctx = CanvasRenderingContext2D;
 
 export const RETRO = {
   /** Alpha of the dark scanline row (every second display row). */
-  scanline: 0.15,
+  scanline: 0.10,
   /** Display rows per scanline period. */
   scanPeriod: 2,
   /** Vignette darkness at the far corners, and where it starts (share of the half-diagonal). */
