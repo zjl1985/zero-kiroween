@@ -1,6 +1,6 @@
 # Build, test, verify and commit
 
-The user wants light verification: build and tests. **Never launch Google Chrome, Chromium or any Playwright browser (system Chrome or the bundled headless shell) from this sandbox**, for any reason. It aborts at launch and macOS shows the user a crash dialog each time. No animation or video-recording checks unless the user asks again.
+For the isometric art branch, run the build and tests in order, compare the three simulation probes, and inspect the actual rendered frames. The isolated Playwright capture workflow is in [HANDOFF.md](../../../../HANDOFF.md). The older macOS browser restriction applied to a launch path that repeatedly crashed. Record which browser and viewport were actually tested.
 
 ## Commands
 
@@ -63,9 +63,9 @@ When adding content, the generic registry, reactions and gallery tests usually c
 
   When a change is meant to alter gameplay or the world, keep a copy of the old reference (for example `baseline-reference-pre-<feature>.txt`), regenerate the reference twice and confirm both runs are byte-identical. If the probes are missing, rely on the snapshot tests and say so.
 
-## Screenshots and frame time (the user runs them)
+## Historical screenshot routines for paper builds
 
-Agents do not take screenshots or measure browser frame time. The user runs these on their own machine:
+These local scripts target the earlier paper build. Use the isometric capture workflow in the handoff for current work:
 
 - `node output/playwright/open-work-shot.cjs`: the six-panel review sheet.
 - `node output/playwright/frame-time.cjs`: browser frame time (p50 / p95 / max).
