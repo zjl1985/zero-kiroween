@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { CAT_ART } from "../dist/render/art-index.js";
-import { officialVariant } from "../dist/cats/official.js";
+import { officialRects } from "../dist/cats/official.js";
 import { ISO_CAT } from "../dist/render/iso/cat-sheet.js";
 import { ISO_DEPTH } from "../dist/render/iso/depth.js";
 import { CAT_PUPPET_FRAMES } from "../dist/render/iso/gen/cats-pixels.js";
@@ -11,7 +11,7 @@ import {
   decodeRuns, genBounds, genCanvas, genImage, GEN_SPRITES, genSpriteCacheKeys, genSpriteCacheSize,
 } from "../dist/render/iso/gen-sprites.js";
 import { PUPPET, drawPuppetFigure, puppetFrame, puppetLayer, puppetSprite } from "../dist/render/iso/puppet.js";
-import { figureScale, paintPlaybillPortrait } from "../dist/render/playbill-stage.js";
+import { paintPlaybillPortrait } from "../dist/render/playbill-stage.js";
 import { drawPuppetStatus } from "../dist/render/iso/puppet-status.js";
 import { ISO, snap, toScreen } from "../dist/render/iso/projection.js";
 import { ISO_ANIMS, ISO_DIRS, clearIsoDirections, isoDirectionMemorySize } from "../dist/render/iso/sprite-sheet.js";
@@ -27,7 +27,6 @@ import { COSTUME_DEFS } from "../dist/defs/registries.js";
 const cats = CAT_ART.all();
 const frames = (puppet) => ISO_DIRS.flatMap((dir) => ISO_ANIMS.flatMap((anim) =>
   Array.from({ length: puppet.frames[anim] }, (_, f) => ({ dir, anim, f }))));
-const lower = (c) => c.toLowerCase();
 const channel = (c, i) => parseInt(c.slice(i, i + 2), 16);
 
 /** Decoded frame: its sprite and one colour ("" transparent) per pixel. */
@@ -41,9 +40,9 @@ function at(g, x, y) {
   const u = x + g.s.ax, v = y + g.s.ay;
   return u >= 0 && u < g.s.w && v >= 0 && v < g.s.h ? g.px[v * g.s.w + u] : "";
 }
-/** True when frame `b` is exactly the horizontal mirror of frame `a` about the foot column. */
+/** True when frame `b` mirrors frame `a` about the gap between the two foot columns. */
 function mirrored(a, b) {
-  for (let y = -40; y <= 8; y++) for (let x = -24; x <= 24; x++) if (at(a, -x, y) !== at(b, x, y)) return false;
+  for (let y = -40; y <= 8; y++) for (let x = -24; x <= 24; x++) if (at(a, -1 - x, y) !== at(b, x, y)) return false;
   return true;
 }
 function colours(puppet, dir, anim = "idle", f = 0) {
@@ -52,7 +51,7 @@ function colours(puppet, dir, anim = "idle", f = 0) {
 /** Is some colour of `set` within `tol` per channel of `hexColour`? */
 const near = (set, hexColour, tol = 16) => [...set].some((c) => [1, 3, 5].every((i) => Math.abs(channel(c, i) - channel(hexColour, i)) <= tol));
 
-test("every registered cat is a baked voxel puppet that stands 30 to 34 native pixels inside its box", () => {
+test("every registered cat uses native model-sheet poses inside its occlusion box", () => {
   assert.ok(cats.length >= 2);
   assert.deepEqual(CAT_PUPPET_FRAMES, { idle: 2, walk: 6, hurt: 1 });
   for (const art of cats) {
@@ -93,13 +92,13 @@ test("the occlusion box (ISO_DEPTH.cat) is the puppet's box on screen and covers
   }
 });
 
-test("four real directions: SW and NW are turned frames, never mirrors of SE and NE, and frames animate", () => {
+test("front and rear model-sheet poses supply four facings and animate", () => {
   for (const art of cats) {
     for (const anim of ISO_ANIMS) for (let f = 0; f < art.iso.frames[anim]; f++) {
       const g = Object.fromEntries(ISO_DIRS.map((dir) => [dir, grid(puppetSprite(art.iso, dir, anim, f))]));
       const sig = (d) => `${g[d].s.w}x${g[d].s.h}@${g[d].s.ax},${g[d].s.ay}:${g[d].px.join()}`;
       assert.equal(new Set(ISO_DIRS.map(sig)).size, 4, `${art.id} ${anim} ${f}: the four directions differ`);
-      assert.ok(!mirrored(g.se, g.sw) && !mirrored(g.ne, g.nw), `${art.id} ${anim} ${f}: a real turn, not a mirror`);
+      assert.ok(mirrored(g.se, g.sw) && mirrored(g.ne, g.nw), `${art.id} ${anim} ${f}: opposite views use the same silhouette`);
     }
     const sig = (anim, f) => grid(puppetSprite(art.iso, "se", anim, f)).px.join();
     const walk = Array.from({ length: art.iso.frames.walk }, (_, f) => sig("walk", f));
@@ -109,42 +108,26 @@ test("four real directions: SW and NW are turned frames, never mirrors of SE and
   }
 });
 
-test("identity colours are baked from the official head data and the cat's clothing; faces show only in front", () => {
+test("the native poses retain the colours of the generated outfits", () => {
   const zero = CAT_ART.get("zero"), nicole = CAT_ART.get("nicole");
-  const zp = officialVariant("zero").palette, np = officialVariant("nicole").palette;
-  // A shaded step of a material (its base mixed toward the night or the moon) still counts for it.
-  const step = (set, base) => near(set, base, 48);
   for (const dir of ISO_DIRS) {
     const z = colours(zero.iso, dir), n = colours(nicole.iso, dir);
-    assert.ok(z.has(lower(zp.mark)) && z.has(lower(zp.head)), `Zero ${dir}: gold hair over the official fur`);
-    assert.ok(step(n, nicole.body.denim) && step(n, nicole.body.body) && n.has(lower(np.head)), `Nicole ${dir}: jeans, white T-shirt, official fur`);
-    assert.ok(near(n, np.headDark, 22), `Nicole ${dir}: dark hair`);
-    assert.ok(!n.has(lower(zp.mark)), "Nicole has no gold hair");
-  }
-  for (const dir of ["se", "sw"]) {
-    const z = colours(zero.iso, dir), n = colours(nicole.iso, dir);
-    assert.ok(step(z, zero.body.metal) && step(z, zero.body.bib), `Zero ${dir}: gold chain on the bib`);
-    assert.ok(n.has(lower(np.blush)) && n.has(lower(nicole.body.paw)), `Nicole ${dir}: pink cheeks and paws`);
-  }
-  for (const dir of ["ne", "nw"]) {
-    assert.ok(colours(zero.iso, dir).has(lower(zero.body.cape)), `Zero ${dir}: the cape over the back`);
-    assert.ok(!colours(nicole.iso, dir).has(lower(np.blush)), `Nicole ${dir}: no face on the back of the head`);
+    assert.ok(near(z, "#e3b686", 38) && near(z, "#302935", 20), `Zero ${dir}: tan fur and dark coat`);
+    assert.ok(near(n, "#f5efeb", 36) && near(n, "#3c5b82", 38), `Nicole ${dir}: white T-shirt and blue cuffs`);
+    assert.ok(near(n, "#1a1416", 24), `Nicole ${dir}: dark hair`);
   }
 });
 
 test("every costume is a baked layer on every standing and walking cat frame, inside the cat's box", () => {
   const costumes = COSTUME_DEFS.ids(), box = ISO_CAT.box;
   assert.equal(costumes.length, 14);
-  let layers = 0, absent = [];
   for (const art of cats) for (const costume of costumes) for (const { dir, anim, f } of frames(art.iso)) {
     const id = puppetLayer(art.iso, costume, dir, anim, f);
     if (!id) {
       // Only a hurt pose (arms swung forward) can hide a costume completely from behind.
-      assert.equal(anim, "hurt", `${art.id} ${costume} ${dir} ${anim} ${f} has a layer`);
-      absent.push(`${art.id} ${costume} ${dir} ${anim} ${f}`);
+      assert.ok(anim === "hurt" && (dir === "ne" || dir === "nw"), `${art.id} ${costume} ${dir} ${anim} ${f} has a layer`);
       continue;
     }
-    layers++;
     const s = GEN_SPRITES[id];
     let total = 0;
     for (let i = 0; i < s.data.length; i++) {
@@ -159,13 +142,26 @@ test("every costume is a baked layer on every standing and walking cat frame, in
     const b = genBounds(id);
     assert.ok(-b.l <= box.halfWidth && b.r <= box.halfWidth && -b.t <= box.top && b.b <= box.bottom, `${id}: inside the cat's box`);
   }
-  assert.ok(layers >= costumes.length * cats.length * 35, `${layers} layers`);
-  assert.ok(absent.length <= 2, absent.join(", "));
   assert.equal(puppetLayer(cats[0].iso, "no-such-layer", "se", "idle", 0), undefined);
   // Every costume shows on a standing front frame with more than a couple of pixels.
   for (const art of cats) for (const costume of costumes) {
     const g = grid(puppetLayer(art.iso, costume, "se", "idle", 0));
     assert.ok(g.px.filter(Boolean).length >= 3, `${art.id} ${costume}: visible`);
+  }
+});
+
+test("the sweet potato outfit preserves the reference face pixels in front", () => {
+  for (const art of cats) for (const dir of ["se", "sw"]) {
+    const base = grid(puppetSprite(art.iso, dir, "idle", 0));
+    const worn = grid(puppetLayer(art.iso, "poteto", dir, "idle", 0));
+    let protectedPixels = 0;
+    base.px.forEach((colour, i) => {
+      const x = i % base.s.w - base.s.ax, y = Math.floor(i / base.s.w) - base.s.ay;
+      if (!colour || y <= -.82 * base.s.ay || y >= -.40 * base.s.ay) return;
+      protectedPixels++;
+      assert.equal(at(worn, x, y), "", `${art.id} ${dir}: face pixel at ${x},${y}`);
+    });
+    assert.ok(protectedPixels > 35, `${art.id} ${dir}: ample face coverage`);
   }
 });
 
@@ -338,14 +334,41 @@ test("UI figures stamp the baked frame and its layer at a whole-number scale on 
   assert.deepEqual(ctx.calls[draws[1].i].args.slice(1), [101 - l.ax * 3, 50 - l.ay * 3, l.w * 3, l.h * 3], "the layer keeps the frame's foot");
   assert.equal(drawPuppetFigure(ctx, art.iso, { x: 0, y: 0, scale: 3, layer: "no-such-layer" }), true, "a missing layer is skipped");
   assert.equal(catDraws(ctx.calls, art).length, 3);
-  // The roster dais paints the same figure over its pedestal for the character panel.
-  const stage = canvas();
-  paintPlaybillPortrait(stage, art.id, costume);
-  const dais = catDraws(stage.getContext("2d").calls, art);
-  assert.deepEqual(dais.map((d) => d.key), [`cat-${art.id}-se-idle-0`, `cat-${art.id}@${costume}-se-idle-0`]);
-  const k = figureScale(stage.height);
-  assert.ok(Number.isInteger(k) && k >= 2, `scale ${k}`);
-  assert.deepEqual(stage.getContext("2d").calls[dais[0].i].args.slice(1), [200 - s.ax * k, 231 - s.ay * k, s.w * k, s.h * k]);
+});
+
+test("the character panel uses the higher-detail portraits for both cats and every costume", (t) => {
+  environment(t);
+  for (const art of cats) {
+    const native = GEN_SPRITES[`cat-${art.id}-se-idle-0`];
+    for (const costume of [null, ...COSTUME_DEFS.ids()]) {
+      const stage = canvas();
+      stage.width = 232;
+      stage.height = 186;
+      paintPlaybillPortrait(stage, art.id, costume);
+      const ctx = stage.getContext("2d"), draws = catDraws(ctx.calls, art);
+      const id = costume ? `cat-${art.id}@${costume}-select` : `cat-${art.id}-select`;
+      const portrait = GEN_SPRITES[id];
+      assert.ok(portrait?.h > native.h * 1.25, id);
+      assert.deepEqual(draws.map((d) => d.key), [id]);
+      const [left, top, width, height] = ctx.calls[draws[0].i].args.slice(1);
+      const scale = width / portrait.w;
+      assert.ok(Number.isInteger(scale) && scale >= 1, id);
+      assert.deepEqual([left, top, height], [116 - portrait.ax * scale, 143 - portrait.ay * scale, portrait.h * scale]);
+      assert.ok(left >= 0 && top >= 0 && left + width <= stage.width && top + height <= stage.height, id);
+    }
+  }
+});
+
+test("plain selection heads preserve every sampled Meow Wall pixel", () => {
+  for (const art of cats) {
+    const portrait = grid(`${art.iso.identity}-select`);
+    const rects = officialRects(art.id);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 48; x++) {
+      const px = (x + 0.5) * 386 / 48, py = 20 + (y + 0.5) * 260 / 32;
+      const rect = rects.findLast((r) => px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h);
+      assert.equal(at(portrait, x - 24, y - 54), rect?.fill.toLowerCase() ?? "", `${art.id}: head pixel (${x}, ${y})`);
+    }
+  }
 });
 
 test("burn and wet marks sit on the puppet's body box; a wet cat does not burn", () => {

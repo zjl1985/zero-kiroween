@@ -27,7 +27,7 @@ type Ctx = CanvasRenderingContext2D;
 
 export const RETRO = {
   /** Alpha of the dark scanline row (every second display row). */
-  scanline: 0.10,
+  scanline: 0.055,
   /** Display rows per scanline period. */
   scanPeriod: 2,
   /** Vignette darkness at the far corners, and where it starts (share of the half-diagonal). */
@@ -35,7 +35,7 @@ export const RETRO = {
   /** Barrel-style corner: extra darkening inside this share of the shorter side from each corner. */
   corner: { radius: 0.07, alpha: 0.55 },
   /** Grain: tile size (display px), noise cell (display px), tile count, cycle rate, strength. */
-  grain: { tile: 96, cell: 1, tiles: 4, fps: 12, alpha: 0.03 },
+  grain: { tile: 96, cell: 1, tiles: 4, fps: 12, alpha: 0.017 },
   /** Colour split: offset in display pixels and alpha of each fringe copy. */
   split: { offset: 1, alpha: 0.25 },
 } as const;

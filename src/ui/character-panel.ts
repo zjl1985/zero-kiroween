@@ -195,21 +195,23 @@ export function paintWardrobe(locale: Locale, cat: CatId, worn: CostumeId | null
     tickets = buildWardrobe();
   tickets.forEach((b, i) => {
     const { id, unlocked } = entries[i]!,
+      equipped = id === worn,
+      shown = unlocked || equipped,
       name = costumeCopy(locale, id, "name"),
-      skill = id === null ? characterCopy(locale, cat, "role") : unlocked ? costumeCopy(locale, id, "skill") : t(locale, "costume.locked"),
-      desc = id === null ? "" : unlocked ? costumeCopy(locale, id, "desc") : costumeCopy(locale, id, "unlock");
-    b.setAttribute("aria-pressed", String(id === worn));
+      skill = id === null ? characterCopy(locale, cat, "role") : shown ? costumeCopy(locale, id, "skill") : t(locale, "costume.locked"),
+      desc = id === null ? "" : shown ? costumeCopy(locale, id, "desc") : costumeCopy(locale, id, "unlock");
+    b.setAttribute("aria-pressed", String(equipped));
     b.setAttribute("aria-disabled", String(!unlocked));
-    b.classList.toggle("locked", !unlocked);
+    b.classList.toggle("locked", !shown);
     b.querySelector(".wardrobe-name")!.textContent = name;
     b.querySelector(".wardrobe-skill")!.textContent = skill;
     b.querySelector(".wardrobe-desc")!.textContent = desc;
     b.setAttribute("aria-label", [name, skill, desc].filter(Boolean).join(" · "));
     const portrait = b.querySelector<HTMLCanvasElement>(".wardrobe-portrait")!,
-      sig = unlocked ? `${cat}|${id ?? ""}` : "locked";
+      sig = shown ? `${cat}|${id ?? ""}` : "locked";
     if (portrait.dataset.sig !== sig) {
       portrait.dataset.sig = sig;
-      if (unlocked) paintPortrait(portrait, cat, id);
+      if (shown) paintPortrait(portrait, cat, id);
       else paintLockedCover(portrait);
     }
   });

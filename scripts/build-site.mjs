@@ -28,11 +28,15 @@ function publishModules(directory) {
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 for (const file of ["index.html", "styles.css"]) copyFileSync(join(root, file), join(output, file));
-// Explicit font/license allowlist; no arbitrary media or downloaded archives ship.
+// Ship the licensed fonts and the game-ready art.
 mkdirSync(join(output, "assets/fonts"), { recursive: true });
 for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"])
   copyFileSync(join(root, "assets/fonts", file), join(output, "assets/fonts", file));
 mkdirSync(join(output, "assets/village"), { recursive: true });
 copyFileSync(join(root, "assets/village/SOURCE.txt"), join(output, "assets/village/SOURCE.txt"));
+for (const art of ["assets/characters/render/cat-reference-atlas.png", "assets/upgrades/render/upgrade-card-atlas.png"]) {
+  mkdirSync(dirname(join(output, art)), { recursive: true });
+  copyFileSync(join(root, art), join(output, art));
+}
 publishModules(source);
-console.log("Static site built in site/ (HTML, CSS, JavaScript and licensed fonts).");
+console.log("Static site built in site/ (HTML, CSS, JavaScript, game art and licensed fonts).");

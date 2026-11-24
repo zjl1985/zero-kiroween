@@ -1,17 +1,9 @@
 /**
- * The chosen cat as a baked voxel puppet (scripts/iso-art/puppet.py ->
- * gen/cats-pixels.ts). Idle 2 frames, walk 6, hurt 1, each turned in four
- * real directions: an asymmetric identity point (the chain pendant, the hair
- * sweep) stays on the cat's own side in every view instead of flipping with a
- * mirrored frame. The cat stands 30 to 32 native pixels from its foot to the
- * ear tips. A worn costume is a second baked layer over the same frame
- * (scripts/iso-art/costumes.py -> gen/costumes-pixels.ts): the pixels where
- * the costumed frame differs, laid pixel-exact on the base frame.
- *
- * Every cat-specific colour and accessory is baked from the official head
- * palette and accessories (src/cats/, unchanged) and the clothing palette of
- * the cat's art definition (src/defs/cats/<id>/iso.art.ts). This module
- * names no cat.
+ * The chosen cat uses frames extracted from the approved model sheet
+ * (scripts/iso-art/reference_cats.py -> gen/cats-pixels.ts). Front and rear
+ * three-quarter poses provide the four facings. Each has two idle frames,
+ * six step frames and a hurt frame. A worn costume supplies a separate
+ * foot-aligned layer (scripts/iso-art/costumes.py).
  */
 import type { IsoPuppet } from "../art-registry.js";
 import type { CatPose } from "../layout.js";
@@ -21,17 +13,18 @@ import { CAT_PUPPET_FRAMES } from "./gen/cats-pixels.js";
 import { rampColour } from "./palette.js";
 import { snap, toScreen } from "./projection.js";
 import { PUPPET, drawPuppet, drawPuppetShadow, puppetFrame, puppetLayer, puppetSprite, type PuppetDraw } from "./puppet.js";
+import { drawReferenceCat, REFERENCE_CAT_HEIGHT } from "./reference-cat-art.js";
 import type { IsoAnim, IsoDir } from "./sprite-sheet.js";
 
 export const ISO_CAT = {
   /** Native-pixel box every baked frame stays inside, costumed ones included, around its foot: half width, rows above the foot, rows under it. */
-  box: { halfWidth: 16, top: 35, bottom: 8 },
+  box: { halfWidth: 18, top: 35, bottom: 8 },
   /** Rows from the foot to the ear tips of a standing cat in its front view (outline included). */
-  stand: 31,
+  stand: REFERENCE_CAT_HEIGHT,
   /** Hard contact shadow, in native pixels, offset to the screen lower-left (spec section 5). */
   shadow: { rx: 7, ry: 2, dx: -1, dy: 1 },
   /** Paper wear marks on the torso, relative to the foot (native pixels). */
-  wear: { marks: [[-4, -13, 2, 1], [2, -9, 2, 1]], tape: [0, -14, 3, 1] },
+  wear: { marks: [[-4, -9, 2, 1], [2, -6, 2, 1]], tape: [0, -10, 3, 1] },
 } as const;
 
 /** The baked puppet of a cat: frames `cat-<id>-<dir>-<anim>-<frame>`. */
@@ -68,19 +61,21 @@ export function drawIsoCat(ctx: Ctx, puppet: IsoPuppet, pose: CatPose, dir: IsoD
   ctx.imageSmoothingEnabled = false;
   if (pose.decoy) ctx.globalAlpha *= 0.35;
   drawPuppetShadow(ctx, pose.x, pose.y, ISO_CAT.shadow);
-  drawPuppet(ctx, id, pose.x, pose.y, draw);
+  const foot = toFoot(pose);
+  if (!drawReferenceCat(ctx, puppet.identity, dir, anim, frame, foot.x, foot.y, draw)) {
+    drawPuppet(ctx, id, pose.x, pose.y, draw);
+  }
   // The costume layer flashes, squashes and fades with the cat under it.
   if (layer) drawPuppet(ctx, layer, pose.x, pose.y, draw);
   if (pose.wear && !pose.decoy) {
-    const p = toFoot(pose);
     ctx.fillStyle = rampColour("ink", 0);
     const marks = ISO_CAT.wear.marks.slice(0, Math.min(2, pose.wear.marks));
-    for (const [mx, my, w, h] of marks) ctx.fillRect(p.x + mx, p.y + my, w, h);
+    for (const [mx, my, w, h] of marks) ctx.fillRect(foot.x + mx, foot.y + my, w, h);
     if (pose.wear.tape > 0) {
       const [tx, ty, w, h] = ISO_CAT.wear.tape;
       ctx.globalAlpha *= Math.min(1, pose.wear.tape);
       ctx.fillStyle = rampColour("wax", 4);
-      ctx.fillRect(p.x + tx, p.y + ty, w, h);
+      ctx.fillRect(foot.x + tx, foot.y + ty, w, h);
     }
   }
   ctx.restore();

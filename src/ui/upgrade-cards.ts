@@ -9,7 +9,7 @@ import {
   type UpgradeId,
   type WeaponStat,
 } from "../game/upgrades.js";
-import { paintCardEmblem } from "../render/upgrade-icons.js";
+import { paintUpgradeCardArt } from "../render/upgrade-card-art.js";
 
 export function upgradeName(locale: Locale, id: UpgradeId): string {
   return t(locale, `upgrade.${id}.name` as MessageKey);
@@ -32,10 +32,6 @@ export function weaponStepText(locale: Locale, id: UpgradeId, owned: number): st
 /** Card text: a new item explains itself; an owned weapon lists its next step. */
 function cardDesc(locale: Locale, id: UpgradeId, owned: number): string {
   return owned > 0 && isWeapon(id) ? weaponStepText(locale, id, owned) : upgradeDesc(locale, id);
-}
-/** Filled and empty dots for the level after this pick. */
-function levelDots(owned: number, max: number): string {
-  return "●".repeat(Math.min(max, owned + 1)) + "○".repeat(Math.max(0, max - owned - 1));
 }
 function part<T extends Element>(root: Element, selector: string): T {
   const el = root.querySelector(selector);
@@ -68,27 +64,33 @@ export function paintUpgradeCards(
     card.dataset.pool = def.cat;
     card.dataset.slot = def.slot;
     card.classList.toggle("evolution", def.slot === "evolution");
-    const tag = slotted
-      ? `${t(locale, def.slot === "weapon" ? "upgrade.weapon" : "upgrade.passive")} · ${t(
-          locale,
-          def.cat === "any" ? "upgrade.shared" : "upgrade.signature",
-        )}`
-      : t(locale, "upgrade.shared");
-    part<HTMLElement>(card, ".card-tag").textContent = tag;
-    part<HTMLElement>(card, ".card-name").textContent = upgradeName(locale, id);
-    part<HTMLElement>(card, ".card-level").textContent = !slotted
-      ? ""
-      : owned === 0
-        ? `${t(locale, "upgrade.new")}  ${levelDots(0, def.maxLevel)}`
-        : `${t(locale, "upgrade.level", { from: owned, to: owned + 1 })}  ${levelDots(owned, def.maxLevel)}`;
+    const kind = slotted ? t(locale, def.slot === "weapon" ? "upgrade.weapon" : "upgrade.passive") : "",
+      kindLabel = part<HTMLElement>(card, ".card-kind"),
+      name = upgradeName(locale, id);
+    kindLabel.hidden = !kind;
+    kindLabel.textContent = kind;
+    part<HTMLElement>(card, ".card-pool").textContent = t(
+      locale, slotted && def.cat !== "any" ? "upgrade.signature" : "upgrade.shared",
+    );
+    part<HTMLElement>(card, ".card-name").textContent = name;
+    const level = part<HTMLElement>(card, ".card-level");
+    level.hidden = !slotted;
+    part<HTMLElement>(level, ".card-level-label").textContent = owned === 0
+      ? t(locale, "upgrade.new")
+      : t(locale, "upgrade.level", { from: owned, to: owned + 1 });
+    part<HTMLElement>(level, ".card-pips").replaceChildren(...Array.from({ length: slotted ? def.maxLevel : 0 }, (_, i) => {
+      const pip = document.createElement("i");
+      pip.classList.toggle("filled", i <= owned);
+      return pip;
+    }));
     const desc = cardDesc(locale, id, owned);
     part<HTMLElement>(card, ".card-desc").textContent = desc;
     part<HTMLElement>(card, "kbd").textContent = String(i + 1);
     const icon = part<HTMLCanvasElement>(card, ".card-icon");
     if (icon.dataset.id !== id) {
-      paintCardEmblem(icon, id);
       icon.dataset.id = id;
+      paintUpgradeCardArt(icon, id);
     }
-    card.setAttribute("aria-label", `${i + 1}. ${upgradeName(locale, id)}: ${desc}`);
+    card.setAttribute("aria-label", `${i + 1}. ${kind ? `${kind} · ` : ""}${name}: ${desc}`);
   }
 }

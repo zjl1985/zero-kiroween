@@ -107,7 +107,7 @@ class Model:
     Authoring code always works in units: X, Y, Z are divided back.
     """
 
-    def __init__(self, x0: int, y0: int, x1: int, y1: int, z1: int, turn: int = 0, scale: float = 1):
+    def __init__(self, x0: int, y0: int, x1: int, y1: int, z1: int, turn: float = 0, scale: float = 1):
         self.x0, self.y0 = round(x0 * scale), round(y0 * scale)
         X, Y, Z = round((x1 - x0) * scale), round((y1 - y0) * scale), round(z1 * scale)
         self.scale = scale
@@ -121,12 +121,20 @@ class Model:
         self.X, self.Y, self.Z = self.X / scale, self.Y / scale, wz / scale
 
     def _unturn(self, x, y):
-        for _ in range(self.turn):
+        if self.turn != int(self.turn):
+            a = self.turn * math.pi / 2
+            c, s = math.cos(a), math.sin(a)
+            return c * x + s * y, c * y - s * x
+        for _ in range(int(self.turn)):
             x, y = y, -x
         return x, y
 
     def _turn_normal(self, nx, ny):
-        for _ in range(self.turn):
+        if self.turn != int(self.turn):
+            a = self.turn * math.pi / 2
+            c, s = math.cos(a), math.sin(a)
+            return c * nx - s * ny, s * nx + c * ny
+        for _ in range(int(self.turn)):
             nx, ny = -ny, nx
         return nx, ny
 

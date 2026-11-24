@@ -69,7 +69,7 @@ const images = (ctx) => ctx.calls.filter((c) => c.op === "drawImage");
 const tints = (ctx) => ctx.calls.filter((c) => c.op === "fillRect" && c.globalCompositeOperation === "source-atop");
 const signature = (c) => [c.op, c.fillStyle, c.args.map((a) => a instanceof RecordingPath ? a.ops : a)];
 
-test("gallery draws every cat card and wardrobe card from the baked puppet frames", (t) => {
+test("gallery draws every cat and wardrobe card from the baked front portraits", (t) => {
   drawingEnvironment(t);
   const sheet = canvas();
   assert.ok(paintGallery(sheet, "en", 760, 1) > 0);
@@ -78,10 +78,10 @@ test("gallery draws every cat card and wardrobe card from the baked puppet frame
   const drawn = images(sheet.getContext()).flatMap((c) => (byCanvas.has(c.args[0]) ? [byCanvas.get(c.args[0])] : []));
   const cats = CATS.ids();
   // Cat cards: the standing front frame of each cat, in registration order.
-  assert.deepEqual(drawn.slice(0, cats.length), cats.map((id) => `cat-${id}-se-idle-0`));
-  // The wardrobe shows every costume on every cat, in wardrobe order: the frame, then its costume layer.
+  assert.deepEqual(drawn.slice(0, cats.length), cats.map((id) => `cat-${id}-select`));
+  // The wardrobe shows the full dressed pose for every cat, in wardrobe order.
   assert.deepEqual(drawn.slice(cats.length),
-    COSTUME_DEFS.ids().flatMap((c) => cats.flatMap((id) => [`cat-${id}-se-idle-0`, `cat-${id}@${c}-se-idle-0`])));
+    COSTUME_DEFS.ids().flatMap((c) => cats.map((id) => `cat-${id}@${c}-select`)));
 });
 
 test("cat skill previews keep the dash for Zero and use a native moon field for Nicole", (t) => {

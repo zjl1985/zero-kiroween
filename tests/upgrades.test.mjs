@@ -31,6 +31,11 @@ import { CHARACTERS as C } from "../dist/game/characters.js";
 import { FIXED_DT as DT } from "../dist/game/clock.js";
 import { MESSAGE_KEYS } from "../dist/content/keys.js";
 import { missingKeys } from "../dist/content/i18n.js";
+import { UPGRADE_CARD_ART } from "../dist/render/iso/gen/upgrade-card-atlas.js";
+
+test("the illustrated card atlas covers all registered upgrades", () => {
+  assert.deepEqual(Object.keys(UPGRADE_CARD_ART).sort(), UPGRADES.map(({ id }) => id).sort());
+});
 
 const idle = { ax: 0, ay: 0, dash: false };
 function quiet(cat = "zero", seed = 45) {

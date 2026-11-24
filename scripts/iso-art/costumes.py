@@ -10,10 +10,8 @@ voxel part hung on the same bones as the puppet while it is being built:
     front    after the ears (hats, collars, the item in the paw)
     face     pixel stamps on the head of the two front views
 
-Every costumed frame is baked in exactly the pose of its base frame and emitted as
-the pixels that differ from the base frame, so the layer lies pixel-exact on the
-base frame drawn under it and the result is the full costumed bake. A costume never
-shrinks the silhouette: every pixel of the base frame is covered or kept.
+The dressed and plain mannequins give the added pixels for each pose. Those
+pixels are scaled to the approved model-sheet frame, preserving its eyewear.
 """
 from __future__ import annotations
 
@@ -21,7 +19,8 @@ import math
 
 import numpy as np
 
-from puppet import ANIMS, DIRS, Look, _rgb, bake_cat, base_cat, mix
+from puppet import ANIMS, DIRS, Look, _rgb, bake_cat, bake_selection, base_cat, mix
+from reference_cats import reference_pose
 from voxel import Baked, gable
 
 # ---------------------------------------------------------------- small builders
@@ -413,11 +412,12 @@ def brows(face, look, rec):
             face.put(ex + dx, face.ny - 2, look.p["headDark"])
 
 
-def round_glasses(face, look, rec):
-    """thin gold round glasses, worn over the cat's own eyewear."""
-    for ex in (face.lx, face.rx_):
-        for dx, dy in ((-2, -1), (-2, 0), (-1, -2), (0, -2), (1, -2), (2, -1), (2, 0), (-1, 1), (0, 1), (1, 1)):
-            face.put(ex + dx, face.ny + dy, "#f0c85a")
+def gold_glasses_hinges(face, look, rec):
+    """Small gold hinges outboard of the cat's own lenses."""
+    offset = 4 if face.portrait else 3
+    for ex, side in ((face.lx, -1), (face.rx_, 1)):
+        face.put(ex + side * offset, face.ny, "#f0c85a")
+        face.put(ex + side * (offset + 1), face.ny - 1, "#aa7a3d")
 
 
 def cheek_paint(colour, nose=False):
@@ -441,14 +441,19 @@ def expression(kind):
         if kind != "closed":
             face.put(mx - 1, my - 1, ink)
             face.put(mx + 1, my - 1, ink)
-        if rec["eyes"] == "sunglasses" or face.hurt:
+        if kind == "smile" or rec["eyes"] == "sunglasses" or face.hurt:
             return
-        # The open eye is pupil (ex, ny), (ex, ny + 1) and glint (ex + 1, ny) for ex in lx / rx_.
         for ex, closed in ((face.lx, kind != "wink"), (face.rx_, True)):
             if not closed:
                 continue
-            face.put(ex + 1, face.ny, look.p["head"])
-            face.put(ex + 1, face.ny + 1, ink)
+            if face.portrait:
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0):
+                        face.clear(ex + dx, face.ny + dy)
+                    face.put(ex + dx, face.ny + 1, ink)
+            else:
+                face.clear(ex, face.ny)
+                face.put(ex, face.ny + 1, ink)
     return stamp
 
 
@@ -523,7 +528,7 @@ RECIPES = {
     ),
     "poteto": lambda w: (
         w.front_add(lambda rig, w: collar(w, rig, "#3a333c", height=2.3, rx=3.0, ry=3.3, z=2.6, thick=0.5, name="roll")),
-        w.face_add(round_glasses),
+        w.face_add(gold_glasses_hinges),
         w.face_add(expression("smile")),
         w.face_add(cheek_paint("#e48f62")),
         w.hold(sweet_potato),
@@ -616,38 +621,40 @@ def costume_sprites(inputs: dict, looks: dict):
             for anim, n in ANIMS:
                 for f in range(n):
                     sid = f"cat-{wear.look.id}@{wear.cid}-{d}-{anim}-{f}"
-                    out.append((sid, (lambda wear=wear, anim=anim, f=f, turn=turn, sid=sid: bake_worn(wear, anim, f, turn, sid))))
+                    out.append((sid, lambda wear=wear, anim=anim, f=f, turn=turn: bake_worn(wear, anim, f, turn)))
+        # Portraits are complete frames so the larger silhouettes need no overlay.
+        rec = looks[wear.look.id][1]
+        out.append((f"cat-{wear.look.id}@{wear.cid}-select",
+                    lambda wear=wear, rec=rec: bake_selection(wear.look, rec, wear)))
     return out
 
 
-def bake_worn(wear: Wear, anim: str, f: int, turn: int, sid: str):
-    """The pixels where the costumed frame differs from its base frame, cropped around them.
-
-    Where the costume recedes from the base silhouette (a hat over a hair tuft), the layer is
-    dilated with the costumed frame's next colour until it covers every base pixel, so no pixel
-    of the base frame is left showing outside the costumed silhouette.
-    """
+def bake_worn(wear: Wear, anim: str, f: int, turn: int):
+    """Place the mannequin's added clothes and props over the source-image pose."""
     look, rec = wear.look, wear.rec
-    full = bake_cat(look, rec, anim, f, turn, wear)
-    base = base_cat(look, rec, anim, f, turn)
-    b = {(x - base.ax, y - base.ay): base.pixels[y * base.w + x]
-         for y in range(base.h) for x in range(base.w) if base.pixels[y * base.w + x]}
-    keep = {(x - full.ax, y - full.ay): full.pixels[y * full.w + x]
-            for y in range(full.h) for x in range(full.w) if full.pixels[y * full.w + x]}
-    lost = [p for p in b if p not in keep]
-    while lost:
-        rest = []
-        for p in lost:
-            for q in ((p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)):
-                c = keep.get(q)
-                if c:
-                    keep[p] = c
-                    break
-            else:
-                rest.append(p)
-        assert len(rest) < len(lost), f"{sid}: {len(rest)} base pixels cannot be covered"
-        lost = rest
-    keep = {p: c for p, c in keep.items() if b.get(p) != c}
+    worn = bake_cat(look, rec, anim, f, turn, wear)
+    mannequin = base_cat(look, rec, anim, f, turn)
+    reference = reference_pose(look.id, anim, f, turn)
+
+    def at(frame, x, y):
+        u, v = x + frame.ax, y + frame.ay
+        return frame.pixels[v * frame.w + u] if 0 <= u < frame.w and 0 <= v < frame.h else ""
+
+    sx, sy = reference.w / mannequin.w, reference.ay / mannequin.ay
+    bounds = (round(-worn.ax * sx), round((worn.w - worn.ax) * sx),
+              round(-worn.ay * sy), round((worn.h - worn.ay) * sy))
+    x0, x1, y0, y1 = bounds
+    keep = {}
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            mx, my = math.floor((x + .5) / sx), math.floor((y + .5) / sy)
+            colour = at(worn, mx, my)
+            if not colour or colour == at(mannequin, mx, my):
+                continue
+            # Keep the broad face and glasses beneath hats, props and collars.
+            if -.82 * reference.ay < y < -.40 * reference.ay and at(reference, x, y):
+                continue
+            keep[x, y] = colour
     if not keep:
         return None
     xs = [p[0] for p in keep]
@@ -657,7 +664,7 @@ def bake_worn(wear: Wear, anim: str, f: int, turn: int, sid: str):
     px = [""] * (W * H)
     for (x, y), c in keep.items():
         px[(y - y0) * W + (x - x0)] = c
-    return Baked(w=W, h=H, ax=-x0, ay=-y0, pixels=px, extent=base.extent)
+    return Baked(w=W, h=H, ax=-x0, ay=-y0, pixels=px, extent=reference.extent)
 
 
 # ---------------------------------------------------------------- contact sheets

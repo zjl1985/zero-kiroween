@@ -4,7 +4,8 @@
  * so a painter's art bounds (offsets from its world foot) become a screen
  * box around the projected foot. An occluder fades only when that box
  * overlaps the cat's projected sprite box and its footprint stands in front
- * of the cat; the renderer then draws it after the cat at ISO_DEPTH.fade.
+ * of the cat. Foreground buildings fade in place; a single-point piece
+ * recedes behind the cat without painting through its face.
  * Presentation only: reads positions, never SimState.
  */
 import { ISO, depthKey, toScreen, type Vec } from "./projection.js";
@@ -34,11 +35,13 @@ export interface ScreenBox {
 export const ISO_DEPTH = {
   /**
    * The cat's projected sprite box around its foot point, in k = 1 pixels (halved on screen):
-   * the baked puppet's box (ISO_CAT.box in cat-sheet.ts: 16 px half width, 35 rows up, 8 down).
+   * the baked puppet's box (ISO_CAT.box in cat-sheet.ts: 18 px half width, 35 rows up, 8 down).
    */
-  cat: { halfWidth: 32, top: 70, bottom: 16 },
+  cat: { halfWidth: 36, top: 70, bottom: 16 },
   /** Alpha of an occluder drawn over the cat. */
   fade: 0.48,
+  /** Alpha of a covering native tree or post drawn behind the visible cat. */
+  pointFade: 0.7,
   /**
    * World units around a footprint inside which a point actor in front of it
    * is lifted above its sort key (liftInFront). Covers the tallest point

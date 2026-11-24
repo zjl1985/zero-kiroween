@@ -119,10 +119,10 @@ export function drawWorld(
 }
 
 /**
- * Presents a native frame drawn by drawWorld on the display canvas: nearest
- * neighbour enlargement to `width` x `height` display pixels, the retro CRT
- * layer (iso/retro.ts), then the screen UI (cue screen, navigation tabs, the
- * frame) at display resolution so its text stays crisp. The UI painters were
+ * Finishes a frame on the display canvas. The live game draws the scene on
+ * this canvas directly so the reference cat art can use its full backing.
+ * Offline callers can supply a separate frame for nearest-neighbour enlargement.
+ * Then draw the retro layer and the screen UI at display resolution. UI painters were
  * authored for the k = 1 view, so they get the frame's projection and camera
  * expressed in k = 1 pixels and a transform that maps those onto the display.
  */
@@ -140,7 +140,7 @@ export function presentWorld(
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
-  ctx.drawImage(native, 0, 0, width, height);
+  if (native !== ctx.canvas) ctx.drawImage(native, 0, 0, width, height);
   drawRetro(ctx, width, height, { time: view.time, reduced, light: frameLightBuffer() });
   // UI in k = 1 view pixels: (native / k) units across the display.
   const uw = projection.width / k, uh = projection.height / k;
@@ -173,21 +173,6 @@ function frameView(sim: SimState | null, view: ViewState) {
 }
 /** Height of the cat's body centre over its foot in k = 1 art pixels. */
 const CAT_BODY = 20;
-/** Native-pixel window around the cat's foot inside which a piece in front of it turns into a sparse dither. */
-const SEE_THROUGH = { halfWidth: 17, top: 37, bottom: 10 } as const;
-/**
- * Clip for a native piece that stands in front of the cat: everything except the window
- * around the cat, plus one pixel of every 2 x 2 block inside it (odd-even rule).
- */
-function seeThroughClip(cat: { x: number; y: number }): Path2D {
-  const p = toScreen(cat.x, cat.y), fx = snap(p.x), fy = snap(p.y), s = SEE_THROUGH, clip = new Path2D();
-  clip.rect(-1e6, -1e6, 2e6, 2e6);
-  clip.rect(fx - s.halfWidth, fy - s.top, s.halfWidth * 2, s.top + s.bottom);
-  for (let y = fy - s.top; y < fy + s.bottom; y += 2)
-    for (let x = fx - s.halfWidth; x < fx + s.halfWidth; x += 2) clip.rect(x, y, 1, 1);
-  return clip;
-}
-
 function drawWorldFrame(
   ctx: CanvasRenderingContext2D,
   sim: SimState | null,
@@ -301,7 +286,7 @@ function drawWorldFrame(
   // behind them; low furniture and rails stay opaque, drawn after the cat when it is behind.
   for (const p of isoYardPieces()) {
     if (!inNear(p.x, p.y, p.reach)) continue;
-    const footprint = p.kind === "crop" ? undefined : modelFootprint(p.base, p.x, p.y);
+    const footprint = p.kind === "crop" || p.kind === "tree" ? undefined : modelFootprint(p.base, p.x, p.y);
     baked(p.sprite, p.x, p.y, { fades: p.fades, ...(footprint ? { footprint } : {}) });
   }
   // Depth of a sprite: the front-most corner of its footprint, or depthKey of
@@ -312,14 +297,18 @@ function drawWorldFrame(
     : s.foot
       ? depthKey(s.foot.x, s.foot.y) + (s.y - s.foot.y)
       : depthKey(sim?.player.x ?? 0, s.y));
-  // The cat sorts at its own foot, after every multi-tile footprint it stands in front of
-  // (the same lift as every other point actor below). Occluders it stands behind sort
-  // after it and fade (iso/depth.ts).
+  // Foreground buildings fade in place. A tree or post that covers the cat
+  // recedes as a whole so the cat can keep its full silhouette and face.
   const footprints: DepthOccluder[] = [];
   for (const sprite of sprites) if (sprite.footprint) footprints.push({ footprint: sprite.footprint, key: keyOf(sprite) });
   const playerDepth = sim ? liftInFront(depthKey(sim.player.x, sim.player.y), sim.player, footprints) : 0;
-  for (const sprite of sprites)
-    if (sprite.occludesPlayer) sprite.key = Math.max(keyOf(sprite), playerDepth + .01);
+  const isPointCover = (sprite: WorldSprite) => sprite.native && !sprite.footprint;
+  for (const sprite of sprites) {
+    if (!sprite.occludesPlayer) continue;
+    sprite.key = isPointCover(sprite)
+      ? Math.min(keyOf(sprite), playerDepth - .01)
+      : Math.max(keyOf(sprite), playerDepth + .01);
+  }
   const cat = (pose: CatPose) => {
     const art = catArt(pose.id);
     const act = sim && !pose.decoy ? catHitAct(sim, view.time) : { flash: false, squash: 0 };
@@ -480,18 +469,8 @@ function drawWorldFrame(
       paint();
       continue;
     }
-    if (sim && sprite.native && !sprite.footprint) {
-      // A tall piece on a single point in front of the cat (a tree, a lamp post, a landmark piece):
-      // it keeps its own colours, but inside a window around the cat it leaves three of every four
-      // pixels open, so the cat shows through in pure palette colours instead of a muddy blend.
-      ctx.save();
-      ctx.clip(seeThroughClip(sim.player), "evenodd");
-      paint();
-      ctx.restore();
-      continue;
-    }
     ctx.save();
-    ctx.globalAlpha *= ISO_DEPTH.fade;
+    ctx.globalAlpha *= isPointCover(sprite) ? ISO_DEPTH.pointFade : ISO_DEPTH.fade;
     paint();
     ctx.restore();
   }

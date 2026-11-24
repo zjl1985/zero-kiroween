@@ -28,8 +28,9 @@ import { STATS } from "./game/types.js";
 import { drawWorld, presentWorld } from "./render/world.js";
 import { createFrameReview } from "./render/frame-review.js";
 import { boardLayout } from "./render/viewport.js";
-import { pixelBacking, presentBacking } from "./render/pixel-resolution.js";
-import { surface } from "./engine/surface.js";
+import { pixelBacking, PRESENT_MAX_SCALE } from "./render/pixel-resolution.js";
+import { loadReferenceCatAtlas } from "./render/iso/reference-cat-art.js";
+import { loadUpgradeCardAtlas } from "./render/upgrade-card-art.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
 import { clearWashRender } from "./render/wash-art.js";
@@ -75,7 +76,7 @@ function savePrefs(prefs: Prefs): void {
     localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
   } catch {}
 }
-/** `?costume=<id>` wears that costume for review runs only; it is never saved. */
+/** `?costume=<id>` previews a costume without writing it to preferences. */
 function pinnedCostume(): CostumeId | null {
   return parseCostumePin(new URLSearchParams(location.search).get("costume"));
 }
@@ -171,11 +172,13 @@ function boot(): void {
     sim: SimState | null = null;
   // Wardrobe: the chosen costume (null = plain) and lifetime unlock progress, both saved.
   let selectedCostume: CostumeId | null = prefs.costume,
+    previewCostume = pinnedCostume(),
     progress = prefs.progress,
     unlockedTonight: CostumeId[] = [],
     nightCounted = false;
   const persist = () =>
     savePrefs({ locale, cat: selectedCat, muted, costume: selectedCostume, progress });
+  const wornCostume = () => previewCostume ?? selectedCostume;
   /** Counts a finished night once per run (pinned review runs count too) and saves the unlocks. */
   const finishNight = (s: SimState) => {
     if (nightCounted) return;
@@ -189,8 +192,6 @@ function boot(): void {
     stage = must<HTMLCanvasElement>("game"),
     overlay = must<HTMLElement>("overlay");
   const ctx = stage.getContext("2d")!;
-  // The scene renders into this native 480 x 270 (or portrait) canvas; presentWorld enlarges it onto the stage.
-  let native = surface(480, 270), nativeCtx = native.getContext("2d") as CanvasRenderingContext2D;
   const input = createInput();
   input.attach(window);
   const touch = createTouch(must("touch"), must("stick")),
@@ -212,7 +213,7 @@ function boot(): void {
     version: new URLSearchParams(location.search).get("reviewVersion") ?? "workspace",
     viewport: { width: app.clientWidth, height: app.clientHeight },
     dpr: devicePixelRatio || 1, reduced: reducedMotion.matches, seed: sim?.seed ?? 0,
-    variant: `${selectedCat}:${selectedCostume ?? "plain"}`,
+    variant: `${selectedCat}:${wornCostume() ?? "plain"}`,
     context: { gameSeconds: sim?.elapsed ?? 0, playerX: sim?.player.x ?? 0, playerY: sim?.player.y ?? 0,
       cameraX: cameraWorld().x, cameraY: cameraWorld().y, enemies: sim?.enemies.filter((e) => e.alive).length ?? 0 },
   }));
@@ -322,14 +323,10 @@ function boot(): void {
     const turned = (layout.viewWidth <= layout.viewHeight) !== (v.viewWidth <= v.viewHeight);
     if (turned) touch.reset();
     else touch.invalidateGeometry();
-    // The scene draws at native pixels (iso k = 0.5); the stage holds a whole-number
-    // enlargement of it with the retro layer and crisp UI, which CSS fits to the board.
-    const n = pixelBacking(v.viewWidth, v.viewHeight);
-    if (native.width !== n.width || native.height !== n.height) {
-      native = surface(n.width, n.height);
-      nativeCtx = native.getContext("2d") as CanvasRenderingContext2D;
-    }
-    const { width: w, height: h } = presentBacking(n, v.cssW, devicePixelRatio || 1);
+    // Paint at actual device size where possible. This gives the original art
+    // one resize to the display while terrain and effects keep their native grids.
+    const scale = Math.min(devicePixelRatio || 1, v.viewWidth * PRESENT_MAX_SCALE / v.cssW, v.viewHeight * PRESENT_MAX_SCALE / v.cssH);
+    const { width: w, height: h } = pixelBacking(v.cssW * scale, v.cssH * scale);
     if (stage.width !== w) stage.width = w;
     if (stage.height !== h) stage.height = h;
     const center = turned && sim ? sim.player : cameraWorld();
@@ -377,7 +374,7 @@ function boot(): void {
       locale,
       useTouch ? "title.controls_touch" : "title.controls",
     );
-    paintCharacterPanel(locale, selectedCat, selectedCostume, progress);
+    paintCharacterPanel(locale, selectedCat, wornCostume(), progress);
     stage.setAttribute(
       "aria-label",
       `${t(locale, "title.name")} · ${catName(locale, sim?.player.id ?? selectedCat)}`,
@@ -461,7 +458,7 @@ function boot(): void {
     sim = createSim({
       cat: selectedCat,
       seed: runSeed(),
-      costume: pinnedCostume() ?? selectedCostume,
+      costume: wornCostume(),
       sessionSeconds: STATS.sessionSeconds,
     });
     clock.acc = 0;
@@ -558,6 +555,12 @@ function boot(): void {
     ticket.addEventListener("click", () => {
       if (screen !== "title") return;
       if (costume !== null && !isUnlocked(progress, costume)) return;
+      if (previewCostume !== null) {
+        previewCostume = null;
+        const url = new URL(location.href);
+        url.searchParams.delete("costume");
+        history.replaceState(history.state, "", url);
+      }
       selectedCostume = costume;
       persist();
       paint();
@@ -573,7 +576,7 @@ function boot(): void {
       event.stopPropagation();
       const ids = wardrobeEntries(progress).map((e) => e.id),
         focused = wardrobe.findIndex((b) => b === document.activeElement),
-        at = focused >= 0 ? focused : Math.max(0, ids.indexOf(selectedCostume)),
+        at = focused >= 0 ? focused : Math.max(0, ids.indexOf(wornCostume())),
         next =
           key === "Home"
             ? 0
@@ -719,13 +722,13 @@ function boot(): void {
     if (worldNeedsPaint || screen === "play" || (screen === "title" && !still)) {
       if (sim && screen === "play") camera = followIsoCamera(camera, sim.player, still ? 1 : Math.min(real, 0.1));
       const time = still ? 0 : renderTime;
-      nativeCtx.setTransform(native.width / layout.viewWidth, 0, 0, native.height / layout.viewHeight, 0, 0);
-      nativeCtx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
+      ctx.setTransform(stage.width / layout.viewWidth, 0, 0, stage.height / layout.viewHeight, 0, 0);
+      ctx.clearRect(0, 0, layout.viewWidth, layout.viewHeight);
       const drawStart = profiling ? performance.now() : 0;
       const shown = screen === "title" ? null : sim,
         worldView = { time, reducedMotion: still, camera, locale, cues: motionCues, hitStop, ...(isoGrid ? { isoGrid: camera } : {}), ...(profiling ? { profile: renderProfile } : {}) };
-      drawWorld(nativeCtx, shown, worldView);
-      presentWorld(ctx, native, shown, worldView, stage.width, stage.height);
+      drawWorld(ctx, shown, worldView);
+      presentWorld(ctx, stage, shown, worldView, stage.width, stage.height);
       if (profiling) drawCpu = performance.now() - drawStart;
       worldNeedsPaint = false;
     }
@@ -737,9 +740,16 @@ function boot(): void {
   };
   requestAnimationFrame(frame);
 }
-// Canvas labels are cached: wait for the local face before the first paint.
+// Wait for the cached Canvas labels and the original-resolution player art.
 const fontReady = document.fonts?.load('400 16px "Allo"') ?? Promise.resolve([]);
-void fontReady.catch(() => []).then(() => {
-  if (new URLSearchParams(location.search).get("gallery") === "1") bootGallery();
+const galleryMode = new URLSearchParams(location.search).get("gallery") === "1";
+if (!galleryMode) void loadUpgradeCardAtlas().catch((error) => {
+  console.error("Could not load the upgrade card art", error);
+});
+const catAtlasReady = galleryMode ? Promise.resolve() : loadReferenceCatAtlas().catch((error) => {
+  console.error("Could not load the original-resolution cat art", error);
+});
+void Promise.all([fontReady.catch(() => []), catAtlasReady]).then(() => {
+  if (galleryMode) bootGallery();
   else boot();
 });

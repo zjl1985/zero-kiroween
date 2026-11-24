@@ -7,6 +7,7 @@
  */
 import { drawVillageSprite, type VillageAsset, VILLAGE_PIXEL } from "./village-art.js";
 import { drawPuppetFigure } from "./iso/puppet.js";
+import { drawSelectionFigure } from "./playbill-stage.js";
 import { drawEnemyPuppet } from "./iso/enemy-puppets.js";
 import { VILLAGE_PIXELS } from "./village-pixels.js";
 import { t } from "../content/i18n.js";
@@ -62,7 +63,7 @@ const PAINTERS: Record<GalleryKind, Painter> = {
   cat(ctx, cell, st) {
     const art = CAT_ART.find(cell.id);
     if (!art) return;
-    // The baked puppet, enlarged by a whole factor so its pixels stay square and it fills the cell like the old figure.
+    if (art.iso && drawSelectionFigure(ctx, art.iso, { x: st.x + st.w / 2, y: st.y + st.h - 10, w: st.w - 16, h: st.h - 16 })) return;
     if (art.iso && drawPuppetFigure(ctx, art.iso, { x: st.x + st.w / 2, y: st.y + st.h - 10, scale: Math.min(4, Math.floor((st.h - 16) / 35)) })) return;
     const k = Math.min(2.1, st.h / 70);
     ctx.save();
@@ -184,10 +185,11 @@ const PAINTERS: Record<GalleryKind, Painter> = {
     const cat = cell.cat === undefined ? undefined : CAT_ART.find(cell.cat), art = costumeArtOf(cell.id);
     if (!cat || !art) return;
     const pose = { id: cat.id, x: 0, y: 0, facing: 1 as const, moving: false, dashing: false, hurt: false, time: 0, costume: cell.id };
-    // Full body on the left: the baked puppet under its costume layer, enlarged three times.
-    if (cat.iso && drawPuppetFigure(ctx, cat.iso, { x: st.x + st.w * 0.3, y: st.y + st.h - 3, scale: 3, layer: cell.id })) {
-      // (the portrait and the skill marks follow below)
-    } else {
+    // Use the same dressed pose as the selection panel for a readable face at gallery size.
+    const figure = { x: st.x + st.w * 0.3, y: st.y + st.h - 8, w: st.w * .5, h: st.h - 16, costume: cell.id };
+    const painted = cat.iso && (drawSelectionFigure(ctx, cat.iso, figure) ||
+      drawPuppetFigure(ctx, cat.iso, { x: figure.x, y: figure.y, scale: 3, layer: cell.id }));
+    if (!painted) {
       const k = Math.min(1.5, (st.h - 6) / (CAT_BOX.b - CAT_BOX.t));
       ctx.save();
       ctx.translate(st.x + st.w * 0.3, st.y + st.h - 3 - CAT_BOX.b * k);

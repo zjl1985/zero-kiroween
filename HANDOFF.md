@@ -1,5 +1,69 @@
 # Midnight Meow handoff
 
+## 升级卡图标与排版（2026-11-24，本地）
+
+升级界面用 22 个新道具图标。ImageGen 原稿、提示词和图集复现命令在 [图标素材说明](assets/upgrades/generated/SOURCE.md)。Canvas 从透明图集绘制道具，CSS 管理细边框、等级刻度和说明。武器用金色标题标识与顶边，被动用青绿色标题标识与侧边。
+
+[桌面英文实战升级](output/playwright/upgrade-card-polish/iso-art-upgrade-desktop.png) 和 [390 × 844 中文竖屏](output/playwright/upgrade-card-polish/iso-art-upgrade-portrait.png) 均在 Chromium 从实际升到 2 级截取。键盘和触屏选「备用的心」后均继续游戏。320 像素窄屏可滚动查看选项。
+
+`npm run build` 与 `npm test` 通过，656 项测试通过。图集复现检查通过。
+
+## 原分辨率裁片接入实战（2026-11-24，本地）
+
+用户指出 34 像素采样版丢了镜框与鼻口细节。全量烘焙现在保留四个原分辨率透明裁片，打包为 `assets/characters/render/cat-reference-atlas.png`，并逐点核对四张裁片所有可见 RGB 值与 [源设定图](assets/characters/generated/raw/zero-nicole-model-sheet.png) 一致。RGBA 图集由 `scripts/iso-art/reference_cats.py` 生成，可加 `--check` 复核。
+
+浏览器实战将原图裁片直接画在显示画布。34 是角色在等距世界中的绘制高度，画布使用显示分辨率，原始裁片保留 441～458 像素高。实战走路移动脚掌所在的裁片，脸部整块绘制。另一侧动作按原图镜像。原有灯光、胶片层、遮挡和服装叠层照常渲染。
+
+- 1280 × 720 与 390 × 844 的 Chromium 实战都核对了直接使用原分辨率裁片，包含两个角色的待机、走路与转向。 [Nicole 同尺寸桌面对照](output/playwright/cat-atlas-run/approved-atlas-vs-live-player-1280-nicole.png) · [Nicole 竖屏对照](output/playwright/cat-atlas-run/approved-atlas-vs-live-player-390-nicole.png)。
+- 对照图上排是按实战尺寸缩放的原图裁片，下排是实际游戏截图。场景灯光和复古层会改变截图 RGB。裁片自身的可见像素与源图逐点一致。本轮未做真机性能测量。
+- `npm run build` 通过，`npm test` 复跑 655 项全部通过，三个固定输入模拟基线一致。本地预览已提供新的 PNG 图集。
+
+## 实战直接使用设定图（2026-11-24，本地）
+
+用户要求实战按认可的全身设定图制作。`scripts/iso-art/reference_cats.py` 直接从 [设定图](assets/characters/generated/raw/zero-nicole-model-sheet.png) 切下两猫的斜前与斜后全身像，采样到 34 像素高，并移除米色底与原图地影。设定图提供一侧角度，另外两向采用镜像。走路移动爪子，身体和头整块微动，受伤帧沿用同一张脸。两猫仍保持四向、2 帧待机、6 帧走路和 1 帧受伤。
+
+便装实战精灵来自设定图。原模型留作服装配件烘焙的衣架。服装部件按脚点贴到新精灵，脸中央保护原图的眼镜、眼睛、胡须与嘴。选角沿用已认可的官方头像稿。碰撞与模拟保持原样。
+
+本地试玩 `http://localhost:4173/?seed=7`，衣柜选「素装」。
+
+桌面与 390 × 844 竖屏均在 Chromium 实际开局和转向。 [设定图与实战精灵并排](output/playwright/cat-reference-run/approved-poses-vs-live-sprites.png) 使用浏览器绘制走路时的精灵。桌面截图见 [Nicole](output/playwright/cat-reference-run/iso-art-run-1280-nicole-walk-front.png) 和 [Zero](output/playwright/cat-reference-run/iso-art-run-1280-zero-walk-front.png)。原图纳入烘焙指纹。完整烘焙、`npm run build`、`npm test`（655 项）和三个固定输入模拟基线均通过。本轮仅在本地，画面等待用户确认。
+
+## 本地试玩服装修正（2026-11-24，本地）
+
+用户两张实战截图中的金色眼镜和红色手持物来自「烤红薯猫」。在 `?seed=7&costume=poteto` 上复现了选角显示便装、开始时却穿烤红薯猫的错配。选角和开局现共用同一份衣柜状态。主动选一张衣柜票时清掉临时试穿参数，保留地图 seed 和其他参数。试穿选择与解锁状态分开保存。
+
+烤红薯服装的金色装饰移到眼镜外侧，保留两猫原来的镜片和高光。已有的原像素头像、衣柜便装稿与实战基础帧沿用角色设定图复修结果。
+
+本地地址为 `http://localhost:4173/?seed=7`。旧链接复现见 [修正前的便装和烤红薯服装](output/playwright/costume-pin-before/plain-vs-poteto.png)。
+
+[修正后两猫的实战对照](output/playwright/costume-pin-after/plain-vs-poteto.png) 来自 Chromium。已核对两猫的便装和试穿，点便装后试穿参数消失，地图 seed 保留。直接开局试穿仍可用，试穿未写进衣柜偏好。构建通过，655 项测试通过，三个固定输入模拟基线一致。
+
+## 角色设定图复修（2026-11-24，本地）
+
+用户指出上一版角色的脸型和原像素头像不像。这次先把官方头稿送入内置 ImageGen 生成全身设定图，再照图画短身体、衣服、小爪子和尾巴。设定图、头像底稿和完整提示词放在 [角色素材目录](assets/characters/generated/SOURCE.md)。
+
+选角头部从 `src/cats/official.ts` 的 `officialRects` 直接采样。`scripts/iso-art/roster.py` 把原头像和重描的身体合成，28 个服装组合用同一底稿。实战参照设定图调整四向体素剪影、胡须和眼镜，仍用同一套待机、走路及受伤帧。
+
+在已有构建上运行 `node scripts/iso-art/dump-inputs.mjs` 可更新固定的官方头稿数据，再运行下方的完整烘焙命令。脚本会重建所有角色帧。
+
+- [官方头像与浏览器选角并排](output/playwright/title-model-after/official-heads-vs-browser.png)。Chromium 核对了原头像的可见采样点并通过。桌面与竖屏均验证了选中两只猫后开局显示对应 HUD。
+- [Zero 实战](output/iso-art/frames/model-reference-start-zero.png) 与 [Nicole 实战](output/iso-art/frames/model-reference-start-nicole.png) 为离线实帧。树遮挡也重新查看。iPhone 真机性能与音效仍待验收。
+- `npm run build` 和 `npm test` 通过，654 项测试全过。三个固定输入模拟基线与之前逐字节一致。本轮仅在本地。
+- 用户确认这版 Zero 与 Nicole 的角色美术可以采用。后续角色改动以官方头像、全身设定图和本轮精灵为准。
+
+## 截图反馈复修（2026-11-24，本地，旧稿）
+
+反馈来自 GitHub `main` 的 `bb6913f`。已去掉树遮挡时盖在猫身上的网格。树整体变淡，猫保留完整轮廓。扫描线和颗粒也已减轻。
+
+两猫的体素头像和面部特征按官方头像重新调整。选角与图鉴用 1.75 倍密度的正面站姿，包含两只猫的便装与 28 个服装组合。选角背景压暗，底座换成低矮石台。实战仍使用四个方向和原有的服装叠层。
+
+- [同一棵树的前后对比](output/iso-art/frames/likeness-tree-compare.png)
+- 1280 × 720 Chromium 选角截图见 [Zero](output/playwright/title-likeness-after/iso-art-title-1280-en-zero.png) 和 [Nicole](output/playwright/title-likeness-after/iso-art-title-1280-en-nicole.png)。
+- 390 × 844 与 320 × 568 的中英文选角页均检查过。320 像素中文页面用模拟触屏选中 Nicole、开始游戏并核对 HUD。
+- `npm run build` 通过，`npm test` 653 项通过，三个固定输入模拟基线逐字节一致，`git diff --check` 通过。
+- 复现时用下方完整烘焙命令，然后运行 `npm run build`。固定树场景可用 `node output/tools/frame-shot.mjs --preset tree-cover-zero,tree-cover-nicole --size 960x540 --prefix likeness-final-`。真实选角页面可用 `ISO_ART_DIR=output/playwright/title-likeness-after node output/playwright/iso-art-shot.cjs --title-only`。
+- 本轮保持本地改动，等待用户看图确认。浏览器截图与本地渲染用于检查画面。iPhone 真机、动作逐帧和音效试听仍待验收。
+
 ## 等距美术重做（2026-11-24，本地）
 
 工作分支 `refactor/iso-hd2d`。FEAT-001 至 009 的代码已接上。当前是 480 × 270 原生等距画面，最近邻放大。两猫仍靠移动和自动攻击游玩。旧的俯视村庄和纸艺版本保存在各自的 Git 检查点。

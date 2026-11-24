@@ -106,7 +106,10 @@ test("the page has the wardrobe strip, HUD tag and result unlock line; locked ta
   assert.match(html, /id="hud-costume" class="costume-tag hidden"/, "the HUD tag starts hidden (plain runs)");
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   assert.match(main, /!isUnlocked\(progress, costume\)\) return/, "a locked ticket click is ignored");
-  assert.match(main, /pinnedCostume\(\) \?\? selectedCostume/, "the pin wears for the run only");
+  assert.match(main, /previewCostume = pinnedCostume\(\)/, "load the temporary preview");
+  assert.match(main, /paintCharacterPanel\(locale, selectedCat, wornCostume\(\), progress\)/);
+  assert.match(main, /costume: wornCostume\(\),/, "the night wears what the selector shows");
+  assert.match(main, /url\.searchParams\.delete\("costume"\)/, "a wardrobe choice clears the preview link");
   assert.match(main, /savePrefs\(\{ locale, cat: selectedCat, muted, costume: selectedCostume, progress \}\)/,
     "only the chosen costume is saved");
   assert.equal(main.match(/selectedCostume = /g)?.length, 1, "only a wardrobe click changes the saved choice");

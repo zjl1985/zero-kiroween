@@ -30,11 +30,16 @@ const fences = YARD_PROPS.filter((p) => p.kind === "fence").map((p) => {
 // Cat identity for the voxel puppets (scripts/iso-art/puppet.py): the official head palette and
 // accessories (src/cats/, read only) and the clothing palette of each cat's art definition.
 const { CAT_ART } = await imp("render/art-index.js");
-const { officialVariant } = await imp("cats/official.js");
+const { officialRects, officialVariant } = await imp("cats/official.js");
 const cats = {};
 for (const art of CAT_ART.all()) {
   const o = officialVariant(art.id);
-  cats[art.id] = { palette: o.palette, accessories: o.accessories ?? [], body: art.body };
+  cats[art.id] = {
+    palette: o.palette,
+    accessories: o.accessories ?? [],
+    body: art.body,
+    headRects: officialRects(art.id).map(({ x, y, w, h, fill }) => [x, y, w, h, fill.toLowerCase()]),
+  };
 }
 // Costume identity for the voxel costume layers (scripts/iso-art/costumes.py): wardrobe colours, makeup and the
 // garment palette of each costume's art definition. The part geometry is authored in the bake script.

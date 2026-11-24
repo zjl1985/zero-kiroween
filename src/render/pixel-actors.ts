@@ -53,9 +53,12 @@ function accessory(c: Ctx, name: string, accent: string): void {
       rimBox(c, -12, -45, 25, 12, "#6c4c38"); block(c, -18, -35, 37, 4, INK); block(c, -11, -36, 23, 2, accent); break;
     case "page-hat":
       grid(c, [".....##.....", "....#LL#....", "...#LLLL#...", "..#LLSSLL#..", ".#LLLLLLLL#.", "############"], { "#": INK, L: LIGHT, S: "#b0bcc4" }, -24, -47, 4); break;
-    case "round-glasses": case "goggles":
+    case "round-glasses":
+      for (const x of [-28, 26]) block(c, x, -20, 2, 2, "#f0c85a");
+      break;
+    case "goggles":
       for (const x of [-19, 5]) {
-        rimBox(c, x, -21, 14, 10, name === "goggles" ? "#6eabc2" : "#c8b18a", accent);
+        rimBox(c, x, -21, 14, 10, "#6eabc2", accent);
         block(c, x + 3, -18, 8, 4, INK); block(c, x + 4, -18, 2, 2, LIGHT);
       }
       block(c, -5, -18, 10, 2, accent); break;

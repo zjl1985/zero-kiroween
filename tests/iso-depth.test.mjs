@@ -17,13 +17,13 @@ import { depthKey, toScreen } from "../dist/render/iso/projection.js";
 import { clearSpriteCache } from "../dist/engine/sprite.js";
 import { CAT_ART, LANDMARK_ART } from "../dist/render/art-index.js";
 import { createSim } from "../dist/game/sim.js";
-import { landmarkParts, landmarks } from "../dist/game/world-gen.js";
+import { biomeAt, chunkContent, landmarkParts, landmarks } from "../dist/game/world-gen.js";
 import { drawWorld } from "../dist/render/world.js";
 import { worldSprites } from "../dist/render/craft-world.js";
 import { createIsoCamera } from "../dist/render/iso/iso-camera.js";
 import { clearWorldRenderCache } from "../dist/render/craft-world.js";
-import { GEN_SPRITES, genCanvas } from "../dist/render/iso/gen-sprites.js";
-import { pieceSprite } from "../dist/render/iso/scenery.js";
+import { GEN_SPRITES, genCanvas, genSprite } from "../dist/render/iso/gen-sprites.js";
+import { decorSprite, pieceSprite } from "../dist/render/iso/scenery.js";
 
 // Command-order contracts only; the iso view was not viewed in a browser.
 class Path {
@@ -143,6 +143,25 @@ test("cat south of a building: normal order, building opaque before the cat", (t
   assert.equal(occludes, false);
   assert.ok(building >= 0 && cat > building, JSON.stringify({ cat, building }));
   assert.equal(draws[building].globalAlpha, 1);
+});
+
+test("a foreground tree fades as one sprite behind the fully visible cat", (t) => {
+  environment(t);
+  clearWorldRenderCache();
+  t.after(clearWorldRenderCache);
+  const sim = createSim({ seed: 7 });
+  const tree = chunkContent(sim.seed, 1, 1).decor.find((d) => d.kind === "tree");
+  const id = decorSprite(tree, biomeAt(sim.seed, 1, 1).id);
+  const image = genCanvas(id), asset = genSprite(id), foot = toScreen(tree.x, tree.y);
+  Object.assign(sim.player, { x: tree.x - 21, y: tree.y - 10 });
+  const ctx = canvas().getContext("2d");
+  drawWorld(ctx, sim, { time: 0, camera: createIsoCamera(480, 270, sim.player), reducedMotion: true });
+  const stamp = ctx.calls.findIndex((c) => c.op === "drawImage" && c.args[0] === image &&
+    c.args[1] === Math.round(foot.x) - asset.ax && c.args[2] === Math.round(foot.y) - asset.ay);
+  const cat = catFrameIndex(ctx.calls, sim.player.id);
+  assert.ok(stamp >= 0 && cat > stamp, { stamp, cat });
+  assert.equal(ctx.calls[stamp].globalAlpha, ISO_DEPTH.pointFade);
+  assert.equal(ctx.calls[cat].globalAlpha, 1);
 });
 
 test("an actor just south of a rail's west end sorts after the rail; actors behind it stay behind", () => {

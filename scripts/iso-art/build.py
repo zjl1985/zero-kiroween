@@ -4,7 +4,7 @@
 
 Inputs: scripts/iso-art/inputs.json (palette ramps, yard footprints and the cats' / costumes'
 identity data dumped from dist/ by scripts/iso-art/dump-inputs.mjs) and the models in
-scripts/iso-art/models.py, world_models.py, puppet.py and costumes.py. Output: a
+scripts/iso-art/models.py, world_models.py, puppet.py, roster.py and costumes.py. Output: a
 palette-indexed, run-length encoded TS module (byte-identical on every run) plus contact
 sheets in output/iso-art/sheets/ (1x and 4x, git-ignored) for review.
 """
@@ -27,6 +27,7 @@ import enemies as en  # noqa: E402
 import models as md  # noqa: E402
 import puppet as pz  # noqa: E402
 import world_models as wm  # noqa: E402
+from reference_cats import write_reference_atlas  # noqa: E402
 from voxel import bake  # noqa: E402
 
 OUT = ROOT / "src/render/iso/gen/scenery-pixels.ts"
@@ -125,7 +126,7 @@ def sprites() -> dict:
         add("lmbase" if sid.startswith("lmbase-") else "pieces", sid, fn)
     for sid, fn in wm.townsfolk_sprites():
         add("folk", sid, fn)
-    # FEAT-005: the playable cats as posed voxel puppets (the builder returns a finished bake).
+    # The playable cat poses come from the model sheet. The builders return a finished bake.
     for sid, fn in pz.cat_sprites():
         add("cats", sid, fn)
     # FEAT-009: costume layers on every cat frame (the builder returns the finished layer, or None).
@@ -176,8 +177,9 @@ def rle(indices: list[int]) -> str:
 
 def source_hash() -> str:
     h = hashlib.sha256()
-    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "costumes.py", "enemies.py", "inputs.json"):
+    for p in ("build.py", "voxel.py", "models.py", "world_models.py", "puppet.py", "roster.py", "reference_cats.py", "costumes.py", "enemies.py", "inputs.json"):
         h.update((HERE / p).read_bytes())
+    h.update((ROOT / "assets/characters/generated/raw/zero-nicole-model-sheet.png").read_bytes())
     return h.hexdigest()
 
 
@@ -273,6 +275,7 @@ def main() -> None:
     if args.only:
         print(f"baked {len(baked)} (no TS written with --only)")
         return
+    write_reference_atlas()
     palette = [""]
     index = {"": 0}
     for sid, (b, _) in baked.items():
@@ -312,7 +315,7 @@ def main() -> None:
     for (fname, const), ents in modules.items():
         t = HEADER + "import type { GenSprite } from \"./scenery-pixels.js\";\n"
         if fname == "cats-pixels.ts":
-            t += "/** Puppet frames per animation; ids are <identity>-<se|sw|nw|ne>-<anim>-<frame> (four real turns, never mirrored). */\n"
+            t += "/** Model-sheet frames per animation; ids are <identity>-<se|sw|nw|ne>-<anim>-<frame>. */\n"
             t += "export const CAT_PUPPET_FRAMES = " + json.dumps({a: n for a, n in pz.ANIMS}, separators=(",", ":")) + ";\n"
         if fname == "enemies-pixels.ts":
             t += "/** Per enemy variant (`<kind>`, `<kind>@elite`): frames per animation and its native-pixel box, crown row and shadow. */\n"

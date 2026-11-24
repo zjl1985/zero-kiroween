@@ -29,13 +29,18 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
   assert.equal(json("package-lock.json").packages[""].engines.node, pkg.engines.node);
 });
 
-test("the published site contains only entry files and current compiled modules", () => {
+const gameArt = ["assets/characters/render/cat-reference-atlas.png", "assets/upgrades/render/upgrade-card-atlas.png"];
+
+test("the published site contains only entry files, approved art and current compiled modules", () => {
   const modules = files(new URL("src/", root)).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
   const fontFiles = ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"];
-  const expected = ["index.html", "styles.css", "assets/village/SOURCE.txt", ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
+  const expected = ["index.html", "styles.css", "assets/village/SOURCE.txt", ...gameArt,
+    ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
   assert.deepEqual(files(site), expected);
   for (const file of ["index.html", "styles.css"])
     assert.equal(readFileSync(new URL(file, site), "utf8"), readFileSync(new URL(file, root), "utf8"));
+  for (const file of gameArt)
+    assert.deepEqual(readFileSync(new URL(file, site)), readFileSync(new URL(file, root)), `${file}: published byte for byte`);
 });
 
 test("the production entry and every ES module dependency resolve inside the published site", () => {
@@ -82,6 +87,7 @@ test("packaging removes old site output and excludes stale modules, maps and pri
     copyFileSync(new URL(`assets/fonts/${file}`, root), join(fixture, "assets/fonts", file));
   mkdirSync(join(fixture, "assets/village"), { recursive: true });
   copyFileSync(new URL("assets/village/SOURCE.txt", root), join(fixture, "assets/village/SOURCE.txt"));
+  for (const art of gameArt) put(art, readFileSync(new URL(art, root)));
   mkdirSync(join(fixture, "scripts"));
   copyFileSync(new URL("scripts/build-site.mjs", root), join(fixture, "scripts/build-site.mjs"));
   execFileSync(process.execPath, [join(fixture, "scripts/build-site.mjs")], { cwd: tmpdir(), timeout: 10000 });

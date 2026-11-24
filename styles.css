@@ -211,17 +211,58 @@ body:is([data-screen="pause"], [data-screen="upgrade"]) #hud { opacity: .18; poi
 .journal-unlocked span { display: block; padding: 8px 10px; border-left: 3px solid #e9ba6b; background: #29483f; color: #f5dfad; font-size: 11px; line-height: 1.5; }
 .upgrade-screen { position: relative; min-height: 100%; width: 100%; padding: max(45px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(35px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: auto; }
 .upgrade-screen h2 { color: #f9da90; font-size: clamp(25px, 3.5vw, 42px); margin-bottom: 26px; }
-.upgrade-cards { display: flex; align-items: stretch; justify-content: center; gap: 18px; width: min(940px, 100%); }
-.upgrade-card { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; max-width: 295px; min-height: 330px; padding: 22px 20px 30px; text-align: center; background: #1c3743; color: var(--ink); border: 3px solid #64847d; border-radius: 0; box-shadow: 6px 6px 0 #061520; }
-.upgrade-card:hover:not(:disabled), .upgrade-card:focus-visible { border-color: var(--accent); background: #28483f; transform: translateY(-3px); }
-.upgrade-card.evolution { border-color: #b798d7; background: #32334f; }
-.card-stack { display: none; }
-.card-tag { display: block; color: #95c3b0; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; line-height: 1.5; }
-.card-icon { display: block; width: 84px; height: 84px; margin: 15px auto 10px; }
-.card-name { display: block; font-size: 20px; line-height: 1.2; color: #f4d591; }
-.card-level { display: block; margin-top: 10px; font-size: 10px; letter-spacing: .08em; color: #8cc7a9; }
-.card-desc { margin-top: 14px; color: #b8cec3; font-size: 12px; line-height: 1.65; }
-.upgrade-card kbd { position: absolute; right: 9px; bottom: 9px; }
+.upgrade-cards { display: flex; align-items: stretch; justify-content: center; gap: 16px; width: min(934px, 100%); }
+.upgrade-card {
+  --card-stock: #172a37;
+  --card-selected: #213847;
+  --card-frame: #59767e;
+  --card-type: #dbbb88;
+  --card-halo: #3d60736e;
+  --card-rule: #abbac238;
+  position: relative; display: flex; flex-direction: column; align-items: stretch;
+  flex: 1 1 0; min-width: 0; max-width: 295px; min-height: 348px;
+  padding: 17px 19px 30px; text-align: left;
+  background: var(--card-stock); color: var(--ink);
+  border: 1px solid var(--card-frame); border-radius: 0;
+  box-shadow: 0 6px 0 #06151ebf, inset 0 0 0 3px #0a121a5e;
+}
+.upgrade-card[data-slot="weapon"] {
+  --card-stock: #272632;
+  --card-selected: #322d3b;
+  --card-frame: #957652;
+  --card-type: #f0bf78;
+  --card-halo: #80634667;
+}
+.upgrade-card[data-slot="passive"] {
+  --card-stock: #182f37;
+  --card-selected: #203b43;
+  --card-frame: #5c8a82;
+  --card-type: #9cd8c1;
+  --card-halo: #4b87776c;
+}
+.upgrade-card[data-slot="weapon"]::before,
+.upgrade-card[data-slot="passive"]::before { content: ""; position: absolute; background: var(--card-type); pointer-events: none; }
+.upgrade-card[data-slot="weapon"]::before { inset: 0 9px auto; height: 2px; }
+.upgrade-card[data-slot="passive"]::before { inset: 9px auto 9px 0; width: 2px; }
+.upgrade-card:hover:not(:disabled), .upgrade-card:focus-visible { border-color: var(--card-type); background: var(--card-selected); transform: translateY(-3px); }
+.upgrade-card.evolution { --card-frame: #b798d7; --card-type: #dac2ed; --card-stock: #32334f; --card-selected: #413b5b; }
+.card-tag { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 5px 9px; color: #a9bbb9; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.card-kind { color: var(--card-type); font-size: 10px; font-weight: 800; line-height: 1.2; }
+.card-kind::before { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 6px 1px 0; background: currentColor; }
+[data-slot="weapon"] .card-kind::before { transform: rotate(45deg); }
+.card-art {
+  display: grid; place-items: center; min-height: 131px; margin: 5px 0 12px;
+  background: radial-gradient(ellipse at 50% 54%, var(--card-halo), transparent 66%);
+  border-bottom: 1px solid var(--card-rule);
+}
+.card-icon { display: block; width: 110px; height: 110px; }
+.card-name { display: block; font-size: 22px; font-weight: 780; line-height: 1.18; color: #f0e8d7; }
+.card-level { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 9px; margin-top: 6px; font-size: 10px; color: var(--card-type); }
+.card-pips { display: inline-flex; gap: 3px; }
+.card-pips i { width: 7px; height: 3px; background: var(--card-rule); }
+.card-pips .filled { background: var(--card-type); }
+.card-desc { margin-top: 11px; color: #c7d1cb; font-size: 12px; line-height: 1.55; }
+.upgrade-card kbd { position: absolute; right: 12px; bottom: 9px; border-color: var(--card-frame); }
 .upgrade-screen > .hint { margin-top: 23px; }
 /* Touch cards react immediately; there is no decorative input latency. */
 .has-touch .upgrade-cards { perspective: none; }
@@ -231,8 +272,9 @@ body:is([data-screen="pause"], [data-screen="upgrade"]) #hud { opacity: .18; poi
 .has-touch .upgrade-cards:hover .upgrade-card:not(:hover):not(:focus-visible) {
   transform: none; filter: none; transition: none;
 }
-.has-touch .upgrade-card:active { border-color: var(--accent); background: #335848; }
+.has-touch .upgrade-card:active { border-color: var(--card-type); background: var(--card-selected); }
 .has-touch .upgrade-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.has-touch .upgrade-card kbd { display: none; }
 
 /* Touch stick uses its original geometry/drag calculations; only its appearance changes. */
 .touch { position: absolute; left: max(24px, env(safe-area-inset-left)); right: max(24px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; justify-content: space-between; pointer-events: none; }
@@ -325,12 +367,14 @@ body[data-screen="gallery"] { overflow: auto; }
   .upgrade-screen { justify-content: flex-start; padding: max(36px, env(safe-area-inset-top)) 18px 26px; }
   .upgrade-screen h2 { margin-bottom: 20px; font-size: 28px; }
   .upgrade-cards { flex-direction: column; gap: 12px; align-items: stretch; max-width: 470px; }
-  .upgrade-card { display: grid; grid-template-columns: 68px minmax(0, 1fr); grid-template-areas: "icon tag" "icon name" "icon level" "desc desc"; align-items: center; column-gap: 12px; row-gap: 5px; width: 100%; max-width: none; min-height: 146px; padding: 14px 15px 18px; text-align: left; border-width: 2px; box-shadow: 4px 4px 0 #071520; }
-  .card-icon { grid-area: icon; width: 64px; height: 64px; margin: 0; }
-  .card-tag { grid-area: tag; font-size: 8px; }
+  .upgrade-card { display: grid; grid-template-columns: 78px minmax(0, 1fr); grid-template-areas: "art tag" "art name" "art level" "desc desc"; align-items: center; column-gap: 12px; row-gap: 4px; width: 100%; max-width: none; min-height: 142px; padding: 12px 14px 14px; box-shadow: 0 4px 0 #071520; }
+  .card-art { grid-area: art; min-height: 72px; margin: 0; border: 0; }
+  .card-icon { width: 70px; height: 70px; }
+  .card-tag { grid-area: tag; justify-content: flex-start; font-size: 8px; }
   .card-name { grid-area: name; font-size: 17px; }
   .card-level { grid-area: level; font-size: 9px; margin-top: 0; }
-  .card-desc { grid-area: desc; font-size: 11px; line-height: 1.5; margin-top: 5px; padding-right: 18px; }
+  .card-desc { grid-area: desc; font-size: 11px; line-height: 1.5; margin-top: 5px; padding-top: 7px; padding-right: 18px; border-top: 1px solid var(--card-rule); }
+  .has-touch .card-desc { padding-right: 0; }
   .upgrade-card kbd { right: 7px; bottom: 6px; font-size: 8px; }
   .upgrade-screen > .hint { margin-top: 18px; }
 }
@@ -414,7 +458,8 @@ body[data-screen="gallery"] { overflow: auto; }
   .upgrade-screen { justify-content: flex-start; padding-top: 22px; }
   .upgrade-screen h2 { font-size: 24px; margin-bottom: 14px; }
   .upgrade-card { min-height: 240px; padding: 14px 12px 20px; }
-  .card-icon { width: 50px; height: 50px; margin: 8px auto; }
+  .card-art { min-height: 78px; margin-bottom: 8px; }
+  .card-icon { width: 68px; height: 68px; }
   .card-name { font-size: 16px; }
   .card-desc { font-size: 10px; margin-top: 8px; }
 }
