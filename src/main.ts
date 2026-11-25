@@ -31,6 +31,7 @@ import { boardLayout } from "./render/viewport.js";
 import { pixelBacking, PRESENT_MAX_SCALE } from "./render/pixel-resolution.js";
 import { loadReferenceCatAtlas } from "./render/iso/reference-cat-art.js";
 import { loadReferenceEnemyAtlas } from "./render/iso/reference-enemy-art.js";
+import { loadReferenceSceneryAtlas } from "./render/iso/reference-scenery-art.js";
 import { loadUpgradeCardAtlas } from "./render/upgrade-card-art.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
@@ -760,7 +761,10 @@ const catAtlasReady = galleryMode ? Promise.resolve() : loadReferenceCatAtlas().
 const enemyAtlasReady = galleryMode ? Promise.resolve() : loadReferenceEnemyAtlas().catch((error) => {
   console.error("Could not load the original-resolution enemy art", error);
 });
-void Promise.all([fontReady.catch(() => []), catAtlasReady, enemyAtlasReady]).then(() => {
+const sceneryAtlasReady = galleryMode ? Promise.resolve() : loadReferenceSceneryAtlas().catch((error) => {
+  console.error("Could not load the original-resolution scenery art", error);
+});
+void Promise.all([fontReady.catch(() => []), catAtlasReady, enemyAtlasReady, sceneryAtlasReady]).then(() => {
   if (galleryMode) void bootGallery();
   else boot();
 });

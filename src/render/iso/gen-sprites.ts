@@ -17,6 +17,7 @@ import { COSTUME_SPRITES } from "./gen/costumes-pixels.js";
 import { ENEMY_SPRITES } from "./gen/enemies-pixels.js";
 import type { Bounds, Footprint } from "./depth.js";
 import { snap, toScreen } from "./projection.js";
+import { drawReferenceSceneryForGen } from "./reference-scenery-art.js";
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -166,6 +167,7 @@ export function genShadowCanvas(id: string): CanvasSurface | undefined {
 
 /** Draws sprite `id` with its foot on the projected world point (x, y); `ctx` carries the camera transform. */
 export function drawGen(ctx: Ctx, id: string, x: number, y: number, look?: GenLook, lift = 0): void {
+  if (drawReferenceSceneryForGen(ctx, id, x, y, look, lift)) return;
   const s = GEN_SPRITES[id], img = baked(id, look)?.image;
   if (!s || !img) return;
   const p = toScreen(x, y);

@@ -41,6 +41,7 @@ import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
 import { toScreen, snap } from "./iso/projection.js";
 import { decorFootprint, isoOccludesActor, nativeOccludesActor, type Footprint } from "./iso/depth.js";
 import { clearGenSprites, drawGen, drawGenShadow, genBaseFootprint, genBounds, genGlows, hasGenSprite, washLook, type GenGlow } from "./iso/gen-sprites.js";
+import { addReferenceSceneryGlows, drawReferenceScenery, hasReferenceSceneryAtlas } from "./iso/reference-scenery-art.js";
 import { decorSprite, landmarkSet, liveTurn, pieceSprite, rotorSprite } from "./iso/scenery.js";
 /** World units around the view box inside which baked decor is still considered (tall crowns). */
 const GEN_CULL = 160;
@@ -793,6 +794,19 @@ export function worldSprites(
       draw: () => drawGen(ctx, id, x, y),
     });
   };
+  /** Non-colliding HD biome-signature prop from the reference scenery atlas (render-only). */
+  const addRefVignette = (refId: string, x: number, y: number, scale = 1, mirror = false) => {
+    if (!hasReferenceSceneryAtlas()) return;
+    addReferenceSceneryGlows(refId, x, y, glows);
+    shadows.push(() => drawGroundSkirt(x, y, Math.round(10 * scale), Math.round(4 * scale), Math.round(x + y)));
+    sprites.push({
+      y,
+      foot: { x, y },
+      native: true,
+      occludesPlayer: false,
+      draw: () => drawReferenceScenery(ctx, refId, x, y, { scale, mirror }),
+    });
+  };
   const dressCluster = (d: Decor, biome: string) => {
     const h = Math.abs(d.seed | 0), h2 = Math.abs(((d.seed * 7919) ^ 0x5bd1e995) | 0);
     const side = (h & 1) ? 1 : -1;
@@ -801,13 +815,29 @@ export function worldSprites(
       const prop = biome === "pumpkin-farm"
         ? (h % 2 === 0 ? "hay-bale" : "pumpkin-1")
         : (h % 3 === 0 ? "barrel" : h % 3 === 1 ? "crates" : "yard-woodpile");
-      addVignette(prop, d.x + (side > 0 ? 34 : 16), d.y + (side > 0 ? 18 : 34));
+      if (biome === "old-town" && h % 2 === 0) {
+        addRefVignette(h2 % 2 === 0 ? "town-bench" : "town-board", d.x + (side > 0 ? 36 : 16), d.y + (side > 0 ? 18 : 36), 0.96, side < 0);
+      } else if (biome === "pumpkin-farm" && h % 2 === 0) {
+        addRefVignette(h2 % 2 === 0 ? "farm-cart" : "farm-giant-pumpkin", d.x + (side > 0 ? 36 : 16), d.y + (side > 0 ? 18 : 36), 0.96, side < 0);
+      } else if (biome === "lantern-canal" && h % 2 === 0) {
+        addRefVignette(h2 % 2 === 0 ? "canal-dock-crates" : "canal-lantern-rack", d.x + (side > 0 ? 36 : 16), d.y + (side > 0 ? 18 : 36), 0.96, side < 0);
+      } else {
+        addVignette(prop, d.x + (side > 0 ? 34 : 16), d.y + (side > 0 ? 18 : 34));
+      }
       addVignette(h2 % 2 === 0 ? "candles" : (biome === "pumpkin-farm" ? "pumpkin-2" : "flowers-yellow"),
         d.x + (side > 0 ? 8 : 28), d.y + (side > 0 ? 30 : 14));
       addVignette(`tuft-${h % 3}`, d.x + 22, d.y + 26);
     } else if (d.kind === "tree" && h % 3 !== 0) {
       addVignette(`tuft-${h % 3}`, d.x + (side > 0 ? 16 : 6), d.y + (side > 0 ? 6 : 16));
       if (h2 % 4 === 0) {
+        // One well-spaced mid-scale biome signature prop near selected trees (skip graveyard dead trees so arches stay by stones).
+        const sig = biome === "old-town" ? (h % 2 === 0 ? "town-bench" : "town-board")
+          : biome === "pumpkin-farm" ? (h % 2 === 0 ? "farm-cart" : "farm-giant-pumpkin")
+          : biome === "lantern-canal" ? (h % 2 === 0 ? "canal-lantern-rack" : "canal-dock-crates")
+          : biome === "moon-meadow" ? "meadow-mushrooms"
+          : null;
+        if (sig) addRefVignette(sig, d.x + (side > 0 ? 34 : 10), d.y + (side > 0 ? 14 : 36), 0.94, side < 0);
+      } else if (h2 % 5 === 0) {
         const accent = biome === "pumpkin-farm" ? `pumpkin-${h % 3}`
           : biome === "graveyard-woods" ? (h % 2 === 0 ? "rock-0" : "candles")
           : biome === "moon-meadow" ? (h % 2 === 0 ? "flowers-blue" : "flowers-white")
@@ -816,10 +846,15 @@ export function worldSprites(
         addVignette(accent, d.x + (side > 0 ? 4 : 18), d.y + (side > 0 ? 18 : 4));
       }
     } else if (d.kind === "stone" && h % 2 === 0) {
-      if (biome === "graveyard-woods" && h2 % 3 === 0) addVignette("candles", d.x + (side > 0 ? 14 : 4), d.y + (side > 0 ? 4 : 14));
+      if (biome === "graveyard-woods" && h2 % 6 === 0) addRefVignette("grave-arch", d.x + 28, d.y + 18, 0.94, side < 0);
+      else if (biome === "moon-meadow" && h2 % 4 === 0) addRefVignette("meadow-mushrooms", d.x + 18, d.y + 14, 0.92, side < 0);
+      else if (biome === "pumpkin-farm" && h2 % 4 === 0) addRefVignette(h % 3 === 0 ? "farm-cart" : "farm-giant-pumpkin", d.x + 22, d.y + 16, 0.92, side < 0);
+      else if (biome === "graveyard-woods" && h2 % 3 === 0) addVignette("candles", d.x + (side > 0 ? 14 : 4), d.y + (side > 0 ? 4 : 14));
       else addVignette(`tuft-${h % 3}`, d.x + (side > 0 ? 12 : 4), d.y + (side > 0 ? 4 : 12));
     } else if (d.kind === "lamp") {
-      addVignette(h % 2 === 0 ? `tuft-${h2 % 3}` : (biome === "moon-meadow" ? "flowers-white" : "flowers-yellow"),
+      if (biome === "old-town" && h % 3 === 0) addRefVignette("town-bench", d.x + 16, d.y + 12, 0.9, side < 0);
+      else if (biome === "lantern-canal" && h % 3 === 0) addRefVignette("canal-lantern-rack", d.x + 16, d.y + 12, 0.92, side < 0);
+      else addVignette(h % 2 === 0 ? `tuft-${h2 % 3}` : (biome === "moon-meadow" ? "flowers-white" : "flowers-yellow"),
         d.x + (side > 0 ? 12 : 4), d.y + (side > 0 ? 4 : 12));
     }
   };

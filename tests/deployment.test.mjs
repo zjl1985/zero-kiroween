@@ -32,6 +32,7 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
 const gameArt = [
   "assets/characters/render/cat-reference-atlas.png",
   "assets/enemies/render/enemy-reference-atlas.png",
+  "assets/scenery/render/scenery-reference-atlas.png",
   "assets/upgrades/render/upgrade-card-atlas.png",
 ];
 
