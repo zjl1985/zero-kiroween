@@ -16,7 +16,7 @@ import { biomeAt, CHUNK, WORLD } from "../../game/world-gen.js";
 import { surface, type CanvasSurface } from "../../engine/surface.js";
 import { bayer } from "../pixelfx/math.js";
 import { prepareTerrainField, type FieldBox, type TerrainSample } from "./terrain-field.js";
-import { MATERIAL_SURFACE, SURFACE_RAMP, accentRgb, surfaceRgb, surfaceStep, valueNoise } from "./surface-texture.js";
+import { MATERIAL_SURFACE, SURFACE_RAMP, accentRgb, biomeDecalRgb, surfaceRgb, surfaceStep, valueNoise } from "./surface-texture.js";
 import { grassRgb, rampColour, type Rgb } from "./palette.js";
 import { neighbourMaterial, transitionRgb, type Sampler } from "./transitions.js";
 import { roadRgb, roadSurface } from "./road-texture.js";
@@ -91,10 +91,11 @@ function grassBiome(seed: number, x: number, y: number, px: number, py: number, 
 function groundRgb(seed: number, px: number, py: number, x: number, y: number, s: TerrainSample, sample: Sampler): Rgb {
   const road = s.material === "road", water = s.material === "shallow" || s.material === "deep",
     surface = road ? roadSurface(s) : MATERIAL_SURFACE[s.material], n = neighbourMaterial(sample, x, y, s);
+  const gBiome = surface === "grass" ? grassBiome(seed, x, y, px, py, s.biome) : s.biome;
   return (water && waterRgb(seed, px, py, x, y, s, n))
     || (n && transitionRgb(seed, px, py, x, y, s, n, SURFACE_RAMP[surface]))
-    || (road && surface === "dirt" ? accentRgb(seed, "dirt", px, py) : undefined)
-    || (surface === "grass" ? accentRgb(seed, surface, px, py) ?? grassRgb(grassBiome(seed, x, y, px, py, s.biome), surfaceStep(seed, surface, px, py))
+    || (road && surface === "dirt" ? accentRgb(seed, "dirt", px, py) ?? biomeDecalRgb(seed, s.biome, "dirt", px, py) : undefined)
+    || (surface === "grass" ? accentRgb(seed, surface, px, py) ?? biomeDecalRgb(seed, gBiome, surface, px, py) ?? grassRgb(gBiome, surfaceStep(seed, surface, px, py))
       : road ? roadRgb(seed, px, py, s) : surfaceRgb(seed, surface, px, py));
 }
 

@@ -30,6 +30,7 @@ import { createFrameReview } from "./render/frame-review.js";
 import { boardLayout } from "./render/viewport.js";
 import { pixelBacking, PRESENT_MAX_SCALE } from "./render/pixel-resolution.js";
 import { loadReferenceCatAtlas } from "./render/iso/reference-cat-art.js";
+import { loadReferenceEnemyAtlas } from "./render/iso/reference-enemy-art.js";
 import { loadUpgradeCardAtlas } from "./render/upgrade-card-art.js";
 import { clearWorldCache } from "./game/world-gen.js";
 import { clearWorldRenderCache } from "./render/craft-world.js";
@@ -756,7 +757,10 @@ const galleryMode = new URLSearchParams(location.search).get("gallery") === "1";
 const catAtlasReady = galleryMode ? Promise.resolve() : loadReferenceCatAtlas().catch((error) => {
   console.error("Could not load the original-resolution cat art", error);
 });
-void Promise.all([fontReady.catch(() => []), catAtlasReady]).then(() => {
+const enemyAtlasReady = galleryMode ? Promise.resolve() : loadReferenceEnemyAtlas().catch((error) => {
+  console.error("Could not load the original-resolution enemy art", error);
+});
+void Promise.all([fontReady.catch(() => []), catAtlasReady, enemyAtlasReady]).then(() => {
   if (galleryMode) void bootGallery();
   else boot();
 });

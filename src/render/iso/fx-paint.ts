@@ -234,7 +234,20 @@ export function paintImpact(p: Painter, e: Impact, reduced: boolean, zoom = 1, l
           p.line(dy * .56, y - x * .56, 0, y, tip);
           p.glow(0, y, 5, mid, .2);
         } else sparkle(p, 0, y, arm, tip, bright, .25);
-        if (e.kind === "defeat") paintGroundRing(p, size * (.25 + .55 * t), mid, fade * .55);
+        if (e.kind === "defeat") {
+          paintGroundRing(p, size * (.25 + .55 * t), mid, fade * .6);
+          // Enemy-tinted pixel debris burst (ink drops, paper scraps, or spirit wisps).
+          const pieces = 7;
+          for (let i = 0; i < pieces; i++) {
+            const ang = (i / pieces) * Math.PI * 2 + rand(seed, i, 3) * 0.7;
+            const dist = size * (0.2 + 0.78 * ease.outCubic(t)) * (0.7 + rand(seed, i, 4) * 0.5);
+            const dx = Math.cos(ang) * dist;
+            const dy = Math.sin(ang) * dist * 0.5 - Math.sin(t * Math.PI) * (5 + rand(seed, i, 5) * 6);
+            const col = i % 3 === 0 ? tip : i % 3 === 1 ? bright : mid;
+            p.dot(dx, y + dy, col, fade * 0.9);
+            if (i % 2 === 0 && t < 0.7) p.dot(dx + 1, y + dy, dark, fade * 0.65);
+          }
+        }
         p.fade = 1;
       }
       break;

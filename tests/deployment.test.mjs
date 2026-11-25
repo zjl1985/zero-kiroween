@@ -29,7 +29,11 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
   assert.equal(json("package-lock.json").packages[""].engines.node, pkg.engines.node);
 });
 
-const gameArt = ["assets/characters/render/cat-reference-atlas.png", "assets/upgrades/render/upgrade-card-atlas.png"];
+const gameArt = [
+  "assets/characters/render/cat-reference-atlas.png",
+  "assets/enemies/render/enemy-reference-atlas.png",
+  "assets/upgrades/render/upgrade-card-atlas.png",
+];
 
 test("the published site contains only entry files, approved art and bundled production modules", () => {
   const fontFiles = ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"];

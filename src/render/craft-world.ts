@@ -38,9 +38,9 @@ import { t } from "../content/i18n.js";
 import type { Camera, ViewRect } from "./camera.js";
 import { viewRect } from "./camera.js";
 import { isoProjection, type IsoCamera } from "./iso/iso-camera.js";
-import { toScreen } from "./iso/projection.js";
+import { toScreen, snap } from "./iso/projection.js";
 import { decorFootprint, isoOccludesActor, nativeOccludesActor, type Footprint } from "./iso/depth.js";
-import { clearGenSprites, drawGen, drawGenShadow, genBaseFootprint, genBounds, genGlows, washLook, type GenGlow } from "./iso/gen-sprites.js";
+import { clearGenSprites, drawGen, drawGenShadow, genBaseFootprint, genBounds, genGlows, hasGenSprite, washLook, type GenGlow } from "./iso/gen-sprites.js";
 import { decorSprite, landmarkSet, liveTurn, pieceSprite, rotorSprite } from "./iso/scenery.js";
 /** World units around the view box inside which baked decor is still considered (tall crowns). */
 const GEN_CULL = 160;
@@ -758,6 +758,71 @@ export function worldSprites(
     shadows: (() => void)[] = [],
     glows: GenGlow[] = [],
     grounds: (() => void)[] = [];
+  /** Subtle pixel-stepped soil/root grounding skirt so standing pieces sit into the turf. */
+  const drawGroundSkirt = (x: number, y: number, rx: number, ry: number, salt: number) => {
+    const p = toScreen(x, y), sx = snap(p.x), sy = snap(p.y);
+    ctx.save();
+    ctx.fillStyle = "#0e1522";
+    ctx.globalAlpha *= 0.34;
+    for (let row = -ry; row <= ry; row++) {
+      const span = Math.round(rx * Math.sqrt(Math.max(0, 1 - (row / (ry + 0.5)) ** 2)));
+      if (span <= 0) continue;
+      ctx.fillRect(sx - span, sy + row, span * 2 + 1, 1);
+    }
+    // 2-3 tiny turf/pebble root flecks along the front skirt edge.
+    ctx.fillStyle = "#192c37";
+    ctx.globalAlpha *= 1.45;
+    for (let k = 0; k < 3; k++) {
+      const h = Math.abs((salt * 2654435761 + k * 97) | 0);
+      const ox = (h % (rx * 2 + 1)) - rx;
+      const oy = ry - (h % 2);
+      ctx.fillRect(sx + ox, sy + oy, 2, 1);
+    }
+    ctx.restore();
+  };
+  /** Non-colliding micro-scene cluster sprites around cottages, trees, lamps and gravestones (render-only). */
+  const addVignette = (id: string, x: number, y: number) => {
+    if (!hasGenSprite(id)) return;
+    genGlows(id, x, y, glows);
+    shadows.push(() => drawGenShadow(ctx, id, x, y));
+    sprites.push({
+      y,
+      foot: { x, y },
+      native: true,
+      occludesPlayer: false,
+      draw: () => drawGen(ctx, id, x, y),
+    });
+  };
+  const dressCluster = (d: Decor, biome: string) => {
+    const h = Math.abs(d.seed | 0), h2 = Math.abs(((d.seed * 7919) ^ 0x5bd1e995) | 0);
+    const side = (h & 1) ? 1 : -1;
+    // In iso projection, dx + dy > 0 places props cleanly in front of the base (never tangled in upper branches).
+    if (d.kind === "cottage") {
+      const prop = biome === "pumpkin-farm"
+        ? (h % 2 === 0 ? "hay-bale" : "pumpkin-1")
+        : (h % 3 === 0 ? "barrel" : h % 3 === 1 ? "crates" : "yard-woodpile");
+      addVignette(prop, d.x + (side > 0 ? 34 : 16), d.y + (side > 0 ? 18 : 34));
+      addVignette(h2 % 2 === 0 ? "candles" : (biome === "pumpkin-farm" ? "pumpkin-2" : "flowers-yellow"),
+        d.x + (side > 0 ? 8 : 28), d.y + (side > 0 ? 30 : 14));
+      addVignette(`tuft-${h % 3}`, d.x + 22, d.y + 26);
+    } else if (d.kind === "tree" && h % 3 !== 0) {
+      addVignette(`tuft-${h % 3}`, d.x + (side > 0 ? 16 : 6), d.y + (side > 0 ? 6 : 16));
+      if (h2 % 4 === 0) {
+        const accent = biome === "pumpkin-farm" ? `pumpkin-${h % 3}`
+          : biome === "graveyard-woods" ? (h % 2 === 0 ? "rock-0" : "candles")
+          : biome === "moon-meadow" ? (h % 2 === 0 ? "flowers-blue" : "flowers-white")
+          : biome === "lantern-canal" ? "rock-0"
+          : (h % 2 === 0 ? "flowers-pink" : "stump");
+        addVignette(accent, d.x + (side > 0 ? 4 : 18), d.y + (side > 0 ? 18 : 4));
+      }
+    } else if (d.kind === "stone" && h % 2 === 0) {
+      if (biome === "graveyard-woods" && h2 % 3 === 0) addVignette("candles", d.x + (side > 0 ? 14 : 4), d.y + (side > 0 ? 4 : 14));
+      else addVignette(`tuft-${h % 3}`, d.x + (side > 0 ? 12 : 4), d.y + (side > 0 ? 4 : 12));
+    } else if (d.kind === "lamp") {
+      addVignette(h % 2 === 0 ? `tuft-${h2 % 3}` : (biome === "moon-meadow" ? "flowers-white" : "flowers-yellow"),
+        d.x + (side > 0 ? 12 : 4), d.y + (side > 0 ? 4 : 12));
+    }
+  };
   /** A baked voxel sprite standing at (x, y) with its footprint, shadow, lights and occlusion fade. */
   const bakedPiece = (id: string, x: number, y: number, after?: () => void) => {
     const footprint = genBaseFootprint(id, x, y) ?? undefined, pencil = pop?.sketch?.(x, y) ?? 0;
@@ -805,7 +870,13 @@ export function worldSprites(
           if (d.kind === "lamp") lamps.push(d);
           genGlows(gen, d.x, d.y, glows);
           const footprint = decorFootprint(d.kind, d.x, d.y, d.s);
-          shadows.push(() => drawGenShadow(ctx, gen, d.x, d.y));
+          shadows.push(() => {
+            if (d.kind === "tree") drawGroundSkirt(d.x, d.y, 8, 3, d.seed);
+            else if (d.kind === "cottage") drawGroundSkirt(d.x, d.y, 18, 6, d.seed);
+            else if (d.kind === "stone" || d.kind === "bush") drawGroundSkirt(d.x, d.y, 6, 2, d.seed);
+            drawGenShadow(ctx, gen, d.x, d.y);
+          });
+          dressCluster(d, biome);
           sprites.push({
             y: d.y,
             foot: d,

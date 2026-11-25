@@ -59,7 +59,11 @@ for (const file of ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt
   copyFileSync(join(root, "assets/fonts", file), join(output, "assets/fonts", file));
 mkdirSync(join(output, "assets/village"), { recursive: true });
 copyFileSync(join(root, "assets/village/SOURCE.txt"), join(output, "assets/village/SOURCE.txt"));
-for (const art of ["assets/characters/render/cat-reference-atlas.png", "assets/upgrades/render/upgrade-card-atlas.png"]) {
+for (const art of [
+  "assets/characters/render/cat-reference-atlas.png",
+  "assets/enemies/render/enemy-reference-atlas.png",
+  "assets/upgrades/render/upgrade-card-atlas.png",
+]) {
   mkdirSync(dirname(join(output, art)), { recursive: true });
   copyFileSync(join(root, art), join(output, art));
 }

@@ -1,0 +1,142 @@
+"""Transparent enemy atlas from the generated 4x2 enemy model sheet.
+
+Extracts all 8 enemies in crisp original resolution with flood-filled neutral
+background removal, packs them into assets/enemies/render/enemy-reference-atlas.png,
+and emits src/render/iso/gen/enemy-reference-atlas.ts.
+"""
+from __future__ import annotations
+
+import json
+from collections import deque
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[2]
+RAW_SHEET = ROOT / "assets/enemies/generated/raw/enemies-model-sheet.png"
+ATLAS_PNG = ROOT / "assets/enemies/render/enemy-reference-atlas.png"
+ATLAS_TS = ROOT / "src/render/iso/gen/enemy-reference-atlas.ts"
+
+# Grid layout: 2 rows x 4 cols -> (kind, sceneHeightPx, hoverLiftPx, removeInteriorBg)
+GRID: list[tuple[str, int, int, int, int, bool]] = [
+    ("ink-blob", 0, 0, 20, 0, False),
+    ("paper-bat", 0, 1, 22, 6, False),
+    ("crumple", 0, 2, 22, 0, False),
+    ("smudge", 0, 3, 21, 0, False),
+    ("wash", 1, 0, 24, 0, False),
+    ("sketch", 1, 1, 23, 0, True),
+    ("kiro-ghost", 1, 2, 25, 3, False),
+    ("eraser-boss", 1, 3, 46, 0, False),
+]
+
+
+def _bg_distance(rgb: np.ndarray, bg: np.ndarray) -> np.ndarray:
+    diff = rgb.astype(np.int16) - bg.astype(np.int16)
+    return np.abs(diff).max(axis=2)
+
+
+def _extract_cell(cell_rgb: np.ndarray, remove_interior_bg: bool) -> tuple[np.ndarray, int]:
+    h, w = cell_rgb.shape[:2]
+    # Sample background colour from the four corners of the cell.
+    corners = np.array([cell_rgb[2, 2], cell_rgb[2, w - 3], cell_rgb[h - 3, 2], cell_rgb[h - 3, w - 3]])
+    bg = np.median(corners, axis=0).astype(np.uint8)
+    dist = _bg_distance(cell_rgb, bg)
+    sat = cell_rgb.max(axis=2) - cell_rgb.min(axis=2)
+    candidate = (dist < 28) & (sat < 26)
+
+    # Flood-fill reachable background from all cell border pixels.
+    visited = np.zeros((h, w), dtype=bool)
+    q: deque[tuple[int, int]] = deque()
+    for x in range(w):
+        for y in (0, h - 1):
+            if candidate[y, x] and not visited[y, x]:
+                visited[y, x] = True
+                q.append((y, x))
+    for y in range(h):
+        for x in (0, w - 1):
+            if candidate[y, x] and not visited[y, x]:
+                visited[y, x] = True
+                q.append((y, x))
+    while q:
+        cy, cx = q.popleft()
+        for ny, nx in ((cy - 1, cx), (cy + 1, cx), (cy, cx - 1), (cy, cx + 1)):
+            if 0 <= ny < h and 0 <= nx < w and not visited[ny, nx] and candidate[ny, nx]:
+                visited[ny, nx] = True
+                q.append((ny, nx))
+
+    if remove_interior_bg:
+        # Sketch's tangled scribble loops enclose small background holes; clear exact bg matches inside too.
+        visited |= (dist < 22) & (sat < 20)
+
+    # Remove 1px anti-aliased fringe of JPEG compression around dark outlines.
+    opaque = ~visited
+    ys, xs = np.nonzero(opaque)
+    top, bottom = int(ys.min()), int(ys.max()) + 1
+    left, right = int(xs.min()), int(xs.max()) + 1
+
+    rgba = np.zeros((bottom - top, right - left, 4), dtype=np.uint8)
+    rgba[:, :, :3] = cell_rgb[top:bottom, left:right]
+    rgba[:, :, 3] = np.where(opaque[top:bottom, left:right], 255, 0)
+
+    # Compute horizontal foot centre from the bottom 15% of opaque pixels.
+    sub_h = bottom - top
+    foot_ys, foot_xs = np.nonzero(rgba[max(0, sub_h - max(12, sub_h // 6)):, :, 3] > 0)
+    ax = round((int(foot_xs.min()) + int(foot_xs.max()) + 1) / 2) if len(foot_xs) else (right - left) // 2
+    return rgba, ax
+
+
+def build() -> None:
+    sheet = np.asarray(Image.open(RAW_SHEET).convert("RGB"))
+    sh, sw = sheet.shape[:2]
+    cw, ch = sw // 4, sh // 2
+
+    crops: list[tuple[str, np.ndarray, int, int, int]] = []
+    for kind, row, col, height, lift, interior in GRID:
+        cell = sheet[row * ch:(row + 1) * ch, col * cw:(col + 1) * cw]
+        rgba, ax = _extract_cell(cell, interior)
+        crops.append((kind, rgba, ax, height, lift))
+
+    pad = 8
+    cols = 4
+    col_w = [max(crops[r * cols + c][1].shape[1] for r in range(2)) for c in range(cols)]
+    row_h = [max(crops[r * cols + c][1].shape[0] for c in range(cols)) for r in range(2)]
+    atlas_w = sum(col_w) + pad * (cols + 1)
+    atlas_h = sum(row_h) + pad * 3
+
+    atlas = Image.new("RGBA", (atlas_w, atlas_h), (0, 0, 0, 0))
+    meta: dict[str, dict[str, int]] = {}
+    y = pad
+    for r in range(2):
+        x = pad
+        for c in range(cols):
+            kind, rgba, ax, height, lift = crops[r * cols + c]
+            ih, iw = rgba.shape[:2]
+            atlas.paste(Image.fromarray(rgba, "RGBA"), (x, y))
+            meta[kind] = {"x": x, "y": y, "w": iw, "h": ih, "ax": ax, "height": height, "lift": lift}
+            x += col_w[c] + pad
+        y += row_h[r] + pad
+
+    ATLAS_PNG.parent.mkdir(parents=True, exist_ok=True)
+    atlas.save(ATLAS_PNG, optimize=True)
+
+    ATLAS_TS.parent.mkdir(parents=True, exist_ok=True)
+    ts = (
+        "/** Generated by scripts/iso-art/reference_enemies.py from assets/enemies/generated/raw/enemies-model-sheet.png. */\n"
+        "export interface ReferenceEnemyView {\n"
+        "  readonly x: number;\n"
+        "  readonly y: number;\n"
+        "  readonly w: number;\n"
+        "  readonly h: number;\n"
+        "  readonly ax: number;\n"
+        "  readonly height: number;\n"
+        "  readonly lift: number;\n"
+        "}\n"
+        f"export const ENEMY_REFERENCE_VIEWS: Readonly<Record<string, ReferenceEnemyView>> = {json.dumps(meta, indent=2)} as const;\n"
+    )
+    ATLAS_TS.write_text(ts, encoding="utf-8")
+    print(f"Wrote {ATLAS_PNG} ({atlas_w}x{atlas_h}) and {ATLAS_TS} ({len(meta)} enemies)")
+
+
+if __name__ == "__main__":
+    build()

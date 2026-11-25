@@ -241,6 +241,100 @@ export function accentRgb(seed: number, surface: Surface, px: number, py: number
   return undefined;
 }
 
+/**
+ * Biome-specific non-colliding ground decals (pure function of seed, biome,
+ * surface and absolute screen pixel; stays inside the diamond so baked blocks
+ * remain seamless, and uses only existing ISO_RAMPS colours).
+ */
+export function biomeDecalRgb(seed: number, biome: string, surface: Surface, px: number, py: number): Rgb | undefined {
+  if (surface !== "grass" && surface !== "dirt") return undefined;
+  const d = diamondPixel(px, py);
+  if (d.edge < SURFACE_TEXTURE.inset + 1) return undefined;
+  const roll = hash2(seed, d.i, d.j, 2311);
+  if (surface === "dirt") {
+    // Occasional muddy/leafy flecks along dirt paths.
+    if (roll > 0.14) return undefined;
+    const ax = Math.floor((hash2(seed, d.i, d.j, 2333) - 0.5) * 10),
+      ay = 4 + Math.floor(hash2(seed, d.i, d.j, 2339) * 8),
+      dx = d.lx - ax, dy = d.ly - ay;
+    if (biome === "lantern-canal" && dx >= 0 && dx <= 2 && dy === 0) return rampRgb("shallow", dx === 1 ? 3 : 2);
+    if (biome === "pumpkin-farm" && (dx === 0 || dx === 2) && dy === 0) return rampRgb("wax", 2);
+    if (dx === 0 && dy === 0) return rampRgb(biome === "graveyard-woods" ? "cloth" : "wood", 2);
+    return undefined;
+  }
+  // Grass decals per district (about 16-22% of grass tiles get a small ground detail).
+  const ax = Math.floor((hash2(seed, d.i, d.j, 2341) - 0.5) * 10),
+    ay = 4 + Math.floor(hash2(seed, d.i, d.j, 2347) * 7),
+    dx = d.lx - ax, dy = d.ly - ay;
+  switch (biome) {
+    case "old-town": {
+      if (roll < 0.09) {
+        // Scattered fallen autumn leaves (2-3 px cluster).
+        if ((dx === 0 && dy === 0) || (dx === 2 && dy === 1)) return rampRgb("redTile", 3);
+        if (dx === 1 && dy === -1) return rampRgb("wood", 4);
+      } else if (roll > 0.91) {
+        // Worn sunken flagstone corner peeking through turf.
+        if (dy === 0 && dx >= 0 && dx <= 2) return rampRgb("stone", 2);
+        if (dy === 1 && dx >= 0 && dx <= 1) return rampRgb("stone", 0);
+      }
+      return undefined;
+    }
+    case "pumpkin-farm": {
+      if (roll < 0.12) {
+        // Curling pumpkin vine tendril on grass.
+        if ((dx === -1 && dy === 0) || (dx === 0 && dy === 0) || (dx === 1 && dy === -1) || (dx === 2 && dy === 0))
+          return rampRgb("grass", dx === 1 ? 4 : 3);
+        if (dx === 0 && dy === 1) return rampRgb("grass", 0);
+      } else if (roll > 0.88) {
+        // Golden straw wisps & warm fallen leaves.
+        if ((dx === 0 && dy === 0) || (dx === 1 && dy === 0)) return rampRgb("wax", 3);
+        if (dx === 2 && dy === 1) return rampRgb("redTile", 4);
+      }
+      return undefined;
+    }
+    case "graveyard-woods": {
+      if (roll < 0.1) {
+        // Cracked mossy stone fleck.
+        if (dy === 0 && (dx === 0 || dx === 1)) return rampRgb("stone", 2);
+        if (dy === 1 && dx === 0) return rampRgb("ink", 1);
+        if (dy === -1 && dx === 1) return rampRgb("grass", 3);
+      } else if (roll > 0.89) {
+        // Pale violet fallen petals / eerie lichen.
+        if ((dx === 0 && dy === 0) || (dx === 2 && dy === 1)) return rampRgb("cloth", 3);
+        if (dx === 1 && dy === 0) return rampRgb("ink", 2);
+      }
+      return undefined;
+    }
+    case "lantern-canal": {
+      if (roll < 0.11) {
+        // Tiny damp dew puddle catching moonlight.
+        if (dy === 0 && dx >= -1 && dx <= 1) return rampRgb("shallow", dx === 0 ? 4 : 2);
+        if (dy === 1 && dx === 0) return rampRgb("deep", 2);
+      } else if (roll > 0.9) {
+        // Smooth river pebbles.
+        if ((dx === 0 && dy === 0) || (dx === 2 && dy === 0)) return rampRgb("stone", 3);
+        if (dx === 0 && dy === 1) return rampRgb("grass", 0);
+      }
+      return undefined;
+    }
+    case "moon-meadow": {
+      if (roll < 0.12) {
+        // Tiny luminous fairy-ring / silver-spore specks.
+        if (dx === 0 && dy === 0) return rampRgb("wax", 4);
+        if (dx === 2 && dy === 1) return rampRgb("cloth", 4);
+        if (dx === -1 && dy === 1) return rampRgb("shallow", 4);
+      } else if (roll > 0.89) {
+        // Soft clover cluster.
+        if ((dx === 0 || dx === 2) && dy === 0) return rampRgb("grass", 4);
+        if (dx === 1 && dy === -1) return rampRgb("cloth", 3);
+      }
+      return undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 /** Pixel colour for bake loops. */
 export function surfaceRgb(seed: number, surface: Surface, px: number, py: number): Rgb {
   return accentRgb(seed, surface, px, py) ?? rampRgb(SURFACE_RAMP[surface], surfaceStep(seed, surface, px, py));

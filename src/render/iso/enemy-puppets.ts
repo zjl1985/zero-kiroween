@@ -9,6 +9,7 @@ import { drawGen, genSprite } from "./gen-sprites.js";
 import { ISO, snap, toScreen } from "./projection.js";
 import { drawPuppet, drawPuppetShadow, puppetFrame, puppetSprite } from "./puppet.js";
 import { drawPuppetStatus } from "./puppet-status.js";
+import { drawReferenceEnemy, referenceEnemyHeight } from "./reference-enemy-art.js";
 import { isoDirection, isoMotion } from "./sprite-sheet.js";
 
 const FIRE_RELEASE = 0.2, BOSS_RELEASE = 0.25, HIT_TIME = 0.14;
@@ -57,16 +58,54 @@ function hitAct(e: EnemyState, reduced: boolean) {
   };
 }
 
-function eliteMarker(ctx: Ctx, x: number, y: number, rx: number, ry: number): void {
+function eliteMarker(ctx: Ctx, x: number, y: number, rx: number, ry: number, time: number, reduced: boolean): void {
+  const pulse = reduced ? 1 : 0.78 + 0.22 * Math.sin(time * 5.2);
   ctx.save();
-  ctx.globalAlpha *= 0.8;
-  ctx.fillStyle = "#cb9b4f";
+  // Outer dark-gold shadow ring for contrast on grass.
+  ctx.globalAlpha *= 0.65 * pulse;
+  ctx.fillStyle = "#5c3f18";
+  for (let row = -ry - 1; row <= ry + 1; row++) {
+    const half = Math.round((rx + 1) * (1 - Math.abs(row) / (ry + 2) * 0.5)) + 3;
+    if (Math.abs(row) >= ry) ctx.fillRect(x - half, y + row, half * 2 + 1, 1);
+    else {
+      ctx.fillRect(x - half, y + row, 2, 1);
+      ctx.fillRect(x + half - 1, y + row, 2, 1);
+    }
+  }
+  // Inner bright golden runic ring.
+  ctx.globalAlpha = 0.88 * pulse;
+  ctx.fillStyle = "#e8be62";
   for (let row = -ry; row <= ry; row++) {
     const half = Math.round(rx * (1 - Math.abs(row) / (ry + 1) * 0.5)) + 2;
     if (Math.abs(row) >= ry - 1) ctx.fillRect(x - half, y + row, half * 2 + 1, 1);
     else {
       ctx.fillRect(x - half, y + row, 2, 1);
       ctx.fillRect(x + half - 1, y + row, 2, 1);
+    }
+  }
+  // Four orbiting golden sparks around the elite ring.
+  ctx.fillStyle = "#fff2b2";
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + (reduced ? 0.4 : time * 2.1);
+    const sx = snap(x + Math.cos(a) * (rx + 3));
+    const sy = snap(y + Math.sin(a) * (ry + 1));
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+  ctx.restore();
+}
+
+function windupTelegraph(ctx: Ctx, kind: string, x: number, y: number, rx: number, ry: number, time: number, reduced: boolean): void {
+  const pulse = reduced ? 0.8 : 0.55 + 0.45 * Math.sin(time * 16);
+  const colour = kind === "wash" ? "#8ce6f2" : kind === "eraser-boss" ? "#ff889a" : "#d89cff";
+  ctx.save();
+  ctx.globalAlpha *= 0.72 * pulse;
+  ctx.fillStyle = colour;
+  for (let row = -ry; row <= ry; row++) {
+    const half = Math.round((rx + 2) * (1 - Math.abs(row) / (ry + 1) * 0.5)) + 2;
+    if (Math.abs(row) >= ry - 1) ctx.fillRect(x - half, y + row, half * 2 + 1, 1);
+    else {
+      ctx.fillRect(x - half, y + row, 1, 1);
+      ctx.fillRect(x + half, y + row, 1, 1);
     }
   }
   ctx.restore();
@@ -88,15 +127,18 @@ export function drawEnemyPuppet(ctx: Ctx, base: EnemyPuppet, e: EnemyState, time
   const dir = isoDirection(key, motion.vx, motion.vy, facing), reduced = reducedPaperMotion();
   const pose = enemyPose(e, p, time, motion.moving, reduced);
   const foot = toScreen(e.x, e.y), x = snap(foot.x), y = snap(foot.y), [rx, ry] = p.shadow;
-  if (elite) eliteMarker(ctx, x, y, rx, ry);
+  if (elite) eliteMarker(ctx, x, y, rx, ry, time, reduced);
+  if ((e.windup ?? 0) > 0 || (e.act?.t ?? 0) > 0) windupTelegraph(ctx, e.kind, x, y, rx, ry, time, reduced);
   drawPuppetShadow(ctx, e.x, e.y, { rx, ry });
   const flash = (e.hitFlash ?? 0) > (reduced ? HIT_TIME - 1 / 60 : HIT_TIME - 0.045);
   const id = puppetSprite(p, dir, pose.anim, pose.frame);
-  drawPuppet(ctx, id, e.x, e.y, {
-    look: flash ? "flash" : pencil ? "pencil" : undefined, ...hitAct(e, reduced),
-  });
+  const drawOpts = { look: flash ? "flash" as const : pencil ? "pencil" as const : undefined, ...hitAct(e, reduced) };
+  if (!drawReferenceEnemy(ctx, e.kind, !!e.elite, dir, pose, x, y, drawOpts, time, reduced, e.id)) {
+    drawPuppet(ctx, id, e.x, e.y, drawOpts);
+  }
   drawPuppetStatus(ctx, e, time, p, fx);
-  const top = genSprite(id)?.ay ?? p.top, crown = top + p.crown - p.top;
+  const refTop = referenceEnemyHeight(e.kind, !!e.elite);
+  const top = refTop ?? genSprite(id)?.ay ?? p.top, crown = top + Math.max(2, p.crown - p.top);
   if (elite) drawGen(ctx, "crown-elite", e.x, e.y, undefined, crown);
   if ((e.stun ?? 0) > 0) stunStars(ctx, x, y - (elite ? crown + 8 : top + 3), time, reduced, p.halfWidth * 0.7);
   const max = enemyMaxHp(e);
