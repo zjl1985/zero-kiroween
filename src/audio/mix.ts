@@ -28,7 +28,8 @@ export type Cue =
   | "rain"
   | "snip"
   | "fold"
-  | "steam";
+  | "steam"
+  | "chest";
 
 export interface ToneLayer {
   readonly kind: "tone";
@@ -106,6 +107,7 @@ export const THROTTLE: Readonly<Record<Cue, number>> = {
   snip: 0.1,
   fold: 0.2,
   steam: 0.16,
+  chest: 0.4,
 };
 
 export const CUE_TIER: Readonly<Record<Cue, MixTier>> = {
@@ -134,6 +136,7 @@ export const CUE_TIER: Readonly<Record<Cue, MixTier>> = {
   win: "event",
   lose: "event",
   moon: "event",
+  chest: "event",
 };
 
 const tone = (freq: number, dur: number, o: Omit<ToneLayer, "kind" | "freq" | "dur">): ToneLayer => ({ kind: "tone", freq, dur, ...o });
@@ -244,6 +247,14 @@ export const CUE_LAYERS: Readonly<Record<Cue, (k: number, rand: () => number) =>
   steam: () => [
     noise(0.26, { filter: "bandpass", freq: 4200, to: 1500, q: 1.4, gain: 0.055 }),
     noise(0.14, { filter: "highpass", freq: 5200, to: 2800, gain: 0.025, delay: 0.03 }),
+  ],
+  // Treasure chest burst: bright rising golden fanfare with a soft sparkle shimmer.
+  chest: () => [
+    ...[587.3, 784, 987.8, 1174.7].map((f, i) =>
+      tone(f, 0.28, { type: "triangle", gain: 0.075, delay: i * 0.065 }),
+    ),
+    tone(1568, 0.42, { type: "sine", gain: 0.05, delay: 0.24, attack: 0.015 }),
+    noise(0.22, { filter: "highpass", freq: 4800, to: 7200, gain: 0.025, delay: 0.18 }),
   ],
 };
 

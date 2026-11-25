@@ -187,6 +187,7 @@ export const MESSAGE_KEYS = [
   "chest.big_title",
   "chest.level",
   "chest.evolved",
+  "chest.heal",
   "selector.weapon",
   "selector.evolution",
   "hud.dawn",

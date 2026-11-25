@@ -142,9 +142,13 @@ test("touching a chest without a ready evolution levels up an owned item at once
   assert.equal(s.stats.chestsOpened, 1);
   // No card: the only owned item, the starting weapon, gained a level.
   assert.equal(s.pendingChoice, null);
-  assert.equal(s.upgrades["moon-stars"], before + 1);
+  assert.equal(s.upgrades["moon-stars"], before + CHEST.levels);
   assert.equal(s.stats.upgradesTaken, taken + CHEST.levels);
-  assert.deepEqual(s.chestReveal.items, [{ id: "moon-stars", level: before + 1 }]);
+  assert.equal(s.chestReveal.items.length, CHEST.levels);
+  assert.deepEqual(
+    s.chestReveal.items,
+    Array.from({ length: CHEST.levels }, (_, i) => ({ id: "moon-stars", level: before + i + 1 })),
+  );
   assert.equal(s.chestReveal.evolved, null);
   // No XP was spent and no level was gained.
   assert.equal(s.level, level);

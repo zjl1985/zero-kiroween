@@ -467,6 +467,8 @@ export interface ChestReveal {
   items: { id: string; level: number }[];
   /** Evolution granted by this chest, if any. */
   evolved: string | null;
+  /** Hearts restored directly by the chest, if any. */
+  healed?: number;
   big: boolean;
   life: number;
 }

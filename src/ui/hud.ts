@@ -8,7 +8,8 @@ import { catName, characterCopy, paintPortrait } from "./character-panel.js";
 import { catArt } from "../render/art-index.js";
 import type { Camera } from "../render/camera.js";
 import { BUILD, upgradeDef, type UpgradeId } from "../game/upgrades.js";
-import { paintCardEmblem, paintUpgradeIcon } from "../render/upgrade-icons.js";
+import { paintUpgradeIcon } from "../render/upgrade-icons.js";
+import { paintUpgradeCardArt } from "../render/upgrade-card-art.js";
 import { upgradeName } from "./upgrade-cards.js";
 import { landmarks } from "../game/world-gen.js";
 import { moonArc, SEAM_STITCHES, seamStitches, viewChunks } from "./journal-geometry.js";
@@ -182,43 +183,51 @@ function renderOwned(el: HTMLElement, locale: Locale, sim: SimState): void {
     group("hud.passives", passives, BUILD.passiveSlots, "passive"),
   );
 }
-/** What the last chest gave, while state.chestReveal lasts; an evolution gets the double-layer slip. */
+/** What the last chest gave, while state.chestReveal lasts; every reward shows its full-colour icon. */
 function renderChest(el: HTMLElement, locale: Locale, sim: SimState): void {
   const r = sim.chestReveal;
   el.classList.toggle("hidden", !r);
   if (!r) {
     el.dataset.sig = "";
+    el.classList.remove("dealt");
     return;
   }
-  const lines = [
-    ...(r.evolved ? [t(locale, "chest.evolved", { name: upgradeName(locale, r.evolved as UpgradeId) })] : []),
-    ...r.items.map((i) => t(locale, "chest.level", { name: upgradeName(locale, i.id as UpgradeId), level: i.level })),
+  const entries: { id: UpgradeId; label: string; evolved?: boolean }[] = [
+    ...(r.evolved
+      ? [{ id: r.evolved as UpgradeId, label: t(locale, "chest.evolved", { name: upgradeName(locale, r.evolved as UpgradeId) }), evolved: true }]
+      : []),
+    ...r.items.map((i) => ({
+      id: i.id as UpgradeId,
+      label: t(locale, "chest.level", { name: upgradeName(locale, i.id as UpgradeId), level: i.level }),
+    })),
+    ...(r.healed && r.healed > 0
+      ? [{ id: "vitality" as UpgradeId, label: t(locale, "chest.heal", { amount: r.healed }) }]
+      : []),
   ];
-  const sig = `${locale}|${r.big}|${lines.join("|")}`;
+  const sig = `${locale}|${r.big}|${sim.stats.chestsOpened}|${entries.map((e) => e.label).join("|")}`;
   if (el.dataset.sig === sig) return;
   el.dataset.sig = sig;
   const title = document.createElement("strong");
   title.textContent = t(locale, r.big ? "chest.big_title" : "chest.title");
-  const seal = r.evolved ? document.createElement("canvas") : null;
-  if (seal) {
-    seal.className = "evolution-seal";
-    seal.width = seal.height = 96;
-    seal.setAttribute("aria-hidden", "true");
-    paintCardEmblem(seal, r.evolved as UpgradeId);
+  const list = document.createElement("div");
+  list.className = "chest-rows";
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = entry.evolved ? "chest-row chest-row-evolved" : "chest-row";
+    const icon = document.createElement("canvas");
+    icon.className = "chest-icon";
+    icon.width = icon.height = 64;
+    icon.dataset.id = entry.id;
+    icon.setAttribute("aria-hidden", "true");
+    paintUpgradeCardArt(icon, entry.id);
+    const label = document.createElement("span");
+    label.textContent = entry.label;
+    row.append(icon, label);
+    list.append(row);
   }
   el.classList.toggle("evolved", !!r.evolved);
   el.classList.toggle("big", r.big);
-  el.replaceChildren(
-    ...(seal ? [seal] : []),
-    title,
-    ...lines.map((line, i) => {
-      const s = document.createElement("span");
-      s.textContent = line;
-      s.style.setProperty("--deal", String(i + 1));
-      return s;
-    }),
-  );
-  // Same rhythm as the card deal: the slip folds in, then each line lands in turn.
+  el.replaceChildren(title, list);
   el.style.setProperty("--stagger", `${DEAL.staggerMs}ms`);
   el.classList.remove("dealt");
   void el.offsetWidth;

@@ -57,7 +57,7 @@ export const ISO_IMPACT_FX = {
   treat: recipe("spark", HEAL, LIFE.treat, 16, 14, .14),
   "moon-stun": recipe("ring", MOON, LIFE["moon-stun"], 54, 0, .24),
   streak: recipe("number", GOLD, LIFE.streak, 0, 29),
-  "chest-open": recipe("column", GOLD, LIFE["chest-open"], 24, 0, .33),
+  "chest-open": recipe("column", GOLD, LIFE["chest-open"], 34, 0, .42),
   claw: recipe("slash", GOLD, LIFE.claw, 29, 6, .17),
   "star-fall": recipe("fall", MOON, LIFE["star-fall"], 26, 0, .3),
   "seed-burst": recipe("splash", FIRE, LIFE["seed-burst"], 16, 0, .18),
@@ -246,8 +246,13 @@ export function paintImpact(p: Painter, e: Impact, reduced: boolean, zoom = 1, l
         p.line(x, -1 - h * .16, x * .6, -h, i === 0 ? bright : mid, fade * .8);
       }
       if (e.kind === "chest-open" || e.kind === "evolve") {
+        paintGroundRing(p, reach * .72, tip, fade * .85);
         p.fade = fade;
-        sparkle(p, 0, -height, e.kind === "evolve" ? 5 : 3, tip, bright, .12);
+        sparkle(p, 0, -height, 5, tip, bright, .18);
+        if (e.kind === "chest-open") {
+          sparkle(p, -half * .9, -height * .62, 3, bright, tip, .12);
+          sparkle(p, half * .9, -height * .52, 3, bright, tip, .12);
+        }
         p.fade = 1;
       } else p.dot(0, -height, tip, fade);
       break;
@@ -331,6 +336,9 @@ export function paintLoot(p: Painter, kind: LootKind, id: number, time: number, 
     return;
   }
   const hw = big ? 10 : 8, h = big ? 12 : 9;
+  const pulse = reduced ? .65 : .45 + .35 * Math.sin(time * 4 + id);
+  paintGroundRing(p, hw + 5 + (reduced ? 0 : Math.sin(time * 3 + id) * 1.5), bright, pulse * .85);
+  if (big) paintGroundRing(p, hw + 9, tip, pulse * .6);
   p.ellipse(0, 0, hw + 2, 3, INK, .64);
   p.poly([[-hw, -h], [-hw + 3, -h - 3], [hw - 3, -h - 3], [hw, -h], [hw, -1], [hw - 4, 1], [-hw, 0]], dark);
   p.rect(-hw + 1, -h + 2, hw * 2 - 3, h - 3, mid);
@@ -338,8 +346,8 @@ export function paintLoot(p: Painter, kind: LootKind, id: number, time: number, 
   p.line(-hw + 1, -h + 3, hw - 2, -h + 3, dark);
   p.rect(-1, -h + 2, 3, 3, tip);
   p.px(0, -h + 4, mid);
-  if (!reduced && Math.sin(time * 2.4 + id) > .8) sparkle(p, hw - 2, -h - 3, 2, tip, bright, .22);
-  p.glow(0, -h + 4, big ? 14 : 10, bright, .14);
+  if (!reduced && Math.sin(time * 3.4 + id) > .25) sparkle(p, hw - 2, -h - 4, big ? 4 : 3, tip, bright, .28);
+  p.glow(0, -h + 4, big ? 18 : 13, bright, .24);
 }
 
 const FLAMES = [

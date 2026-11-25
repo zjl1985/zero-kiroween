@@ -1020,6 +1020,23 @@ function stepChests(state: SimState, dt: number, rng: Rng): void {
     c.alive = false;
     state.stats.chestsOpened++;
     effect(state, c.x, c.y, "chest-open", EFFECT_LIFE["chest-open"]);
+    // Push nearby non-boss enemies back and scatter a ring of bonus ink shards.
+    for (const e of state.enemies) {
+      if (!e.alive || ENEMY_DEFS.get(e.kind).boss || e.spawnTime > 0) continue;
+      const dx = e.x - c.x, dy = e.y - c.y, d = Math.hypot(dx, dy);
+      if (d > CHEST.pushRadius) continue;
+      const ux = d > 1e-4 ? dx / d : 1, uy = d > 1e-4 ? dy / d : 0;
+      const push = CHEST.pushDistance * (1 - d / (CHEST.pushRadius * 1.4));
+      const next = safePosition(state, e.x + ux * push, e.y + uy * push, enemyRadius(e));
+      e.x = next.x;
+      e.y = next.y;
+    }
+    const shardCount = c.big ? CHEST.bigShards : CHEST.shards;
+    for (let i = 0; i < shardCount; i++) {
+      const a = (i / shardCount) * Math.PI * 2 + (c.id % 7) * 0.31;
+      const r = CHEST.shardRadius + (c.big && i % 2 ? 12 : 0);
+      dropShard(state, c.x + Math.cos(a) * r, c.y + Math.sin(a) * r, CHEST.shardValue);
+    }
     openChest(state, rng, c.big);
     return;
   }
@@ -1039,6 +1056,14 @@ export function openChest(state: SimState, rng: Rng, big: boolean): void {
     big,
     life: CHEST.revealTime,
   };
+  const heal = big ? CHEST.bigHeal : CHEST.heal;
+  const beforeHp = state.player.hp;
+  state.player.hp = Math.min(state.player.maxHp, beforeHp + heal);
+  const healed = state.player.hp - beforeHp;
+  if (healed > 0) {
+    reveal.healed = healed;
+    effect(state, state.player.x, state.player.y, "treat", EFFECT_LIFE.treat);
+  }
   const evo = readyEvolution(state);
   if (evo) {
     evolve(state, evo);

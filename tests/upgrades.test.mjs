@@ -286,13 +286,19 @@ test("a full passive bar without the partner passive still lets a chest evolve t
   }
 });
 
-test("a chest with nothing left to grow hands out a snack", () => {
+test("a chest with nothing left to grow hands out snacks and heals", () => {
   const s = quiet("zero");
   s.upgrades["meow-bolt"] = upgradeDef("meow-bolt").maxLevel;
   s.player.hp = 1;
   openChest(s, createRng(4), false);
-  assert.deepEqual(s.chestReveal.items, [{ id: "snack", level: 1 }]);
-  assert.equal(s.player.hp, 1 + UPGRADE_VALUES.snack.heal);
+  assert.deepEqual(
+    s.chestReveal.items,
+    Array.from({ length: CHEST.levels }, (_, i) => ({ id: "snack", level: i + 1 })),
+  );
+  assert.equal(
+    s.player.hp,
+    Math.min(s.player.maxHp, 1 + CHEST.heal + UPGRADE_VALUES.snack.heal * CHEST.levels),
+  );
 });
 
 test("the extra weapons hit ink: night claw, star fall, paper crane, pumpkin seed", () => {

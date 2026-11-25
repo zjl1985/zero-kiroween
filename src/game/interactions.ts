@@ -57,8 +57,19 @@ export const CHEST = {
   touchRadius: 18,
   /** Seconds after dropping before it can be opened (lets the drop land). */
   settle: 0.4,
-  levels: 1,
+  levels: 2,
   bigLevels: 3,
+  /** Hearts restored when a chest opens. */
+  heal: 1,
+  bigHeal: 2,
+  /** Non-boss knockback wave when a chest bursts open. */
+  pushRadius: 110,
+  pushDistance: 56,
+  /** Bonus ink shards scattered in a ring around an opened chest. */
+  shards: 5,
+  bigShards: 10,
+  shardRadius: 34,
+  shardValue: 2,
   /** Seconds the HUD shows what the chest gave. */
-  revealTime: 3.2,
+  revealTime: 4.5,
 } as const;

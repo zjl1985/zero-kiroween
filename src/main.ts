@@ -99,6 +99,7 @@ function cueState(s: SimState) {
     shards: s.stats.shardsCollected,
     level: s.level,
     pumpkins: s.stats.pumpkinsLit,
+    chests: s.stats.chestsOpened,
     treats: s.stats.treatsEaten,
     moon: s.stats.moonPulses,
     boss: s.boss.spawned,
@@ -302,6 +303,7 @@ function boot(): void {
     else if (now.taken > p.taken) sfx.play("hurt");
     if (now.shards > p.shards) sfx.play("pickup", s.streak.count);
     if (now.evolved > p.evolved) sfx.play("evolve");
+    else if (now.chests > p.chests) sfx.play("chest");
     else if (now.level > p.level) sfx.play("levelup");
     if (now.pumpkins > p.pumpkins) sfx.play("pumpkin");
     if (now.treats > p.treats) sfx.play("treat");

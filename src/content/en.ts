@@ -199,6 +199,7 @@ export const EN: Messages = {
   "chest.big_title": "ERASER CHEST",
   "chest.level": "{name} Lv {level}",
   "chest.evolved": "Evolved · {name}",
+  "chest.heal": "+{amount} HP",
   "selector.weapon": "STARTING WEAPON",
   "selector.evolution": "EVOLUTION",
   "hud.dawn": "Dawn",

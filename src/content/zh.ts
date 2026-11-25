@@ -195,6 +195,7 @@ export const ZH: Messages = {
   "chest.big_title": "橡皮擦宝箱",
   "chest.level": "{name} Lv {level}",
   "chest.evolved": "进化 · {name}",
+  "chest.heal": "回血 +{amount}",
   "selector.weapon": "初始武器",
   "selector.evolution": "进化",
   "hud.dawn": "天将亮",
