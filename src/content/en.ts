@@ -85,6 +85,7 @@ export const EN: Messages = {
   "upgrade.title": "Choose a paper charm",
   "upgrade.evolution": "EVOLUTION",
   "upgrade.shared": "WATCH",
+  "upgrade.evo_pair": "EVO PAIR",
   "upgrade.signature": "SIGNATURE",
   "upgrade.level": "Lv {from} → {to}",
   "upgrade.new": "NEW",

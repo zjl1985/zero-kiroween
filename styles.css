@@ -173,8 +173,9 @@ kbd { display: inline-block; padding: 2px 5px; border: 1px solid var(--edge); bo
 .pleat-1 { font-size: 10px; color: #d88b89; letter-spacing: .18em; }
 .pleat-2 { font-size: 30px; font-weight: 800; padding: 8px 0; color: #f7d0a9; }
 .pleat-3 { font-size: 11px; color: #b9c5c4; }
-.hurt-vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; border: 5px solid #d15c5d; }
+.hurt-vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; border: 5px solid #d15c5d; box-shadow: inset 0 0 36px #d15c5d88; transition: opacity 140ms ease-out; }
 .critical-health .hurt-vignette { opacity: .5; }
+.is-hurt .hurt-vignette { opacity: .78; }
 .seam-dock { position: absolute; left: 24px; right: 24px; bottom: 18px; display: flex; align-items: flex-end; gap: 16px; }
 .seam-col { flex: 1; min-width: 0; display: grid; gap: 7px; }
 .seam-tags { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -251,6 +252,8 @@ body:is([data-screen="pause"], [data-screen="upgrade"]) #hud { opacity: .18; poi
 .upgrade-card[data-slot="passive"]::before { inset: 9px auto 9px 0; width: 2px; }
 .upgrade-card:hover:not(:disabled), .upgrade-card:focus-visible { border-color: var(--card-type); background: var(--card-selected); transform: translateY(-3px); }
 .upgrade-card.evolution { --card-frame: #b798d7; --card-type: #dac2ed; --card-stock: #32334f; --card-selected: #413b5b; }
+.upgrade-card.evo-pair { border-color: #e6c27a; box-shadow: 0 0 14px #e6c27a33, 5px 5px 0 #071520; }
+.upgrade-card.evo-pair .card-pool { color: #ffe7a6; font-weight: 700; }
 .card-tag { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 5px 9px; color: #a9bbb9; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .card-kind { color: var(--card-type); font-size: 10px; font-weight: 800; line-height: 1.2; }
 .card-kind::before { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 6px 1px 0; background: currentColor; }

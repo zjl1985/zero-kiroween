@@ -167,6 +167,7 @@ export interface Particle {
   readonly w: number;
   readonly h: number;
   readonly color: string;
+  readonly glow?: string;
   readonly alpha: number;
 }
 export interface ParticleView {
@@ -180,7 +181,29 @@ export interface ParticleView {
   dawn: number;
   /** Burning fire cells in view pixels (ash rises from the first few). */
   fires: readonly { x: number; y: number }[];
+  /** Optional district biome id for atmosphere tinting. */
+  biome?: string;
 }
+
+const BIOME_PARTICLES: Readonly<Record<string, { firefly: { core: string; glow: string }; leaf: readonly string[] }>> = {
+  "old-town": { firefly: POST.particles.firefly, leaf: POST.particles.leaf },
+  "pumpkin-farm": {
+    firefly: { core: "#ffc464", glow: "#4a2e0e" },
+    leaf: ["#e08030", "#c45424", "#efb44a", "#9c3e20"],
+  },
+  "graveyard-woods": {
+    firefly: { core: "#c5b6fa", glow: "#2c244a" },
+    leaf: ["#6b5d7a", "#837294", "#504660", "#9c88ad"],
+  },
+  "lantern-canal": {
+    firefly: { core: "#9cece2", glow: "#183c3e" },
+    leaf: ["#5f9688", "#7fb3a0", "#4a7870", "#d4b66a"],
+  },
+  "moon-meadow": {
+    firefly: { core: "#e8f2ff", glow: "#263652" },
+    leaf: ["#b6c4e8", "#98a9d6", "#d8e0f5", "#c8b8e2"],
+  },
+};
 
 /** One particle's life: bucket and phase of index `i` with period `p` (pure). */
 function life(i: number, salt: number, period: number, t: number): { bucket: number; u: number } {
@@ -195,6 +218,7 @@ function life(i: number, salt: number, period: number, t: number): { bucket: num
  */
 export function particles(view: ParticleView): Particle[] {
   const P = POST.particles, t = view.reduced || !Number.isFinite(view.time) ? 0 : view.time;
+  const theme = (view.biome && BIOME_PARTICLES[view.biome]) || { firefly: P.firefly, leaf: P.leaf };
   const dawn = Math.max(0, Math.min(1, view.dawn || 0)), out: Particle[] = [];
   const spanX = view.width + P.pad * 2, spanY = view.height + P.pad * 2;
   const wrap = (x: number, y: number, parallax: number) => ({
@@ -209,7 +233,7 @@ export function particles(view: ParticleView): Particle[] {
     const blink = 0.55 + 0.45 * Math.sin(u * Math.PI * 6 + i * 1.7);
     const alpha = Math.sin(Math.PI * u) * blink * (1 - dawn);
     if (alpha <= 0.05) continue;
-    out.push({ kind: "firefly", ...at, w: 1, h: 1, color: P.firefly.core, alpha: Math.min(1, alpha) });
+    out.push({ kind: "firefly", ...at, w: 1, h: 1, color: theme.firefly.core, glow: theme.firefly.glow, alpha: Math.min(1, alpha) });
   }
   for (let i = 0; i < P.leaves; i++) {
     const { bucket, u } = life(i, 211, P.period.leaf, t);
@@ -218,7 +242,7 @@ export function particles(view: ParticleView): Particle[] {
     const flat = Math.floor(u * 8 + i) % 2 === 0;
     out.push({
       kind: "leaf", ...at, w: flat ? 2 : 1, h: flat ? 1 : 2,
-      color: P.leaf[Math.floor(hashOf(211, i, bucket, 3) * P.leaf.length)]!,
+      color: theme.leaf[Math.floor(hashOf(211, i, bucket, 3) * theme.leaf.length)]!,
       alpha: Math.min(1, Math.sin(Math.PI * u) * 1.4),
     });
   }
@@ -249,7 +273,7 @@ export function drawParticles(ctx: Ctx, list: readonly Particle[]): void {
     if (p.kind === "firefly") {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = base * p.alpha;
-      ctx.fillStyle = POST.particles.firefly.glow;
+      ctx.fillStyle = p.glow ?? POST.particles.firefly.glow;
       ctx.fillRect(p.x - 1, p.y, p.w + 2, p.h);
       ctx.fillRect(p.x, p.y - 1, p.w, p.h + 2);
       ctx.globalCompositeOperation = "source-over";

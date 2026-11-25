@@ -80,6 +80,7 @@ export const MESSAGE_KEYS = [
   "upgrade.title",
   "upgrade.evolution",
   "upgrade.shared",
+  "upgrade.evo_pair",
   "upgrade.signature",
   "upgrade.level",
   "upgrade.new",

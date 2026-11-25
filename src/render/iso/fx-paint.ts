@@ -139,8 +139,14 @@ export function paintImpact(p: Painter, e: Impact, reduced: boolean, zoom = 1, l
   const size = Math.min(170, e.radius === undefined ? r.size * zoom : e.radius * ISO.k * Math.SQRT2 * zoom);
   const seed = impactSeed(e), lift = (r.lift ?? 0) * zoom, y = -lift, fade = Math.min(1, remaining * 1.7);
   if (r.look === "number") {
-    if (e.amount !== undefined) p.text(e.kind === "streak" ? `X${Math.round(e.amount)}` : Math.max(1, Math.round(e.amount)), 0,
-      y - t * 11, tip, { align: "center", outline: INK, a: fade });
+    if (e.amount !== undefined) {
+      const heavy = e.kind === "damage" && e.amount >= 4;
+      const numColor = heavy ? GOLD[3] : tip;
+      const liftY = y - t * (heavy ? 14 : 11);
+      p.text(e.kind === "streak" ? `X${Math.round(e.amount)}` : Math.max(1, Math.round(e.amount)), 0,
+        liftY, numColor, { align: "center", outline: INK, a: fade });
+      if (heavy && k < .45) p.dot(0, liftY - 6, GOLD[2], fade);
+    }
     return;
   }
   // Intentionally modest light footprints. Extra particles stay on the color
@@ -228,6 +234,7 @@ export function paintImpact(p: Painter, e: Impact, reduced: boolean, zoom = 1, l
           p.line(dy * .56, y - x * .56, 0, y, tip);
           p.glow(0, y, 5, mid, .2);
         } else sparkle(p, 0, y, arm, tip, bright, .25);
+        if (e.kind === "defeat") paintGroundRing(p, size * (.25 + .55 * t), mid, fade * .55);
         p.fade = 1;
       }
       break;
@@ -245,11 +252,11 @@ export function paintImpact(p: Painter, e: Impact, reduced: boolean, zoom = 1, l
         const x = i * half, h = height * (1 - Math.abs(i) * .22);
         p.line(x, -1 - h * .16, x * .6, -h, i === 0 ? bright : mid, fade * .8);
       }
-      if (e.kind === "chest-open" || e.kind === "evolve") {
+      if (e.kind === "chest-open" || e.kind === "evolve" || e.kind === "levelup") {
         paintGroundRing(p, reach * .72, tip, fade * .85);
         p.fade = fade;
-        sparkle(p, 0, -height, 5, tip, bright, .18);
-        if (e.kind === "chest-open") {
+        sparkle(p, 0, -height, e.kind === "levelup" ? 4 : 5, tip, bright, .18);
+        if (e.kind === "chest-open" || e.kind === "evolve") {
           sparkle(p, -half * .9, -height * .62, 3, bright, tip, .12);
           sparkle(p, half * .9, -height * .52, 3, bright, tip, .12);
         }
@@ -324,15 +331,24 @@ export function paintLoot(p: Painter, kind: LootKind, id: number, time: number, 
     p.poly([[0, y - r + 1], [r - 1, y - 1], [0, y + r - 1], [-r + 1, y]], bright);
     p.line(0, y - r + 1, -1, y, tip);
     p.dot(1, y + 1, mid);
-    if (big) p.glow(0, y, 7, mid, .22);
+    if (big) {
+      if (!reduced && Math.sin(time * 4.2 + id) > .35) sparkle(p, 2, y - r, 2, tip, bright, .22);
+      p.glow(0, y, 8, mid, .24);
+    }
     return;
   }
   if (kind === "treat") {
+    const y = bob;
+    const pulse = reduced ? .55 : .35 + .3 * Math.sin(time * 3.8 + id);
+    paintGroundRing(p, 9, HEAL[2], pulse * .7);
     p.ellipse(0, 0, 6, 2, INK, .6);
-    p.poly([[-7, -9], [-4, -8], [0, -10], [5, -9], [7, -6], [5, -4], [0, -3], [-4, -5], [-7, -4]], dark);
-    p.poly([[-6, -8], [-3, -7], [1, -9], [5, -8], [6, -6], [3, -4], [-1, -4], [-4, -6], [-6, -5]], bright);
-    p.line(-2, -7, 2, -8, tip);
-    p.px(4, -7, dark);
+    p.poly([[-7, -9 + y], [-4, -8 + y], [0, -10 + y], [5, -9 + y], [7, -6 + y], [5, -4 + y], [0, -3 + y], [-4, -5 + y], [-7, -4 + y]], dark);
+    p.poly([[-6, -8 + y], [-3, -7 + y], [1, -9 + y], [5, -8 + y], [6, -6 + y], [3, -4 + y], [-1, -4 + y], [-4, -6 + y], [-6, -5 + y]], bright);
+    p.line(-2, -7 + y, 2, -8 + y, tip);
+    p.px(-1, -5 + y, mid);
+    p.px(1, -5 + y, mid);
+    p.px(4, -7 + y, dark);
+    p.glow(0, -6 + y, 9, HEAL[1], .16);
     return;
   }
   const hw = big ? 10 : 8, h = big ? 12 : 9;

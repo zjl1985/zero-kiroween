@@ -11,7 +11,7 @@ import {
   enemyWarnings,
 } from "./craft-enemies.js";
 import { enemyRadius } from "../game/sim.js";
-import { landmarks } from "../game/world-gen.js";
+import { biomeAt, CHUNK, landmarks } from "../game/world-gen.js";
 import { drawActorPaperStatus } from "./paper-status-art.js";
 import { drawCombatGround } from "./combat-fx.js";
 import type { SimState } from "../game/types.js";
@@ -507,7 +507,9 @@ function drawWorldFrame(
     const [ix, iy] = key.split(",").map(Number) as [number, number];
     fires.push(projectToView(projection, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell));
   }
-  drawParticles(ctx, particles({ width, height, cameraX: camera.x, cameraY: camera.y, time: view.time, reduced, dawn, fires }));
+  const focusWorld = sim?.player ?? toWorld(camera.x, camera.y);
+  const biome = sim ? biomeAt(sim.seed, Math.floor(focusWorld.x / CHUNK.width), Math.floor(focusWorld.y / CHUNK.height)).id : "old-town";
+  drawParticles(ctx, particles({ width, height, cameraX: camera.x, cameraY: camera.y, time: view.time, reduced, dawn, fires, biome }));
   // Pre-blurred foreground leaves at the bottom corners; a corner fades over the cat,
   // a hostile, a pickup or a chest standing in it.
   const watched: { x: number; y: number }[] = [];

@@ -84,6 +84,7 @@ export const ZH: Messages = {
   "upgrade.title": "挑一枚纸符",
   "upgrade.evolution": "进化",
   "upgrade.shared": "守夜",
+  "upgrade.evo_pair": "进化搭档",
   "upgrade.signature": "专属",
   "upgrade.level": "Lv {from} → {to}",
   "upgrade.new": "新",

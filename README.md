@@ -1,10 +1,10 @@
 # Midnight Meow
 
-Choose a cat and keep watch until dawn in a pixel-art town with sprite-stacked scenery. Midnight Meow is a survivor roguelike built for Kiroween 2026. Explore a seeded town, collect ink shards, and build a loadout that can carry you through ten minutes of night.
+Choose a cat and keep watch until dawn in a **2:1 isometric pixel-art town with HD-2D night lighting**. Midnight Meow is a browser survival roguelike built for Kiroween 2026. Explore a seeded five-district town, interact with paper/water/fire/ink elements, collect ink shards, open treasure chests, and build a loadout that carries you through ten minutes of night.
 
 [Play the published Midnight Meow](https://zero-kiroween.vercel.app/)
 
-The playable pixel checkpoint `4fd9245` is published. The approved generated pixel village and reproducible asset workshop are integrated on `main`; earlier asset iterations are recorded in [the review log](docs/pixel-asset-review.md). The previous paper-art version is preserved at `archive/papercraft-2026-11-21` (`d26859b`). Run `npm install`, `npm run build`, then `npm start` to preview locally. See [pixel refactor notes](docs/pixel-refactor.md) for architecture and verification.
+The active `main` branch ships the isometric HD-2D pixel build with original-resolution cat cutouts, a 22-icon upgrade card atlas, biome-tinted atmosphere particles, bundled static assets (`esbuild`), and **657 automated tests**. The previous papercraft version is preserved at `archive/papercraft-2026-11-21` (`d26859b`). Run `npm ci`, `npm run build`, then `npm start` to preview locally. See [docs/iso-art-spec.md](docs/iso-art-spec.md) and [HANDOFF.md](HANDOFF.md) for current architecture and verification.
 
 ## Pixel art workshop / 像素素材工坊
 
@@ -14,7 +14,7 @@ The playable pixel checkpoint `4fd9245` is published. The approved generated pix
 
 ## How to play
 
-Weapons attack automatically. Collect ink shards from defeated enemies to level up and choose upgrades. Elites and the Eraser drop treasure chests. Defeat the Eraser and survive until dawn to win; if the Eraser is still loose at dawn, the night is lost.
+Weapons attack automatically. Collect ink shards from defeated enemies to level up and choose upgrades (evolution-pair cards are highlighted directly on the upgrade screen). Elites drop treasure chests that grant 2 upgrades (or evolve a maxed paired weapon), heal 1 heart, push nearby enemies back, and burst bonus ink shards; the Eraser drops a big chest with 3 upgrades and 2 hearts. Defeat the Eraser and survive until dawn to win; if the Eraser is still loose at dawn, the night is lost.
 
 | Action | Desktop control |
 | --- | --- |

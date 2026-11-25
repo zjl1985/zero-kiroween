@@ -357,5 +357,6 @@ export function renderHud(refs: HudRefs, locale: Locale, sim: SimState, camera: 
   refs.hint.classList.toggle("hint-dismissed", !environment.hint && sim.elapsed > 14);
   document.body.classList.toggle("low-health", p.hp <= 2);
   document.body.classList.toggle("critical-health", critical);
+  document.body.classList.toggle("is-hurt", p.invuln > 0 && sim.ended === "playing");
   document.body.classList.toggle("is-dawn", sim.ended === "won" || arc.dawn);
 }
