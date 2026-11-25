@@ -31,12 +31,18 @@ test("Vercel builds the isolated static site without a catch-all HTML rewrite", 
 
 const gameArt = ["assets/characters/render/cat-reference-atlas.png", "assets/upgrades/render/upgrade-card-atlas.png"];
 
-test("the published site contains only entry files, approved art and current compiled modules", () => {
-  const modules = files(new URL("src/", root)).filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"));
+test("the published site contains only entry files, approved art and bundled production modules", () => {
   const fontFiles = ["AlloVariableFriendly.woff2", "Allo-Oblique.woff2", "OFL.txt", "SOURCE.txt"];
-  const expected = ["index.html", "styles.css", "assets/village/SOURCE.txt", ...gameArt,
-    ...fontFiles.map(f => `assets/fonts/${f}`), ...modules.map((f) => `dist/${f.replace(/\.ts$/, ".js")}`)].sort();
-  assert.deepEqual(files(site), expected);
+  const published = files(site);
+  const nonJs = published.filter((f) => !f.startsWith("dist/"));
+  const expectedNonJs = ["index.html", "styles.css", "assets/village/SOURCE.txt", ...gameArt,
+    ...fontFiles.map(f => `assets/fonts/${f}`)].sort();
+  assert.deepEqual(nonJs, expectedNonJs);
+  const jsFiles = published.filter((f) => f.startsWith("dist/"));
+  assert.ok(jsFiles.includes("dist/main.js"), "bundled entry exists");
+  assert.ok(jsFiles.includes("dist/render/terrain-worker.js"), "bundled terrain worker exists");
+  assert.ok(jsFiles.every((f) => f.endsWith(".js")), "only .js files in dist/");
+  assert.ok(jsFiles.length <= 16, `expected bundled site with few JS files, got ${jsFiles.length}`);
   for (const file of ["index.html", "styles.css"])
     assert.equal(readFileSync(new URL(file, site), "utf8"), readFileSync(new URL(file, root), "utf8"));
   for (const file of gameArt)

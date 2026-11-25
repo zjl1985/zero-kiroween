@@ -246,3 +246,26 @@ test("both cats' crane volleys add exactly one fold pulse but preserve shot fan,
     assert.equal(s.rngState, rng);
   }
 });
+
+test("soakedUntil expires in lifecycle, clears on scraps, and dry water hits splash without steam", () => {
+  const s = state(), ctx = context(), fence = findProp("paper-fence"), row = reactionFor("card", "water");
+  assert.equal(row.fx, "splash", "water on a dry prop splashes instead of steaming");
+  s.elapsed = 12;
+  applyElement(s, fence.x, fence.y, 16, "water", 1);
+  assert.equal(s.props[fence.id].soakedUntil, 12 + WASH.soakSeconds);
+  assert.ok(s.impacts.some((e) => e.kind === "splash"), "dry water hit emits splash");
+  assert.ok(!s.impacts.some((e) => e.kind === "steam"), "dry water hit emits no steam");
+
+  // Expiry cleans up soakedUntil.
+  s.elapsed = 12 + WASH.soakSeconds + 0.1;
+  stepPropLifecycle(s, ctx);
+  assert.equal(s.props[fence.id].soakedUntil, undefined, "expired soak is removed");
+
+  // Destruction clears soakedUntil.
+  s.elapsed = 30;
+  applyElement(s, fence.x, fence.y, 16, "water", 1);
+  assert.ok(s.props[fence.id].soakedUntil > 30);
+  damageProp(s, fence, 999, ctx, false);
+  assert.equal(s.props[fence.id].phase, 2);
+  assert.equal(s.props[fence.id].soakedUntil, undefined, "scraps clear soakedUntil");
+});

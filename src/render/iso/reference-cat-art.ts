@@ -20,7 +20,7 @@ let flashAtlas: CanvasSurface | undefined;
 
 export async function loadReferenceCatAtlas(): Promise<void> {
   const image = new Image();
-  image.src = new URL("../../../assets/characters/render/cat-reference-atlas.png", import.meta.url).href;
+  image.src = new URL("assets/characters/render/cat-reference-atlas.png", import.meta.url.replace(/\/dist\/.*/, "/")).href;
   await image.decode();
   atlas = image;
 }

@@ -32,10 +32,15 @@ export function paperTouchesWater(seed: number, x: number, y: number, radius = 0
   });
 }
 
+function hasEntries(obj: Record<string, number>): boolean {
+  for (const _ in obj) return true;
+  return false;
+}
+
 /** Circle versus the whole burning square, not just the actor's centre cell. */
 export function paperTouchesFire(state: SimState, x: number, y: number, radius: number): boolean {
   const cells = state.fire.cells;
-  if (Object.keys(cells).length === 0) return false;
+  if (!hasEntries(cells)) return false;
   for (let iy = Math.floor((y - radius) / FIRE.cell); iy <= Math.floor((y + radius) / FIRE.cell); iy++)
     for (let ix = Math.floor((x - radius) / FIRE.cell); ix <= Math.floor((x + radius) / FIRE.cell); ix++) {
       if (!(`${ix},${iy}` in cells)) continue;
@@ -117,9 +122,10 @@ export function stepPaperStatus(state: SimState, dt: number, ctx: SimContext): v
     stepActor(state, p, STATS.playerRadius, dt, FIRE.playerInterval,
       () => { ctx.hurtPlayer(state, FIRE.playerDamage); }, () => p.hp > 0, ctx, true);
   if (state.ended !== "playing") return;
-  // Death hooks can append enemies; newborn paper must not inherit this step's fire tick.
-  for (const e of [...state.enemies]) {
+  // Death hooks can append enemies; capture length so newborn paper does not inherit this step's fire tick.
+  for (let i = 0, n = state.enemies.length; i < n; i++) {
     if (state.ended !== "playing") return;
+    const e = state.enemies[i]!;
     if (!e.alive || e.spawnTime > 0) continue;
     stepActor(state, e, ctx.enemyRadius(e), dt, FIRE.enemyInterval,
       () => ctx.hurtEnemy(state, e, FIRE.enemyDamage, { family: "fire", x: e.x, y: e.y }), () => e.alive, ctx);

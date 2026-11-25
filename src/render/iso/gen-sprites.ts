@@ -64,10 +64,11 @@ export function hasGenSprite(id: string): boolean {
  * id and look, so the cache stays bounded by the finite sprite list): `char` while a
  * prop burns, `ink` while it is coated, `wash1..4` as the colour lifts off the page.
  */
-export type GenLook = "char" | "ink" | "wash1" | "wash2" | "wash3" | "wash4" | "flash" | "pencil";
+export type GenLook = "char" | "ink" | "wet" | "wash1" | "wash2" | "wash3" | "wash4" | "flash" | "pencil";
 export const GEN_LOOKS = {
   char: { colour: "#2a1d22", amount: 0.58 },
   ink: { colour: "#281d44", amount: 0.6 },
+  wet: { colour: "#3d7a8f", amount: 0.42 },
   wash: { colour: "#b7b9aa", amount: 0.72 },
   /** A puppet's hit flash: its whole palette jumps to a warm white, the outline to a pale grey. */
   flash: { colour: "#fff6dc", amount: 0.8 },
@@ -84,7 +85,7 @@ function lookPalette(look: GenLook | undefined): readonly string[] {
   if (!look) return SCENERY_PALETTE;
   let p = paletteMemo.get(look);
   if (p) return p;
-  const spec = look === "char" ? GEN_LOOKS.char : look === "ink" ? GEN_LOOKS.ink : look === "flash" ? GEN_LOOKS.flash : look === "pencil" ? GEN_LOOKS.pencil : GEN_LOOKS.wash,
+  const spec = look === "char" ? GEN_LOOKS.char : look === "ink" ? GEN_LOOKS.ink : look === "wet" ? GEN_LOOKS.wet : look === "flash" ? GEN_LOOKS.flash : look === "pencil" ? GEN_LOOKS.pencil : GEN_LOOKS.wash,
     t = look.startsWith("wash") ? (Number(look.slice(4)) / 4) * GEN_LOOKS.wash.amount : spec.amount;
   // The pencil look keeps the drawing's value steps as grey levels (its outline and shadows go to graphite).
   p = SCENERY_PALETTE.map((c) => {

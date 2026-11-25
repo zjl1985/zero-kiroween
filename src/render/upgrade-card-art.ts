@@ -8,7 +8,7 @@ let loading: Promise<void> | undefined;
 export function loadUpgradeCardAtlas(): Promise<void> {
   if (loading) return loading;
   const image = new Image();
-  image.src = new URL("../../assets/upgrades/render/upgrade-card-atlas.png", import.meta.url).href;
+  image.src = new URL("assets/upgrades/render/upgrade-card-atlas.png", import.meta.url.replace(/\/dist\/.*/, "/")).href;
   loading = image.decode().then(() => { atlas = image; });
   return loading;
 }

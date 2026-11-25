@@ -125,6 +125,7 @@ export function damageProp(state: SimState, p: PropSpot, amount: number, ctx: Si
   m.dropsClaimed = true;
   delete m.foldedUntil;
   delete m.inkedUntil;
+  delete m.soakedUntil;
   ctx.effect(state, p.x, p.y - 6 * p.s, "prop-scraps", EFFECT_LIFE["prop-scraps"], {
     src: def.art,
     amount: burnt ? 1 : 0,
@@ -175,9 +176,13 @@ function occupied(state: SimState, p: PropSpot, def: PropDef, ctx: SimContext): 
   if (state.player.hp > 0 && overlaps(state.player.x, state.player.y, STATS.playerRadius)) return true;
   return state.enemies.some((e) => e.alive && overlaps(e.x, e.y, ctx.enemyRadius(e)));
 }
+function parseCellKey(key: string): [number, number] {
+  const comma = key.indexOf(",");
+  return [+key.slice(0, comma), +key.slice(comma + 1)];
+}
 function fireNearProp(state: SimState, p: PropSpot, def: PropDef): boolean {
-  for (const key of Object.keys(state.fire.cells)) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number];
+  for (const key in state.fire.cells) {
+    const [ix, iy] = parseCellKey(key);
     if (inFootprint(p, def, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, FIRE.cell * Math.SQRT1_2)) return true;
   }
   return false;
@@ -185,8 +190,11 @@ function fireNearProp(state: SimState, p: PropSpot, def: PropDef): boolean {
 /** Touched state is retained across unloads; deadlines are simulation time, not visibility time. */
 export function stepPropLifecycle(state: SimState, ctx: SimContext): void {
   if (state.ended !== "playing") return;
-  for (const [id, m] of Object.entries(state.props)) {
+  const props = state.props;
+  for (const id in props) {
+    const m = props[id]!;
     if (m.inkedUntil !== undefined && m.inkedUntil <= state.elapsed) delete m.inkedUntil;
+    if (m.soakedUntil !== undefined && m.soakedUntil <= state.elapsed) delete m.soakedUntil;
     const regrow = m.phase === 2 && m.regrowAt !== undefined && m.regrowAt <= state.elapsed,
       unfold = m.foldedUntil !== undefined && m.foldedUntil <= state.elapsed;
     if (!regrow && !unfold && m.inkedUntil === undefined) continue;
@@ -216,8 +224,9 @@ export function stepPropLifecycle(state: SimState, ctx: SimContext): void {
     delete m.burnAt;
     delete m.foldedUntil;
     delete m.inkedUntil;
-    for (const key of Object.keys(state.fire.ash)) {
-      const [ix, iy] = key.split(",").map(Number) as [number, number];
+    delete m.soakedUntil;
+    for (const key in state.fire.ash) {
+      const [ix, iy] = parseCellKey(key);
       if (!(key in state.fire.cells) && inFootprint(p, def, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, 0))
         delete state.fire.ash[key];
     }
@@ -263,7 +272,9 @@ function flammability(state: SimState, ix: number, iy: number): number {
   return best;
 }
 export function burningCount(state: SimState): number {
-  return Object.keys(state.fire.cells).length;
+  let n = 0;
+  for (const _ in state.fire.cells) n++;
+  return n;
 }
 function light(state: SimState, ix: number, iy: number): boolean {
   const key = cellKey(ix, iy),
@@ -298,8 +309,8 @@ const NEIGHBOURS = [
 export function stepFire(state: SimState, dt: number, ctx: SimContext): void {
   if (dt <= 0 || !Number.isFinite(dt) || state.ended !== "playing") return;
   const fire = state.fire;
-  for (const key of Object.keys(fire.cells)) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number];
+  for (const key in fire.cells) {
+    const [ix, iy] = parseCellKey(key);
     if (!wetCell(state, ix, iy)) continue;
     delete fire.cells[key];
     ctx.effect(state, (ix + 0.5) * FIRE.cell, (iy + 0.5) * FIRE.cell, "steam", EFFECT_LIFE.steam);
@@ -318,21 +329,23 @@ export function stepFire(state: SimState, dt: number, ctx: SimContext): void {
 function fireTick(state: SimState, ctx: SimContext): void {
   const fire = state.fire,
     keys = Object.keys(fire.cells);
+  if (keys.length === 0) return;
   // Spread first, from the cells burning at the start of the tick.
   for (const key of keys) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number];
-    NEIGHBOURS.forEach(([dx, dy], n) => {
-      const nx = ix + dx,
+    const [ix, iy] = parseCellKey(key);
+    for (let n = 0; n < NEIGHBOURS.length; n++) {
+      const [dx, dy] = NEIGHBOURS[n]!,
+        nx = ix + dx,
         ny = iy + dy,
         nk = cellKey(nx, ny);
-      if (nk in fire.cells || nk in fire.ash) return;
+      if (nk in fire.cells || nk in fire.ash) continue;
       const f = flammability(state, nx, ny);
       if (f > 0 && hash2(state.seed, ix * 4 + n, iy, 900 + fire.ticks) < FIRE.spreadChance * f) light(state, nx, ny);
-    });
+    }
   }
   const consumed = new Set<string>();
   for (const key of keys) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number];
+    const [ix, iy] = parseCellKey(key);
     for (const p of fuelAt(state, ix, iy)) {
       if (consumed.has(p.id)) continue;
       consumed.add(p.id);

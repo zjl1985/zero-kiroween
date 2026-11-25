@@ -27,7 +27,8 @@ export type Cue =
   | "pigment"
   | "rain"
   | "snip"
-  | "fold";
+  | "fold"
+  | "steam";
 
 export interface ToneLayer {
   readonly kind: "tone";
@@ -104,6 +105,7 @@ export const THROTTLE: Readonly<Record<Cue, number>> = {
   rain: 0.6,
   snip: 0.1,
   fold: 0.2,
+  steam: 0.16,
 };
 
 export const CUE_TIER: Readonly<Record<Cue, MixTier>> = {
@@ -125,6 +127,7 @@ export const CUE_TIER: Readonly<Record<Cue, MixTier>> = {
   rain: "action",
   snip: "action",
   fold: "action",
+  steam: "action",
   levelup: "event",
   evolve: "event",
   boss: "event",
@@ -237,6 +240,11 @@ export const CUE_LAYERS: Readonly<Record<Cue, (k: number, rand: () => number) =>
       out.push(noise(0.015, { filter: "highpass", freq: 3800 + rand() * 2600, gain: 0.03, delay: rand() * 0.8 }));
     return out;
   },
+  // Water quenching fire: a crisp rising hiss that settles softly.
+  steam: () => [
+    noise(0.26, { filter: "bandpass", freq: 4200, to: 1500, q: 1.4, gain: 0.055 }),
+    noise(0.14, { filter: "highpass", freq: 5200, to: 2800, gain: 0.025, delay: 0.03 }),
+  ],
 };
 
 /** Envelope gain of one layer `t` seconds after the cue starts (same ramps as sfx.ts). */

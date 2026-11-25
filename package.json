@@ -12,8 +12,8 @@
     "start": "python3 -m http.server 4173 --directory site",
     "test": "npm run build && node --test tests/*.test.mjs"
   },
-  "dependencies": {},
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }
 }

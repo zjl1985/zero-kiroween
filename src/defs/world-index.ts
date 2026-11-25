@@ -149,7 +149,18 @@ for (const b of [OLD_TOWN, PUMPKIN_FARM, GRAVEYARD_WOODS, LANTERN_CANAL, MOON_ME
 // Neutral townsfolk; a landmark takes the first one whose homes list its kind.
 for (const f of [LAMPLIGHTER_MOUSE, STARGAZER_OWL, FERRY_FROG]) TOWNSFOLK_DEFS.register(f);
 
-/** The reaction row for a material and element, if any. */
-export function reactionFor(material: string, element: string) {
-  return REACTIONS.all().find((r) => r.material === material && r.element === element);
+import type { ReactionDef } from "./types.js";
+
+const reactionIndex = new Map<string, ReactionDef>();
+let reactionIndexedCount = -1;
+
+/** The reaction row for a material and element, if any (O(1) cached lookup). */
+export function reactionFor(material: string, element: string): ReactionDef | undefined {
+  const all = REACTIONS.all();
+  if (reactionIndexedCount !== all.length) {
+    reactionIndex.clear();
+    for (const r of all) reactionIndex.set(`${r.material}:${r.element}`, r);
+    reactionIndexedCount = all.length;
+  }
+  return reactionIndex.get(`${material}:${element}`);
 }

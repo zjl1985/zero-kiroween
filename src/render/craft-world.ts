@@ -566,7 +566,7 @@ function workerForTerrain(): Worker | null {
   if (chunkWorker !== undefined) return chunkWorker;
   if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") return chunkWorker = null;
   try {
-    const worker = new Worker(new URL("./terrain-worker.js", import.meta.url), { type: "module" });
+    const worker = new Worker(new URL("dist/render/terrain-worker.js", import.meta.url.replace(/\/dist\/.*/, "/")), { type: "module" });
     worker.onmessage = ({ data }: MessageEvent<TerrainReply>) => {
       const { id, bitmap } = data;
       if (chunkWorker !== worker || inFlight?.id !== id) {

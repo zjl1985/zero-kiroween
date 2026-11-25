@@ -41,7 +41,6 @@ import { renderHud } from "./ui/hud.js";
 import { createTouch, prefersTouch } from "./ui/touch.js";
 import { inkReveal } from "./ui/ink.js";
 import { createSfx } from "./audio/sfx.js";
-import { paintGallery } from "./render/gallery.js";
 import { galleryCheck } from "./ui/gallery-layout.js";
 import { moonArc } from "./ui/journal-geometry.js";
 import {
@@ -109,6 +108,8 @@ function cueState(s: SimState) {
     chain: Math.floor(s.streak.count / STATS.streakMilestone),
     torn: s.stats.propsTorn,
     burning: Object.keys(s.fire.cells).length,
+    playerBurning: (s.player.burnTime ?? 0) > 0,
+    playerWet: (s.player.wetTime ?? 0) > 0,
     splashes: s.wash.splashes,
     pigments: s.wash.pigments,
     rain: s.wash.rainPulses,
@@ -121,7 +122,8 @@ function cueState(s: SimState) {
  * `?gallery=1`: the paper workshop page instead of the game. Shows every
  * registered cat, enemy, prop, landmark and icon; no sim, no audio.
  */
-function bootGallery(): void {
+async function bootGallery(): Promise<void> {
+  const { paintGallery } = await import("./render/gallery.js");
   const prefs = initialPrefs();
   let locale = prefs.locale;
   const page = must<HTMLElement>("gallery-screen"),
@@ -307,7 +309,10 @@ function boot(): void {
     if (now.boss && !p.boss) sfx.play("boss");
     if (now.chain > p.chain) sfx.play("streak", s.streak.count);
     if (now.torn > p.torn) sfx.play("tear");
-    if (now.burning > 0) sfx.play("crackle", now.burning);
+    if ((p.playerBurning && !now.playerBurning && now.playerWet) || (now.splashes > p.splashes && now.burning < p.burning))
+      sfx.play("steam");
+    if (!p.playerBurning && now.playerBurning) sfx.play("crackle", Math.max(12, now.burning));
+    else if (now.burning > 0) sfx.play("crackle", now.burning);
     if (now.rain > p.rain) sfx.play("rain");
     else if (now.splashes > p.splashes) sfx.play("splash");
     if (now.pigments > p.pigments) sfx.play("pigment", now.pigments - p.pigments);
@@ -452,7 +457,10 @@ function boot(): void {
     clearWorldCache();
   };
   const start = () => {
-    releaseRun();
+    if (sim) releaseRun();
+    void loadUpgradeCardAtlas().catch((error) => {
+      console.error("Could not load the upgrade card art", error);
+    });
     nightCounted = false;
     unlockedTonight = [];
     sim = createSim({
@@ -743,13 +751,10 @@ function boot(): void {
 // Wait for the cached Canvas labels and the original-resolution player art.
 const fontReady = document.fonts?.load('400 16px "Allo"') ?? Promise.resolve([]);
 const galleryMode = new URLSearchParams(location.search).get("gallery") === "1";
-if (!galleryMode) void loadUpgradeCardAtlas().catch((error) => {
-  console.error("Could not load the upgrade card art", error);
-});
 const catAtlasReady = galleryMode ? Promise.resolve() : loadReferenceCatAtlas().catch((error) => {
   console.error("Could not load the original-resolution cat art", error);
 });
 void Promise.all([fontReady.catch(() => []), catAtlasReady]).then(() => {
-  if (galleryMode) bootGallery();
+  if (galleryMode) void bootGallery();
   else boot();
 });

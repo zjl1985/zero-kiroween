@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
@@ -7,7 +7,7 @@ const source = join(root, "src");
 const compiled = join(root, "dist");
 const output = join(root, "site");
 
-// Use current source files as the allowlist, so stale tsc outputs cannot ship.
+// Fallback allowlist copy for isolated fixtures without main.js / esbuild.
 function publishModules(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -24,6 +24,31 @@ function publishModules(directory) {
   }
 }
 
+async function bundleSite() {
+  const mainEntry = join(compiled, "main.js");
+  if (!existsSync(mainEntry)) {
+    publishModules(source);
+    return;
+  }
+  const { build } = await import("esbuild");
+  const entryPoints = [mainEntry];
+  const workerEntry = join(compiled, "render", "terrain-worker.js");
+  if (existsSync(workerEntry)) entryPoints.push(workerEntry);
+  await build({
+    entryPoints,
+    outdir: join(output, "dist"),
+    outbase: compiled,
+    bundle: true,
+    splitting: true,
+    format: "esm",
+    target: "es2022",
+    platform: "browser",
+    sourcemap: false,
+    legalComments: "none",
+    chunkNames: "chunks/[name]-[hash]",
+  });
+}
+
 // site/ is generated output, never a source directory.
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
@@ -38,5 +63,5 @@ for (const art of ["assets/characters/render/cat-reference-atlas.png", "assets/u
   mkdirSync(dirname(join(output, art)), { recursive: true });
   copyFileSync(join(root, art), join(output, art));
 }
-publishModules(source);
+await bundleSite();
 console.log("Static site built in site/ (HTML, CSS, JavaScript, game art and licensed fonts).");

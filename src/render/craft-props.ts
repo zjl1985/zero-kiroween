@@ -94,9 +94,26 @@ function scorchedPaper(sprite: CanvasSprite): CanvasSprite {
         c.restore();
     }, sprite.anchor);
 }
+/** Soaked paper: a cool damp sheen showing it resists fire and tears more easily. */
+function soakedCoating(sprite: CanvasSprite): CanvasSprite {
+    if (!sprite.canvas)
+        return sprite;
+    return cachedSprite(`prop-wet:${sprite.id}`, sprite.width, sprite.height, sprite.scale, c => {
+        sprite.draw(c, { x: sprite.width * sprite.anchor.x, y: sprite.height * sprite.anchor.y });
+        c.save();
+        c.globalCompositeOperation = 'source-atop';
+        c.globalAlpha = .42;
+        pxRect(c, 0, 0, sprite.width, sprite.height, '#3d7a8f');
+        c.globalAlpha = .65;
+        for (let i = 0; i < 2; i++)
+            pxRect(c, sprite.width * (.28 + i * .32), sprite.height * (.38 + i * .16), 4, 2, '#baf4f0');
+        c.restore();
+    }, sprite.anchor);
+}
 export interface PropVisualState {
     readonly folded?: boolean;
     readonly inked?: boolean;
+    readonly soaked?: boolean;
     readonly regrow?: number;
     /** Pencil amount (0 painted .. 1 colourless) of the paper under the prop. */
     readonly sketch?: number;
@@ -117,7 +134,8 @@ export function drawProp(ctx: Ctx, art: PropArt, p: PropSpot, phase: 0 | 1 | 2, 
     ctx.save();
     if (folded)
         ctx.transform(1, 0, -0.2, 0.2, 0, 0);
-    const inked = state.inked && phase < 2 ? inkCoating(sprite) : sprite, paper = state.sketch ? washedPixel(inked, state.sketch) : inked;
+    const treated = state.inked && phase < 2 ? inkCoating(sprite) : state.soaked && phase < 2 ? soakedCoating(sprite) : sprite,
+        paper = state.sketch ? washedPixel(treated, state.sketch) : treated;
     if (burning) {
         // Charring stays inside the cached paper silhouette; flames remain live.
         scorchedPaper(paper).draw(ctx, { x: 0, y: 0 });
@@ -141,7 +159,7 @@ export function drawProp(ctx: Ctx, art: PropArt, p: PropSpot, phase: 0 | 1 | 2, 
  * at the legacy upright scale (FEAT-007 may refine them).
  */
 function drawBakedProp(ctx: Ctx, id: string, art: PropArt, p: PropSpot, phase: 0 | 1 | 2, burning: boolean, time: number, state: PropVisualState): void {
-    const look = burning ? "char" : state.inked && phase < 2 ? "ink" : washLook(state.sketch ?? 0);
+    const look = burning ? "char" : state.inked && phase < 2 ? "ink" : state.soaked && phase < 2 ? "wet" : washLook(state.sketch ?? 0);
     if (state.folded && phase < 2) drawGenFolded(ctx, id, p.x, p.y, look);
     else drawGen(ctx, id, p.x, p.y, look);
     if (burning)
@@ -170,6 +188,7 @@ export function propSprites(ctx: Ctx, sim: SimState | null, seed: number, cam: C
                 const state: PropVisualState = {
                     folded,
                     inked: (m?.inkedUntil ?? 0) > elapsed,
+                    soaked: (m?.soakedUntil ?? 0) > elapsed,
                     regrow,
                     sketch: sim ? sketchAmount(sim, p.x, p.y) : 0,
                 };

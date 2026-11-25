@@ -38,7 +38,9 @@ function drop(state: SimState, key: string): void {
 }
 /** Centre of a cell key in world units. */
 export function washCentre(key: string): [number, number] {
-  const [ix, iy] = key.split(",").map(Number) as [number, number];
+  const comma = key.indexOf(","),
+    ix = +key.slice(0, comma),
+    iy = +key.slice(comma + 1);
   return [(ix + 0.5) * WASH.cell, (iy + 0.5) * WASH.cell];
 }
 /** Colourless or blank: the colour is gone here. */
@@ -244,12 +246,16 @@ export function washElement(
 /** Puts out fire cells within the circle; returns how many went out. */
 export function quenchFire(state: SimState, x: number, y: number, radius: number): number {
   let out = 0;
-  for (const key of Object.keys(state.fire.cells)) {
-    const [ix, iy] = key.split(",").map(Number) as [number, number],
+  const cells = state.fire.cells,
+    reach = radius + FIRE.cell * Math.SQRT1_2;
+  for (const key in cells) {
+    const comma = key.indexOf(","),
+      ix = +key.slice(0, comma),
+      iy = +key.slice(comma + 1),
       cx = (ix + 0.5) * FIRE.cell,
       cy = (iy + 0.5) * FIRE.cell;
-    if (Math.hypot(cx - x, cy - y) > radius + FIRE.cell * Math.SQRT1_2) continue;
-    delete state.fire.cells[key];
+    if (Math.hypot(cx - x, cy - y) > reach) continue;
+    delete cells[key];
     out++;
   }
   return out;

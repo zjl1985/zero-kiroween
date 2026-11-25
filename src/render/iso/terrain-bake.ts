@@ -291,7 +291,7 @@ function blockWorker(): Worker | null {
   if (worker !== undefined) return worker;
   if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") return worker = null;
   try {
-    const w = new Worker(new URL("../terrain-worker.js", import.meta.url), { type: "module" });
+    const w = new Worker(new URL("dist/render/terrain-worker.js", import.meta.url.replace(/\/dist\/.*/, "/")), { type: "module" });
     w.onmessage = ({ data }: MessageEvent<IsoBlockReply>) => {
       const { id, bitmap, box } = data, ripples = box ? data.ripples ?? [] : [];
       const drop = () => { bitmap?.close(); ripples.forEach((r) => r.close()); };

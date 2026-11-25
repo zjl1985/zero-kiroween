@@ -66,7 +66,7 @@ export const ISO_IMPACT_FX = {
   ember: recipe("shards", FIRE, LIFE.ember, 15, 7, .18),
   steam: recipe("steam", WATER, LIFE.steam, 12, 4),
   regrow: recipe("column", HEAL, LIFE.regrow, 13),
-  "ink-wash": recipe("splash", WATER, LIFE["ink-wash"], 20),
+  "ink-wash": recipe("splash", INK_DROP, LIFE["ink-wash"], 20),
   "landmark-reward": recipe("column", GOLD, LIFE["landmark-reward"], 21, 0, .26),
   splash: recipe("splash", WATER, LIFE.splash, 19, 0, .1),
   pigment: recipe("splash", HEAL, LIFE.pigment, 15),
@@ -380,15 +380,20 @@ export function paintStatus(p: Painter, actor: StatusLook, time: number, reduced
   p.fade = Math.min(1, (wet ? actor.wetTime! : actor.burnTime!) * 2);
   if (wet) {
     const fall = reduced ? .4 : time * 1.3 % 1;
+    const fall2 = reduced ? .7 : (time * 1.3 + .5) % 1;
     const x = -Math.round(w * .8), y = -Math.round(top * .3);
     const right = Math.round(w * .2);
     p.rect(x, y, 3, 2, WATER[1]);
     p.rect(x + 1, y + 1, 2, 1, WATER[0]);
-    p.dot(x, y, WATER[2]);
+    p.dot(x, y, WATER[3]);
     p.rect(right, -Math.round(top * .55), 2, 1, WATER[1]);
+    p.dot(right, -Math.round(top * .55), WATER[3]);
     if (fall < .85) p.dot(right + 1, y + Math.round(fall * 5), WATER[2]);
+    if (fall2 < .85) p.dot(x + 1, y + 2 + Math.round(fall2 * 4), WATER[3]);
   } else {
     const phase = reduced ? 0 : Math.floor(Math.max(0, time) * 10) % CARRIED_FLAMES.length;
+    const pulse = reduced ? .52 : .42 + .2 * Math.sin(time * 12);
+    paintGroundRing(p, Math.max(5, w * .95), hex(CARRIED_INK.b), pulse);
     p.sprite(CARRIED_FLAMES[phase]!, CARRIED_INK, -Math.round(w * .7) - 1, -Math.round(top * .28) - 3);
     p.sprite(CARRIED_FLAMES[(phase + 1) % 3]!, CARRIED_INK, Math.round(w * .6) - 1, -Math.round(top * .5) - 3);
     p.sprite(CARRIED_FLAMES[(phase + 2) % 3]!, CARRIED_INK, Math.round(w * .15) - 1, -top - 4);

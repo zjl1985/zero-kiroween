@@ -12,7 +12,7 @@ import { touchedPaper } from "./paper-status.js";
  */
 export function washRow(id: string, material: string): ReactionDef {
   return {
-    id, material, element: "water", result: "intact", fx: "steam",
+    id, material, element: "water", result: "intact", fx: "splash",
     effect(state, hit, ctx) {
       if (!Number.isFinite(hit.power) || hit.power <= 0) return;
       const m = touchedPaper(state, hit);
@@ -24,8 +24,10 @@ export function washRow(id: string, material: string): ReactionDef {
         ry = (hit.def.size.d / 2) * hit.prop.s + FIRE.cell * 0.5,
         oy = hit.prop.y - hit.def.size.d * hit.prop.s * 0.25;
       let out = false;
-      for (const key of Object.keys(state.fire.cells)) {
-        const [ix, iy] = key.split(",").map(Number) as [number, number],
+      for (const key in state.fire.cells) {
+        const comma = key.indexOf(","),
+          ix = +key.slice(0, comma),
+          iy = +key.slice(comma + 1),
           dx = ((ix + 0.5) * FIRE.cell - hit.prop.x) / rx,
           dy = ((iy + 0.5) * FIRE.cell - oy) / ry;
         if (dx * dx + dy * dy > 1) continue;
